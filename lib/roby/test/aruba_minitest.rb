@@ -1,4 +1,6 @@
-require 'aruba/api'
+# frozen_string_literal: true
+
+require "aruba/api"
 
 module Roby
     module Test
@@ -52,7 +54,7 @@ module Roby
 
             def method_missing(m, *args, &block)
                 if @aruba_api.respond_to?(m)
-                    return @aruba_api.send(m, *args, &block)
+                    @aruba_api.send(m, *args, &block)
                 else
                     super
                 end

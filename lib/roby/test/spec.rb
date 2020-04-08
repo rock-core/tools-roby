@@ -1,11 +1,13 @@
-require 'utilrb/timepoints'
-require 'roby/test/error'
-require 'roby/test/common'
-require 'roby/test/dsl'
-require 'roby/test/teardown_plans'
-require 'roby/test/minitest_helpers'
-require 'roby/test/run_planners'
-require 'timecop'
+# frozen_string_literal: true
+
+require "utilrb/timepoints"
+require "roby/test/error"
+require "roby/test/common"
+require "roby/test/dsl"
+require "roby/test/teardown_plans"
+require "roby/test/minitest_helpers"
+require "roby/test/run_planners"
+require "timecop"
 
 FlexMock.partials_are_based = true
 FlexMock.partials_verify_signatures = true
@@ -23,14 +25,17 @@ module Roby
             def app
                 Roby.app
             end
+
             def plan
                 app.plan
             end
+
             def engine
                 Roby.warn_deprecated "#engine is deprecated, "\
                                      "use #execution_engine instead"
                 execution_engine
             end
+
             def execution_engine
                 app.execution_engine
             end
@@ -79,7 +84,6 @@ module Roby
                 end
 
                 teardown_registered_plans
-
             ensure
                 clear_registered_plans
                 if teardown_failure
@@ -90,7 +94,7 @@ module Roby
             def clear_newly_defined_models
                 app.root_models.each do |root_model|
                     ([root_model] + root_model.each_submodel.to_a).each do |m|
-                        if !models_present_in_setup.include?(m)
+                        unless models_present_in_setup.include?(m)
                             m.permanent_model = false
                             m.clear_model
                         end
@@ -99,10 +103,10 @@ module Roby
             end
 
             def process_events(timeout: 10, **options, &caller_block)
-                Roby.warn_deprecated 'do not use #process_events. Use the '\
-                                     'expect_execution infrastructure instead'
+                Roby.warn_deprecated "do not use #process_events. Use the "\
+                                     "expect_execution infrastructure instead"
 
-                exceptions = Array.new
+                exceptions = []
                 first_pass = true
                 while first_pass || execution_engine.has_waiting_work?
                     first_pass = false
@@ -114,10 +118,10 @@ module Roby
                     )
                     caller_block = nil
                     exceptions.concat(errors.exceptions)
-                    execution_engine.cycle_end(Hash.new)
+                    execution_engine.cycle_end({})
                 end
 
-                if !exceptions.empty?
+                unless exceptions.empty?
                     if exceptions.size == 1
                         raise exceptions.first.exception
                     else
@@ -138,11 +142,11 @@ module Roby
                                      "the 'achieve' expectation instead"
 
                 start = Time.now
-                while !yield
+                until yield
                     now = Time.now
                     remaining = timeout - (now - start)
                     if remaining < 0
-                        flunk('failed to reach expected condition '\
+                        flunk("failed to reach expected condition "\
                               "within #{timeout} seconds")
                     end
                     process_events(timeout: remaining, **options)
@@ -153,20 +157,19 @@ module Roby
             # @deprecated use capture_log instead
             def inhibit_fatal_messages(&block)
                 Roby.warn_deprecated "#{__method__} is deprecated, "\
-                                     'use capture_log instead'
+                                     "use capture_log instead"
                 with_log_level(Roby, Logger::FATAL, &block)
             end
 
             # @deprecated use capture_log instead
             def with_log_level(log_object, level)
                 Roby.warn_deprecated "#{__method__} is deprecated, "\
-                                     'use capture_log instead'
+                                     "use capture_log instead"
                 log_object = log_object.logger if log_object.respond_to?(:logger)
                 current_level = log_object.level
                 log_object.level = level
 
                 yield
-
             ensure
                 log_object.level = current_level if current_level
             end

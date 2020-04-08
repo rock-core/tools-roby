@@ -1,7 +1,9 @@
-require 'roby/test/self'
+# frozen_string_literal: true
 
-require 'roby/droby/event_logger'
-require 'roby/droby/plan_rebuilder'
+require "roby/test/self"
+
+require "roby/droby/event_logger"
+require "roby/droby/plan_rebuilder"
 
 module Roby
     module DRoby
@@ -12,8 +14,12 @@ module Roby
             before do
                 @logfile = Class.new do
                     attr_reader :cycles
-                    def initialize; @cycles = Array.new end
+                    def initialize
+                        @cycles = []
+                    end
+
                     def flush; end
+
                     def dump(cycle)
                         cycles << cycle
                     end
@@ -41,7 +47,7 @@ module Roby
             end
 
             def flush_cycle_events
-                event_logger.flush_cycle(:cycle_end, Time.now, [Hash.new])
+                event_logger.flush_cycle(:cycle_end, Time.now, [{}])
                 event_logger.flush
                 logfile.cycles.first
             end
@@ -56,7 +62,7 @@ module Roby
 
             describe "plan structure" do
                 it "can duplicate a merged plan" do
-                    parent, child = Tasks::Simple.new(id: 'parent'), Tasks::Simple.new(id: 'child')
+                    parent, child = Tasks::Simple.new(id: "parent"), Tasks::Simple.new(id: "child")
                     parent.depends_on child
                     parent.start_event.signals child.start_event
                     local_plan.add(parent)
@@ -64,8 +70,8 @@ module Roby
                     process_logged_events
 
                     assert_equal 2, rebuilt_plan.tasks.size
-                    parent = rebuilt_plan.find_tasks.with_arguments(id: 'parent').first
-                    child  = rebuilt_plan.find_tasks.with_arguments(id: 'child').first
+                    parent = rebuilt_plan.find_tasks.with_arguments(id: "parent").first
+                    child  = rebuilt_plan.find_tasks.with_arguments(id: "child").first
                     assert_child_of parent, child, TaskStructure::Dependency
                     assert_child_of parent.start_event, child.start_event, EventStructure::Signal
                 end
@@ -91,7 +97,7 @@ module Roby
                 end
 
                 it "propagates new relations" do
-                    parent, child = Tasks::Simple.new(id: 'parent'), Tasks::Simple.new(id: 'child')
+                    parent, child = Tasks::Simple.new(id: "parent"), Tasks::Simple.new(id: "child")
                     local_plan.add(parent)
                     local_plan.add(child)
                     process_logged_events
@@ -101,14 +107,14 @@ module Roby
                     process_logged_events
 
                     assert_equal 2, rebuilt_plan.tasks.size
-                    parent = rebuilt_plan.find_tasks.with_arguments(id: 'parent').first
-                    child  = rebuilt_plan.find_tasks.with_arguments(id: 'child').first
+                    parent = rebuilt_plan.find_tasks.with_arguments(id: "parent").first
+                    child  = rebuilt_plan.find_tasks.with_arguments(id: "child").first
                     assert_child_of parent, child, TaskStructure::Dependency
                     assert_child_of parent.start_event, child.start_event, EventStructure::Signal
                 end
 
                 it "propagates edge info change" do
-                    parent, child = Tasks::Simple.new(id: 'parent'), Tasks::Simple.new(id: 'child')
+                    parent, child = Tasks::Simple.new(id: "parent"), Tasks::Simple.new(id: "child")
                     parent.depends_on child, model: Task
                     local_plan.add(parent)
                     process_logged_events
@@ -116,13 +122,13 @@ module Roby
                     parent.depends_on child, model: Tasks::Simple
                     process_logged_events
 
-                    parent = rebuilt_plan.find_tasks.with_arguments(id: 'parent').first
-                    child  = rebuilt_plan.find_tasks.with_arguments(id: 'child').first
-                    assert_equal [[Tasks::Simple], Hash.new], parent[child, TaskStructure::Dependency][:model]
+                    parent = rebuilt_plan.find_tasks.with_arguments(id: "parent").first
+                    child  = rebuilt_plan.find_tasks.with_arguments(id: "child").first
+                    assert_equal [[Tasks::Simple], {}], parent[child, TaskStructure::Dependency][:model]
                 end
 
                 it "propagates relation removal" do
-                    parent, child = Tasks::Simple.new(id: 'parent'), Tasks::Simple.new(id: 'child')
+                    parent, child = Tasks::Simple.new(id: "parent"), Tasks::Simple.new(id: "child")
                     parent.depends_on child, model: Task
                     local_plan.add(parent)
                     process_logged_events
@@ -130,8 +136,8 @@ module Roby
                     parent.remove_child child
                     process_logged_events
 
-                    parent = rebuilt_plan.find_tasks.with_arguments(id: 'parent').first
-                    child  = rebuilt_plan.find_tasks.with_arguments(id: 'child').first
+                    parent = rebuilt_plan.find_tasks.with_arguments(id: "parent").first
+                    child  = rebuilt_plan.find_tasks.with_arguments(id: "child").first
                     refute_child_of parent, child, TaskStructure::Dependency
                 end
 
@@ -252,7 +258,7 @@ module Roby
             describe "transaction structure" do
                 it "can duplicate a merged plan" do
                     local_plan.in_transaction do |t|
-                        parent, child = Tasks::Simple.new(id: 'parent'), Tasks::Simple.new(id: 'child')
+                        parent, child = Tasks::Simple.new(id: "parent"), Tasks::Simple.new(id: "child")
                         parent.depends_on child
                         parent.start_event.signals child.start_event
                         t.add(parent)
@@ -261,14 +267,14 @@ module Roby
                     process_logged_events
 
                     assert_equal 2, rebuilt_plan.tasks.size
-                    parent = rebuilt_plan.find_tasks.with_arguments(id: 'parent').first
-                    child  = rebuilt_plan.find_tasks.with_arguments(id: 'child').first
+                    parent = rebuilt_plan.find_tasks.with_arguments(id: "parent").first
+                    child  = rebuilt_plan.find_tasks.with_arguments(id: "child").first
                     assert_child_of parent, child, TaskStructure::Dependency
                     assert_child_of parent.start_event, child.start_event, EventStructure::Signal
                 end
 
                 it "propagates new relations" do
-                    parent, child = Tasks::Simple.new(id: 'parent'), Tasks::Simple.new(id: 'child')
+                    parent, child = Tasks::Simple.new(id: "parent"), Tasks::Simple.new(id: "child")
                     local_plan.add(parent)
                     local_plan.add(child)
                     process_logged_events
@@ -281,14 +287,14 @@ module Roby
                     process_logged_events
 
                     assert_equal 2, rebuilt_plan.tasks.size
-                    parent = rebuilt_plan.find_tasks.with_arguments(id: 'parent').first
-                    child  = rebuilt_plan.find_tasks.with_arguments(id: 'child').first
+                    parent = rebuilt_plan.find_tasks.with_arguments(id: "parent").first
+                    child  = rebuilt_plan.find_tasks.with_arguments(id: "child").first
                     assert_child_of parent, child, TaskStructure::Dependency
                     assert_child_of parent.start_event, child.start_event, EventStructure::Signal
                 end
 
                 it "propagates edge info change" do
-                    parent, child = Tasks::Simple.new(id: 'parent'), Tasks::Simple.new(id: 'child')
+                    parent, child = Tasks::Simple.new(id: "parent"), Tasks::Simple.new(id: "child")
                     parent.depends_on child, model: Task
                     local_plan.add(parent)
                     process_logged_events
@@ -299,13 +305,13 @@ module Roby
                     end
                     process_logged_events
 
-                    parent = rebuilt_plan.find_tasks.with_arguments(id: 'parent').first
-                    child  = rebuilt_plan.find_tasks.with_arguments(id: 'child').first
-                    assert_equal [[Tasks::Simple], Hash.new], parent[child, TaskStructure::Dependency][:model]
+                    parent = rebuilt_plan.find_tasks.with_arguments(id: "parent").first
+                    child  = rebuilt_plan.find_tasks.with_arguments(id: "child").first
+                    assert_equal [[Tasks::Simple], {}], parent[child, TaskStructure::Dependency][:model]
                 end
 
                 it "propagates relation removal" do
-                    parent, child = Tasks::Simple.new(id: 'parent'), Tasks::Simple.new(id: 'child')
+                    parent, child = Tasks::Simple.new(id: "parent"), Tasks::Simple.new(id: "child")
                     parent.depends_on child, model: Task
                     local_plan.add(parent)
                     process_logged_events
@@ -316,8 +322,8 @@ module Roby
                     end
                     process_logged_events
 
-                    parent = rebuilt_plan.find_tasks.with_arguments(id: 'parent').first
-                    child  = rebuilt_plan.find_tasks.with_arguments(id: 'child').first
+                    parent = rebuilt_plan.find_tasks.with_arguments(id: "parent").first
+                    child  = rebuilt_plan.find_tasks.with_arguments(id: "child").first
                     refute_child_of parent, child, TaskStructure::Dependency
                 end
 
@@ -410,8 +416,8 @@ module Roby
                     r_task = rebuilt_plan.tasks.first
 
                     error_m = Class.new(ArgumentError)
-                    expect_execution { task.start_event.emit_failed(error_m.new) }.
-                        to { fail_to_start task }
+                    expect_execution { task.start_event.emit_failed(error_m.new) }
+                        .to { fail_to_start task }
 
                     process_logged_events
                     assert_equal r_task, rebuilt_plan.failed_to_start[0][0]
@@ -435,7 +441,7 @@ module Roby
                         local_plan.add(@target = EventGenerator.new(true))
                         process_logged_events
                         @r_source = rebuilt_plan.free_events.find { |e| !e.controlable? }
-                        @r_target = rebuilt_plan.free_events.find { |e| e.controlable? }
+                        @r_target = rebuilt_plan.free_events.find(&:controlable?)
                     end
 
                     it "propagates call information" do
@@ -443,13 +449,15 @@ module Roby
                         execute { source.emit }
                         process_logged_events
 
-                        assert rebuilt_plan.propagated_events.find { |is_forward, events, generator|
-                            !is_forward &&
-                                generator == r_target &&
-                                events.size == 1 &&
-                                events.first.generator == r_source &&
-                                events.first.propagation_id == source.last.propagation_id
-                        }
+                        assert(
+                            rebuilt_plan.propagated_events.find do |is_forward, events, generator|
+                                !is_forward &&
+                                    generator == r_target &&
+                                    events.size == 1 &&
+                                    events.first.generator == r_source &&
+                                    events.first.propagation_id == source.last.propagation_id
+                            end
+                        )
                     end
 
                     it "propagates signalling information" do
@@ -457,13 +465,16 @@ module Roby
                         execute { source.emit }
                         process_logged_events
 
-                        assert rebuilt_plan.propagated_events.any? { |is_forward, events, generator|
-                            !is_forward &&
-                                generator == r_target &&
-                                events.size == 1 &&
-                                events.first.generator == r_source &&
-                                events.first.propagation_id == source.last.propagation_id
-                        }
+                        assert(
+                            rebuilt_plan
+                            .propagated_events.any? do |is_forward, events, generator|
+                                !is_forward &&
+                                    generator == r_target &&
+                                    events.size == 1 &&
+                                    events.first.generator == r_source &&
+                                    events.first.propagation_id == source.last.propagation_id
+                            end
+                        )
                     end
 
                     it "propagates chained emission information" do
@@ -471,13 +482,15 @@ module Roby
                         execute { source.emit }
                         process_logged_events
 
-                        assert rebuilt_plan.propagated_events.any? { |is_forward, events, generator|
-                            is_forward &&
-                                generator == r_target &&
-                                events.size == 1 &&
-                                events.first.generator == r_source &&
-                                events.first.propagation_id == source.last.propagation_id
-                        }
+                        assert(
+                            rebuilt_plan.propagated_events.any? do |is_forward, events, generator|
+                                is_forward &&
+                                    generator == r_target &&
+                                    events.size == 1 &&
+                                    events.first.generator == r_source &&
+                                    events.first.propagation_id == source.last.propagation_id
+                            end
+                        )
                     end
 
                     it "propagates forwarding information" do
@@ -485,13 +498,15 @@ module Roby
                         execute { source.emit }
                         process_logged_events
 
-                        assert rebuilt_plan.propagated_events.any? { |is_forward, events, generator|
-                            is_forward &&
-                                generator == r_target &&
-                                events.size == 1 &&
-                                events.first.generator == r_source &&
-                                events.first.propagation_id == source.last.propagation_id
-                        }
+                        assert(
+                            rebuilt_plan.propagated_events.any? do |is_forward, events, generator|
+                                is_forward &&
+                                    generator == r_target &&
+                                    events.size == 1 &&
+                                    events.first.generator == r_source &&
+                                    events.first.propagation_id == source.last.propagation_id
+                            end
+                        )
                     end
                 end
             end
@@ -500,19 +515,19 @@ module Roby
                 it "dumps tasks using IDs once they are added to the plan" do
                     local_plan.add(task = Task.new)
                     assert_equal RemoteDRobyID.new(nil, task.droby_id),
-                        event_logger.marshal.dump(task)
+                                 event_logger.marshal.dump(task)
                 end
 
                 it "dumps task events using IDs once they are added to the plan" do
                     local_plan.add(event = EventGenerator.new)
                     assert_equal RemoteDRobyID.new(nil, event.droby_id),
-                        event_logger.marshal.dump(event)
+                                 event_logger.marshal.dump(event)
                 end
 
                 it "dumps free events using IDs once they are added to the plan" do
                     local_plan.add(task = Task.new)
                     assert_equal RemoteDRobyID.new(nil, task.start_event.droby_id),
-                        event_logger.marshal.dump(task.start_event)
+                                 event_logger.marshal.dump(task.start_event)
                 end
 
                 it "dumps tasks using their ID in the finalization message" do
@@ -520,7 +535,12 @@ module Roby
                     process_logged_events
                     execute { local_plan.remove_task(task) }
                     cycle_info = flush_cycle_events
-                    assert cycle_info.each_slice(4).find { |m, _, _, args| m == :finalized_task && args == [local_plan.droby_id, RemoteDRobyID.new(nil, task.droby_id)] }
+                    assert(
+                        cycle_info.each_slice(4).find do |m, _, _, args|
+                            m == :finalized_task &&
+                                args == [local_plan.droby_id, RemoteDRobyID.new(nil, task.droby_id)]
+                        end
+                    )
                 end
 
                 it "dumps task events using their ID in the finalization message" do
@@ -528,7 +548,12 @@ module Roby
                     process_logged_events
                     execute { local_plan.remove_task(task) }
                     cycle_info = flush_cycle_events
-                    assert cycle_info.each_slice(4).find { |m, _, _, args| m == :finalized_event && args == [local_plan.droby_id, RemoteDRobyID.new(nil, task.start_event.droby_id)] }
+                    assert(
+                        cycle_info.each_slice(4).find do |m, _, _, args|
+                            m == :finalized_event &&
+                                args == [local_plan.droby_id, RemoteDRobyID.new(nil, task.start_event.droby_id)]
+                        end
+                    )
                 end
 
                 it "dumps events using their ID in the finalization message" do
@@ -536,7 +561,12 @@ module Roby
                     process_logged_events
                     execute { local_plan.remove_free_event(event) }
                     cycle_info = flush_cycle_events
-                    assert cycle_info.each_slice(4).find { |m, _, _, args| m == :finalized_event && args == [local_plan.droby_id, RemoteDRobyID.new(nil, event.droby_id)] }
+                    assert(
+                        cycle_info.each_slice(4).find do |m, _, _, args|
+                            m == :finalized_event &&
+                                args == [local_plan.droby_id, RemoteDRobyID.new(nil, event.droby_id)]
+                        end
+                    )
                 end
 
                 it "dumps tasks fully once the task has been finalized" do

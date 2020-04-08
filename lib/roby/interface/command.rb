@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Interface
         # A command on an {CommandLibrary}
@@ -11,7 +13,7 @@ module Roby
             #   this command
             attr_reader :arguments
 
-            def initialize(name, description, arguments = Hash.new)
+            def initialize(name, description, arguments = {})
                 @name, @description, @arguments = name, Array(description), Kernel.normalize_options(arguments)
             end
 
@@ -21,4 +23,3 @@ module Roby
         end
     end
 end
-

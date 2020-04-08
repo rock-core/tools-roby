@@ -293,7 +293,7 @@ module Roby
                         "(#{model.map(&:to_s).join(',')})"
                     end
                 ([description] + predicates.map(&:to_s) +
-                 neg_predicates.map { |p| "not_#{p}" }).join('.')
+                 neg_predicates.map { |p| "not_#{p}" }).join(".")
             end
 
             # Tests whether the given object matches this predicate

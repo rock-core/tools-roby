@@ -1,4 +1,6 @@
-require 'roby/gui/chronicle_widget'
+# frozen_string_literal: true
+
+require "roby/gui/chronicle_widget"
 
 module Roby
     module GUI
@@ -17,17 +19,17 @@ module Roby
                 @layout.add_layout(@menu_layout)
                 @history_widget = history_widget
                 @chronicle = ChronicleWidget.new(self)
-                Qt::Object.connect(@chronicle, SIGNAL('selectedTime(QDateTime)'),
-                        history_widget, SLOT('seek(QDateTime)'))
+                Qt::Object.connect(@chronicle, SIGNAL("selectedTime(QDateTime)"),
+                                   history_widget, SLOT("seek(QDateTime)"))
                 chronicle.add_tasks_info(*history_widget.tasks_info)
-                Qt::Object.connect(history_widget, SIGNAL('addedSnapshot(int)'),
-                                  self, SLOT('addedSnapshot(int)'))
+                Qt::Object.connect(history_widget, SIGNAL("addedSnapshot(int)"),
+                                   self, SLOT("addedSnapshot(int)"))
                 @layout.add_widget(@chronicle)
 
                 # Now setup the menu bar
                 @btn_play = Qt::PushButton.new("Play", self)
                 @menu_layout.add_widget(@btn_play)
-                @btn_play.connect(SIGNAL('clicked()')) do
+                @btn_play.connect(SIGNAL("clicked()")) do
                     if @play_timer
                         stop
                         @btn_play.text = "Play"
@@ -46,29 +48,29 @@ module Roby
                 @menu_layout.add_stretch(1)
                 @restrict_to_jobs_btn = Qt::CheckBox.new("Restrict to jobs", self)
                 @restrict_to_jobs_btn.checkable = true
-                @restrict_to_jobs_btn.connect(SIGNAL('toggled(bool)')) do |set|
+                @restrict_to_jobs_btn.connect(SIGNAL("toggled(bool)")) do |set|
                     chronicle.restrict_to_jobs = set
                 end
                 @menu_layout.add_widget(@restrict_to_jobs_btn)
 
                 @filter_lbl = Qt::Label.new("Filter", self)
                 @filter_box = Qt::LineEdit.new(self)
-                @filter_box.connect(SIGNAL('textChanged(QString const&)')) do |text|
+                @filter_box.connect(SIGNAL("textChanged(QString const&)")) do |text|
                     if text.empty?
                         chronicle.filter = nil
                     else
-                        chronicle.filter = Regexp.new(text.split(' ').join("|"))
+                        chronicle.filter = Regexp.new(text.split(" ").join("|"))
                     end
                 end
                 @menu_layout.add_widget(@filter_lbl)
                 @menu_layout.add_widget(@filter_box)
                 @filter_out_lbl = Qt::Label.new("Filter out", self)
                 @filter_out_box = Qt::LineEdit.new(self)
-                @filter_out_box.connect(SIGNAL('textChanged(QString const&)')) do |text|
+                @filter_out_box.connect(SIGNAL("textChanged(QString const&)")) do |text|
                     if text.empty?
                         chronicle.filter_out = nil
                     else
-                        chronicle.filter_out = Regexp.new(text.split(' ').join("|"))
+                        chronicle.filter_out = Regexp.new(text.split(" ").join("|"))
                     end
                 end
                 @menu_layout.add_widget(@filter_out_lbl)
@@ -81,18 +83,18 @@ module Roby
             def addedSnapshot(cycle)
                 chronicle.add_tasks_info(*history_widget.tasks_info_of_snapshot(cycle))
             end
-            slots 'addedSnapshot(int)'
+            slots "addedSnapshot(int)"
 
             def sort_options
                 @mnu_sort = Qt::Menu.new(self)
                 @actgrp_sort = Qt::ActionGroup.new(@mnu_sort)
 
-                @act_sort = Hash.new
-                { "Start time" => :start_time, "Last event" => :last_event }.
-                    each do |text, value|
+                @act_sort = {}
+                { "Start time" => :start_time, "Last event" => :last_event }
+                    .each do |text, value|
                         act = Qt::Action.new(text, self)
                         act.checkable = true
-                        act.connect(SIGNAL('toggled(bool)')) do |onoff|
+                        act.connect(SIGNAL("toggled(bool)")) do |onoff|
                             if onoff
                                 @chronicle.sort_mode = value
                                 @chronicle.update
@@ -111,12 +113,12 @@ module Roby
                 @mnu_show = Qt::Menu.new(self)
                 @actgrp_show = Qt::ActionGroup.new(@mnu_show)
 
-                @act_show = Hash.new
-                { "All" => :all, "Running" => :running, "Current" => :current }.
-                    each do |text, value|
+                @act_show = {}
+                { "All" => :all, "Running" => :running, "Current" => :current }
+                    .each do |text, value|
                         act = Qt::Action.new(text, self)
                         act.checkable = true
-                        act.connect(SIGNAL('toggled(bool)')) do |onoff|
+                        act.connect(SIGNAL("toggled(bool)")) do |onoff|
                             if onoff
                                 @chronicle.show_mode = value
                                 @chronicle.setDisplayTime
@@ -135,10 +137,10 @@ module Roby
 
             def play
                 @play_timer = Qt::Timer.new(self)
-                Qt::Object.connect(@play_timer, SIGNAL('timeout()'), self, SLOT('step()'))
+                Qt::Object.connect(@play_timer, SIGNAL("timeout()"), self, SLOT("step()"))
                 @play_timer.start(Integer(1000 * PLAY_STEP))
             end
-            slots 'play()'
+            slots "play()"
 
             def step
                 if chronicle.display_time == chronicle.current_time
@@ -151,13 +153,13 @@ module Roby
                 end
                 chronicle.setDisplayTime(new_time)
             end
-            slots 'step()'
+            slots "step()"
 
             def stop
                 @play_timer.stop
                 @play_timer = nil
             end
-            slots 'stop()'
+            slots "stop()"
 
             def updateWindowTitle
                 if parent_title = history_widget.window_title
@@ -166,7 +168,7 @@ module Roby
                     self.window_title = "roby-display: Chronicle"
                 end
             end
-            slots 'updateWindowTitle()'
+            slots "updateWindowTitle()"
 
             def update_time_range(start_time, current_time)
                 chronicle.update_time_range(start_time, current_time)
@@ -177,49 +179,48 @@ module Roby
             end
 
             def setDisplayTime(time)
-                if !chronicle.base_time
+                unless chronicle.base_time
                     chronicle.update_base_time(history_widget.start_time)
                     chronicle.update_current_time(history_widget.current_time)
                 end
                 @chronicle.setDisplayTime(time)
             end
-            slots 'setDisplayTime(QDateTime)'
+            slots "setDisplayTime(QDateTime)"
 
             def setCurrentTime(time)
-                if !chronicle.base_time
+                unless chronicle.base_time
                     chronicle.update_base_time(history_widget.start_time)
                     chronicle.update_current_time(history_widget.current_time)
                 end
                 @chronicle.setCurrentTime(time)
             end
-            slots 'setCurrentTime(QDateTime)'
+            slots "setCurrentTime(QDateTime)"
 
             # Save view configuration
             def save_options
-                result = Hash.new
-                result['show_mode'] = chronicle.show_mode
-                result['sort_mode'] = chronicle.sort_mode
-                result['time_scale'] = chronicle.time_scale
-                result['restrict_to_jobs'] = chronicle.restrict_to_jobs?
+                result = {}
+                result["show_mode"] = chronicle.show_mode
+                result["sort_mode"] = chronicle.sort_mode
+                result["time_scale"] = chronicle.time_scale
+                result["restrict_to_jobs"] = chronicle.restrict_to_jobs?
                 result
             end
 
             # Apply saved configuration
             def apply_options(options)
-                if scale = options['time_scale']
+                if scale = options["time_scale"]
                     chronicle.time_scale = scale
                 end
-                if mode = options['show_mode']
+                if mode = options["show_mode"]
                     @act_show[mode].checked = true
                 end
-                if mode = options['sort_mode']
+                if mode = options["sort_mode"]
                     @act_sort[mode].checked = true
                 end
-                if mode = options['restrict_to_jobs']
+                if mode = options["restrict_to_jobs"]
                     @restrict_to_jobs_btn.checked = true
                 end
             end
         end
     end
 end
-

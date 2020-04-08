@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Models
         # Ruby (the language) has no support for multiple inheritance. Instead, it
@@ -8,12 +10,12 @@ module Roby
         # certain task models have multiple functions.
         #
         # For instance,
-        #   
+        #
         #   task_service "CameraDriver" do
         #      # CameraDriver is an abstract model used to represent that some tasks
         #      # are providing the services of cameras. They can be used to tag tasks
         #      # that belong to different class hirerachies.
-        #      # 
+        #      #
         #      # One can set up arguments on TaskService the same way than class models:
         #      argument :camera_name
         #      argument :aperture
@@ -75,4 +77,3 @@ module Roby
         Module.include TaskServiceDefinitionDSL
     end
 end
-

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module TaskStructure
         relation :Conflicts, noinfo: true
@@ -47,7 +49,7 @@ module Roby
                         end
                     end
 
-                    if !result.empty?
+                    unless result.empty?
                         plan.control.conflict(task, result)
                         return
                     end
@@ -101,4 +103,3 @@ module Roby
         prepend TaskStructure::Conflicts::EventGeneratorExtension
     end
 end
-

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Coordination
         module Models
@@ -26,17 +28,19 @@ module Roby
                 # When running in this event's state, forward this event to the
                 # given root task event
                 def forward_to(root_event)
-                    if !root_event.task.respond_to?(:coordination_model)
+                    unless root_event.task.respond_to?(:coordination_model)
                         raise NotRootEvent, "can only forward to a root event"
                     end
+
                     root_event.task.coordination_model.parse_names
-                    root_event.task.coordination_model.
-                        forward task, self, root_event
+                    root_event.task.coordination_model
+                        .forward task, self, root_event
                 end
 
-                def to_s; "#{task}.#{symbol}_event" end
+                def to_s
+                    "#{task}.#{symbol}_event"
+                end
             end
         end
     end
 end
-

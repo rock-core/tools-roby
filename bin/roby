@@ -1,14 +1,15 @@
 #! /usr/bin/env ruby
+# frozen_string_literal: true
 
-require 'roby'
-require 'roby/cli/main'
+require "roby"
+require "roby/cli/main"
 
 # Reset the interrupt handler to the default. An ignored handler is inherited,
 # so this makes sure that the Roby app is based on the handler's expected state
-trap('INT', 'DEFAULT')
+trap("INT", "DEFAULT")
 
 if ARGV.first
-    command_name = ARGV.first.tr('-', '_')
+    command_name = ARGV.first.tr("-", "_")
     if Roby::CLI::Main.commands.has_key?(command_name)
         begin
             Roby::CLI::Main.start(ARGV)
@@ -43,7 +44,7 @@ if !mode || !KNOWN_MODES.has_key?(mode)
     max_mode_length = KNOWN_MODES.keys.map(&:length).max
     format = "%-#{max_mode_length}s %s"
     KNOWN_MODES.each do |mode_name, mode_description|
-        STDERR.puts(format % [mode_name, mode_description])
+        STDERR.puts(format(format, mode_name, mode_description))
     end
     exit 1
 end

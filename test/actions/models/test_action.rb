@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 describe Roby::Actions::Models::Action do
     describe "#plan_pattern" do
@@ -6,10 +8,10 @@ describe Roby::Actions::Models::Action do
         before do
             task_m = Roby::Task.new_submodel
             interface_m = Roby::Actions::Interface.new_submodel do
-                describe('action').required_arg('arg').returns(task_m)
-                def test(args = Hash.new); end
+                describe("action").required_arg("arg").returns(task_m)
+                def test(args = {}); end
             end
-            @action_m = interface_m.find_action_by_name('test')
+            @action_m = interface_m.find_action_by_name("test")
         end
 
         it "sets the job ID if given" do
@@ -59,22 +61,22 @@ describe Roby::Actions::Models::Action do
         end
 
         it "replaces existing argument description by new ones" do
-            action_m.required_arg('test', 'test documentation')
-            updated_m.optional_arg('test', 'updated documentation', 10)
+            action_m.required_arg("test", "test documentation")
+            updated_m.optional_arg("test", "updated documentation", 10)
             updated_m.overloads(action_m)
-            
-            arg = updated_m.find_arg('test')
-            refute_same arg, action_m.find_arg('test')
+
+            arg = updated_m.find_arg("test")
+            refute_same arg, action_m.find_arg("test")
             assert !arg.required?
-            assert_equal 'updated documentation', arg.doc
+            assert_equal "updated documentation", arg.doc
             assert_equal 10, arg.default
         end
         it "keeps existing argument description that are not overriden" do
-            action_m.required_arg('test', 'test documentation')
-            updated_m.optional_arg('test2', 'updated documentation', 10)
+            action_m.required_arg("test", "test documentation")
+            updated_m.optional_arg("test2", "updated documentation", 10)
             updated_m.overloads(action_m)
-            assert updated_m.has_arg?('test')
-            assert updated_m.has_arg?('test2')
+            assert updated_m.has_arg?("test")
+            assert updated_m.has_arg?("test2")
         end
         it "updates the return type if a submodel task model is provided" do
             task_m = Roby::Task.new_submodel
@@ -93,7 +95,7 @@ describe Roby::Actions::Models::Action do
             assert_same subsrv_m, updated_m.returned_type
         end
         it "does not update the argument if validation fails" do
-            action_m.required_arg('test', '')
+            action_m.required_arg("test", "")
             original_args = updated_m.arguments.dup
             flexmock(updated_m).should_receive(:validate_can_overload).and_raise(ArgumentError)
             assert_raises(ArgumentError) { updated_m.overloads(action_m) }
@@ -141,17 +143,50 @@ describe Roby::Actions::Models::Action do
             @action_m   = Roby::Actions::Models::Action.new(interface_m)
         end
         it "matches string and symbol names" do
-            action_m.optional_arg('string_name')
-            action_m.optional_arg('symbol_name')
-            assert action_m.has_arg?('string_name')
+            action_m.optional_arg("string_name")
+            action_m.optional_arg("symbol_name")
+            assert action_m.has_arg?("string_name")
             assert action_m.has_arg?(:string_name)
-            assert action_m.has_arg?('symbol_name')
+            assert action_m.has_arg?("symbol_name")
             assert action_m.has_arg?(:symbol_name)
         end
         it "returns false on a non-existent argument" do
-            refute action_m.has_arg?('does_not_exist')
+            refute action_m.has_arg?("does_not_exist")
             refute action_m.has_arg?(:does_not_exist)
         end
     end
-end
 
+    describe "#pretty_print" do
+        before do
+            interface_m = Roby::Actions::Interface.new_submodel
+            @action_m   = Roby::Actions::Models::Action.new(interface_m)
+        end
+
+        it "pretty prints an action model" do
+            expected = <<~TEXT
+                Action #{@action_m}
+                  Returns Roby::Task
+                  No arguments.
+            TEXT
+            assert_equal expected, PP.pp(@action_m, "".dup)
+        end
+
+        it "displays No arguments if there are no arguments" do
+        end
+
+        it "pretty-prints the argument definitions" do
+            @action_m.optional_arg("opt_arg_no_default", "opt arg no default doc")
+            @action_m.optional_arg("opt_arg", "opt arg doc", 10)
+            @action_m.required_arg("req_arg", "req arg doc")
+            expected = <<~TEXT
+                Action #{@action_m}
+                  Returns Roby::Task
+                  Arguments:
+                    opt_arg: opt arg doc (optional) default=10
+                    opt_arg_no_default: opt arg no default doc (optional)
+                    req_arg: req arg doc (required)
+            TEXT
+            assert_equal expected, PP.pp(@action_m, "".dup)
+        end
+    end
+end

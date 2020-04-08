@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Test
         # Class used to wrap exceptions so that #message returns the
@@ -15,4 +17,3 @@ module Roby
         end
     end
 end
-

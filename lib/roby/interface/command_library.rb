@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Interface
         # Objects that hold a set of commands
@@ -41,22 +43,27 @@ module Roby
             # @return [Roby::Application] the application
             attr_reader :app
             # @return [Roby::Plan] the {#app}'s plan
-            def plan; app.plan end
+            def plan
+                app.plan
+            end
+
             # @return [Roby::ExecutionEngine] the {#plan}'s engine
-            def execution_engine; plan.execution_engine end
+            def execution_engine
+                plan.execution_engine
+            end
             # @return [Hash<String,CommandInterface>] the set of command subcommands
             #   attached to this command interface
             attr_reader :subcommands
 
             def initialize(app)
                 @app = app
-                @subcommands = Hash.new
+                @subcommands = {}
                 refresh_subcommands
             end
 
             def refresh_subcommands
                 self.class.each_subcommand do |name, (interface_model, description)|
-                    if !subcommands[name]
+                    unless subcommands[name]
                         subcommand(name, interface_model.new(app), description)
                     end
                 end
@@ -74,7 +81,7 @@ module Roby
             #
             # @yieldparam [String] name the subcommand name
             def each_subcommand
-                return enum_for(__method__) if !block_given?
+                return enum_for(__method__) unless block_given?
 
                 refresh_subcommands
                 subcommands.each do |name, (interface, description)|
@@ -90,9 +97,11 @@ module Roby
             #   self (with key '') and of its subcommands (where the key is not
             #   empty)
             def commands
-                result = Hash['' => InterfaceCommands.new('', nil, self.class.commands)]
+                result = Hash["" => InterfaceCommands.new("", nil, self.class.commands)]
                 each_subcommand do |name, interface, description|
-                    result[name] = InterfaceCommands.new(name, description, interface.commands)
+                    result[name] = InterfaceCommands.new(
+                        name, description, interface.commands
+                    )
                 end
                 result
             end

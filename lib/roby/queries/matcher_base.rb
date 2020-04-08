@@ -10,8 +10,8 @@ module Roby
             end
 
             def each(plan)
-                Roby.warn_deprecated 'MatcherBase#each is deprecated, '\
-                                     'use #each_in_plan instead'
+                Roby.warn_deprecated "MatcherBase#each is deprecated, "\
+                                     "use #each_in_plan instead"
 
                 each_in_plan(plan)
             end
@@ -43,8 +43,8 @@ module Roby
             end
 
             def reset
-                Roby.warn_deprecated 'Matcher#reset is a no-op now, matchers '\
-                                     'don\'t cache their results anymore'
+                Roby.warn_deprecated "Matcher#reset is a no-op now, matchers "\
+                                     "don't cache their results anymore"
             end
 
             def negate
@@ -117,7 +117,7 @@ module Roby
                 end
 
                 def match_predicate(name)
-                    method_name = name.to_s.gsub(/\?$/, '')
+                    method_name = name.to_s.gsub(/\?$/, "")
                     class_eval <<~PREDICATE_CODE, __FILE__, __LINE__ + 1
                         def #{method_name}
                             add_predicate(:#{name})

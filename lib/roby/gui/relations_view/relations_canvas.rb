@@ -1,19 +1,28 @@
-require 'roby/gui/qt4_toMSecsSinceEpoch'
-require 'utilrb/module/attr_predicate'
-require 'roby/gui/task_display_configuration'
-require 'roby/gui/plan_dot_layout'
-require 'roby/gui/styles'
-require 'roby/gui/task_state_at'
+# frozen_string_literal: true
+
+require "roby/gui/qt4_toMSecsSinceEpoch"
+require "utilrb/module/attr_predicate"
+require "roby/gui/task_display_configuration"
+require "roby/gui/plan_dot_layout"
+require "roby/gui/styles"
+require "roby/gui/task_state_at"
 
 module Roby
     module GUI
         module RelationsCanvasPlanObject
             def display_parent; end
+
             def display_create(display); end
-            def display_events; Set.new end
-            def display_name(display); remote_name end
-            def display(display, graphics_item)
+
+            def display_events
+                Set.new
             end
+
+            def display_name(display)
+                remote_name
+            end
+
+            def display(display, graphics_item); end
         end
 
         module RelationsCanvasEventGenerator
@@ -24,24 +33,29 @@ module Roby
 
                 if (flags & EVENT_CALLED) == EVENT_CALLED
                     if (flags & EVENT_CONTROLABLE) != EVENT_CONTROLABLE
-                        STDERR.puts "WARN: inconsistency in replayed logs. Found event call on #{object} #{object.object_id} which is marked as contingent (#{object.controlable?}"
+                        STDERR.puts "WARN: inconsistency in replayed logs. Found "\
+                                    "event call on #{object} #{object.object_id} "\
+                                    "which is marked as contingent "\
+                                    "(#{object.controlable?}"
                     end
                     flags |= EVENT_CONTROLABLE
                 end
 
-                if !styles.has_key?(flags)
-                    raise ArgumentError, "event #{object} has flags #{flags}, which has no defined style (controlable=#{object.controlable?})"
+                unless styles.has_key?(flags)
+                    raise ArgumentError,
+                          "event #{object} has flags #{flags}, which has no "\
+                          "defined style (controlable=#{object.controlable?})"
                 end
 
                 styles[flags]
             end
 
             def self.styles
-                return EVENT_STYLES
+                EVENT_STYLES
             end
 
             def self.priorities
-                @@priorities ||= Hash.new
+                @@priorities ||= {}
             end
 
             def display_create(display)
@@ -52,17 +66,20 @@ module Roby
                 circle.z_value = EVENT_LAYER
 
                 text.parent_item = circle
-                text_width   = text.bounding_rect.width
+                text_width = text.bounding_rect.width
                 text.set_pos(-text_width / 2, 0)
                 circle.text = text
                 circle
             end
 
-            def display_time_start(circle, pos); circle.translate(pos) end
+            def display_time_start(circle, pos)
+                circle.translate(pos)
+            end
+
             def display_time_end(circle, pos); end
 
             def display_name(display)
-                name = if model.ancestors[0].name != 'Roby::EventGenerator'
+                name = if model.ancestors[0].name != "Roby::EventGenerator"
                            [display.filter_prefixes(model.ancestors[0].name.dup)]
                        else
                            []
@@ -71,8 +88,8 @@ module Roby
                 if display.show_ownership
                     owners = self.owners.dup
                     owners.delete_if { |o| o.remote_name == "log_replay" }
-                    if !owners.empty?
-                        name << "[#{owners.map(&:name).join(", ")}]"
+                    unless owners.empty?
+                        name << "[#{owners.map(&:name).join(', ')}]"
                     end
                 end
                 name.join("\n")
@@ -85,10 +102,15 @@ module Roby
 
         module RelationsCanvasTaskEventGenerator
             include RelationsCanvasEventGenerator
-            def display_parent; task end
-            def display_name(display); symbol.to_s end
-            def display(display, graphics_item)
+            def display_parent
+                task
             end
+
+            def display_name(display)
+                symbol.to_s
+            end
+
+            def display(display, graphics_item); end
         end
 
         module RelationsCanvasTask
@@ -102,6 +124,7 @@ module Roby
                 events = self.each_event.map do |e|
                     next unless display.displayed?(e)
                     next unless circle = display[e]
+
                     br = (circle.bounding_rect | circle.children_bounding_rect)
                     [e, circle, br]
                 end
@@ -116,9 +139,9 @@ module Roby
                 width  += TASK_EVENT_SPACING * (events.size + 1)
                 height += TASK_EVENT_SPACING
 
-                x = -width  / 2 + TASK_EVENT_SPACING
+                x = -width / 2 + TASK_EVENT_SPACING
                 events.each do |e, circle, br|
-                    w  = br.width
+                    w = br.width
                     circle.set_pos(x + w / 2, -br.height / 2 + EVENT_CIRCLE_RADIUS + TASK_EVENT_SPACING)
                     x += w + TASK_EVENT_SPACING
                 end
@@ -128,7 +151,7 @@ module Roby
 
                 if @width != width || @height != height
                     @width, @height = width, height
-                    coords = Qt::RectF.new( -(width / 2), -(height / 2), width, height )
+                    coords = Qt::RectF.new(-(width / 2), -(height / 2), width, height)
                     graphics_item.rect = coords
                 end
 
@@ -154,13 +177,18 @@ module Roby
                 rect
             end
 
-            def display_time_start(rect, pos); rect.left = pos end
-            def display_time_end(rect, pos);   rect.right = pos end
+            def display_time_start(rect, pos)
+                rect.left = pos
+            end
+
+            def display_time_end(rect, pos)
+                rect.right = pos
+            end
 
             attr_accessor :last_event
 
             def display_name(display)
-                ancestor_with_name = model.ancestors.find { |m| m.name }
+                ancestor_with_name = model.ancestors.find(&:name)
                 if ancestor_with_name
                     name = display.filter_prefixes(ancestor_with_name.name)
                 else
@@ -169,8 +197,8 @@ module Roby
                 if display.show_ownership
                     owners = self.owners.dup
                     owners.delete_if { |o| o.remote_name == "log_replay" }
-                    if !owners.empty?
-                        name << "\n[#{owners.map(&:name).join(", ")}]"
+                    unless owners.empty?
+                        name << "\n[#{owners.map(&:name).join(', ')}]"
                     end
                 end
                 name
@@ -211,11 +239,11 @@ module Roby
             #
             # @return [String,nil] if the file path is not set, the SVG content.
             #   Otherwise, nil.
-            def self.to_svg(task, options = Hash.new)
+            def self.to_svg(task, options = {})
                 options = Kernel.validate_options options,
-                    path: nil,
-                    scale_x: PlanDotLayout::DOT_TO_QT_SCALE_FACTOR_X,
-                    scale_y: PlanDotLayout::DOT_TO_QT_SCALE_FACTOR_Y
+                                                  path: nil,
+                                                  scale_x: PlanDotLayout::DOT_TO_QT_SCALE_FACTOR_X,
+                                                  scale_y: PlanDotLayout::DOT_TO_QT_SCALE_FACTOR_Y
 
                 task.extend RelationsCanvasTask
                 plan = task.plan
@@ -255,7 +283,7 @@ module Roby
                 painter.begin(svg)
                 scene.render(painter)
                 painter.end
-                if !path
+                unless path
                     buffer.data
                 end
             end
@@ -265,10 +293,16 @@ module Roby
             include RelationsCanvasTask
 
             attr_writer :real_object
-            def flags; real_object.flags end
+            def flags
+                real_object.flags
+            end
 
             def display_parent; end
-            def display_name(display); real_object.display_name(display) end
+
+            def display_name(display)
+                real_object.display_name(display)
+            end
+
             def display_create(display)
                 scene = display.scene
                 item = super
@@ -278,6 +312,7 @@ module Roby
                 item.brush = brush
                 item
             end
+
             def display(display, graphics_item)
                 graphics_item.text.plain_text = display_name(display).to_s
                 layout_events(display)
@@ -293,19 +328,21 @@ module Roby
 
             def display_create(display)
                 scene = display.scene
-                pen            = Qt::Pen.new
+                pen = Qt::Pen.new
                 pen.width      = PLAN_STROKE_WIDTH
                 pen.style      = Qt::SolidLine
                 pen.cap_style  = Qt::SquareCap
                 pen.join_style = Qt::RoundJoin
                 scene.add_rect Qt::RectF.new(0, 0, 0, 0), pen
             end
+
             def display_parent
                 if respond_to?(:plan) then plan
                 end
             end
-            def display(display, item)
-            end
+
+            def display(display, item); end
+
             def display_name(display)
                 ""
             end
@@ -331,7 +368,7 @@ module Roby
                 @arrow_points[2].x = -size
                 @arrow_points[2].y = -size / 2
                 polygon = Qt::PolygonF.new(@arrow_points)
-                @arrow_line ||=   Qt::LineF.new(-1, 0, 0, 0)
+                @arrow_line ||= Qt::LineF.new(-1, 0, 0, 0)
 
                 ending = add_polygon polygon, (pen || default_arrow_pen), (brush || default_arrow_brush)
                 line   = add_line @arrow_line
@@ -395,16 +432,16 @@ module Roby
             start_point = start_br.center
             end_point   = end_br.center
 
-            #from = intersect_rect(start_br.width, start_br.height, end_point, start_point)
+            # from = intersect_rect(start_br.width, start_br.height, end_point, start_point)
             from = [start_point.x, start_point.y]
             to   = intersect_rect(end_br.width, end_br.height, from, [end_point.x, end_point.y])
 
             dy = to[1] - from[1]
             dx = to[0] - from[0]
-            alpha  = Math.atan2(dy, dx)
-            length = Math.sqrt(dx ** 2 + dy ** 2)
+            alpha = Math.atan2(dy, dx)
+            length = Math.sqrt(dx**2 + dy**2)
 
-            #arrow.line.set_line from[0], from[1], to[0], to[1]
+            # arrow.line.set_line from[0], from[1], to[0], to[1]
             arrow.resetMatrix
             arrow.line.set_line(-length, 0, 0, 0)
             arrow.translate to[0], to[1]
@@ -453,52 +490,47 @@ module Roby
             #   displayed or not (true)
             attr_predicate :display_plan_bounding_boxes?, true
 
-            # @return [Hash] set of options that should be passed to
-            #   Graphviz#layout
-            attr_reader :layout_options
-
             def initialize(plans)
-                @scene  = Qt::GraphicsScene.new
+                @scene = Qt::GraphicsScene.new
                 super()
 
-                @plans  = plans.dup
+                @plans = plans.dup
                 @display_plan_bounding_boxes = false
 
                 @display_policy    = :explicit
-                @graphics          = Hash.new
-                @selected_objects   = Set.new
-                @visible_objects   = Set.new
-                @flashing_objects  = Hash.new
-                @arrows            = Hash.new
-                @free_arrows       = Array.new
+                @graphics          = {}
+                @selected_objects = Set.new
+                @visible_objects = Set.new
+                @flashing_objects = {}
+                @arrows = {}
+                @free_arrows = []
                 @enabled_relations = Set.new
                 @layout_relations  = Set.new
-                @relation_colors   = Hash.new
+                @relation_colors   = {}
                 @relation_pens     = Hash.new(Qt::Pen.new(Qt::Color.new(ARROW_COLOR)))
                 @relation_brushes  = Hash.new(Qt::Brush.new(Qt::Color.new(ARROW_COLOR)))
                 @current_color     = 0
 
                 @signal_arrows     = []
                 @hide_finalized    = true
-                @layout_options    = Hash.new
+                @layout_options    = {}
 
                 default_colors = {
-                    Roby::TaskStructure::Dependency => 'grey',
-                    Roby::TaskStructure::PlannedBy => '#32ba21',
-                    Roby::TaskStructure::ExecutionAgent => '#5d95cf',
-                    Roby::TaskStructure::ErrorHandling => '#ff2727'
+                    Roby::TaskStructure::Dependency => "grey",
+                    Roby::TaskStructure::PlannedBy => "#32ba21",
+                    Roby::TaskStructure::ExecutionAgent => "#5d95cf",
+                    Roby::TaskStructure::ErrorHandling => "#ff2727"
                 }
                 default_colors.each do |rel, color|
                     update_relation_color(rel, color)
                 end
 
-                relation_pens[Roby::EventStructure::Signal]    = Qt::Pen.new(Qt::Color.new('black'))
-                relation_brushes[Roby::EventStructure::Signal] = Qt::Brush.new(Qt::Color.new('black'))
-                relation_pens[Roby::EventStructure::Forwarding]    = Qt::Pen.new(Qt::Color.new('black'))
+                relation_pens[Roby::EventStructure::Signal]    = Qt::Pen.new(Qt::Color.new("black"))
+                relation_brushes[Roby::EventStructure::Signal] = Qt::Brush.new(Qt::Color.new("black"))
+                relation_pens[Roby::EventStructure::Forwarding] = Qt::Pen.new(Qt::Color.new("black"))
                 relation_pens[Roby::EventStructure::Forwarding].style = Qt::DotLine
-                relation_brushes[Roby::EventStructure::Forwarding] = Qt::Brush.new(Qt::Color.new('black'))
+                relation_brushes[Roby::EventStructure::Forwarding] = Qt::Brush.new(Qt::Color.new("black"))
                 relation_brushes[Roby::EventStructure::Forwarding].style = Qt::DotLine
-
 
                 enable_relation(Roby::TaskStructure::Dependency)
                 enable_relation(Roby::TaskStructure::ExecutionAgent)
@@ -506,29 +538,29 @@ module Roby
             end
 
             def save_options
-                options = Hash.new
-                options['enabled_relations'] = @enabled_relations.map(&:name)
-                options['show_ownership'] = show_ownership
-                options['hide_finalized'] = hide_finalized
-                options['removed_prefixes'] = removed_prefixes.dup
-                options['hidden_labels'] = hidden_labels.dup
-                options['display_policy'] = display_policy
+                options = {}
+                options["enabled_relations"] = @enabled_relations.map(&:name)
+                options["show_ownership"] = show_ownership
+                options["hide_finalized"] = hide_finalized
+                options["removed_prefixes"] = removed_prefixes.dup
+                options["hidden_labels"] = hidden_labels.dup
+                options["display_policy"] = display_policy
                 options
             end
 
             def apply_options(options)
-                if enabled_relations = options['enabled_relations']
+                if enabled_relations = options["enabled_relations"]
                     enabled_relations.each do |name|
                         rel = constant(name)
                         enable_relation(rel)
                     end
                 end
-                apply_simple_option('show_ownership', options)
-                apply_simple_option('removed_prefixes', options)
-                apply_simple_option('hide_finalized', options)
-                apply_simple_option('removed_prefixes', options)
-                apply_simple_option('hidden_labels', options)
-                apply_simple_option('display_policy', options)
+                apply_simple_option("show_ownership", options)
+                apply_simple_option("removed_prefixes", options)
+                apply_simple_option("hide_finalized", options)
+                apply_simple_option("removed_prefixes", options)
+                apply_simple_option("hidden_labels", options)
+                apply_simple_option("display_policy", options)
             end
 
             def apply_simple_option(option_name, options)
@@ -539,10 +571,11 @@ module Roby
 
             def object_of(item)
                 id = item.data(0).to_string
-                return if !id
+                return unless id
+
                 id = Integer(id)
 
-                obj, _ = graphics.find do |obj, obj_item|
+                obj, = graphics.find do |obj, obj_item|
                     obj.object_id == id
                 end
                 obj
@@ -558,12 +591,15 @@ module Roby
                 nil
             end
 
-            def [](item); graphics[item] end
+            def [](item)
+                graphics[item]
+            end
 
             # Returns a canvas object that represents this relation
             def task_relation(from, to, rel, info)
                 arrow(from, to, rel, info, TASK_LAYER)
             end
+
             # Returns a canvas object that represents this relation
             def event_relation(form, to, rel, info)
                 arrow(from, to, rel, info, EVENT_LAYER)
@@ -572,7 +608,7 @@ module Roby
             # Creates or reuses an arrow object to represent the given relation
             def arrow(from, to, rel, info, base_layer)
                 id = [from, to, rel]
-                if !(item = arrows[id])
+                unless (item = arrows[id])
                     if item = last_arrows.delete(id)
                         arrows[id] = item
                     else
@@ -590,7 +626,7 @@ module Roby
             # +regex+.  If +regex+ is nil, ask one to the user
             def find(regex = nil)
                 unless regex
-                    regex = Qt::InputDialog.get_text main, 'Find objects in relation view', 'Object name'
+                    regex = Qt::InputDialog.get_text main, "Find objects in relation view", "Object name"
                     return unless regex && !regex.empty?
                 end
                 regex = /#{regex.to_str}/i if regex.respond_to?(:to_str)
@@ -598,10 +634,16 @@ module Roby
                 # Get the tasks and events matching the string
                 objects = []
                 for p in plans
-                    objects.concat p.tasks.
-                        find_all { |object| displayed?(object) && regex === object.display_name(self) }
-                    objects.concat p.free_events.
-                        find_all { |object| displayed?(object) && regex === object.display_name(self) }
+                    objects.concat(
+                        p.tasks.find_all do |object|
+                            displayed?(object) && regex === object.display_name(self)
+                        end
+                    )
+                    objects.concat(
+                        p.free_events.find_all do |object|
+                            displayed?(object) && regex === object.display_name(self)
+                        end
+                    )
                 end
 
                 return if objects.empty?
@@ -623,11 +665,11 @@ module Roby
                     ui.graphics.scale 1, 1
                 end
             end
-            slots 'find()'
+            slots "find()"
 
             attr_accessor :keep_signals
 
-            COLORS = %w{'black' #800000 #008000 #000080 #C05800 #6633FF #CDBE70 #CD8162 #A2B5CD}
+            COLORS = %w{black #800000 #008000 #000080 #C05800 #6633FF #CDBE70 #CD8162 #A2B5CD}.freeze
             attr_reader :current_color
             # returns the next color in COLORS, cycles if at the end of the array
             def allocate_color
@@ -636,15 +678,21 @@ module Roby
             end
 
             # True if this relation should be displayed
-            def relation_enabled?(relation); @enabled_relations.include?(relation) end
+            def relation_enabled?(relation)
+                @enabled_relations.include?(relation)
+            end
+
             # True if this relation should be used for layout
             #
             # See also #relation_enabled?, #layout_relation, #ignore_relation
-            def layout_relation?(relation); relation_enabled?(relation) || @layout_relations.include?(relation) end
+            def layout_relation?(relation)
+                relation_enabled?(relation) || @layout_relations.include?(relation)
+            end
 
             # Display this relation
             def enable_relation(relation)
                 return if relation_enabled?(relation)
+
                 @enabled_relations << relation
                 arrows.each do |(_, _, rel), arrow|
                     if rel == relation
@@ -672,6 +720,7 @@ module Roby
 
             def disable_relation(relation)
                 return unless relation_enabled?(relation)
+
                 @enabled_relations.delete(relation)
                 arrows.each do |(_, _, rel), arrow|
                     if rel == relation
@@ -684,11 +733,12 @@ module Roby
             attr_reader :relation_pens
             attr_reader :relation_brushes
             def relation_color(relation)
-                if !relation_colors.has_key?(relation)
+                unless relation_colors.has_key?(relation)
                     update_relation_color(relation, allocate_color)
                 end
                 relation_colors[relation]
             end
+
             def update_relation_color(relation, color)
                 relation_colors[relation] = color
                 color = Qt::Color.new(color)
@@ -709,32 +759,38 @@ module Roby
                 @layout_options = nil
                 if new_method
                     new_method =~ /^(\w+)(?: \[(.*)\])?$/
-                    @layout_method    = $1
+                    @layout_method = $1
                     if $2
-                        @layout_options = $2.split(",").inject(Hash.new) do |h, v|
+                        @layout_options = $2.split(",").each_with_object({}) do |v, h|
                             k, v = v.split("=")
                             h[k] = v
-                            h
                         end
                     end
                 end
                 display
             end
+
             def layout_options
                 return @layout_options if @layout_options
-                { rankdir: 'TB' }
+
+                { rankdir: "TB" }
             end
+
             def layout_method
                 return @layout_method if @layout_method
+
                 "dot"
             end
 
-            DISPLAY_POLICIES = [:explicit, :emitters, :emitters_and_parents]
+            DISPLAY_POLICIES = %i[explicit emitters emitters_and_parents].freeze
             attr_reader :display_policy
             def display_policy=(policy)
-                if !DISPLAY_POLICIES.include?(policy)
-                    raise ArgumentError, "got #{policy.inspect} as a display policy, accepted values are #{DISPLAY_POLICIES.map(&:inspect).join(", ")}"
+                unless DISPLAY_POLICIES.include?(policy)
+                    raise ArgumentError,
+                          "got #{policy.inspect} as a display policy, accepted "\
+                          "values are #{DISPLAY_POLICIES.map(&:inspect).join(', ')}"
                 end
+
                 @display_policy = policy
             end
 
@@ -742,11 +798,12 @@ module Roby
                 if (parent = object.display_parent) && !displayed?(parent)
                     return false
                 end
-                return visible_objects.include?(object)
+
+                visible_objects.include?(object)
             end
 
             def create_or_get_item(object, initial_selection)
-                if !(item = graphics[object])
+                unless (item = graphics[object])
                     item = graphics[object] = object.display_create(self)
                     if item
                         if object.display_parent
@@ -790,9 +847,10 @@ module Roby
                 removed_objects = []
                 flashing_objects.delete_if do |object, blocks|
                     blocks.delete_if { |block| !block.call }
-                    if !blocks.empty?
+                    unless blocks.empty?
                         next
                     end
+
                     removed_objects << object
                 end
 
@@ -810,12 +868,12 @@ module Roby
             # is one of the PROPAG_ constant
             def propagation_style(arrow, flag)
                 unless defined? @@propagation_styles
-                    @@propagation_styles = Hash.new
+                    @@propagation_styles = {}
                     @@propagation_styles[true] =
-                        [Qt::Brush.new(Qt::Color.new('black')), Qt::Pen.new, (forward_pen = Qt::Pen.new)]
+                        [Qt::Brush.new(Qt::Color.new("black")), Qt::Pen.new, (forward_pen = Qt::Pen.new)]
                     forward_pen.style = Qt::DotLine
                     @@propagation_styles[false] =
-                        [Qt::Brush.new(Qt::Color.new('black')), Qt::Pen.new, Qt::Pen.new]
+                        [Qt::Brush.new(Qt::Color.new("black")), Qt::Pen.new, Qt::Pen.new]
                 end
                 arrow.brush, arrow.pen, arrow.line.pen = @@propagation_styles[flag]
             end
@@ -854,7 +912,7 @@ module Roby
                 end
 
                 if display_policy == :emitters_and_parents
-                    while true
+                    loop do
                         new_visible_objects = Set.new
                         visible_objects.group_by(&:plan).each do |plan, plan_objects|
                             graphs = plan.each_task_relation_graph.find_all(&:root_relation?).map(&:reverse)
@@ -862,6 +920,7 @@ module Roby
                             new_visible_objects.subtract(plan_objects.to_set)
                         end
                         break if new_visible_objects.empty?
+
                         visible_objects.merge(new_visible_objects)
                     end
                     visible_objects.dup.each do |obj|
@@ -909,14 +968,14 @@ module Roby
                     @current_time = time
                 end
 
-                @last_arrows, @arrows = arrows, Hash.new
-                @free_arrows ||= Array.new
+                @last_arrows, @arrows = arrows, {}
+                @free_arrows ||= []
 
                 update_prefixes_removal
                 clear_flashing_objects
 
                 # The sets of tasks and events know to the data stream
-                all_tasks  = plans.inject(Set.new) do |all_tasks, plan|
+                all_tasks = plans.inject(Set.new) do |all_tasks, plan|
                     all_tasks.merge plan.tasks
                     all_tasks.merge plan.finalized_tasks
                 end
@@ -976,7 +1035,8 @@ module Roby
                         if displayed?(generator)
                             item = graphics[generator]
                             item.brush, item.pen = RelationsCanvasEventGenerator.style(
-                                generator, generator_flags)
+                                generator, generator_flags
+                            )
                         end
                     end
                 end
@@ -1001,13 +1061,14 @@ module Roby
 
                 # Update arrow visibility
                 arrows.each do |(from, to, rel), item|
-                    next if !@enabled_relations.include?(rel)
+                    next unless @enabled_relations.include?(rel)
+
                     item.visible = (displayed?(from) && displayed?(to))
                 end
 
                 # Layout the graph
-                layouts = plans.find_all { |p| p.root_plan? }.
-                    map do |p|
+                layouts = plans.find_all(&:root_plan?)
+                    .map do |p|
                         dot = PlanDotLayout.new
                         begin
                             dot.layout(self, p, layout_options)
@@ -1016,7 +1077,7 @@ module Roby
                             puts "Failed to lay out the plan: #{e}"
                         end
                     end.compact
-                layouts.each { |dot| dot.apply }
+                layouts.each(&:apply)
 
                 # Display the signals
                 signal_arrow_idx = -1
@@ -1045,15 +1106,13 @@ module Roby
                 last_arrows.clear
 
                 true
-            #rescue Exception => e
-            #    message = "<html>#{e.message.gsub('<', '&lt;').gsub('>', '&gt;')}<ul><li>#{e.backtrace.join("</li><li>")}</li></ul></html>"
-            #    Qt::MessageBox.critical nil, "Display failure", message
             end
 
             def remove_graphics(item, scene = nil)
                 return unless item
+
                 scene ||= item.scene
-                scene.remove_item(item) if scene
+                scene&.remove_item(item)
             end
 
             def clear_arrows(object)
@@ -1085,4 +1144,3 @@ module Roby
         end
     end
 end
-

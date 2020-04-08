@@ -1,7 +1,9 @@
-require 'roby'
-require 'benchmark'
+# frozen_string_literal: true
 
-require 'ruby-prof'
+require "roby"
+require "benchmark"
+
+require "ruby-prof"
 
 def random_plan(plan, num_tasks, num_task_relations, num_event_relations)
     num_tasks = num_tasks / 10 * 10
@@ -107,4 +109,3 @@ Benchmark.bm(70) do |x|
         end
     end
 end
-

@@ -1,42 +1,42 @@
 # frozen_string_literal: true
 
-require 'minitest/spec'
-require 'roby/test/assertions'
-require 'flexmock/minitest'
-require 'timecop'
+require "minitest/spec"
+require "roby/test/assertions"
+require "flexmock/minitest"
+require "timecop"
 
 # simplecov must be loaded FIRST. Only the files required after it gets loaded
 # will be profiled !!!
-if ENV['TEST_ENABLE_COVERAGE'] == '1' || ENV['TEST_COVERAGE_MODE']
-    mode = ENV['TEST_COVERAGE_MODE'] || 'simplecov'
+if ENV["TEST_ENABLE_COVERAGE"] == "1" || ENV["TEST_COVERAGE_MODE"]
+    mode = ENV["TEST_COVERAGE_MODE"] || "simplecov"
     begin
         require mode
     rescue LoadError => e
-        require 'roby'
+        require "roby"
         Roby.warn "coverage is disabled because the code coverage gem cannot be loaded: #{e.message}"
     rescue Exception => e
-        require 'roby'
+        require "roby"
         Roby.warn "coverage is disabled: #{e.message}"
     end
 end
 
-if ENV['TEST_ENABLE_PRY'] != '0'
+if ENV["TEST_ENABLE_PRY"] != "0"
     begin
-        require 'pry'
+        require "pry"
     rescue Exception
-        require 'roby'
+        require "roby"
         Roby.warn "debugging is disabled because the 'pry' gem cannot be loaded"
     end
 end
 
-require 'roby'
+require "roby"
 
-require 'roby/test/assertion'
-require 'roby/test/error'
-require 'roby/test/minitest_helpers'
-require 'roby/test/execution_expectations'
-require 'roby/test/validate_state_machine'
-require 'roby/test/teardown_plans'
+require "roby/test/assertion"
+require "roby/test/error"
+require "roby/test/minitest_helpers"
+require "roby/test/execution_expectations"
+require "roby/test/validate_state_machine"
+require "roby/test/teardown_plans"
 
 FlexMock.partials_are_based = true
 
@@ -203,7 +203,6 @@ module Roby
             log_object.level = level
 
             yield
-
         ensure
             if current_level
                 log_object.level = current_level
@@ -214,7 +213,7 @@ module Roby
             Timecop.return
 
             @transactions.each do |trsc|
-                if !trsc.finalized?
+                unless trsc.finalized?
                     trsc.discard_transaction
                 end
             end
@@ -231,7 +230,6 @@ module Roby
             end
 
             super
-
         ensure
             reset_log_levels(warn_deprecated: false)
             clear_registered_plans
@@ -244,16 +242,16 @@ module Roby
         # Process pending events
         def process_events(timeout: 2, enable_scheduler: nil, join_all_waiting_work: true, raise_errors: true, garbage_collect_pass: true, &caller_block)
             Roby.warn_deprecated "Test#process_events is deprecated, use #expect_execution instead"
-            exceptions = Array.new
+            exceptions = []
             registered_plans.each do |p|
                 engine = p.execution_engine
 
-                begin
+                loop do
                     engine.start_new_cycle
                     errors =
                         begin
                             current_scheduler_state = engine.scheduler.enabled?
-                            if !enable_scheduler.nil?
+                            unless enable_scheduler.nil?
                                 engine.scheduler.enabled = enable_scheduler
                             end
 
@@ -267,9 +265,11 @@ module Roby
                     end
 
                     exceptions.concat(errors.exceptions)
-                    engine.cycle_end(Hash.new)
+                    engine.cycle_end({})
                     caller_block = nil
-                end while engine.has_waiting_work? && join_all_waiting_work
+
+                    break unless join_all_waiting_work && engine.has_waiting_work?
+                end
             end
 
             if raise_errors && !exceptions.empty?
@@ -290,7 +290,7 @@ module Roby
         def process_events_until(timeout: 5, join_all_waiting_work: false, **options)
             Roby.warn_deprecated "Test#process_events_until is deprecated, use #expect_execution.to { achieve { ... } } instead"
             start = Time.now
-            while !yield
+            until yield
                 now = Time.now
                 remaining = timeout - (now - start)
                 if remaining < 0
@@ -337,9 +337,9 @@ module Roby
         #
         def prepare_plan(options)
             options = validate_options options,
-                missions: 0, add: 0, discover: 0, tasks: 0,
-                permanent: 0,
-                model: Roby::Task, plan: plan
+                                       missions: 0, add: 0, discover: 0, tasks: 0,
+                                       permanent: 0,
+                                       model: Roby::Task, plan: plan
 
             missions, permanent, added, tasks = [], [], [], []
             (1..options[:missions]).each do |i|
@@ -374,7 +374,8 @@ module Roby
             if result.size == 1
                 return result.first
             end
-            return *result
+
+            result
         end
 
         def make_random_plan(plan = Plan.new, tasks: 5, free_events: 5, task_relations: 5, event_relations: 5)
@@ -391,7 +392,7 @@ module Roby
             task_relations.times do
                 a = rand(tasks.size)
                 b = rand(tasks.size)
-                while true
+                loop do
                     begin
                         tasks[a].depends_on tasks[b]
                         break
@@ -404,7 +405,7 @@ module Roby
             event_relations.times do
                 a = rand(events.size)
                 b = rand(events.size)
-                while true
+                loop do
                     begin
                         events[a].forward_to events[b]
                         break
@@ -420,7 +421,7 @@ module Roby
         # given, it is called in the new child. #remote_process returns only after
         # this block has returned.
         def remote_process
-            start_r, start_w= IO.pipe
+            start_r, start_w = IO.pipe
             quit_r, quit_w = IO.pipe
             remote_pid = fork do
                 begin
@@ -430,7 +431,7 @@ module Roby
                     puts e.full_message
                 end
 
-                start_w.write('OK')
+                start_w.write("OK")
                 quit_r.read(2)
             end
             start_w.close
@@ -438,16 +439,15 @@ module Roby
 
             remote_processes << [remote_pid, quit_w]
             remote_pid
-
         ensure
-            # start_r.close
+            start_r.close
         end
 
         # Stop all the remote processes that have been started using #remote_process
         def stop_remote_processes
             remote_processes.reverse.each do |pid, quit_w|
                 begin
-                    quit_w.write('OK')
+                    quit_w.write("OK")
                 rescue Errno::EPIPE
                 end
                 begin
@@ -459,4 +459,3 @@ module Roby
         end
     end
 end
-

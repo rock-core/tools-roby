@@ -1,6 +1,8 @@
-require 'roby/gui/qt4_toMSecsSinceEpoch'
-require 'roby/droby/plan_rebuilder'
-require 'roby/gui/stepping'
+# frozen_string_literal: true
+
+require "roby/gui/qt4_toMSecsSinceEpoch"
+require "roby/droby/plan_rebuilder"
+require "roby/gui/stepping"
 
 module Roby
     module GUI
@@ -25,19 +27,15 @@ module Roby
 
             # Signal emitted when an informational message is meant to be
             # displayed
-            signals 'info(QString)'
+            signals "info(QString)"
             # Signal emitted when a warning message is meant to be displayed
-            signals 'warn(QString)'
+            signals "warn(QString)"
             # Signal emitted when the currently displayed cycle changed, i.e.
             # when displays are supposed to be updated
-            signals 'appliedSnapshot(QDateTime)'
+            signals "appliedSnapshot(QDateTime)"
 
-            def initialize(parent, plan_rebuilder)
-                super(parent)
-                @list    = Qt::ListWidget.new(self)
-                @layout  = Qt::VBoxLayout.new(self)
-
-                def list.mouseReleaseEvent(event)
+            module ContextMenuHandler
+                def mouseReleaseEvent(event)
                     if event.button == Qt::RightButton
                         event.accept
 
@@ -56,18 +54,24 @@ module Roby
                         end
                     end
                 end
+            end
+
+            def initialize(parent, plan_rebuilder)
+                super(parent)
+                @list = Qt::ListWidget.new(self)
+                @list.extend ContextMenuHandler
+                @layout = Qt::VBoxLayout.new(self)
 
                 @layout.add_widget(@btn_create_display)
-                @history = Hash.new
+                @history = {}
                 @logfile = nil # set by #open
                 @plan_rebuilder = plan_rebuilder
                 @current_plan = DRoby::RebuiltPlan.new
                 @layout.add_widget(list)
 
-                Qt::Object.connect(list, SIGNAL('currentItemChanged(QListWidgetItem*,QListWidgetItem*)'),
-                           self, SLOT('currentItemChanged(QListWidgetItem*,QListWidgetItem*)'))
+                Qt::Object.connect(list, SIGNAL("currentItemChanged(QListWidgetItem*,QListWidgetItem*)"),
+                                   self, SLOT("currentItemChanged(QListWidgetItem*,QListWidgetItem*)"))
             end
-
 
             # Info about all tasks known within the stored history
             #
@@ -76,13 +80,13 @@ module Roby
             #   from job placeholder tasks to the corresponding job task
             def tasks_info
                 all_tasks = Set.new
-                all_job_info = Hash.new
+                all_job_info = {}
                 history.each_key do |cycle_index|
                     tasks, job_info = tasks_info_of_snapshot(cycle_index)
                     all_tasks.merge(tasks)
                     all_job_info.merge!(job_info)
                 end
-                return all_tasks, all_job_info
+                [all_tasks, all_job_info]
             end
 
             # Returns the set of tasks that are present in the given snapshot
@@ -91,7 +95,7 @@ module Roby
             def tasks_info_of_snapshot(cycle)
                 _, snapshot, * = history[cycle]
                 tasks = snapshot.plan.tasks.to_set
-                job_info = Hash.new
+                job_info = {}
                 tasks.each do |t|
                     if t.kind_of?(Roby::Interface::Job)
                         planned_by_graph = snapshot.plan.task_relation_graph_for(Roby::TaskStructure::PlannedBy)
@@ -101,31 +105,32 @@ module Roby
                         end
                     end
                 end
-                return tasks, job_info
+                [tasks, job_info]
             end
 
             # Returns the job information for the given task in the given cycle
             def job_placeholder_of(task, cycle)
                 if task.kind_of?(Roby::Interface::Job)
                     _, snapshot, * = history[cycle]
-                    task.
-                        enum_parent_objects(snapshot.relations[Roby::TaskStructure::PlannedBy]).
-                        first
+                    task
+                        .enum_parent_objects(snapshot.relations[Roby::TaskStructure::PlannedBy])
+                        .first
                 end
             end
 
             def add_missing_cycles(count)
                 item = Qt::ListWidgetItem.new(list)
-                item.setBackground(Qt::Brush.new(Qt::Color::fromHsv(33, 111, 255)))
+                item.setBackground(Qt::Brush.new(Qt::Color.fromHsv(33, 111, 255)))
                 item.flags = Qt::NoItemFlags
-                item.text = "[#{count} cycles missing]"
+                # Note: 'item' gets registered on the list by its constructor
+                item.text = "[#{count} cycles missing]" # rubocop:disable Lint/UselessSetterCall
             end
 
             Snapshot = Struct.new :stats, :plan
 
             def append_to_history
                 snapshot = Snapshot.new plan_rebuilder.stats.dup,
-                    DRoby::RebuiltPlan.new
+                                        DRoby::RebuiltPlan.new
                 snapshot.plan.merge(plan_rebuilder.plan)
                 if @last_snapshot
                     snapshot.plan.dedupe(@last_snapshot.plan)
@@ -142,9 +147,9 @@ module Roby
                 emit addedSnapshot(cycle)
             end
 
-            signals 'addedSnapshot(int)'
+            signals "addedSnapshot(int)"
 
-            slots 'currentItemChanged(QListWidgetItem*,QListWidgetItem*)'
+            slots "currentItemChanged(QListWidgetItem*,QListWidgetItem*)"
             def currentItemChanged(new_item, previous_item)
                 data = new_item.data(Qt::UserRole).toInt
                 apply(history[data][1])
@@ -175,7 +180,7 @@ module Roby
                     apply(result[1])
                 end
             end
-            slots 'seek(QDateTime)'
+            slots "seek(QDateTime)"
 
             def push_cycle(snapshot: true)
                 cycle = plan_rebuilder.stats[:cycle_index]
@@ -191,7 +196,7 @@ module Roby
                 @last_cycle = cycle
                 Time.at(*plan_rebuilder.stats[:start]) + plan_rebuilder.stats[:actual_start]
             end
-            signals 'liveUpdate(QDateTime)'
+            signals "liveUpdate(QDateTime)"
 
             def redraw(time = plan_rebuilder.current_time)
                 emit appliedSnapshot(Qt::DateTime.new(time))
@@ -203,12 +208,12 @@ module Roby
                 self.window_title = "roby-display: #{filename}"
                 emit sourceChanged
                 analyze
-                if !history.empty?
-                    apply(history[history.keys.sort.first][1])
+                unless history.empty?
+                    apply(history[history.keys.min][1])
                 end
             end
 
-            signals 'sourceChanged()'
+            signals "sourceChanged()"
 
             def self.analyze(plan_rebuilder, logfile, until_cycle: nil)
                 start_time, end_time = logfile.index.range
@@ -235,7 +240,7 @@ module Roby
                     end
                 end
                 dialog.dispose
-                puts "analyzed log file in %.2fs" % [Time.now - start]
+                puts format("analyzed log file in %.2fs", Time.now - start)
             end
 
             def analyze(until_cycle: nil)
@@ -255,9 +260,9 @@ module Roby
                 end
 
                 @reconnection_timer = Qt::Timer.new(self)
-                @connect_client  = client.dup
+                @connect_client = client.dup
                 @connect_options = options.dup
-                @reconnection_timer.connect(SIGNAL('timeout()')) do
+                @reconnection_timer.connect(SIGNAL("timeout()")) do
                     puts "trying to reconnect to #{@connect_client} #{@connect_options}"
                     if connect(@connect_client, @connect_options)
                         emit info("Connected")
@@ -277,10 +282,10 @@ module Roby
             #
             # +update_period+ is, in seconds, the period at which the
             # display will check whether there is new data on the port.
-            def connect(client, options = Hash.new)
+            def connect(client, options = {})
                 options = Kernel.validate_options options,
-                    port: DRoby::Logfile::Server::DEFAULT_PORT,
-                    update_period: DEFAULT_REMOTE_POLL_PERIOD
+                                                  port: DRoby::Logfile::Server::DEFAULT_PORT,
+                                                  update_period: DEFAULT_REMOTE_POLL_PERIOD
 
                 if client.respond_to?(:to_str)
                     self.window_title = "roby-display: #{client}"
@@ -295,7 +300,6 @@ module Roby
                     end
                 end
 
-
                 @client = client
                 client.add_listener do |data|
                     plan_rebuilder.clear_integrated
@@ -308,7 +312,7 @@ module Roby
                     emit info("@#{cycle} - #{time.strftime('%H:%M:%S.%3N')}")
                 end
                 @connection_pull = timer = Qt::Timer.new(self)
-                timer.connect(SIGNAL('timeout()')) do
+                timer.connect(SIGNAL("timeout()")) do
                     begin
                         client.read_and_process_pending(max: 0.1)
                     rescue Exception => e
@@ -322,7 +326,7 @@ module Roby
                     end
                 end
                 timer.start(Integer(options[:update_period] * 1000))
-                return true
+                true
             end
 
             def disconnect
@@ -353,5 +357,3 @@ module Roby
         end
     end
 end
-
-

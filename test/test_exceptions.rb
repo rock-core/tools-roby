@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 describe Roby do
     describe ".log_level_enabled?" do
@@ -16,7 +18,7 @@ describe Roby do
         end
     end
 
-    describe '.log_exceptions' do
+    describe ".log_exceptions" do
         before do
             Roby.disable_colors
         end
@@ -54,7 +56,11 @@ describe Roby do
         let :stub_m do
             Class.new(Roby::ExceptionBase) do
                 attr_reader :text
-                def initialize(text); super([]); @text = text end
+                def initialize(text)
+                    super([])
+                    @text = text
+                end
+
                 def pretty_print(pp)
                     pp.text text
                 end
@@ -79,4 +85,3 @@ describe Roby do
         end
     end
 end
-

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby::TaskStructure
     class Roby::TaskEventGenerator
         # Mark this event as being handled by the task +task+
@@ -6,7 +8,7 @@ module Roby::TaskStructure
                 repairing_task = repairing_task.as_plan
             end
 
-            if !task.child_object?(repairing_task, ErrorHandling)
+            unless task.child_object?(repairing_task, ErrorHandling)
                 task.add_error_handler repairing_task, Set.new
             end
 
@@ -71,6 +73,7 @@ module Roby::TaskStructure
             result = []
             each_error_handler do |child, matchers|
                 next if child.finished?
+
                 result << child if matchers.any? { |m| m === exception }
             end
             result
@@ -97,7 +100,8 @@ module Roby::TaskStructure
         #
         # @return [Boolean]
         def handles_error?(exception)
-            return if !plan
+            return unless plan
+
             exception = exception.to_execution_exception
             ((running? || starting?) && can_repair_error?(exception)) ||
                 find_all_matching_repair_tasks(exception).any? { |t| t.starting? || t.running? }
@@ -105,7 +109,7 @@ module Roby::TaskStructure
 
         # Test if this task has an active repair tasks associated
         def being_repaired?
-            each_child_object(ErrorHandling).any? { |t| t.running? }
+            each_child_object(ErrorHandling).any?(&:running?)
         end
     end
 
@@ -115,4 +119,3 @@ module Roby::TaskStructure
         end
     end
 end
-

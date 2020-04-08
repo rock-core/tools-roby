@@ -1,4 +1,6 @@
-require 'roby/schedulers/reporting'
+# frozen_string_literal: true
+
+require "roby/schedulers/reporting"
 
 module Roby
     # The namespace in which Roby's default schedulers are defined
@@ -41,7 +43,7 @@ module Roby
             attr_reader :query
             # If true, the scheduler will start tasks which are non-root in the
             # dependency relation, if they have parents that are already
-            # running. 
+            # running.
             attr_reader :include_children
 
             # Create a new Basic schedulers that work on the given plan, and
@@ -55,12 +57,12 @@ module Roby
 
                 @plan = plan || Roby.plan
                 @include_children = include_children
-                @query = self.plan.find_tasks.
-                    executable.
-                    pending.
-                    self_owned
+                @query = self.plan.find_tasks
+                    .executable
+                    .pending
+                    .self_owned
 
-                @can_schedule_cache = Hash.new
+                @can_schedule_cache = {}
                 @enabled = true
             end
 
@@ -68,7 +70,7 @@ module Roby
 
             def can_start?(task)
                 start_event = task.start_event
-                if !start_event.controlable?
+                unless start_event.controlable?
                     report_holdoff "start event not controlable", task
                     return false
                 end
@@ -78,7 +80,7 @@ module Roby
                     return false
                 end
 
-                if !start_event.root?(EventStructure::CausalLink)
+                unless start_event.root?(EventStructure::CausalLink)
                     report_holdoff "start event not root in the causal link relation", task
                     return false
                 end
@@ -86,14 +88,14 @@ module Roby
                 task.each_relation do |r|
                     if r.respond_to?(:scheduling?) && !r.scheduling? && !task.root?(r)
                         report_holdoff "not root in %2, which forbids scheduling", task, r
-                        return false 
+                        return false
                     end
                 end
                 true
             end
 
             def can_schedule?(task, time = Time.now, stack = [])
-                if !can_start?(task)
+                unless can_start?(task)
                     report_holdoff "cannot be started", task
                     return false
                 end
@@ -109,7 +111,7 @@ module Roby
 
                 if root_task
                     true
-                elsif include_children && task.parents.any? { |t| t.running? }
+                elsif include_children && task.parents.any?(&:running?)
                     true
                 elsif include_children
                     report_holdoff "not root, and has no running parent", task
@@ -126,10 +128,10 @@ module Roby
                 @can_schedule_cache.clear
                 time = Time.now
 
-                not_executable = self.plan.find_tasks.
-                    not_executable.
-                    pending.
-                    self_owned
+                not_executable = self.plan.find_tasks
+                    .not_executable
+                    .pending
+                    .self_owned
 
                 not_executable.each do |task|
                     # Try to figure out why ...
@@ -161,4 +163,3 @@ module Roby
         end
     end
 end
-

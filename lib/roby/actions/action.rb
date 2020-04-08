@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Actions
         # The representation of an action, as a model and arguments
@@ -65,7 +67,7 @@ module Roby
             end
 
             def to_s
-                "#{model}(#{arguments.map { |k,v| "#{k} => #{v}" }.sort.join(", ")})"
+                "#{model}(#{arguments.map { |k, v| "#{k} => #{v}" }.sort.join(', ')})"
             end
 
             def to_coordination_task(task_model = Roby::Task)

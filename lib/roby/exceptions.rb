@@ -1,7 +1,10 @@
+# frozen_string_literal: true
 
 module Roby
     class UserError < RuntimeError
-        def user_error?; true end
+        def user_error?
+            true
+        end
     end
     class ConfigError < RuntimeError; end
     class ModelViolation < RuntimeError; end
@@ -43,12 +46,18 @@ module Roby
 
         # The last object(s) that handled the exception. This is either a
         # single object or an array
-        def propagation_leafs; trace.each_vertex.find_all { |v| trace.leaf?(v) } end
+        def propagation_leafs
+            trace.each_vertex.find_all { |v| trace.leaf?(v) }
+        end
+
         # The object from which the exception originates
-        def origin; @origin end
+        attr_reader :origin
+
         # If true, the underlying exception is a fatal error, i.e. should cause
         # parent tasks to be stopped if unhandled.
-        def fatal?; exception.fatal? end
+        def fatal?
+            exception.fatal?
+        end
 
         # The origin EventGenerator if there is one
         attr_reader :generator
@@ -61,10 +70,12 @@ module Roby
         def handled?
             handled
         end
+
         # Enumerates all tasks that are involved in this exception (either
         # origin or in the trace)
         def each_involved_task(&block)
-            return enum_for(__method__) if !block_given?
+            return enum_for(__method__) unless block_given?
+
             trace.each_vertex(&block)
         end
 
@@ -80,7 +91,7 @@ module Roby
 
         # True if this exception originates from the given task or generator
         def originates_from?(object)
-            generator == object || origin == object
+            [generator, origin].include?(object)
         end
 
         # Creates a new execution exception object with the specified source
@@ -134,7 +145,7 @@ module Roby
         end
 
         def to_s
-            PP.pp(self, ''.dup)
+            PP.pp(self, "".dup)
         end
 
         def pretty_print(pp)
@@ -164,7 +175,7 @@ module Roby
     module ExceptionHandlingObject
         module ClassExtension
             extend MetaRuby::Attributes
-            inherited_attribute('exception_handler', 'exception_handlers') { Array.new }
+            inherited_attribute("exception_handler", "exception_handlers") { [] }
         end
 
         # To be used in exception handlers themselves. Passes the exception to
@@ -193,7 +204,7 @@ module Roby
                             return true
                         rescue Exception => e
                             if !kind_of?(PlanObject)
-                                execution_engine.add_framework_error(e, 'global exception handling')
+                                execution_engine.add_framework_error(e, "global exception handling")
                             else
                                 add_error(FailedExceptionHandler.new(e, self, exception_object, handler))
                             end
@@ -201,7 +212,7 @@ module Roby
                     end
                 end
             end
-            return false
+            false
         end
     end
 
@@ -214,7 +225,7 @@ module Roby
             rescue Exception => e
                 filtered = filter_backtrace(
                     e.backtrace, force: force,
-                    display_full_framework_backtraces: display_full_framework_backtraces)
+                                 display_full_framework_backtraces: display_full_framework_backtraces)
                 raise e, e.message, filtered
             end
         end
@@ -226,8 +237,9 @@ module Roby
 
             # First, read out the "bottom" of the backtrace: search for the
             # first backtrace line that is within the framework
-            backtrace_bottom   = []
-            while !original_backtrace.empty? && !filter_out.any? { |rx| rx =~ original_backtrace.last }
+            backtrace_bottom = []
+            while !original_backtrace.empty? &&
+                  filter_out.none? { |rx| rx.match?(original_backtrace.last) }
                 backtrace_bottom.unshift original_backtrace.pop
             end
 
@@ -236,7 +248,7 @@ module Roby
                 case line
                 when /in `poll_handler'$/
                     got_user_line = true
-                    line.gsub(/:in.*/, ':in the polling handler')
+                    line.gsub(/:in.*/, ":in the polling handler")
                 when /in `event_command_(\w+)'$/
                     got_user_line = true
                     line.gsub(/:in.*/, ":in command for '#{$1}'")
@@ -245,19 +257,20 @@ module Roby
                     line.gsub(/:in.*/, ":in event handler for '#{$1}'")
                 else
                     if original_backtrace.size > idx + 4 &&
-                        original_backtrace[idx + 1] =~ /in `call'$/ &&
-                        original_backtrace[idx + 2] =~ /in `call_handlers'$/ &&
-                        original_backtrace[idx + 3] =~ /`each'$/ &&
-                        original_backtrace[idx + 4] =~ /`each_handler'$/
+                       original_backtrace[idx + 1] =~ /in `call'$/ &&
+                       original_backtrace[idx + 2] =~ /in `call_handlers'$/ &&
+                       original_backtrace[idx + 3] =~ /`each'$/ &&
+                       original_backtrace[idx + 4] =~ /`each_handler'$/
 
                         got_user_line = true
                         line.gsub(/:in /, ":in event handler, ")
                     else
-                        is_user = !filter_out.any? { |rx| rx =~ line }
+                        is_user = filter_out.none? { |rx| rx.match?(line) }
                         got_user_line ||= is_user
                         if !got_user_line || is_user
                             case line
                             when /^\(eval\):\d+:in `each(?:_handler)?'/
+                                nil
                             else
                                 line
                             end
@@ -270,7 +283,7 @@ module Roby
 
             if app_dir
                 backtrace = backtrace.map do |line|
-                    line.gsub(/^#{app_dir}\/?/, './')
+                    line.gsub(/^#{app_dir}\/?/, "./")
                 end
             end
             backtrace.concat backtrace_bottom
@@ -294,19 +307,17 @@ module Roby
     end
 
     def self.format_one_exception(exception)
-        message = begin
-                      PP.pp(exception, ''.dup)
-                  rescue Exception => formatting_error
-                      begin
-                          "error formatting exception\n" +
-                              exception.full_message +
-                          "\nplease report the formatting error: \n" +
-                              formatting_error.full_message
-                      rescue Exception => formatting_error
-                          "\nerror formatting exception\n" +
-                              formatting_error.full_message
-                      end
-                  end
+        message =
+            begin
+                PP.pp(exception, "".dup)
+            rescue Exception => e
+                begin
+                    "error formatting exception\n  #{exception.full_message}"\
+                    "\nplease report the formatting error:\n  #{e.full_message}"
+                rescue Exception => e
+                    "error formatting exception\n  #{e.full_message}"
+                end
+            end
 
         message.split("\n")
     end
@@ -338,25 +349,24 @@ module Roby
         if numeric_level = LOG_SYMBOLIC_TO_NUMERIC.index(level.to_sym)
             logger_level <= numeric_level
         else
-            raise ArgumentError, "#{level} is not a valid log level, log levels are #{LOG_SYMBOLIC_TO_NUMERIC.map(&:inspect).join(", ")}"
+            raise ArgumentError, "#{level} is not a valid log level, log levels are #{LOG_SYMBOLIC_TO_NUMERIC.map(&:inspect).join(', ')}"
         end
     end
 
     def self.log_pp(obj, logger, level)
         return unless log_level_enabled?(logger, level)
 
-        message = begin
-                      PP.pp(obj, ''.dup)
-                  rescue Exception => formatting_error
-                      begin
-                          "error formatting object\n" +
-                              obj + "\nplease report the formatting error: \n" +
-                              formatting_error.full_message
-                      rescue Exception => formatting_error
-                          "\nerror formatting object\n" +
-                              formatting_error.full_message
-                      end
-                  end
+        message =
+            begin
+                PP.pp(obj, "".dup)
+            rescue Exception => e
+                begin
+                    "error formatting object\n  #{obj}\n"\
+                    "please report the formatting error:\n  #{e.full_message}"
+                rescue Exception => e
+                    "\nerror formatting object\n  #{e.full_message}"
+                end
+            end
 
         message.split("\n").each do |line|
             logger.send(level, line)
@@ -364,7 +374,7 @@ module Roby
     end
 
     def self.log_exception(e, logger, level, with_original_exceptions: true)
-        return if !log_level_enabled?(logger, level)
+        return unless log_level_enabled?(logger, level)
 
         first_line = true
         format_exception(e, with_original_exceptions: with_original_exceptions).each do |line|
@@ -428,6 +438,7 @@ module Roby
             @exception = exception
             @backtrace = backtrace
         end
+
         def full_message
             @exception.full_message
         end
@@ -489,24 +500,23 @@ module Roby
         true
     end
 
-
     def self.display_exception(io = STDOUT, e = nil, filter_backtraces = nil)
-        if !filter_backtraces.nil?
+        unless filter_backtraces.nil?
             old_filter_backtraces = Roby.app.filter_backtraces?
             Roby.app.filter_backtraces = filter_backtraces
         end
 
         if !block_given?
-            if !e
+            unless e
                 raise ArgumentError, "expected an exception object as no block was given"
             end
+
             do_display_exception(io, e)
             e
         else
             yield
             false
         end
-
     rescue Interrupt, SystemExit
         raise
     rescue Exception => e
@@ -516,9 +526,8 @@ module Roby
             do_display_exception(io, e)
         end
         e
-
     ensure
-        if !filter_backtraces.nil?
+        unless filter_backtraces.nil?
             Roby.app.filter_backtraces = old_filter_backtraces
         end
     end
@@ -533,4 +542,3 @@ module Roby
         result
     end
 end
-

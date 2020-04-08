@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     class OpenStructModel < OpenStruct
         # Returns the superclass, i.e. the state model this is a refinement on
@@ -5,19 +7,19 @@ module Roby
 
         def __get(name, create_substruct = true, &update)
             if result = super(name, false, &update)
-                return result
+                result
             elsif superclass && (result = superclass.__get(name, false, &update))
                 if result.kind_of?(OpenStructModel)
-                    return super(name, true, &update)
-                else return result
+                    super(name, true, &update)
+                else result
                 end
             elsif create_substruct
-                return super
+                super
             end
         end
 
         def __respond_to__(name)
-            super || (superclass.__respond_to__(name) if superclass)
+            super || superclass&.__respond_to__(name)
         end
 
         def create_subfield(name)
@@ -30,11 +32,9 @@ module Roby
 
         def each_member(&block)
             super(&block)
-            if superclass
-                superclass.each_member do |name, value|
-                    if !@members.has_key?(name)
-                        yield(name, value)
-                    end
+            superclass&.each_member do |name, value|
+                unless @members.has_key?(name)
+                    yield(name, value)
                 end
             end
         end

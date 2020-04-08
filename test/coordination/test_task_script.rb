@@ -1,11 +1,13 @@
-require 'roby/test/self'
-require 'roby/tasks/simple'
-require 'roby/schedulers/temporal'
+# frozen_string_literal: true
+
+require "roby/test/self"
+require "roby/tasks/simple"
+require "roby/schedulers/temporal"
 
 module Roby
     module Coordination
         describe TaskScript do
-            describe '#wait' do
+            describe "#wait" do
                 attr_reader :root, :task_m, :event_source_task
                 before do
                     @task_m = Tasks::Simple.new_submodel do
@@ -17,27 +19,27 @@ module Roby
                 # Common behaviour description for all the possible waiting
                 # options
                 def self.common_behaviour(context)
-                    context.it 'does not pass if the event was already emitted' do
+                    context.it "does not pass if the event was already emitted" do
                         event_source_task = self.event_source_task
                         root.script do
                             wait event_source_task.start_event
                             emit success_event
                         end
-                        expect_execution { root.start! }.
-                            to { not_emit root.stop_event }
+                        expect_execution { root.start! }
+                            .to { not_emit root.stop_event }
                     end
-                    context.it 'passes after a new emission' do
+                    context.it "passes after a new emission" do
                         event_source_task = self.event_source_task
                         root.script do
                             wait event_source_task.test_event
                             emit success_event
                         end
                         execute { root.start! }
-                        execute { event_source_task.start! } if !event_source_task.running?
-                        expect_execution { event_source_task.test_event.emit }.
-                            to { emit root.stop_event }
+                        execute { event_source_task.start! } unless event_source_task.running?
+                        expect_execution { event_source_task.test_event.emit }
+                            .to { emit root.stop_event }
                     end
-                    context.it 'does not pass if the event is emitted before an explicit deadline' do
+                    context.it "does not pass if the event is emitted before an explicit deadline" do
                         event_source_task = self.event_source_task
                         Timecop.freeze(t = Time.now)
                         root.script do
@@ -45,11 +47,11 @@ module Roby
                             emit success_event
                         end
                         execute { root.start! }
-                        execute { event_source_task.start! } if !event_source_task.running?
-                        expect_execution { event_source_task.test_event.emit }.
-                            to { not_emit root.stop_event }
+                        execute { event_source_task.start! } unless event_source_task.running?
+                        expect_execution { event_source_task.test_event.emit }
+                            .to { not_emit root.stop_event }
                     end
-                    context.it 'passes if the event is emitted after an explicit deadline' do
+                    context.it "passes if the event is emitted after an explicit deadline" do
                         event_source_task = self.event_source_task
                         Timecop.freeze(t = Time.now)
                         root.script do
@@ -57,12 +59,12 @@ module Roby
                             emit success_event
                         end
                         execute { root.start! }
-                        execute { event_source_task.start! } if !event_source_task.running?
+                        execute { event_source_task.start! } unless event_source_task.running?
                         Timecop.travel(t + 11)
-                        expect_execution { event_source_task.test_event.emit }.
-                            to { emit root.stop_event }
+                        expect_execution { event_source_task.test_event.emit }
+                            .to { emit root.stop_event }
                     end
-                    context.it 'fails if the event becomes unreachable' do
+                    context.it "fails if the event becomes unreachable" do
                         event_source_task = self.event_source_task
                         root.script do
                             wait event_source_task.test_event
@@ -70,7 +72,7 @@ module Roby
                         end
                         expect_execution do
                             root.start!
-                            event_source_task.start! if !event_source_task.running?
+                            event_source_task.start! unless event_source_task.running?
                             event_source_task.test_event.unreachable!
                         end.to { have_error_matching Models::Script::DeadInstruction.match.with_origin(root) }
                     end
@@ -130,7 +132,7 @@ module Roby
                 end
                 describe "waiting for a child task's event" do
                     before do
-                        root.depends_on(@event_source_task = task_m.new, role: 'test', success: nil)
+                        root.depends_on(@event_source_task = task_m.new, role: "test", success: nil)
                     end
 
                     event_source_as_child_behaviour(self)
@@ -164,7 +166,7 @@ module Roby
                 end
 
                 it "can resolve an event of a child-of-a-child even if the grandchild does not exist at model time" do
-                    root.depends_on(child = task_m.new, role: 'test')
+                    root.depends_on(child = task_m.new, role: "test")
 
                     recorder = flexmock
                     recorder.should_receive(:first_execute).once.ordered
@@ -174,7 +176,7 @@ module Roby
                         wait test_event
                         execute do
                             recorder.first_execute
-                            child.depends_on(task_m.new, role: 'subtask')
+                            child.depends_on(task_m.new, role: "subtask")
                         end
                         wait test_child.subtask_child.test_event
                         execute do
@@ -213,13 +215,13 @@ module Roby
                 end
             end
 
-            describe '#poll_until' do
+            describe "#poll_until" do
                 attr_reader :parent, :child, :parent_task_m, :child_task_m
                 before do
                     @child_task_m = Tasks::Simple.new_submodel { event :e }
                     @parent_task_m = Tasks::Simple.new_submodel do
                         script do
-                            poll_until(c_child.e_event) { }
+                            poll_until(c_child.e_event) {}
                             emit stop_event
                         end
                     end
@@ -227,11 +229,11 @@ module Roby
                     plan.add(@parent = parent_task_m.new)
                     @parent.depends_on(
                         @child = child_task_m.new,
-                        role: 'c', model: [Tasks::Simple, {}]
+                        role: "c", model: [Tasks::Simple, {}]
                     )
                 end
 
-                it 'does not add extra fullfillment constraints on the dependency' do
+                it "does not add extra fullfillment constraints on the dependency" do
                     # This is a regression test. PollUntil was relying on
                     # #depends_on to get an error when the waited-upon event
                     # becomes unreachable. But it was doing so without
@@ -246,7 +248,7 @@ module Roby
                     assert_equal fullfilled_model, @child.fullfilled_model
                 end
 
-                it 'does not change an existing dependency relation' do
+                it "does not change an existing dependency relation" do
                     # This is a regression test. PollUntil was relying on
                     # #depends_on to get an error when the waited-upon event
                     # becomes unreachable. This was modifying the dependency relation
@@ -260,7 +262,7 @@ module Roby
                     assert_equal info, @parent[@child, TaskStructure::Dependency]
                 end
 
-                it 'does not affect the watched task after the script finishes' do
+                it "does not affect the watched task after the script finishes" do
                     plan.add_permanent_task(child)
 
                     execute do
@@ -271,7 +273,7 @@ module Roby
                     execute { child.e_event.emit }
                 end
 
-                it 'resolves the current event when starting, even after replacements' do
+                it "resolves the current event when starting, even after replacements" do
                     plan.add(new_child = @child_task_m.new)
                     plan.replace_task(child, new_child)
 
@@ -286,7 +288,7 @@ module Roby
                         .to { emit parent.stop_event }
                 end
 
-                it 'follows the replacements while waiting for the event' do
+                it "follows the replacements while waiting for the event" do
                     plan.add(new_child = @child_task_m.new)
 
                     execute do
@@ -325,8 +327,8 @@ module Roby
                     it "passes if the sub-script finished before the timeout" do
                         Timecop.freeze(Time.now)
                         expect_execution { task.start! }.to { not_emit task.stop_event }
-                        expect_execution { task.intermediate_event.emit }.
-                            to { emit task.stop_event }
+                        expect_execution { task.intermediate_event.emit }
+                            .to { emit task.stop_event }
                     end
 
                     it "emits the timeout event and moves on if the sub-script has "\
@@ -334,8 +336,8 @@ module Roby
                         Timecop.freeze(base_time = Time.now)
                         execute { task.start! }
 
-                        expect_execution { Timecop.freeze(base_time + 1.1) }.
-                            to { emit task.timeout_event }
+                        expect_execution { Timecop.freeze(base_time + 1.1) }
+                            .to { emit task.timeout_event }
                     end
                 end
 
@@ -352,23 +354,22 @@ module Roby
                     it "passes if the sub-script finished before the timeout" do
                         Timecop.freeze(Time.now)
                         expect_execution { task.start! }.to { not_emit task.stop_event }
-                        expect_execution { task.intermediate_event.emit }.
-                            to { emit task.stop_event }
+                        expect_execution { task.intermediate_event.emit }
+                            .to { emit task.stop_event }
                     end
 
                     it "raises TimedOut if the sub-script has not finished in time" do
                         Timecop.freeze(Time.now)
                         execute { task.start! }
 
-                        expect_execution.poll { Timecop.freeze(Time.now + 0.3) }.
-                            to { have_error_matching Script::TimedOut }
+                        expect_execution.poll { Timecop.freeze(Time.now + 0.3) }
+                            .to { have_error_matching Script::TimedOut }
                     end
                 end
             end
         end
     end
 end
-
 
 class TC_Coordination_TaskScript < Minitest::Test
     def setup
@@ -384,8 +385,8 @@ class TC_Coordination_TaskScript < Minitest::Test
                 counter += 1
             end
         end
-        expect_execution { task.start! }.
-            to { achieve { counter == 1 } }
+        expect_execution { task.start! }
+            .to { achieve { counter == 1 } }
         execute_one_cycle
         assert_equal 1, counter
     end
@@ -400,8 +401,8 @@ class TC_Coordination_TaskScript < Minitest::Test
             emit success_event
         end
 
-        expect_execution { task.start! }.
-            to { emit task.success_event }
+        expect_execution { task.start! }
+            .to { emit task.success_event }
         assert_equal 1, counter
     end
 
@@ -418,8 +419,8 @@ class TC_Coordination_TaskScript < Minitest::Test
             emit success_event
         end
 
-        expect_execution { task.start! }.
-            to { emit task.success_event }
+        expect_execution { task.start! }
+            .to { emit task.success_event }
         assert_equal 4, counter
     end
 
@@ -440,8 +441,7 @@ class TC_Coordination_TaskScript < Minitest::Test
         script.step
     end
 
-    def test_quitting_a_poll_operation_deregisters_the_poll_handler
-    end
+    def test_quitting_a_poll_operation_deregisters_the_poll_handler; end
 
     def test_poll_evaluates_the_block_in_the_context_of_the_root_task
         task = prepare_plan missions: 1, model: Roby::Tasks::Simple
@@ -462,7 +462,7 @@ class TC_Coordination_TaskScript < Minitest::Test
             event :intermediate
         end
         parent, child = prepare_plan missions: 1, add: 1, model: model
-        parent.depends_on(child, role: 'subtask')
+        parent.depends_on(child, role: "subtask")
 
         script_child = parent.script.subtask_child
         assert_equal model, script_child.model.model
@@ -503,16 +503,16 @@ class TC_Coordination_TaskScript < Minitest::Test
         end
 
         execute { task.start! }
-        expect_execution { task.start_script1_event.emit }.
-            to do
+        expect_execution { task.start_script1_event.emit }
+            .to do
                 emit task.done_script1_event
                 not_emit task.done_script2_event
             end
 
-        expect_execution { task.done_script2_event.unreachable! }.
-            to do
-                have_error_matching Roby::Coordination::Script::DeadInstruction.match.
-                    with_origin(task)
+        expect_execution { task.done_script2_event.unreachable! }
+            .to do
+                have_error_matching Roby::Coordination::Script::DeadInstruction.match
+                    .with_origin(task)
                 not_emit task.done_script2_event
             end
     end
@@ -540,9 +540,9 @@ class TC_Coordination_TaskScript < Minitest::Test
         assert_kind_of child_task_m, child
         refute child.running?
 
-        expect_execution { task.start_child_event.emit }.
-            scheduler(Roby::Schedulers::Basic.new(true, plan)).
-            to { have_running task.subtask_child }
+        expect_execution { task.start_child_event.emit }
+            .scheduler(Roby::Schedulers::Basic.new(true, plan))
+            .to { have_running task.subtask_child }
     end
 
     def test_execute_always_goes_on_regardless_of_the_output_of_the_block
@@ -551,16 +551,16 @@ class TC_Coordination_TaskScript < Minitest::Test
             execute { true }
             emit success_event
         end
-        expect_execution { task.start! }.
-            to { emit task.success_event }
+        expect_execution { task.start! }
+            .to { emit task.success_event }
 
         task = prepare_plan permanent: 1, model: Tasks::Simple
         task.script do
             execute { false }
             emit success_event
         end
-        expect_execution { task.start! }.
-            to { emit task.success_event }
+        expect_execution { task.start! }
+            .to { emit task.success_event }
     end
 
     def test_execute_block_is_evaluated_in_the_context_of_the_root_task
@@ -614,8 +614,8 @@ class TC_Coordination_TaskScript < Minitest::Test
             emit success_event
         end
         plan.replace_task(old, new)
-        expect_execution { new.start! }.
-            to { emit new.success_event }
+        expect_execution { new.start! }
+            .to { emit new.success_event }
     end
 
     def test_transaction_commits_new_script_on_pending_task
@@ -641,8 +641,8 @@ class TC_Coordination_TaskScript < Minitest::Test
         end
         execute_one_cycle
         task.executable = true
-        expect_execution { task.start! }.
-            to { achieve { executed = true } }
+        expect_execution { task.start! }
+            .to { achieve { executed = true } }
     end
 
     def test_transaction_commits_new_script_on_running_task

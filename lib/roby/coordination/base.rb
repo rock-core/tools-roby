@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Coordination
         # Context for all the execution objects that can be attached to the
@@ -56,12 +58,12 @@ module Roby
             # @option options [nil,Base] :parent (nil) the parent coordination
             #   model. This is used so that the coordination tasks can be shared
             #   across instances
-            def initialize(root_task = nil, arguments = Hash.new, options = Hash.new)
+            def initialize(root_task = nil, arguments = {}, options = {})
                 options = Kernel.validate_options options, on_replace: :drop, parent: nil
 
                 @arguments = model.validate_arguments(arguments)
                 @parent = options[:parent]
-                @instances = Hash.new
+                @instances = {}
                 if root_task
                     bind_coordination_task_to_instance(
                         instance_for(model.root),
@@ -106,7 +108,7 @@ module Roby
             #   coordination task will be reset to nil. If :copy, it will track
             #   the new task
             # @return [void]
-            def bind_coordination_task_to_instance(coordination_task, instance, options = Hash.new)
+            def bind_coordination_task_to_instance(coordination_task, instance, options = {})
                 options = Kernel.validate_options options, on_replace: :drop
 
                 coordination_task.bind(instance)
@@ -132,7 +134,7 @@ module Roby
             # @param [Coordination::Models::Task] object the model-level coordination task
             # @return [Coordination::Task] object the instance-level coordination task
             def instance_for(object)
-                if !(ins = instances[object])
+                unless (ins = instances[object])
                     if !parent || !(ins = parent.instances[object])
                         ins = instances[object] = object.new(self)
                     end
@@ -142,4 +144,3 @@ module Roby
         end
     end
 end
-

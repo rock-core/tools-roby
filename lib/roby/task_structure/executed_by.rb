@@ -1,16 +1,18 @@
+# frozen_string_literal: true
+
 module Roby
     module TaskStructure
         # The execution_agent defines an agent (process or otherwise) a given
         # task is executed by. It allows to define a class of these execution agent,
         # so that the specific agents are managed externally (load-balancing, ...)
         relation :ExecutionAgent,
-            parent_name: :executed_task,
-            child_name: :execution_agent,
-            noinfo: true,
-            distribute: false,
-            single_child: true,
-            copy_on_replace: true,
-            strong: true
+                 parent_name: :executed_task,
+                 child_name: :execution_agent,
+                 noinfo: true,
+                 distribute: false,
+                 single_child: true,
+                 copy_on_replace: true,
+                 strong: true
 
         class ExecutedTaskAlreadyRunning < RuntimeError; end
 
@@ -24,7 +26,7 @@ module Roby
                 end
 
                 plan = execution_agent.plan
-                if !tasks.empty?
+                unless tasks.empty?
                     plan.control.execution_agent_failed_to_start(execution_agent, tasks, reason)
                 end
             end
@@ -37,9 +39,9 @@ module Roby
                     execution_agent.each_executed_task do |task|
                         tasks << task if task.pending? || task.starting?
                     end
-                    
+
                     plan = execution_agent.plan
-                    if !tasks.empty?
+                    unless tasks.empty?
                         plan.control.pending_executed_by_failed(execution_agent, tasks)
                     end
                 end
@@ -51,7 +53,7 @@ module Roby
 
                 # The event handler will be called even if the
                 # execution agent has been removed. Check that there is
-                # actually an execution agent 
+                # actually an execution agent
                 if execution_agent
                     execution_agent.stop_event.remove_forwarding executed_task.aborted_event
                     executed_task.remove_execution_agent execution_agent
@@ -64,10 +66,8 @@ module Roby
 
                 # The event handler will be called even if the
                 # execution agent has been removed. Check that there is
-                # actually an execution agent 
-                if execution_agent
-                    execution_agent.stop_event.forward_to executed_task.aborted_event
-                end
+                # actually an execution agent
+                execution_agent&.stop_event&.forward_to executed_task.aborted_event
             end
 
             # This module defines model-level definition of execution agent, for
@@ -93,10 +93,10 @@ module Roby
                 #   exec = <find a suitable ExecutionAgentModel instance in the plan or
                 #          create a new one>
                 #   task.executed_by exec
-                #   
+                #
                 # for all instances of TaskModel. The actual job is done in the
                 # ExecutionAgentSpawn module
-                def executed_by(agent_model, arguments = Hash.new)
+                def executed_by(agent_model, arguments = {})
                     @execution_agent = [agent_model, arguments]
                 end
             end
@@ -124,7 +124,7 @@ module Roby
 
                     return if execution_agent == agent
 
-                    if !agent.has_event?(:ready)
+                    unless agent.has_event?(:ready)
                         raise ArgumentError, "execution agent tasks should define the :ready event"
                     end
 
@@ -145,7 +145,7 @@ module Roby
                     super
 
                     if model_agent = model.execution_agent
-                        if !child.fullfills?(*model_agent)
+                        unless child.fullfills?(*model_agent)
                             raise Roby::ModelViolation, "execution agent #{child} does not fullfill the expected #{model_agent}"
                         end
                     end
@@ -156,14 +156,14 @@ module Roby
                 # See the documentation of #used_with_an_execution_agent?
                 def added_execution_agent(child, info)
                     super
-                    if !used_with_an_execution_agent?
+                    unless used_with_an_execution_agent?
                         start_event.on(&ExecutionAgent.method(:establish_agent_aborted_relation))
                         stop_event.on(&ExecutionAgent.method(:remove_agent_aborted_relation))
                         self.used_with_an_execution_agent = true
 
                     end
-                    if !child.used_as_execution_agent?
-                        if !child.ready_event.emitted?
+                    unless child.used_as_execution_agent?
+                        unless child.ready_event.emitted?
                             child.ready_event.when_unreachable(
                                 true, &ExecutionAgent.method(:execution_agent_failed_to_start))
                         end
@@ -179,6 +179,7 @@ module Roby
             def initialize(task)
                 super(nil, task.start_event)
             end
+
             def pretty_print(pp)
                 pp.text "attempted to start a task that is expecting an execution agent but has none"
                 pp.breakable
@@ -192,6 +193,7 @@ module Roby
                 super(nil, task.start_event)
                 @execution_agent = task.execution_agent
             end
+
             def pretty_print(pp)
                 pp.text "attempted to start a task buts its agent is not ready"
                 pp.breakable
@@ -231,4 +233,3 @@ module Roby
         end
     end
 end
-

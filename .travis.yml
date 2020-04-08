@@ -12,7 +12,7 @@ matrix:
         - rvm: 2.7
 
 script:
-    - bundle exec rake test
+    - bundle exec rake test RUBOCOP=1
     - bundle exec rake coveralls:push
 bundler_args: --without gui
 env:

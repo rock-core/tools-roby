@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 module Roby
     describe ExecutablePlan do
@@ -11,11 +13,17 @@ module Roby
                 vertex_m = Class.new do
                     include Relations::DirectedRelationSupport
                     attr_reader :relation_graphs
-                    def initialize(relation_graphs = Hash.new)
+                    def initialize(relation_graphs = {})
                         @relation_graphs = relation_graphs
                     end
-                    def read_write?; true end
-                    def garbage?; false end
+
+                    def read_write?
+                        true
+                    end
+
+                    def garbage?
+                        false
+                    end
                 end
                 @chain = (1..10).map { vertex_m.new(graph => graph, graph_m => graph) }
                 chain.each_cons(2) { |a, b| graph.add_relation(a, b, nil) }
@@ -47,7 +55,7 @@ module Roby
                 # Replace c1 by c3 and check that the hooks are properly called
                 FlexMock.use do |mock|
                     p.singleton_class.class_eval do
-                        define_method('removed_child') do |child|
+                        define_method("removed_child") do |child|
                             mock.removed_hook(self, child)
                         end
                     end
@@ -72,7 +80,7 @@ module Roby
                 # Replace c1 by c3 and check that the hooks are properly called
                 FlexMock.use do |mock|
                     p.singleton_class.class_eval do
-                        define_method('removed_child') do |child|
+                        define_method("removed_child") do |child|
                             mock.removed_hook(self, child)
                         end
                     end
@@ -104,22 +112,22 @@ module Roby
                     on_child  = on { |t| t == child && t.plan == plan }
                     on_parent = on { |t| t == parent && t.plan == plan }
 
-                    flexmock(parent).should_receive(ing_hook).
-                        with(on_child, *args).once.ordered
-                    flexmock(child).should_receive("#{ing_hook}_parent").
-                        with(on_parent, *args).once.ordered
+                    flexmock(parent).should_receive(ing_hook)
+                        .with(on_child, *args).once.ordered
+                    flexmock(child).should_receive("#{ing_hook}_parent")
+                        .with(on_parent, *args).once.ordered
                     yield if block_given?
-                    flexmock(parent).should_receive(ed_hook).
-                        with(on_child, *args).once.ordered
-                    flexmock(child).should_receive("#{ed_hook}_parent").
-                        with(on_parent, *args).once.ordered
+                    flexmock(parent).should_receive(ed_hook)
+                        .with(on_child, *args).once.ordered
+                    flexmock(child).should_receive("#{ed_hook}_parent")
+                        .with(on_parent, *args).once.ordered
                 end
 
                 it "calls added_CHILD_NAME and adding_CHILD_NAME and the corresponding parent hooks on addition" do
                     parent, child = prepare_plan add: 2
                     expect_hooks_called("adding_child", "added_child", parent, child, Hash) do
-                        flexmock(parent.relation_graph_for(Roby::TaskStructure::Dependency)).
-                            should_receive(:add_edge).with(parent, child, Hash).once.ordered
+                        flexmock(parent.relation_graph_for(Roby::TaskStructure::Dependency))
+                            .should_receive(:add_edge).with(parent, child, Hash).once.ordered
                     end
                     parent.depends_on child
                 end
@@ -152,17 +160,17 @@ module Roby
 
                 it "does not add the edge if adding_CHILD_NAME raises" do
                     parent, child = prepare_plan add: 2
-                    flexmock(parent).should_receive(:adding_child).
-                        with(child, Hash).once.
-                        and_raise(ArgumentError)
+                    flexmock(parent).should_receive(:adding_child)
+                        .with(child, Hash).once
+                        .and_raise(ArgumentError)
                     assert_raises(ArgumentError) { parent.depends_on child }
                     assert !parent.depends_on?(child)
                 end
                 it "adds the edge even if added_CHILD_NAME raises" do
                     parent, child = prepare_plan add: 2
-                    flexmock(parent).should_receive(:added_child).
-                        with(child, Hash).once.
-                        and_raise(ArgumentError)
+                    flexmock(parent).should_receive(:added_child)
+                        .with(child, Hash).once
+                        .and_raise(ArgumentError)
                     assert_raises(ArgumentError) { parent.depends_on child }
                     assert parent.depends_on?(child)
                 end
@@ -170,14 +178,14 @@ module Roby
                     parent, child = prepare_plan add: 2
                     parent.depends_on child
                     expect_hooks_called("updating_child", "updated_child", parent, child, Hash)
-                    parent.depends_on child, role: 'test'
+                    parent.depends_on child, role: "test"
                 end
                 it "calls the updating_ and updated_ hooks on update within a transaction" do
                     parent, child = prepare_plan add: 2
                     parent.depends_on child
                     expect_hooks_called("updating_child", "updated_child", parent, child, Hash)
                     plan.in_transaction do |trsc|
-                        trsc[parent].depends_on trsc[child], role: 'test'
+                        trsc[parent].depends_on trsc[child], role: "test"
                         trsc.commit_transaction
                     end
                 end
@@ -185,8 +193,8 @@ module Roby
                     parent, child = prepare_plan add: 2
                     parent.depends_on child
                     expect_hooks_called("removing_child", "removed_child", parent, child) do
-                        flexmock(parent.relation_graph_for(TaskStructure::Dependency)).
-                            should_receive(:remove_edge).with(parent, child).once.ordered
+                        flexmock(parent.relation_graph_for(TaskStructure::Dependency))
+                            .should_receive(:remove_edge).with(parent, child).once.ordered
                     end
                     parent.remove_child child
                 end
@@ -202,18 +210,18 @@ module Roby
                 it "does not remove the edge if adding_CHILD_NAME raises" do
                     parent, child = prepare_plan add: 2
                     parent.depends_on child
-                    flexmock(parent).should_receive(:removing_child).
-                        with(child).once.
-                        and_raise(ArgumentError)
+                    flexmock(parent).should_receive(:removing_child)
+                        .with(child).once
+                        .and_raise(ArgumentError)
                     assert_raises(ArgumentError) { parent.remove_child child }
                     assert parent.depends_on?(child)
                 end
                 it "removes the edge even if added_CHILD_NAME raises" do
                     parent, child = prepare_plan add: 2
                     parent.depends_on child
-                    flexmock(parent).should_receive(:removed_child).
-                        with(child).once.
-                        and_raise(ArgumentError)
+                    flexmock(parent).should_receive(:removed_child)
+                        .with(child).once
+                        .and_raise(ArgumentError)
                     assert_raises(ArgumentError) { parent.remove_child child }
                     assert !parent.depends_on?(child)
                 end
@@ -333,7 +341,6 @@ module Roby
                 flexmock(task)
             end
 
-
             describe "task.can_finalize? => true" do
                 it "removes the task" do
                     plan.add_permanent_task(source = Tasks::Simple.new)
@@ -391,4 +398,3 @@ module Roby
         end
     end
 end
-

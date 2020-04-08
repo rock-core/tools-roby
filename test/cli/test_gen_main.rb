@@ -1,13 +1,15 @@
-require 'roby/test/self'
-require 'roby/test/aruba_minitest'
+# frozen_string_literal: true
+
+require "roby/test/self"
+require "roby/test/aruba_minitest"
 
 module Roby
     module CLI
-        describe 'roby gen' do
+        describe "roby gen" do
             include Test::ArubaMinitest
 
             def validate_app_valid(*args)
-                roby_run  = run_roby ["run", *args].join(" ")
+                roby_run = run_roby ["run", *args].join(" ")
                 run_roby_and_stop "quit --retry"
                 roby_run.stop
                 assert_command_finished_successfully roby_run
@@ -21,7 +23,7 @@ module Roby
 
                 it "generates a default robot configuration" do
                     run_roby_and_stop "gen app"
-                    assert file?('config/robots/default.rb')
+                    assert file?("config/robots/default.rb")
                 end
 
                 it "is accessible through the deprecated 'init' subcommand" do
@@ -45,4 +47,3 @@ module Roby
         end
     end
 end
-

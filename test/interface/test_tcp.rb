@@ -1,5 +1,7 @@
-require 'roby/test/self'
-require 'roby/interface/tcp'
+# frozen_string_literal: true
+
+require "roby/test/self"
+require "roby/interface/tcp"
 
 module Roby
     module Interface
@@ -7,7 +9,7 @@ module Roby
             before do
                 @tcp_test_app = Application.new
                 @server = TCPServer.new(@tcp_test_app, port: 0)
-                @clients = Hash.new
+                @clients = {}
             end
 
             after do
@@ -20,7 +22,7 @@ module Roby
             end
 
             def connect
-                socket = TCPSocket.new('localhost', @server.ip_port)
+                socket = TCPSocket.new("localhost", @server.ip_port)
                 current_client_count = @server.clients.size
                 while current_client_count == @server.clients.size
                     @server.process_pending_requests
@@ -35,8 +37,8 @@ module Roby
             describe "error handling" do
                 before do
                     flexmock(@client = connect)
-                    flexmock(Roby).should_receive(:log_exception_with_backtrace).
-                        by_default
+                    flexmock(Roby).should_receive(:log_exception_with_backtrace)
+                        .by_default
                 end
 
                 def self.common_behavior_on_poll_exception
@@ -69,8 +71,8 @@ module Roby
 
                     it "registers a non-ComError exception as a framework error" do
                         @client.should_receive(:poll).and_raise(RuntimeError)
-                        expect_execution { @server.process_pending_requests }.
-                            to { have_framework_error_matching RuntimeError }
+                        expect_execution { @server.process_pending_requests }
+                            .to { have_framework_error_matching RuntimeError }
                     end
                 end
 
@@ -83,9 +85,9 @@ module Roby
 
                     it "displays an exception that is not ComError" do
                         @client.should_receive(:poll).and_raise(RuntimeError)
-                        flexmock(Roby).should_receive(:log_exception_with_backtrace).
-                            with(RuntimeError, Roby::Interface, :warn).
-                            once
+                        flexmock(Roby).should_receive(:log_exception_with_backtrace)
+                            .with(RuntimeError, Roby::Interface, :warn)
+                            .once
                         @server.process_pending_requests
                     end
                     it "processes other clients after an exception that is not ComError" do

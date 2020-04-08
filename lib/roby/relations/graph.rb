@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Relations
         # A relation graph
@@ -94,13 +96,13 @@ module Roby
 
             # Creates a relation graph with the given name and options. The
             # following options are recognized:
-            # +dag+:: 
+            # +dag+::
             #   if the graph is a DAG. If true, add_relation will check that
             #   no cycle is created
-            # +subsets+:: 
+            # +subsets+::
             #   a set of Relations::Graph objects that are children of this one.
             #   See #superset_of.
-            # +distributed+:: 
+            # +distributed+::
             #   if this relation graph should be seen by remote hosts
             def initialize(
                 observer: nil,
@@ -110,13 +112,14 @@ module Roby
                 strong: self.class.strong?,
                 copy_on_replace: self.class.copy_on_replace?,
                 noinfo: !self.class.embeds_info?,
-                subsets: Set.new)
+                subsets: Set.new
+            )
 
                 @observer = observer
                 @distribute = distribute
-                @dag     = dag
-                @weak    = weak
-                @strong  = strong
+                @dag = dag
+                @weak = weak
+                @strong = strong
                 @copy_on_replace = copy_on_replace
                 @embeds_info = !noinfo
 
@@ -152,7 +155,9 @@ module Roby
                 "#{self.class.name}:#{object_id.to_s(16)}"
             end
 
-            def inspect; to_s end
+            def inspect
+                to_s
+            end
 
             # Copy a subgraph of self into another graph
             #
@@ -204,7 +209,7 @@ module Roby
             # @param [Boolean] remove whether 'from' should be removed from the
             #   graph after replacement
             def replace_vertex(from, to, remove: true)
-                edges = Array.new
+                edges = []
                 each_in_neighbour(from) do |parent|
                     if parent != to
                         add_edge(parent, to, edge_info(parent, from))
@@ -250,9 +255,9 @@ module Roby
             # @param info the new edge info
             # @return [Boolean] true if the edge existed and false otherwise
             def try_updating_existing_edge_info(from, to, info)
-                return false if !has_edge?(from, to)
+                return false unless has_edge?(from, to)
 
-                if !(old_info = edge_info(from, to)).nil?
+                unless (old_info = edge_info(from, to)).nil?
                     if old_info == info
                         return true
                     elsif !(info = merge_info(from, to, old_info, info))
@@ -271,7 +276,7 @@ module Roby
             #
             # @return true if a new edge was created
             def add_edge(a, b, info)
-                if !try_updating_existing_edge_info(a, b, info)
+                unless try_updating_existing_edge_info(a, b, info)
                     super
                     true
                 end
@@ -304,37 +309,29 @@ module Roby
 
                 new_relations = []
                 new_relations_ids = []
-                rel     = self
+                rel = self
                 while rel
-                    if !rel.has_edge?(from, to)
+                    unless rel.has_edge?(from, to)
                         new_relations << rel
                         new_relations_ids << rel.class
                     end
                     rel = rel.parent
                 end
 
-                if !new_relations.empty?
-                    if observer
-                        observer.adding_edge(from, to, new_relations_ids, info)
-                    end
+                unless new_relations.empty?
+                    observer&.adding_edge(from, to, new_relations_ids, info)
                     for rel in new_relations
                         rel.add_edge(from, to, (info if self == rel))
                     end
-                    if observer
-                        observer.added_edge(from, to, new_relations_ids, info)
-                    end
+                    observer&.added_edge(from, to, new_relations_ids, info)
                 end
             end
 
             # Set the information of an object relation
             def set_edge_info(from, to, info)
-                if observer
-                    observer.updating_edge_info(from, to, self.class, info)
-                end
+                observer&.updating_edge_info(from, to, self.class, info)
                 super
-                if observer
-                    observer.updated_edge_info(from, to, self.class, info)
-                end
+                observer&.updated_edge_info(from, to, self.class, info)
             end
 
             # Method used in {#add_relation} and {#add_edge} to merge existing
@@ -348,10 +345,10 @@ module Roby
                 raise ArgumentError, "cannot update edge information in #{self}: #merge_info is not implemented"
             end
 
-            alias :remove_vertex! :remove_vertex
+            alias remove_vertex! remove_vertex
 
             def remove_vertex(object)
-                if !observer
+                unless observer
                     return super
                 end
 
@@ -363,7 +360,7 @@ module Roby
                     rel = rel.parent
                 end
 
-                removed_relations = Array.new
+                removed_relations = []
                 in_neighbours(object).each { |parent| removed_relations << parent << object }
                 out_neighbours(object).each { |child| removed_relations << object << child }
 
@@ -390,7 +387,7 @@ module Roby
             # <tt>[self, parent, parent.parent, ...]</tt> up to the root relation
             # which is a superset of +self+.
             def remove_relation(from, to)
-                if !has_edge?(from, to)
+                unless has_edge?(from, to)
                     return
                 end
 
@@ -402,15 +399,11 @@ module Roby
                     rel = rel.parent
                 end
 
-                if observer
-                    observer.removing_edge(from, to, relations_ids)
-                end
+                observer&.removing_edge(from, to, relations_ids)
                 for rel in relations
                     rel.remove_edge(from, to)
                 end
-                if observer
-                    observer.removed_edge(from, to, relations_ids)
-                end
+                observer&.removed_edge(from, to, relations_ids)
             end
 
             # Compute the set of all graphs that are subsets of this one in the
@@ -418,7 +411,7 @@ module Roby
             def recursive_subsets
                 result = Set.new
                 queue = subsets.to_a.dup
-                while !queue.empty?
+                until queue.empty?
                     g = queue.shift
                     result << g
                     queue.concat(g.subsets.to_a)
@@ -427,7 +420,9 @@ module Roby
             end
 
             # True if this relation does not have a parent
-            def root_relation?; !parent end
+            def root_relation?
+                !parent
+            end
 
             # Returns true if +relation+ is included in this relation (i.e. it is
             # either the same relation or one of its children)
@@ -469,7 +464,7 @@ module Roby
             #   subset of self
             # @raise [ArgumentError] if 'relation' is not empty
             def superset_of(relation)
-                if !relation.empty?
+                unless relation.empty?
                     raise ArgumentError, "cannot pass a non-empty graph to #superset_of"
                 end
 
@@ -530,4 +525,3 @@ module Roby
         end
     end
 end
-

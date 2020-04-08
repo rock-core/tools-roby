@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Interface
         # An interface client using TCP that provides reconnection capabilities
@@ -20,14 +22,16 @@ module Roby
                 connect
             end
 
-            def path; [] end
+            def path
+                []
+            end
 
             def connect(retry_period = 0.5)
                 retry_warning = false
                 begin
                     @client = connection_method.call
                     @batch = client.create_batch
-                    @batch_job_info = Hash.new
+                    @batch_job_info = {}
                 rescue ConnectionError, ComError => e
                     if retry_period
                         if e.kind_of?(ComError)
@@ -54,7 +58,7 @@ module Roby
             end
 
             def actions(regex = nil, verbose = false)
-                actions = client.actions.sort_by {|act| act.name }
+                actions = client.actions.sort_by(&:name)
                 if regex
                     regex = Regexp.new(regex)
                 else
@@ -65,7 +69,7 @@ module Roby
                         if verbose
                             puts "\e[1m#{action.name}!\e[0m"
 
-                            arguments = action.arguments.sort_by {|arg| arg.name }
+                            arguments = action.arguments.sort_by(&:name)
                             required_arguments = []
                             optional_arguments = []
                             arguments.each do |argument|
@@ -75,13 +79,13 @@ module Roby
                                     optional_arguments << argument
                                 end
                             end
-                            if !required_arguments.empty?
+                            unless required_arguments.empty?
                                 puts "    required arguments"
                                 required_arguments.each do |argument|
                                     puts "        #{argument.name}: #{argument.doc} [default: #{argument.default}]"
                                 end
                             end
-                            if !optional_arguments.empty?
+                            unless optional_arguments.empty?
                                 puts "    optional arguments:"
                                 optional_arguments.each do |argument|
                                     puts "        #{argument.name}: #{argument.doc} [default: #{argument.default}]"
@@ -89,7 +93,7 @@ module Roby
                             end
                             puts "    doc: #{action.doc}" unless action.doc.empty?
                         else
-                            puts "\e[1m#{action.name}!\e[0m(#{action.arguments.map(&:name).sort.join(", ")}): #{action.doc}"
+                            puts "\e[1m#{action.name}!\e[0m(#{action.arguments.map(&:name).sort.join(', ')}): #{action.doc}"
                         end
                     end
                 end
@@ -120,10 +124,10 @@ module Roby
 
             def format_job_info(id, state, task, planning_task)
                 if planning_task.respond_to?(:action_model) && planning_task.action_model
-                    name = "#{planning_task.action_model.to_s}(#{format_arguments(planning_task.action_arguments)})"
+                    name = "#{planning_task.action_model}(#{format_arguments(planning_task.action_arguments)})"
                 else name = task.to_s
                 end
-                "[%4d] (%s) %s" % [id, state.to_s, name]
+                format("[%4d] (%s) %s", id, state.to_s, name)
             end
 
             def retry_on_com_error
@@ -172,7 +176,7 @@ module Roby
             end
 
             def summarize_notification(source, level, message)
-                return format_notification(source, level, message).first, true
+                [format_notification(source, level, message).first, true]
             end
 
             def format_job_progress(kind, job_id, job_name, *args)
@@ -180,7 +184,7 @@ module Roby
             end
 
             def summarize_job_progress(kind, job_id, job_name, *args)
-                return format_job_progress(kind, job_id, job_name, *args).first, true
+                [format_job_progress(kind, job_id, job_name, *args).first, true]
             end
 
             def format_exception(kind, error, *args)
@@ -196,12 +200,12 @@ module Roby
                 else
                     msg = ["<something wrong happened in transmission of exception information>"]
                 end
-                return msg
+                msg
             end
 
             def summarize_exception(kind, error, *args)
                 msg = "(#{kind}) #{format_exception(kind, error, *args).first}"
-                return msg, false
+                [msg, false]
             end
 
             def wtf?
@@ -275,9 +279,10 @@ module Roby
 
             def review
                 if safe?
-                    puts "#{@batch.__calls.size} actions queued in the current batch, use #process to send, #cancel to delete"
+                    puts "#{@batch.__calls.size} actions queued in the current batch, "\
+                         "use #process to send, #cancel to delete"
                     @batch.__calls.each do |context, m, *args|
-                        if m == :drop_job || m == :kill_job
+                        if %i[drop_job kill_job].include?(m)
                             job_id = args.first
                             job_info = format_job_info(job_id, *@batch_job_info[job_id])
                             puts "#{Roby.color(m.to_s, :bold, :bright_red)} #{job_info}"
@@ -326,7 +331,7 @@ module Roby
                         else raise
                         end
                     rescue ArgumentError => e
-                        if e.message =~ /wrong number of arguments/ && e.backtrace.first =~ /#{m.to_s}/
+                        if e.message =~ /wrong number of arguments/ && e.backtrace.first =~ /#{m}/
                             puts e.message
                         else raise
                         end
@@ -358,21 +363,22 @@ module Roby
                     puts
                 end
 
-                commands = subcommand.commands[''].commands
-                if !commands.empty?
+                commands = subcommand.commands[""].commands
+                unless commands.empty?
                     puts Roby.color("Commands", :bold)
                     puts Roby.color("--------", :bold)
                     commands.keys.sort.each do |command_name|
                         cmd = commands[command_name]
-                        puts "#{command_name}(#{cmd.arguments.keys.map(&:to_s).join(", ")}): #{cmd.description.first}"
+                        puts "#{command_name}(#{cmd.arguments.keys.map(&:to_s).join(', ')}): #{cmd.description.first}"
                     end
                 end
                 if subcommand.commands.size > 1
-                    puts if !commands.empty?
+                    puts unless commands.empty?
                     puts Roby.color("Subcommands (use help <subcommand name> for more details)", :bold)
                     puts Roby.color("-----------", :bold)
                     subcommand.commands.keys.sort.each do |subcommand_name|
                         next if subcommand_name.empty?
+
                         puts "#{subcommand_name}: #{subcommand.commands[subcommand_name].description.first}"
                     end
                 end
@@ -393,20 +399,20 @@ module Roby
             def summarize_pending_messages(already_summarized = Set.new)
                 summarized = Set.new
                 messages = []
-                queues = {exception: client.exception_queue,
-                          job_progress: client.job_progress_queue,
-                          notification: client.notification_queue}
+                queues = { exception: client.exception_queue,
+                           job_progress: client.job_progress_queue,
+                           notification: client.notification_queue }
                 queues.each do |type, q|
                     q.delete_if do |id, args|
                         summarized << id
-                        if !already_summarized.include?(id)
+                        unless already_summarized.include?(id)
                             msg, complete = send("summarize_#{type}", *args)
                             messages << "##{id} #{msg}"
                             complete
                         end
                     end
                 end
-                return summarized, messages
+                [summarized, messages]
             end
 
             # Polls for messages from the remote interface and yields them. It
@@ -419,7 +425,7 @@ module Roby
             def notification_loop(period = 0.1)
                 already_summarized = Set.new
                 was_connected = nil
-                while true
+                loop do
                     has_valid_connection =
                         begin
                             client.poll
@@ -452,16 +458,14 @@ module Roby
             end
 
             # Whether the shell should stop displaying any notification
-            def silent(be_silent)
-                @silent = be_silent
-            end
+            attr_writer :silent
 
             # Make the remote app quit
             #
             # This is defined explicitely because otherwise IRB "hooks" on quit
             # to terminate the shell instead
             def quit
-                call(Hash.new, [], :quit)
+                call({}, [], :quit)
             end
         end
     end

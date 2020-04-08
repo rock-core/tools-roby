@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     # This module defines functionality that can be mixed-in other objects to
     # have an 'automatically extensible struct' behaviour, i.e.
@@ -33,7 +35,7 @@ module Roby
     # == Handling of methods defined on parents
     #
     # Methods defined in Object or Kernel are automatically overriden if needed.
-    # For instance, if you're managing a (x, y, z) position using OpenStruct, 
+    # For instance, if you're managing a (x, y, z) position using OpenStruct,
     # you will want YAML#y to *not* get in the way. The exceptions are the methods
     # listed in NOT_OVERRIDABLE
     #
@@ -54,20 +56,20 @@ module Roby
         #   bla = root.bla
         #   root.bla = 10
         #   bla.test = 20
-        #   
+        #
         # will *not* make root.bla be the +bla+ object. And that
-        # 
+        #
         #   bla = root.bla
         #   root.stable!
         #   bla.test = 20
         #
         # will not fail
-        def initialize(model = nil, attach_to = nil, attach_name = nil) # :nodoc
+        def initialize(model = nil, attach_to = nil, attach_name = nil)
             clear
 
             @model = model
-            @observers       = Hash.new { |h, k| h[k] = [] }
-            @filters         = Hash.new
+            @observers = Hash.new { |h, k| h[k] = [] }
+            @filters = {}
 
             if attach_to
                 link_to(attach_to, attach_name)
@@ -82,9 +84,9 @@ module Roby
         def clear
             @attach_as       = nil
             @stable          = false
-            @members         = Hash.new
-            @pending         = Hash.new
-            @aliases         = Hash.new
+            @members         = {}
+            @pending         = {}
+            @aliases         = {}
         end
 
         def clear_model
@@ -97,7 +99,7 @@ module Roby
                 if child_obj.kind_of?(OpenStruct)
                     pp.text "#{child_name} >"
                 else
-                    pp.text "#{child_name}"
+                    pp.text child_name.to_s
                 end
                 pp.breakable
                 child_obj.pretty_print(pp)
@@ -123,7 +125,6 @@ module Roby
 
             result.instance_variable_set("@aliases", aliases)
             result
-
         rescue Exception
             Roby::DRoby.warn "cannot load #{marshalled_members} #{io}: #{$!.message}"
             raise
@@ -141,7 +142,7 @@ module Roby
 
         # Create a model structure and associate it with this openstruct
         def new_model
-            if !@model
+            unless @model
                 @model = create_model
                 attach_model
             end
@@ -191,9 +192,7 @@ module Roby
                 @__parent_struct, @__parent_name = @attach_as
                 @attach_as = nil
                 __parent_struct.attach_child(__parent_name, self)
-                if @model
-                    @model.attach
-                end
+                @model&.attach
             end
         end
 
@@ -206,6 +205,7 @@ module Roby
         def detach
             @attach_as = nil
         end
+
         # Called by a child when #attach is called
         def attach_child(name, obj)
             @members[name.to_s] = obj
@@ -224,7 +224,7 @@ module Roby
 
         def __root
             if p = __parent
-                return p.__root
+                p.__root
             else self
             end
         end
@@ -237,10 +237,14 @@ module Roby
         # Internal data structure used to register the observers defined with
         # #on_change
         class Observer
-            def recursive?; !!@recursive end
+            def recursive?
+                !!@recursive
+            end
+
             def initialize(recursive, block)
                 @recursive, @block = recursive, block
             end
+
             def call(name, value)
                 @block.call(name, value)
             end
@@ -260,7 +264,7 @@ module Roby
         # keys are symbols. If +recursive+ is true, any member which responds
         # to #to_hash will be converted as well
         def to_hash(recursive = true)
-            result = Hash.new
+            result = {}
             @members.each do |k, v|
                 result[k.to_sym] = if recursive && v.respond_to?(:to_hash)
                                        v.to_hash
@@ -274,7 +278,7 @@ module Roby
         def each_member(&block)
             @members.each(&block)
         end
-        
+
         # Update a set of values on this struct
         # If a hash is given, it is an name => value hash of attribute
         # values. A given block is yield with self, so that the construct
@@ -283,23 +287,21 @@ module Roby
         #     <update deep>
         #   end
         #
-        # can be used 
+        # can be used
         def update(hash = nil)
             attach
-            hash.each { |k, v| send("#{k}=", v) } if hash
+            hash&.each { |k, v| send("#{k}=", v) }
             yield(self) if block_given?
             self
         end
 
         def delete(name = nil)
             raise TypeError, "#{self} is stable" if stable?
+
             if name
                 name = name.to_s
-                child = @members.delete(name) ||
-                    @pending.delete(name)
-                if child && child.respond_to?(:detached!)
-                    child.detached!
-                end
+                child = @members.delete(name) || @pending.delete(name)
+                child.detached! if child&.respond_to?(:detached!)
 
                 # We don't detach aliases
                 if !child && !@aliases.delete(name)
@@ -308,14 +310,12 @@ module Roby
 
                 # and remove aliases that point to +name+
                 @aliases.delete_if { |_, pointed_to| pointed_to == name }
+            elsif __parent_struct
+                __parent_struct.delete(__parent_name)
+            elsif @attach_as
+                @attach_as.first.delete(@attach_as.last)
             else
-                if __parent_struct
-                    __parent_struct.delete(__parent_name)
-                elsif @attach_as
-                    @attach_as.first.delete(@attach_as.last)
-                else
-                    raise ArgumentError, "#{self} is attached to nothing"
-                end
+                raise ArgumentError, "#{self} is attached to nothing"
             end
         end
 
@@ -338,10 +338,12 @@ module Roby
         def global_filter(&block)
             @filters[nil] = block
         end
-        
+
         # If self is stable, it cannot be updated. That is, calling a setter method
         # raises NoMethodError
-        def stable?; @stable end
+        def stable?
+            @stable
+        end
 
         def freeze
             freeze
@@ -351,7 +353,7 @@ module Roby
         end
 
         # Sets the stable attribute of +self+ to +is_stable+. If +recursive+ is true,
-        # set it on the child struct as well. 
+        # set it on the child struct as well.
         #
         def stable!(recursive = false, is_stable = true)
             @stable = is_stable
@@ -375,13 +377,13 @@ module Roby
                 end
             end
 
-            if __parent_struct
-                __parent_struct.updated(__parent_name, self, true)
-            end
+            __parent_struct&.updated(__parent_name, self, true)
         end
 
         # Returns true if this object has no member
-        def empty?; @members.empty? end
+        def empty?
+            @members.empty?
+        end
 
         if RUBY_VERSION >= "1.8.7"
             # has_method? will be used to know if a given method is already defined
@@ -392,8 +394,9 @@ module Roby
             end
 
             def respond_to?(name, include_private = false) # :nodoc:
-                return true  if super
-                return __respond_to__(name)
+                return true if super
+
+                __respond_to__(name)
             end
         else
             # has_method? will be used to know if a given method is already defined
@@ -404,11 +407,11 @@ module Roby
             end
 
             def respond_to?(name) # :nodoc:
-                return true  if super
-                return __respond_to__(name)
+                return true if super
+
+                __respond_to__(name)
             end
         end
-
 
         # 1.8.7's #respond_to? takes two arguments, 1.8.6 only one. This is the
         # common implementation for both version. #respond_to? is adapted (see
@@ -419,12 +422,10 @@ module Roby
 
             if name =~ /=$/
                 !@stable
+            elsif @members.key?(name)
+                true
             else
-                if @members.has_key?(name)
-                    true
-                else
-                    (alias_to = @aliases[name]) && respond_to?(alias_to)
-                end
+                (alias_to = @aliases[name]) && respond_to?(alias_to)
             end
         end
 
@@ -459,16 +460,15 @@ module Roby
 
             if @members.has_key?(name)
                 member = @members[name]
+            elsif alias_to = @aliases[name]
+                return send(alias_to)
+            elsif stable?
+                raise NoMethodError, "no such attribute #{name} (#{self} is stable)"
+            elsif create_substruct
+                attach
+                member = @pending[name] = create_subfield(name)
             else
-                if alias_to = @aliases[name]
-                    return send(alias_to)
-                elsif stable?
-                    raise NoMethodError, "no such attribute #{name} (#{self} is stable)"
-                elsif create_substruct
-                    attach
-                    member = @pending[name] = create_subfield(name)
-                else return
-                end
+                return
             end
 
             if update
@@ -482,7 +482,7 @@ module Roby
         #
         # The default is to create a subfield of the same class than +self+
         def create_subfield(name)
-            model = if self.model then self.model.get(name) end
+            model = self.model&.get(name)
             self.class.new(model, self, name)
         end
 
@@ -528,12 +528,12 @@ module Roby
 
             @members[name] = value
             updated(name, value)
-            return value
+            value
         end
 
         def method_missing(name, *args, &update) # :nodoc:
             if name !~ /^\w+(?:\?|=|!)?$/
-                if name[-1, 1] == '?'
+                if name[-1, 1] == "?"
                     return false
                 else
                     super
@@ -543,12 +543,12 @@ module Roby
             name = name.to_s
 
             if name =~ FORBIDDEN_NAMES_RX
-                super(name.to_sym, *args, &update) 
+                super(name.to_sym, *args, &update)
             end
 
             if name =~ /^(\w+)=$/
                 ret = set($1, *args)
-                return ret
+                ret
 
             elsif name =~ /^(\w+)\?$/
                 # Test
@@ -557,7 +557,7 @@ module Roby
 
             elsif args.empty? # getter
                 attach
-                return __get(name, &update)
+                __get(name, &update)
 
             else
                 super(name.to_sym, *args, &update)
@@ -568,11 +568,11 @@ module Roby
             @aliases[to.to_s] = from.to_s
         end
 
-        FORBIDDEN_NAMES=%w{marshal each enum to}.map { |str| "^#{str}_" }
-        FORBIDDEN_NAMES_RX = /(?:#{FORBIDDEN_NAMES.join("|")})/
+        FORBIDDEN_NAMES = %w{marshal each enum to}.map { |str| "^#{str}_" }
+        FORBIDDEN_NAMES_RX = /(?:#{FORBIDDEN_NAMES.join("|")})/.freeze
 
         NOT_OVERRIDABLE = %w{class} + instance_methods(false)
-        NOT_OVERRIDABLE_RX = /(?:#{NOT_OVERRIDABLE.join("|")})/
+        NOT_OVERRIDABLE_RX = /(?:#{NOT_OVERRIDABLE.join("|")})/.freeze
 
         def __merge(other)
             @members.merge(other) do |k, v1, v2|
@@ -580,6 +580,7 @@ module Roby
                     if v1.class != v2.class
                         raise ArgumentError, "#{k} is a #{v1.class} in self and #{v2.class} in other, I don't know what to do"
                     end
+
                     v1.__merge(v2)
                 else
                     v2
@@ -588,4 +589,3 @@ module Roby
         end
     end
 end
-

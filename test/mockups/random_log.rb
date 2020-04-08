@@ -1,7 +1,9 @@
-require 'roby'
-require 'roby/tasks/simple'
-require 'roby/droby/event_logger'
-require 'roby/droby/logfile/writer'
+# frozen_string_literal: true
+
+require "roby"
+require "roby/tasks/simple"
+require "roby/droby/event_logger"
+require "roby/droby/logfile/writer"
 
 def pick_parent_child(set, group_size: 5)
     from_group, to_group = 0, 0
@@ -15,7 +17,7 @@ def pick_parent_child(set, group_size: 5)
     from_i = from_group * group_size + rand(group_size)
     to_i   = to_group * group_size + rand(group_size)
 
-    return set[from_i], set[to_i]
+    [set[from_i], set[to_i]]
 end
 
 def randomly_modify_plan(plan, num_tasks, num_task_relation_changes, num_event_relation_changes, num_mission_changes, commit: true)
@@ -70,7 +72,7 @@ end
 plan = Roby::ExecutablePlan.new
 execution_engine = Roby::ExecutionEngine.new(plan)
 logfile_path = ARGV.first
-event_io = File.open(logfile_path, 'w')
+event_io = File.open(logfile_path, "w")
 logfile = Roby::DRoby::Logfile::Writer.new(event_io)
 plan.event_logger = Roby::DRoby::EventLogger.new(logfile)
 
@@ -111,4 +113,3 @@ execution_engine.every(period) do
     end
 end
 execution_engine.event_loop
-

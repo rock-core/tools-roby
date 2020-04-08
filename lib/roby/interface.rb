@@ -1,4 +1,6 @@
-require 'roby'
+# frozen_string_literal: true
+
+require "roby"
 module Roby
     # High-level command and control of a Roby controller
     #
@@ -113,8 +115,8 @@ module Roby
     #
 
     module Interface
-        DEFAULT_PORT = 20201
-        DEFAULT_REST_PORT = 20202
+        DEFAULT_PORT = 20_201
+        DEFAULT_REST_PORT = 20_202
 
         extend Logger::Hierarchy
 
@@ -124,17 +126,17 @@ module Roby
     end
 end
 
-require 'websocket'
-require 'roby/interface/job'
-require 'roby/interface/exceptions'
-require 'roby/interface/command_argument'
-require 'roby/interface/command'
-require 'roby/interface/command_library'
-require 'roby/interface/interface'
-require 'roby/interface/droby_channel'
-require 'roby/interface/server'
-require 'roby/interface/client'
-require 'roby/interface/subcommand_client'
-require 'roby/interface/tcp'
-require 'roby/interface/shell_client'
-require 'roby/interface/shell_subcommand'
+require "websocket"
+require "roby/interface/job"
+require "roby/interface/exceptions"
+require "roby/interface/command_argument"
+require "roby/interface/command"
+require "roby/interface/command_library"
+require "roby/interface/interface"
+require "roby/interface/droby_channel"
+require "roby/interface/server"
+require "roby/interface/client"
+require "roby/interface/subcommand_client"
+require "roby/interface/tcp"
+require "roby/interface/shell_client"
+require "roby/interface/shell_subcommand"

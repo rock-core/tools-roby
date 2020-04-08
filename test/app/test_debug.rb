@@ -1,5 +1,7 @@
-require 'roby/test/self'
-require 'roby/app/debug'
+# frozen_string_literal: true
+
+require "roby/test/self"
+require "roby/app/debug"
 
 module Roby
     module App
@@ -93,8 +95,8 @@ module Roby
             end
             describe "#default_path" do
                 it "defaults to the 'stackprof' subdirectory of log_dir to save the path" do
-                    flexmock(debug.app).should_receive(:log_dir).and_return('/path/to')
-                    assert_equal '/path/to/debug', File.dirname(debug.default_path('stackprof'))
+                    flexmock(debug.app).should_receive(:log_dir).and_return("/path/to")
+                    assert_equal "/path/to/debug", File.dirname(debug.default_path("stackprof"))
                 end
             end
 
@@ -116,38 +118,37 @@ module Roby
             end
             describe "#stackprof_save" do
                 before do
-                    flexmock(StackProf).should_receive(:results).and_return(Hash.new).by_default
+                    flexmock(StackProf).should_receive(:results).and_return({}).by_default
                 end
                 it "defaults to #default_path for the file path" do
-                    flexmock(debug).should_receive(:default_path).
-                        and_return('/path/to/dump/file')
-                    flexmock(FileUtils).should_receive(:mkdir_p).
-                        with('/path/to/dump').once
-                    flexmock(File).should_receive(:open).
-                        with('/path/to/dump/file', any, Proc).
-                        once
+                    flexmock(debug).should_receive(:default_path)
+                        .and_return("/path/to/dump/file")
+                    flexmock(FileUtils).should_receive(:mkdir_p)
+                        .with("/path/to/dump").once
+                    flexmock(File).should_receive(:open)
+                        .with("/path/to/dump/file", any, Proc)
+                        .once
                     debug.stackprof_save
                 end
                 it "allows specifying another file path" do
-                    flexmock(FileUtils).should_receive(:mkdir_p).
-                        with('/path/to/dump').once
-                    flexmock(File).should_receive(:open).
-                        with('/path/to/dump/file', any, Proc).
-                        once
-                    debug.stackprof_save(path: '/path/to/dump/file')
+                    flexmock(FileUtils).should_receive(:mkdir_p)
+                        .with("/path/to/dump").once
+                    flexmock(File).should_receive(:open)
+                        .with("/path/to/dump/file", any, Proc)
+                        .once
+                    debug.stackprof_save(path: "/path/to/dump/file")
                 end
                 it "expands a %s in the path to the results' mode" do
-                    flexmock(StackProf).should_receive(:results).
-                        and_return(mode: :cpu)
-                    flexmock(FileUtils).should_receive(:mkdir_p).
-                        with('/path/to/cpu').once
-                    flexmock(File).should_receive(:open).
-                        with('/path/to/cpu/file', any, Proc).
-                        once
-                    debug.stackprof_save(path: '/path/to/%s/file')
+                    flexmock(StackProf).should_receive(:results)
+                        .and_return(mode: :cpu)
+                    flexmock(FileUtils).should_receive(:mkdir_p)
+                        .with("/path/to/cpu").once
+                    flexmock(File).should_receive(:open)
+                        .with("/path/to/cpu/file", any, Proc)
+                        .once
+                    debug.stackprof_save(path: "/path/to/%s/file")
                 end
             end
         end
     end
 end
-

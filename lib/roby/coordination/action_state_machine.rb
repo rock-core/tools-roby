@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Coordination
         # A state machine defined on action interfaces
@@ -18,15 +20,17 @@ module Roby
 
             StateInfo = Struct.new :required_tasks, :forwards, :transitions, :captures
 
-            def initialize(root_task, arguments = Hash.new)
+            def initialize(root_task, arguments = {})
                 super(root_task, arguments)
                 @task_info = resolve_state_info
 
                 start_state = model.starting_state
                 if arguments[:start_state]
                     start_state = model.find_state_by_name(arguments[:start_state])
-                    if !start_state
-                        raise ArgumentError, "The starting state #{arguments[:start_state]} is unkown, make sure its definied in the statemachine #{self}"
+                    unless start_state
+                        raise ArgumentError,
+                              "The starting state #{arguments[:start_state]} is "\
+                              "unkown, make sure its defined in #{self}"
                     end
                 end
 
@@ -127,4 +131,3 @@ module Roby
         end
     end
 end
-

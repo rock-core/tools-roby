@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     # Management of task arguments
     #
@@ -42,7 +44,7 @@ module Roby
         def initialize(task)
             @task   = task
             @static = true
-            @values = Hash.new
+            @values = {}
             super()
         end
 
@@ -107,7 +109,10 @@ module Roby
             evaluate_delayed_arguments.slice(*args)
         end
 
-        def dup; self.to_hash end
+        def dup
+            self.to_hash
+        end
+
         def to_hash
             values.dup
         end
@@ -129,8 +134,8 @@ module Roby
         # Both proper values and delayed values have to be equal
         #
         # @return [Boolean]
-        def ==(hash)
-            to_hash == hash.to_hash
+        def ==(other)
+            to_hash == other.to_hash
         end
 
         # Pretty-prints this argument set
@@ -152,7 +157,7 @@ module Roby
         # @return [Hash]
         # @see each_assigned_argument
         def assigned_arguments
-            result = Hash.new
+            result = {}
             each_assigned_argument do |k, v|
                 result[k] = v
             end
@@ -168,7 +173,7 @@ module Roby
             return assigned_arguments unless block_given?
 
             each do |key, value|
-                if !TaskArguments.delayed_argument?(value)
+                unless TaskArguments.delayed_argument?(value)
                     yield(key, value)
                 end
             end
@@ -203,27 +208,27 @@ module Roby
                 if self_delayed && other_delayed
                     if !(arg.strong? ^ other_arg.strong?)
                         !arg.can_merge?(task, other_args.task,
-                            other_arg)
+                                        other_arg)
                     else
                         false
                     end
                 elsif self_delayed
                     if arg.strong?
                         !arg.can_merge?(task, other_args.task,
-                            StaticArgumentWrapper.new(other_arg))
+                                        StaticArgumentWrapper.new(other_arg))
                     else
                         false
                     end
                 elsif other_delayed
                     if other_arg.strong?
                         !other_arg.can_merge?(other_args.task, task,
-                            StaticArgumentWrapper.new(arg))
+                                              StaticArgumentWrapper.new(arg))
                     else
                         false
                     end
                 end
             end
-            blockers.each_with_object(Hash.new) do |(name, self_obj), h|
+            blockers.each_with_object({}) do |(name, self_obj), h|
                 h[name] = [self_obj, other_args[name]]
             end
         end
@@ -262,14 +267,14 @@ module Roby
                 elsif self_delayed
                     if arg.strong?
                         arg.merge(task, other_task,
-                            StaticArgumentWrapper.new(other_arg))
+                                  StaticArgumentWrapper.new(other_arg))
                     else
                         other_arg
                     end
                 elsif other_delayed
                     if other_arg.strong?
                         other_arg.merge(other_task, task,
-                            StaticArgumentWrapper.new(arg))
+                                        StaticArgumentWrapper.new(arg))
                     else
                         arg
                     end
@@ -372,7 +377,7 @@ module Roby
         #
         # @return [Hash]
         def evaluate_delayed_arguments
-            result = Hash.new
+            result = {}
             values.each do |key, val|
                 if TaskArguments.delayed_argument?(val)
                     catch(:no_value) do
@@ -401,7 +406,7 @@ module Roby
                 end
             end
 
-            if task.plan && task.plan.executable?
+            if task.plan&.executable?
                 values.merge!(hash) do |k, _, v|
                     task.plan.log(:task_arguments_updated, task, k, v)
                     v
@@ -456,8 +461,7 @@ module Roby
         # Roby uses the pretty-print mechanism to build most of its error
         # messages, so it is better to implement the {#pretty_print} method
         # for custom delayed arguments
-        def pretty_print(pp)
-        end
+        def pretty_print(pp); end
 
         # Evaluate this delayed argument in the context of the given task
         #
@@ -528,10 +532,7 @@ module Roby
         end
 
         def to_s
-            "default(" + if value.nil?
-                'nil'
-            else value.to_s
-            end + ")"
+            "default(#{value.nil? ? 'nil' : value})"
         end
 
         def ==(other)
@@ -579,7 +580,7 @@ module Roby
                 if v.kind_of?(Roby::Task) && v.model.has_argument?(m)
                     # We are trying to access a task argument, throw no_value if the
                     # argument is not set
-                    if !v.arguments.has_key?(m)
+                    unless v.arguments.has_key?(m)
                         throw :no_value
                     end
 
@@ -624,7 +625,7 @@ module Roby
         end
 
         def to_s
-            "delayed_argument_from(#{@object || 'task'}.#{@methods.map(&:to_s).join(".")})"
+            "delayed_argument_from(#{@object || 'task'}.#{@methods.map(&:to_s).join('.')})"
         end
 
         def pretty_print(pp)

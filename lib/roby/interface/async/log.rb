@@ -1,6 +1,8 @@
-require 'roby/droby/plan_rebuilder'
-require 'roby/droby/logfile/server'
-require 'roby/droby/logfile/client'
+# frozen_string_literal: true
+
+require "roby/droby/plan_rebuilder"
+require "roby/droby/logfile/server"
+require "roby/droby/logfile/client"
 
 module Roby
     module Interface
@@ -30,12 +32,16 @@ module Roby
                 # The plan self is working on
                 #
                 # @return [Roby::Plan]
-                def plan; plan_rebuilder.plan end
+                def plan
+                    plan_rebuilder.plan
+                end
 
                 # Information about the scheduler state
                 #
                 # @return [Schedulers::State]
-                def scheduler_state; plan.consolidated_scheduler_state end
+                def scheduler_state
+                    plan.consolidated_scheduler_state
+                end
 
                 include Hooks
                 include Hooks::InstanceHooks
@@ -121,21 +127,20 @@ module Roby
                 def poll(max: 0.1)
                     if connected?
                         if client.read_and_process_pending(max: max)
-                            return STATE_PENDING_DATA
-                        else return STATE_CONNECTED
+                            STATE_PENDING_DATA
+                        else STATE_CONNECTED
                         end
                     elsif !closed?
                         poll_connection_attempt
-                        return STATE_DISCONNECTED
+                        STATE_DISCONNECTED
                     end
                 rescue Interrupt
                     close
                     raise
-
                 rescue ComError
                     Log.info "link closed, trying to reconnect"
                     unreachable!
-                    if !closed?
+                    unless closed?
                         attempt_connection
                     end
                     false
@@ -143,7 +148,7 @@ module Roby
                     Log.warn "error while polling connection, trying to reconnect"
                     Roby.log_exception_with_backtrace(e, Log, :warn)
                     unreachable!
-                    if !closed?
+                    unless closed?
                         attempt_connection
                     end
                     false
@@ -151,7 +156,7 @@ module Roby
 
                 def unreachable!
                     if client
-                        client.close if !client.closed?
+                        client.close unless client.closed?
                         @client = nil
                         run_hook :on_unreachable
                     end
@@ -173,15 +178,15 @@ module Roby
                 end
 
                 def cycle_index
-                    plan_rebuilder && plan_rebuilder.cycle_index
+                    plan_rebuilder&.cycle_index
                 end
 
                 def cycle_start_time
-                    plan_rebuilder && plan_rebuilder.cycle_start_time
+                    plan_rebuilder&.cycle_start_time
                 end
 
                 def init_done?
-                    client && client.init_done?
+                    client&.init_done?
                 end
 
                 # Verify the state of the last connection attempt
@@ -235,4 +240,3 @@ module Roby
         end
     end
 end
-

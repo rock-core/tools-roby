@@ -1,7 +1,9 @@
-require 'roby'
-require 'benchmark'
+# frozen_string_literal: true
 
-require 'ruby-prof'
+require "roby"
+require "benchmark"
+
+require "ruby-prof"
 
 class Graph < Roby::Relations::Graph
 end
@@ -17,8 +19,6 @@ end
 
 COUNT = 10_000
 Benchmark.bm(80) do |x|
-    tasks = Array.new
-
     graph = Graph.new
     vertices = (1..COUNT).map { Vertex.new(graph) }
     x.report("add #{COUNT} vertices") do
@@ -29,7 +29,7 @@ Benchmark.bm(80) do |x|
     end
 
     graph = Graph.new
-    vertices = (1..2*COUNT).map { Vertex.new(graph) }
+    vertices = (1..2 * COUNT).map { Vertex.new(graph) }
     vertices.each { |o| graph.add_vertex(o) }
     x.report("#{COUNT} separate links between already inserted vertices") do
         vertices.each_slice(2) { |parent, child| graph.add_relation(parent, child, nil) }
@@ -39,7 +39,7 @@ Benchmark.bm(80) do |x|
     end
 
     graph = Graph.new
-    vertices = (1..2*COUNT).map { Vertex.new(graph) }
+    vertices = (1..2 * COUNT).map { Vertex.new(graph) }
     x.report("#{COUNT} separate links, inserted vertices") do
         vertices.each_slice(2) { |parent, child| graph.add_relation(parent, child, nil) }
     end
@@ -55,9 +55,8 @@ Benchmark.bm(80) do |x|
     graph = Graph.new
     shared_v = Vertex.new(graph)
     vertices = (1..COUNT).map { Vertex.new(graph) }
-    x.report("#{COUNT} links with a shared vertex, inserting vertices at the same time") do
+    x.report("#{COUNT} links with a shared vertex, "\
+             "inserting vertices at the same time") do
         vertices.each { |o| graph.add_relation(shared_v, o, nil) }
     end
 end
-
-

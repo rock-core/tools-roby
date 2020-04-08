@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Module
     # Declare that +proxy_klass+ should be used to wrap objects of +real_klass+.
     # Order matters: if more than one wrapping matches, we will use the one
@@ -6,7 +8,6 @@ class Module
         Roby::Transaction::Proxying.define_proxying_module(self, real_klass)
     end
 end
-
 
 module Roby
     # In transactions, we do not manipulate plan objects like Task and EventGenerator directly,
@@ -35,9 +36,11 @@ module Roby
                 attr_accessor :transaction_proxy_module
             end
 
-            @@proxy_for  = Hash.new
+            @@proxy_for = {}
 
-            def to_s; "tProxy(#{__getobj__.to_s})" end
+            def to_s
+                "tProxy(#{__getobj__})"
+            end
 
             def self.define_proxying_module(proxying_module, mod)
                 @@proxy_for[mod] = proxying_module
@@ -67,10 +70,13 @@ module Roby
             def self.create_forwarder_module(methods)
                 Module.new do
                     attr_accessor :__getobj__
-                    def transaction_proxy?; true end
+                    def transaction_proxy?
+                        true
+                    end
                     methods.each do |name|
                         next if name =~ /^__.*__$/
                         next if name == :object_id
+
                         define_method(name) do |*args, &block|
                             __getobj__.send(name, *args, &block)
                         end
@@ -82,18 +88,20 @@ module Roby
             # the calls to the object's @__getobj__
             def self.forwarder_module_for(klass)
                 klass.transaction_forwarder_module ||=
-                    create_forwarder_module(klass.instance_methods(true)) 
+                    create_forwarder_module(klass.instance_methods(true))
             end
 
             attr_reader :__getobj__
 
-            def transaction_proxy?; true end
-
-            def setup_proxy(object, plan)
-                @__getobj__  = object
+            def transaction_proxy?
+                true
             end
 
-            alias :== :eql?
+            def setup_proxy(object, plan)
+                @__getobj__ = object
+            end
+
+            alias == eql?
 
             def pretty_print(pp)
                 if plan
@@ -105,7 +113,9 @@ module Roby
                 end
             end
 
-            def proxying?; plan && plan.proxying? end
+            def proxying?
+                plan&.proxying?
+            end
 
             # True if +peer+ has a representation of this object
             #
@@ -117,4 +127,3 @@ module Roby
         end
     end
 end
-

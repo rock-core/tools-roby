@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Schedulers
         # Objects representing the reports from a scheduler object
@@ -63,7 +65,7 @@ module Roby
             end
 
             def pretty_print(pp)
-                if !pending_non_executable_tasks.empty?
+                unless pending_non_executable_tasks.empty?
                     has_text = true
                     pp.text "Pending non-executable tasks"
                     pp.nest(2) do
@@ -74,7 +76,7 @@ module Roby
                     end
                 end
 
-                if !non_scheduled_tasks.empty?
+                unless non_scheduled_tasks.empty?
                     pp.breakable if has_text
                     has_text = true
                     pp.text "Non scheduled tasks"
@@ -92,7 +94,7 @@ module Roby
                     end
                 end
 
-                if !actions.empty?
+                unless actions.empty?
                     pp.breakable if has_text
                     has_text = true
                     pp.text "Actions taken"
@@ -125,5 +127,3 @@ module Roby
         end
     end
 end
-
-

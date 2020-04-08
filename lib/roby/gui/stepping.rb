@@ -1,4 +1,6 @@
-require 'roby/gui/stepping_ui'
+# frozen_string_literal: true
+
+require "roby/gui/stepping_ui"
 
 module Roby
     module GUI
@@ -41,7 +43,7 @@ module Roby
 
                 @current_cycle_position = 0
                 @current_cycle_size = 0
-                if !logfile.eof?
+                unless logfile.eof?
                     @current_cycle_data = logfile.load_one_cycle
                     @current_cycle_position = 0
                     @current_cycle_size = @current_cycle_data.size / 4
@@ -60,14 +62,14 @@ module Roby
             def step_forward
                 plan_rebuilder.clear_integrated
                 @plan_rebuilder.plan.clear_integrated
-                while !logfile.eof?
+                until logfile.eof?
                     while @current_cycle_data.empty?
                         @current_cycle_data = logfile.load_one_cycle
                         @current_cycle_position = 0
                         @current_cycle_size = @current_cycle_data.size / 4
                     end
 
-                    while !@current_cycle_data.empty?
+                    until @current_cycle_data.empty?
                         data = []
                         4.times do
                             data << @current_cycle_data.shift
@@ -76,7 +78,7 @@ module Roby
 
                         plan_rebuilder.process_one_cycle(data)
                         if plan_rebuilder.has_event_propagation_updates? ||
-                            plan_rebuilder.has_structure_updates?
+                           plan_rebuilder.has_structure_updates?
                             plan_rebuilder.clear_changes
                             return
                         end
@@ -86,8 +88,7 @@ module Roby
                 display_current_position
                 @main_widget.redraw
             end
-            slots 'step_forward()'
+            slots "step_forward()"
         end
     end
 end
-

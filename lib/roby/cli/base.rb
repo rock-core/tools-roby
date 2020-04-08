@@ -1,16 +1,16 @@
 # frozen_string_literal: true
 
-require 'thor'
-require 'roby'
-require 'roby/cli/exceptions'
-require 'roby/app/vagrant'
+require "thor"
+require "roby"
+require "roby/cli/exceptions"
+require "roby/app/vagrant"
 
 module Roby
     module CLI
         class Base < Thor
-            class_option 'debug', desc: 'run the app in debug mode',
+            class_option "debug", desc: "run the app in debug mode",
                                   type: :boolean, default: false
-            class_option 'log', desc: 'configure the loggers',
+            class_option "log", desc: "configure the loggers",
                                 type: :array, default: []
 
             no_commands do # rubocop:disable Metrics/BlockLength
@@ -21,14 +21,14 @@ module Roby
                 # Configure the app from the global class options
                 def setup_common
                     options[:log].each do |spec|
-                        mod, level, file = spec.split(':')
+                        mod, level, file = spec.split(":")
                         app.log_setup(mod, level, file)
                     end
 
                     if options[:debug]
                         app.public_logs = true
                         app.filter_backtraces = false
-                        require 'roby/app/debug'
+                        require "roby/app/debug"
                     end
 
                     nil
@@ -45,7 +45,7 @@ module Roby
                 def parse_host_option
                     if options[:host] && options[:vagrant]
                         raise ArgumentError,
-                              'cannot set host and vagrant at the same time'
+                              "cannot set host and vagrant at the same time"
                     end
 
                     return {} unless (url = options[:host] || options[:vagrant])
@@ -66,7 +66,7 @@ module Roby
 
                 def interface_host_port
                     host_port = parse_host_option
-                    host = host_port[:host] || app.shell_interface_host || 'localhost'
+                    host = host_port[:host] || app.shell_interface_host || "localhost"
                     port = host_port[:port] || app.shell_interface_port ||
                            Interface::DEFAULT_PORT
 
@@ -137,14 +137,14 @@ module Roby
                     app.public_logs = true
 
                     if (robot = options[:robot])
-                        robot_name, robot_type = robot.split(',')
+                        robot_name, robot_type = robot.split(",")
                         app.setup_robot_names_from_config_dir
                         app.robot(robot_name, robot_type)
                     end
 
                     if run_controllers
                         app.plan.execution_engine
-                           .once(description: 'run controllers') do
+                           .once(description: "run controllers") do
                             app.controllers.each(&:call)
                         end
                     end

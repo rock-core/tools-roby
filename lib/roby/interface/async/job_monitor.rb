@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Interface
         module Async
@@ -76,7 +78,7 @@ module Roby
                 #   not listening to the new job yet, call {#start} for that
                 def restart
                     batch = interface.client.create_batch
-                    if !terminated?
+                    unless terminated?
                         batch.kill_job(job_id)
                     end
                     batch.start_job(action_name, action_arguments)
@@ -88,19 +90,19 @@ module Roby
                 #
                 # @return [Roby::Actions::Model::Action,nil]
                 def action_model
-                    task && task.action_model
+                    task&.action_model
                 end
 
                 # Returns the job's action name
                 #
                 # @return [String,nil]
                 def action_name
-                    task && task.action_model.name
+                    task&.action_model&.name
                 end
 
                 # Returns the arguments that were passed to the action
                 def action_arguments
-                    task && task.action_arguments
+                    task&.action_arguments
                 end
 
                 # @api private

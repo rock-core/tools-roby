@@ -1,8 +1,10 @@
-require 'socket'
-require 'fcntl'
-require 'stringio'
-require 'roby/interface/exceptions'
-require 'roby/droby/logfile'
+# frozen_string_literal: true
+
+require "socket"
+require "fcntl"
+require "stringio"
+require "roby/interface/exceptions"
+require "roby/droby/logfile"
 
 module Roby
     module DRoby
@@ -18,7 +20,7 @@ module Roby
                 extend Logger::Hierarchy
                 make_own_logger("Log Server", Logger::WARN)
 
-                DEFAULT_PORT  = 20200
+                DEFAULT_PORT = 20_200
                 DEFAULT_SAMPLING_PERIOD = 0.05
                 DATA_CHUNK_SIZE = 512 * 1024
 
@@ -36,12 +38,12 @@ module Roby
                 # The server socket
                 attr_reader :server
 
-                def initialize(event_file_path, sampling_period = DEFAULT_SAMPLING_PERIOD, io)
+                def initialize(event_file_path, sampling_period, io)
                     @server = io
-                    @pending_data = Hash.new
+                    @pending_data = {}
                     @sampling_period = sampling_period
                     @event_file_path = event_file_path
-                    @event_file = File.open(event_file_path, 'r:BINARY')
+                    @event_file = File.open(event_file_path, "r:BINARY")
                 end
 
                 def found_header?
@@ -94,13 +96,13 @@ module Roby
                                 Server.debug "  queueing #{all_data.size} bytes of data"
                                 chunks = split_in_chunks(all_data)
                             else
-                                Server.debug '  log file is empty, not queueing any data'
+                                Server.debug "  log file is empty, not queueing any data"
                                 chunks = []
                             end
                             connection_init      = ::Marshal.dump([CONNECTION_INIT, chunks.inject(0) { |s, c| s + c.size }])
                             connection_init_done = ::Marshal.dump(CONNECTION_INIT_DONE)
-                            chunks.unshift([connection_init.size].pack('L<') + connection_init)
-                            chunks << [connection_init_done.size].pack('L<') + connection_init_done
+                            chunks.unshift([connection_init.size].pack("L<") + connection_init)
+                            chunks << [connection_init_done.size].pack("L<") + connection_init_done
                             @pending_data[socket] = chunks
                         end
 
@@ -138,7 +140,7 @@ module Roby
                     new_data = event_file.read
                     return if new_data.empty?
 
-                    if !found_header?
+                    unless found_header?
                         if new_data.size >= Logfile::PROLOGUE_SIZE
                             # This will read and validate the prologue
                             Logfile.read_prologue(StringIO.new(new_data))
@@ -180,7 +182,6 @@ module Roby
                             end
                             Server.debug "sending #{buffer.size} bytes to #{socket}"
 
-
                             begin
                                 written = socket.write_nonblock(buffer)
                             rescue Errno::EAGAIN
@@ -211,8 +212,6 @@ module Roby
                     end
                 end
             end
-
         end
     end
 end
-
