@@ -1710,7 +1710,7 @@ module Roby
                     yield if block_given?
                 end
             end
-            while !t.stop?; sleep(0.01) end
+            until t.stop?; sleep(0.01) end
             @thread = t
         end
 
@@ -2351,7 +2351,7 @@ class TC_ExecutionEngine < Minitest::Test
             end
 
             # Wait for the thread to block
-            while !t.stop?; sleep(0.01) end
+            until t.stop?; sleep(0.01) end
             mock.main_before
             assert(t.alive?)
             # We use execution_engine.process_events as we are making the execution_engine
@@ -2379,7 +2379,7 @@ class TC_ExecutionEngine < Minitest::Test
         end
 
         # Wait for the thread to block
-        while !t.stop?; sleep(0.01) end
+        until t.stop?; sleep(0.01) end
         assert(t.alive?)
         # We use execution_engine.process_events as we are making the execution_engine
         # believe that it is running while it is not

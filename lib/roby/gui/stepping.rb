@@ -62,14 +62,14 @@ module Roby
             def step_forward
                 plan_rebuilder.clear_integrated
                 @plan_rebuilder.plan.clear_integrated
-                while !logfile.eof?
+                until logfile.eof?
                     while @current_cycle_data.empty?
                         @current_cycle_data = logfile.load_one_cycle
                         @current_cycle_position = 0
                         @current_cycle_size = @current_cycle_data.size / 4
                     end
 
-                    while !@current_cycle_data.empty?
+                    until @current_cycle_data.empty?
                         data = []
                         4.times do
                             data << @current_cycle_data.shift

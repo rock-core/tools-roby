@@ -73,7 +73,7 @@ module Roby
                 end
 
                 def display_notifications(interface)
-                    while !interface.closed?
+                    until interface.closed?
                         interface.poll
                         while interface.has_notifications?
                             _, (source, level, message) = interface.pop_notification

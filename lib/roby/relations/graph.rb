@@ -411,7 +411,7 @@ module Roby
             def recursive_subsets
                 result = Set.new
                 queue = subsets.to_a.dup
-                while !queue.empty?
+                until queue.empty?
                     g = queue.shift
                     result << g
                     queue.concat(g.subsets.to_a)

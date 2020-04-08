@@ -147,7 +147,7 @@ module Roby
                         host, port = *parts
                         host = "localhost" if !host || host.empty?
                     end
-                    port = Interface::DEFAULT_PORT.to_s unless port
+                    port ||= Interface::DEFAULT_PORT.to_s
 
                     if port[0, 1] != "!"
                         port = discover_log_server_port(host, Integer(port) || Interface::DEFAULT_PORT)

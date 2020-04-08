@@ -24,7 +24,7 @@ module Roby
                 @server_channel.reset_thread_guard
                 quit = Concurrent::Event.new
                 poller = Thread.new do
-                    while !quit.set?
+                    until quit.set?
                         @server.poll
                         sleep 0.01
                     end

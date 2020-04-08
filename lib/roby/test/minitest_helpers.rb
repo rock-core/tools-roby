@@ -14,7 +14,7 @@ module Roby
             def roby_find_matching_exception(expected, exception)
                 queue = [exception]
                 seen  = Set.new
-                while !queue.empty?
+                until queue.empty?
                     e = queue.shift
                     next if seen.include?(e)
 

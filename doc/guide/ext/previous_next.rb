@@ -6,7 +6,7 @@ class PrevNextTag
 
     def call(tag, body, context)
         node = context.content_node
-        while !node.is_file?
+        until node.is_file?
             node = node.parent
         end
 

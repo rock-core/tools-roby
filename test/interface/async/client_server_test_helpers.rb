@@ -46,7 +46,7 @@ module Roby
                     yield(client) if block_given?
                     client
                 ensure
-                    while !client.connection_future.complete?
+                    until client.connection_future.complete?
                         sleep 0.01
                         server.process_pending_requests
                     end
@@ -64,7 +64,7 @@ module Roby
                     futures = [Concurrent::Future.new(&block), poll_async_interfaces]
                     result = futures.map do |future|
                         future.execute
-                        while !future.complete?
+                        until future.complete?
                             @interface_servers.each do |s|
                                 s.process_pending_requests
                                 s.clients.each(&:poll)

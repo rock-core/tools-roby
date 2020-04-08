@@ -290,7 +290,7 @@ module Roby
         def process_events_until(timeout: 5, join_all_waiting_work: false, **options)
             Roby.warn_deprecated "Test#process_events_until is deprecated, use #expect_execution.to { achieve { ... } } instead"
             start = Time.now
-            while !yield
+            until yield
                 now = Time.now
                 remaining = timeout - (now - start)
                 if remaining < 0

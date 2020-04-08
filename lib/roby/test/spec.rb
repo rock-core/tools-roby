@@ -142,7 +142,7 @@ module Roby
                                      "the 'achieve' expectation instead"
 
                 start = Time.now
-                while !yield
+                until yield
                     now = Time.now
                     remaining = timeout - (now - start)
                     if remaining < 0
