@@ -4,12 +4,16 @@ require "utilrb/objectstats"
 require "utilrb/value_set"
 require "set"
 
+# rubocop:disable Naming/MethodParameterName, Style/Documentation
+
 GC.disable
 
 puts "==== Iteration"
-[(1..10_000), (1..10_000).to_a, (1..10_000).to_value_set, (1..10_000).enum_for, (1..10_000).to_set].each do |set|
+[(1..10_000), (1..10_000).to_a,
+ (1..10_000).to_value_set, (1..10_000).enum_for,
+ (1..10_000).to_set].each do |set|
     before = ObjectSpace.live_objects
-    for _obj in set
+    for _obj in set # rubocop:disable Style/For
         10
     end
     after = ObjectSpace.live_objects
@@ -36,7 +40,7 @@ def bm_yield
     yield
 end
 
-def bm_block_yield(&block)
+def bm_block_yield(&_block)
     yield
 end
 
@@ -99,7 +103,7 @@ puts "\n=== Exceptions"
 
 def bm_exception
     true
-rescue
+rescue # rubocop:disable Style/RescueStandardError
     false
 ensure
     false
@@ -108,7 +112,7 @@ end
 before = ObjectSpace.live_objects
 begin
     true
-rescue Exception
+rescue StandardError
     nil
 ensure
     nil
@@ -126,3 +130,5 @@ before = ObjectSpace.live_objects
 defined? yield # rubocop:disable Lint/Void
 after = ObjectSpace.live_objects
 puts "defined?: #{after - before}"
+
+# rubocop:enable Naming/MethodParameterName, Style/Documentation
