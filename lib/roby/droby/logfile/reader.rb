@@ -1,5 +1,7 @@
-require 'roby/droby/logfile'
-require 'roby/droby/logfile/index'
+# frozen_string_literal: true
+
+require "roby/droby/logfile"
+require "roby/droby/logfile/index"
 
 module Roby
     module DRoby
@@ -14,7 +16,7 @@ module Roby
                 def initialize(event_io, index_path: nil)
                     @event_io = event_io
                     @index_path = index_path ||
-                        event_io.path.gsub(/\.log$/, '') + ".idx"
+                                  event_io.path.gsub(/\.log$/, "") + ".idx"
                     event_io.rewind
                     options_hash = read_header
                     self.class.process_options_hash(options_hash)
@@ -25,7 +27,9 @@ module Roby
                     if chunk = Logfile.read_one_chunk(event_io)
                         ::Marshal.load(chunk)
                     else
-                        raise InvalidFileError, "expected the prologue to be followed by one chunk, but got nothing"
+                        raise InvalidFileError,
+                              "expected the prologue to be followed by one chunk, "\
+                              "but got nothing"
                     end
                 end
 
@@ -58,8 +62,8 @@ module Roby
 
                     begin ::Marshal.load_with_missing_constants(chunk)
                     rescue ArgumentError => e
-                        if e.message == 'marshal data too short'
-                            raise TruncatedFileError, 'marshal data invalid'
+                        if e.message == "marshal data too short"
+                            raise TruncatedFileError, "marshal data invalid"
                         end
 
                         raise
@@ -69,13 +73,13 @@ module Roby
                 end
 
                 def self.process_options_hash(options_hash)
-                    if options_hash[:plugins]
-                        options_hash[:plugins].each do |plugin_name|
-                            begin
-                                Roby.app.using plugin_name
-                            rescue ArgumentError => e
-                                Roby.warn "the log file mentions the #{plugin_name} plugin, but it is not available on this system. Some information might not be displayed"
-                            end
+                    options_hash[:plugins]&.each do |plugin_name|
+                        begin
+                            Roby.app.using plugin_name
+                        rescue ArgumentError => e
+                            Roby.warn "the log file mentions the #{plugin_name} plugin, "\
+                                      "but it is not available on this system. "\
+                                      "Some information might not be displayed"
                         end
                     end
                 end
@@ -84,13 +88,11 @@ module Roby
                 # path
                 #
                 # @return [String]
-                def index_path
-                    @index_path
-                end
+                attr_reader :index_path
 
                 def rebuild_index(path = index_path)
                     Logfile.warn "rebuilding index file for #{event_io.path}"
-                    File.open(path, 'w') do |index_io|
+                    File.open(path, "w") do |index_io|
                         File.open(event_io.path) do |file_io|
                             Index.rebuild(file_io, index_io)
                         end
@@ -106,6 +108,7 @@ module Roby
                         if !rebuild
                             raise IndexMissing, "there's no file #{path}"
                         end
+
                         rebuild_index(path)
                     end
 
@@ -140,4 +143,3 @@ module Roby
         end
     end
 end
-

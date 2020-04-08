@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module GUI
         module ModelViews
@@ -11,25 +13,26 @@ module Roby
                     actions = model.each_action.map do |action|
                         arguments = action.arguments.map { |arg| ":#{arg.name}" }.join(", ")
                         format = "#{action.name}(#{arguments}) => #{page.link_to(action.returned_type)}: #{action.doc}"
-                        Element.new(action.name, format, element_link_target(action, options[:interactive]), action.name, Hash.new)
+                        Element.new(action.name, format, element_link_target(action, options[:interactive]), action.name, {})
                     end
                 end
 
-                def render(model, options = Hash.new)
+                def render(model, options = {})
                     ActionInterface.html_defined_in(page, model, with_require: true)
 
                     actions = compute_toplevel_links(model, options)
-                    render_links('Actions', actions)
+                    render_links("Actions", actions)
                 end
 
                 def self.find_definition_place(model)
                     location = model.definition_location.find do |location|
-                        return if location.label == 'require' || location.label == 'using_task_library'
+                        break if location.label == "require" ||
+                                 location.label == "using_task_library"
+
                         Roby.app.app_file?(location.absolute_path)
                     end
-                    if location
-                        return location.absolute_path, location.lineno
-                    end
+
+                    [location.absolute_path, location.lineno] if location
                 end
 
                 def self.html_defined_in(page, model, with_require: true, definition_location: nil, format: "<b>Defined in</b> %s")
@@ -37,11 +40,11 @@ module Roby
                     if path
                         path = Pathname.new(path)
                         path_link = page.link_to(path, "#{path}:#{lineno}", lineno: lineno)
-                        page.push(nil, "<p>#{format % [path_link]}</p>")
+                        page.push(nil, "<p>#{format(format, path_link)}</p>")
                         if with_require
                             if req_base = $LOAD_PATH.find { |p| path.fnmatch?(File.join(p, "*")) }
                                 req = path.relative_path_from(Pathname.new(req_base))
-                                page.push(nil, "<code>require '#{req.sub_ext("")}'</code>")
+                                page.push(nil, "<code>require '#{req.sub_ext('')}'</code>")
                             end
                         end
                     end
@@ -50,4 +53,3 @@ module Roby
         end
     end
 end
-

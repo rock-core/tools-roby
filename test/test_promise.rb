@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 module Roby
     describe Promise do
@@ -7,7 +9,7 @@ module Roby
             @recorder = flexmock
         end
         it "registers the promise as pending work on the engine" do
-            p = execution_engine.promise { }
+            p = execution_engine.promise {}
             assert execution_engine.waiting_work.include?(p)
         end
 
@@ -18,59 +20,59 @@ module Roby
         end
 
         it "provides a stringified description" do
-            p = execution_engine.promise(description: 'the promise description') { }
-            assert_match /the promise description/, p.to_s
+            p = execution_engine.promise(description: "the promise description") {}
+            assert_match(/the promise description/, p.to_s)
         end
 
         describe "#pretty_print" do
             it "shows all the steps" do
-                p = execution_engine.promise(description: 'the promise description')
+                p = execution_engine.promise(description: "the promise description")
                 p.on_success(description: "first step")
                 p.then(description: "second step")
                 p.on_error(description: "if something fails")
-                text = PP.pp(p, ''.dup)
-                assert_equal <<-EOD, text
-Roby::Promise(the promise description).
-  on_success(first step).
-  then(second step).
-  on_error(if something fails, in_engine: true)
-                EOD
+                text = PP.pp(p, "".dup)
+                assert_equal <<~PRETTY_PRINTED_TEXT, text
+                    Roby::Promise(the promise description).
+                      on_success(first step).
+                      then(second step).
+                      on_error(if something fails, in_engine: true)
+                PRETTY_PRINTED_TEXT
             end
 
             it "properly handles a promise without steps" do
-                p = execution_engine.promise(description: 'the promise description')
-                text = PP.pp(p, ''.dup)
-                assert_equal <<-EOD, text
-Roby::Promise(the promise description)
-                EOD
+                p = execution_engine.promise(description: "the promise description")
+                text = PP.pp(p, "".dup)
+                assert_equal <<~PRETTY_PRINTED_TEXT, text
+                    Roby::Promise(the promise description)
+                PRETTY_PRINTED_TEXT
             end
 
             it "properly handles a promise without on_error" do
-                p = execution_engine.promise(description: 'the promise description')
-                p.on_success(description: 'first step')
-                p.then(description: 'second step')
-                text = PP.pp(p, ''.dup)
-                assert_equal <<-EOD, text
-Roby::Promise(the promise description).
-  on_success(first step).
-  then(second step)
-                EOD
+                p = execution_engine.promise(description: "the promise description")
+                p.on_success(description: "first step")
+                p.then(description: "second step")
+                text = PP.pp(p, "".dup)
+                assert_equal <<~PRETTY_PRINTED_TEXT, text
+                    Roby::Promise(the promise description).
+                      on_success(first step).
+                      then(second step)
+                PRETTY_PRINTED_TEXT
             end
 
             it "properly handles a promise with only an error handler" do
-                p = execution_engine.promise(description: 'the promise description')
-                p.on_error(description: "error handler") { }
-                text = PP.pp(p, ''.dup)
-                assert_equal <<-EOD, text
-Roby::Promise(the promise description).
-  on_error(error handler, in_engine: true)
-                EOD
+                p = execution_engine.promise(description: "the promise description")
+                p.on_error(description: "error handler") {}
+                text = PP.pp(p, "".dup)
+                assert_equal <<~PRETTY_PRINTED_TEXT, text
+                    Roby::Promise(the promise description).
+                      on_error(error handler, in_engine: true)
+                PRETTY_PRINTED_TEXT
             end
         end
 
         describe "state predicates" do
             it "is unscheduled at creation" do
-                p = execution_engine.promise { }
+                p = execution_engine.promise {}
                 assert p.unscheduled?
                 refute p.pending?
                 refute p.complete?
@@ -82,14 +84,14 @@ Roby::Promise(the promise description).
                     2.times { barrier.wait }
                 end.execute
                 barrier.wait
-                p = execution_engine.promise(executor: executor) { }.execute
+                p = execution_engine.promise(executor: executor) {}.execute
                 refute p.unscheduled?
                 assert p.pending?
                 refute p.complete?
                 barrier.wait
             end
             it "is complete and fulfilled once the whole pipeline finished successfuly" do
-                p = execution_engine.promise { }.execute
+                p = execution_engine.promise {}.execute
                 p.wait
                 refute p.unscheduled?
                 refute p.pending?
@@ -97,8 +99,8 @@ Roby::Promise(the promise description).
                 assert p.fulfilled?
             end
             it "is complete and fulfilled once the whole pipeline finished successfuly even if an error handler has been defined" do
-                p = execution_engine.promise { }.execute
-                p.on_error { }
+                p = execution_engine.promise {}.execute
+                p.on_error {}
                 p.wait
                 refute p.unscheduled?
                 refute p.pending?
@@ -120,7 +122,7 @@ Roby::Promise(the promise description).
             end
             it "is complete and rejected if the error handler has finished execution" do
                 p = execution_engine.promise { raise }
-                p.on_error(in_engine: false) { }
+                p.on_error(in_engine: false) {}
                 p.execute
                 execution_engine.join_all_waiting_work
                 refute p.unscheduled?
@@ -141,7 +143,7 @@ Roby::Promise(the promise description).
             end
 
             it "adds a step in front of all existing steps" do
-                order = Array.new
+                order = []
                 promise.on_success { order << 1 }
                 promise.before { order << 0 }
                 execute_promise(promise)
@@ -165,12 +167,12 @@ Roby::Promise(the promise description).
 
         describe "#on_success" do
             it "queues on_success handlers to be executed on the engine" do
-                order = Array.new
-                execution_engine.
-                    promise { order << Thread.current }.
-                    on_success { Thread.pass; order << Thread.current }.
-                    then { order << Thread.current }.
-                    execute
+                order = []
+                execution_engine
+                    .promise { order << Thread.current }
+                    .on_success { Thread.pass; order << Thread.current }
+                    .then { order << Thread.current }
+                    .execute
 
                 execution_engine.join_all_waiting_work
 
@@ -181,8 +183,8 @@ Roby::Promise(the promise description).
             end
 
             it "queues follow-up succes handlers" do
-                p = execution_engine.promise { }
-                order = Array.new
+                p = execution_engine.promise {}
+                order = []
                 p.on_success { order << 1 }
                 p.on_success { order << 2 }
                 p.execute
@@ -206,12 +208,12 @@ Roby::Promise(the promise description).
             end
 
             it "optionally executes on_success handlers on the thread pool" do
-                order = Array.new
-                execution_engine.
-                    promise { order << Thread.current }.
-                    on_success(in_engine: false) { Thread.pass; order << Thread.current }.
-                    then { order << Thread.current }.
-                    execute
+                order = []
+                execution_engine
+                    .promise { order << Thread.current }
+                    .on_success(in_engine: false) { Thread.pass; order << Thread.current }
+                    .then { order << Thread.current }
+                    .execute
 
                 execution_engine.join_all_waiting_work
 
@@ -225,7 +227,7 @@ Roby::Promise(the promise description).
         describe "#on_error" do
             it "calls its block if the promise is rejected from within the thread pool" do
                 p = execution_engine.promise { raise ArgumentError }
-                p.on_error   { recorder.error }
+                p.on_error { recorder.error }
                 recorder.should_receive(:error).once
                 p.execute
                 execution_engine.join_all_waiting_work
@@ -244,7 +246,7 @@ Roby::Promise(the promise description).
             it "passes the exception to the error handler" do
                 error_m = Class.new(RuntimeError)
                 p = execution_engine.promise { raise error_m }
-                p.on_error   { |e| recorder.error(e) }
+                p.on_error { |e| recorder.error(e) }
                 recorder.should_receive(:error).with(error_m).once
                 p.execute
                 execution_engine.join_all_waiting_work
@@ -263,7 +265,7 @@ Roby::Promise(the promise description).
             it "reports the exception in the promise's #reason" do
                 error_m = Class.new(RuntimeError)
                 p = execution_engine.promise { raise error_m }
-                p.on_error   { |e| recorder.error(e) }
+                p.on_error { |e| recorder.error(e) }
                 recorder.should_receive(:error).with(error_m).once
                 p.execute
                 execution_engine.join_all_waiting_work
@@ -271,11 +273,11 @@ Roby::Promise(the promise description).
             end
 
             it "queues on_error handlers to be executed on the engine" do
-                order = Array.new
-                execution_engine.
-                    promise { order << Thread.current; raise ArgumentError }.
-                    on_error { order << Thread.current }.
-                    execute
+                order = []
+                execution_engine
+                    .promise { order << Thread.current; raise ArgumentError }
+                    .on_error { order << Thread.current }
+                    .execute
 
                 execution_engine.join_all_waiting_work
 
@@ -285,11 +287,11 @@ Roby::Promise(the promise description).
             end
 
             it "optionally executes on_error handlers on the thread pool" do
-                order = Array.new
-                execution_engine.
-                    promise { order << Thread.current; raise "test" }.
-                    on_error(in_engine: false) { Thread.pass; order << Thread.current }.
-                    execute
+                order = []
+                execution_engine
+                    .promise { order << Thread.current; raise "test" }
+                    .on_error(in_engine: false) { Thread.pass; order << Thread.current }
+                    .execute
 
                 execution_engine.join_all_waiting_work
 
@@ -306,20 +308,20 @@ Roby::Promise(the promise description).
             end
             it "returns true if there is an error handler" do
                 p = execution_engine.promise { raise "TEST" }
-                p.on_error { }
+                p.on_error {}
                 assert p.has_error_handler?
             end
         end
 
         describe "#value" do
             it "raises if the promise is not finished" do
-                p = execution_engine.promise { }
+                p = execution_engine.promise {}
                 assert_raises(Promise::NotComplete) { p.value }
             end
             it "returns nil if the promise is rejected" do
                 error_m = Class.new(RuntimeError)
                 p = execution_engine.promise { raise error_m }
-                p.on_error { } # to avoid raising in #join_all_waiting_work
+                p.on_error {} # to avoid raising in #join_all_waiting_work
                 p.execute
                 execution_engine.join_all_waiting_work
                 assert_nil p.value
@@ -335,13 +337,13 @@ Roby::Promise(the promise description).
 
         describe "#value!" do
             it "raises if the promise is not finished" do
-                p = execution_engine.promise { }
+                p = execution_engine.promise {}
                 assert_raises(Promise::NotComplete) { p.value! }
             end
             it "raises with the reason if the promise has been rejected" do
                 error_m = Class.new(RuntimeError)
                 p = execution_engine.promise { raise error_m }
-                p.on_error { } # to avoid raising in #join_all_waiting_work
+                p.on_error {} # to avoid raising in #join_all_waiting_work
                 p.execute
                 execution_engine.join_all_waiting_work
                 assert_raises(error_m) { p.value! }
@@ -357,12 +359,12 @@ Roby::Promise(the promise description).
 
         describe "#execute" do
             it "schedules the promise" do
-                p = execution_engine.promise { }
+                p = execution_engine.promise {}
                 p.execute
                 assert(p.pending? || p.complete?)
             end
             it "returns self" do
-                p = execution_engine.promise { }
+                p = execution_engine.promise {}
                 assert_same p, p.execute
             end
         end

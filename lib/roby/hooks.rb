@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     # Override of the global Hooks behaviour w.r.t. blocks. Blocks are evaluated
     # in their definition context in Roby instead of the default evaluation in
@@ -10,17 +12,16 @@ module Roby
                 extend Uber::InheritableAttr
                 extend ClassMethods
                 inheritable_attr :_hooks
-                self._hooks= HookSet.new
+                self._hooks = HookSet.new
             end
         end
 
         module ClassMethods
             include ::Hooks::ClassMethods
 
-            def define_hooks(callback, scope: lambda { |c, s| s if !c.proc? })
+            def define_hooks(callback, scope: ->(c, s) { s unless c.proc? })
                 super
             end
         end
     end
 end
-

@@ -1,6 +1,8 @@
-require 'roby'
-require 'roby/test/spec'
-require 'optparse'
+# frozen_string_literal: true
+
+require "roby"
+require "roby/test/spec"
+require "optparse"
 
 Robot.logger.level = Logger::WARN
 
@@ -22,53 +24,53 @@ testrb_args = []
 excluded_patterns = []
 parser = OptionParser.new do |opt|
     opt.banner = "#{File.basename($0)} test [ROBY_OPTIONS] -- "\
-                 '[MINITEST_OPTIONS] [TEST_FILES]'
-    opt.on('--self', 'only run tests that are present in this bundle') do |val|
+                 "[MINITEST_OPTIONS] [TEST_FILES]"
+    opt.on("--self", "only run tests that are present in this bundle") do |val|
         only_self = true
     end
-    opt.on('--not-all', 'run all the tests found in the bundle, regardless of whether '\
-                        'they are loaded by the robot configuration') do |val|
+    opt.on("--not-all", "run all the tests found in the bundle, regardless of whether "\
+                        "they are loaded by the robot configuration") do |val|
         all = false
     end
-    opt.on('--really-all', 'load all models, and run all the tests '\
-                           'found in the bundle') do |val|
+    opt.on("--really-all", "load all models, and run all the tests "\
+                           "found in the bundle") do |val|
         app.auto_load_models = true
         all = true
     end
-    opt.on('--exclude PATTERN', String, 'do not run files '\
-           'matching this pattern') do |pattern|
-        pattern = "**/#{pattern}" if pattern[0, 1] != '/'
+    opt.on("--exclude PATTERN", String, "do not run files "\
+           "matching this pattern") do |pattern|
+        pattern = "**/#{pattern}" if pattern[0, 1] != "/"
         excluded_patterns << pattern
     end
-    opt.on('--distributed', 'access remote systems while setting up '\
-                            'or running the tests') do |val|
+    opt.on("--distributed", "access remote systems while setting up "\
+                            "or running the tests") do |val|
         Roby.app.single = !val
     end
-    opt.on('--list', 'lists the test files that are executed, '\
-                     'but does not execute them') do
+    opt.on("--list", "lists the test files that are executed, "\
+                     "but does not execute them") do
         list_tests = true
     end
-    opt.on('-l', '--live', 'run tests in live mode') do |val|
+    opt.on("-l", "--live", "run tests in live mode") do |val|
         Roby.app.simulation = !val
     end
-    opt.on('-k', '--keep-logs', 'keep all logs') do
+    opt.on("-k", "--keep-logs", "keep all logs") do
         Roby.app.public_logs = true
     end
-    opt.on('--ui', 'tell plugins and/or robot configurations to load their '\
-                   'UI frameworks of choice. This does not imply --interactive') do
+    opt.on("--ui", "tell plugins and/or robot configurations to load their "\
+                   "UI frameworks of choice. This does not imply --interactive") do
         Conf.ui = true
     end
-    opt.on('-i', '--interactive', 'allow user interaction during tests') do
+    opt.on("-i", "--interactive", "allow user interaction during tests") do
         Roby.app.automatic_testing = false
     end
-    opt.on('--coverage', 'generate code coverage information. This autoloads '\
-                         'all files and task context models to get '\
-                         'a full coverage information') do |name|
+    opt.on("--coverage", "generate code coverage information. This autoloads "\
+                         "all files and task context models to get "\
+                         "a full coverage information") do |name|
         coverage_mode = true
     end
-    opt.on '--help' do
+    opt.on "--help" do
         pp opt
-        Minitest.run ['--help']
+        Minitest.run ["--help"]
         exit 0
     end
     Roby::Application.common_optparse_setup(opt)
@@ -76,7 +78,7 @@ end
 
 test_files = parser.parse(ARGV)
 test_files.delete_if do |arg|
-    if arg.start_with?('-')
+    if arg.start_with?("-")
         testrb_args << arg
         true
     end
@@ -87,7 +89,7 @@ if test_files.empty?
 end
 
 if coverage_mode
-    require 'simplecov'
+    require "simplecov"
     SimpleCov.start
 end
 
@@ -112,7 +114,7 @@ exception = Roby.display_exception do
                     puts "  #{path}"
                 end
 
-                all_existing_tests = app.find_dirs('test', order: :specific_first, all: !only_self).inject(Set.new) do |all, dir|
+                all_existing_tests = app.find_dirs("test", order: :specific_first, all: !only_self).inject(Set.new) do |all, dir|
                     all.merge(Find.enum_for(:find, dir).find_all { |f| f =~ /\/test_.*\.rb$/ && File.file?(f) }.to_set)
                 end
                 not_run = (all_existing_tests - test_files.to_set)
@@ -128,6 +130,7 @@ exception = Roby.display_exception do
 
         test_files.each do |arg|
             next if excluded_patterns.any? { |pattern| File.fnmatch?(pattern, arg) }
+
             require arg
         end
         passed = Minitest.run(testrb_args)

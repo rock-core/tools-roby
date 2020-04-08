@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 module Roby
     describe PlanService do
         let(:spy) { flexmock }
@@ -16,7 +18,7 @@ module Roby
             assert !plan.find_plan_service(t1)
         end
 
-        describe '.get' do
+        describe ".get" do
             it "returns the same service object for the same task" do
                 assert_same service, PlanService.get(t1)
             end
@@ -257,4 +259,3 @@ module Roby
         end
     end
 end
-

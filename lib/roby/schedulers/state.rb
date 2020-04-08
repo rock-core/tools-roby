@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Schedulers
         # Objects representing the reports from a scheduler object
@@ -125,5 +127,3 @@ module Roby
         end
     end
 end
-
-

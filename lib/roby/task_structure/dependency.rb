@@ -1,7 +1,9 @@
+# frozen_string_literal: true
+
 module Roby
     module TaskStructure
         DEPENDENCY_RELATION_ARGUMENTS =
-            [:model, :success, :failure, :remove_when_done, :consider_in_pending, :roles, :role]
+            %i[model success failure remove_when_done consider_in_pending roles role].freeze
 
         relation :Dependency, child_name: :child, parent_name: :parent_task
 
@@ -11,7 +13,7 @@ module Roby
 
             def initialize(observer: nil)
                 super(observer: observer)
-                @interesting_events = Array.new
+                @interesting_events = []
                 @failing_tasks = Set.new
             end
 
@@ -73,20 +75,21 @@ module Roby
                     if old != new
                         raise Roby::ModelViolation, "inconsistency in fullfilled models: #{old} and #{new}"
                     end
+
                     old
                 end
 
-                return [model, tags, arguments]
+                [model, tags, arguments]
             end
 
-            def self.validate_options(options, defaults = Hash.new)
-                defaults = Hash[model: [[Roby::Task], Hash.new],
-                    success: nil,
-                    failure: nil,
-                    remove_when_done: true,
-                    consider_in_pending: true,
-                    roles: Set.new,
-                    role: nil].merge(defaults)
+            def self.validate_options(options, defaults = {})
+                defaults = Hash[model: [[Roby::Task], {}],
+                                success: nil,
+                                failure: nil,
+                                remove_when_done: true,
+                                consider_in_pending: true,
+                                roles: Set.new,
+                                role: nil].merge(defaults)
                 Kernel.validate_options options, defaults
             end
 
@@ -142,13 +145,15 @@ module Roby
                 end
                 models1.each do |m|
                     next if m <= Roby::Task
-                    if !models2.any? { |other_m| other_m.fullfills?(m) }
+
+                    if models2.none? { |other_m| other_m.fullfills?(m) }
                         result_model << m
                     end
                 end
                 models2.each do |m|
                     next if m <= Roby::Task
-                    if !models1.any? { |other_m| other_m.fullfills?(m) }
+
+                    if models1.none? { |other_m| other_m.fullfills?(m) }
                         result_model << m
                     end
                 end
@@ -159,6 +164,7 @@ module Roby
                     if old_value != new_value
                         raise Roby::ModelViolation, "incompatible argument constraint #{old_value} and #{new_value} for #{key}"
                     end
+
                     old_value
                 end
                 result[:model].freeze
@@ -189,7 +195,7 @@ module Roby
                 # The Set in #interesting_events is also referenced
                 # *separately* in EventStructure.gather_events. We therefore have to
                 # keep it (and can't use #partition). Yuk
-                events = Array.new
+                events = []
                 interesting_events.delete_if do |ev|
                     if ev.plan == plan
                         events << ev
@@ -205,7 +211,7 @@ module Roby
                     else !task.plan
                     end
                 end
-                return Array.new if events.empty? && tasks.empty?
+                return [] if events.empty? && tasks.empty?
 
                 result = []
 
@@ -236,9 +242,9 @@ module Roby
                         success = options[:success]
                         failure = options[:failure]
 
-                        has_success = success && success.evaluate(child)
+                        has_success = success&.evaluate(child)
                         if !has_success
-                            has_failure = failure && failure.evaluate(child)
+                            has_failure = failure&.evaluate(child)
                         end
 
                         error = nil
@@ -251,7 +257,7 @@ module Roby
                         elsif has_failure
                             explanation = failure.explain_true(child)
                             error = Roby::ChildFailedError.new(parent, child, explanation, :failed_event)
-                        elsif success && success.static?(child)
+                        elsif success&.static?(child)
                             explanation = success.explain_static(child)
                             error = Roby::ChildFailedError.new(parent, child, explanation, :unreachable_success)
                         end
@@ -277,34 +283,44 @@ module Roby
             module Extension
                 # True if +obj+ is a parent of this object in the hierarchy relation
                 # (+obj+ is realized by +self+)
-                def depended_upon_by?(obj);     parent_object?(obj, Dependency) end
+                def depended_upon_by?(obj)
+                    parent_object?(obj, Dependency)
+                end
 
                 # True if +obj+ is a child of this object in the hierarchy relation.
                 # If +recursive+ is true, take into account the whole subgraph.
                 # Otherwise, only direct children are checked.
                 def depends_on?(obj, recursive: false)
                     if recursive
-                        relation_graph_for(Dependency).
-                            depth_first_visit(obj) { |v| return true if v == obj }
-                        return false
+                        relation_graph_for(Dependency)
+                            .depth_first_visit(obj) { |v| return true if v == obj }
+                        false
                     else
                         child_object?(obj, Dependency)
                     end
                 end
+
                 # The set of parent objects in the Dependency relation
-                def parents; parent_objects(Dependency) end
+                def parents
+                    parent_objects(Dependency)
+                end
+
                 # The set of child objects in the Dependency relation
-                def children; child_objects(Dependency) end
+                def children
+                    child_objects(Dependency)
+                end
+
                 # Returns the single parent task for this task
                 #
                 # If there is more than one parent or no parent at all, raise an exception
                 def parent_task
                     parents = each_parent_task.to_a
                     if parents.size > 1
-                        raise ArgumentError, "#{self} has #{parents.size} parents (#{parents.map(&:to_s).join(", ")}. A single parent was expected"
+                        raise ArgumentError, "#{self} has #{parents.size} parents (#{parents.map(&:to_s).join(', ')}. A single parent was expected"
                     elsif parents.empty?
                         raise ArgumentError, "#{self} has no parents. A single parent was expected"
                     end
+
                     parents.first
                 end
 
@@ -319,6 +335,7 @@ module Roby
                     if !block_given?
                         return enum_for(:each_role, &block)
                     end
+
                     each_parent_object(Dependency) do |parent|
                         yield(parent, parent.roles_of(self))
                     end
@@ -349,6 +366,7 @@ module Roby
                         if !child_roles.include?(r)
                             raise ArgumentError, "#{r} is not a role of #{child} with respect to #{self}"
                         end
+
                         child_roles.delete(r)
                     end
 
@@ -393,7 +411,7 @@ module Roby
 
                     child = find_child_from_role(role_name)
                     if !child && validate
-                        known_children = Hash.new
+                        known_children = {}
                         each_out_neighbour_merged(Dependency, intrusive: false) do |myself, child|
                             myself[child, Dependency][:roles].each do |role|
                                 known_children[role] = child
@@ -424,8 +442,9 @@ module Roby
                     path.inject(self) do |task, role|
                         up_until_now << role
                         if !(next_task = task.find_child_from_role(role))
-                            raise ArgumentError, "the child #{up_until_now.join(".")} of #{task} does not exist"
+                            raise ArgumentError, "the child #{up_until_now.join('.')} of #{task} does not exist"
                         end
+
                         next_task
                     end
                 end
@@ -471,6 +490,7 @@ module Roby
                         if validate
                             raise ArgumentError, "#{task} can not be reached from #{self}"
                         end
+
                         return
                     end
                     result
@@ -507,13 +527,13 @@ module Roby
                     end
 
                     options = Dependency.validate_options options,
-                        model: [task.provided_models, task.meaningful_arguments],
-                        success: :success.to_unbound_task_predicate,
-                        failure: false.to_unbound_task_predicate,
-                        remove_when_done: true,
-                        consider_in_pending: true,
-                        roles: nil,
-                        role: nil
+                                                          model: [task.provided_models, task.meaningful_arguments],
+                                                          success: :success.to_unbound_task_predicate,
+                                                          failure: false.to_unbound_task_predicate,
+                                                          remove_when_done: true,
+                                                          consider_in_pending: true,
+                                                          roles: nil,
+                                                          role: nil
 
                     # We accept
                     #
@@ -522,57 +542,57 @@ module Roby
                     #   [model1, arguments]
                     #   [[model1, model2], arguments]
                     if !options[:model].respond_to?(:to_ary)
-                        options[:model] = [Array(options[:model]), Hash.new]
+                        options[:model] = [Array(options[:model]), {}]
                     elsif options[:model].size == 2
                         if !options[:model].first.respond_to?(:to_ary)
                             if options[:model].last.kind_of?(Hash)
                                 options[:model] = [Array(options[:model].first), options[:model].last]
                             else
-                                options[:model] = [options[:model], Hash.new]
+                                options[:model] = [options[:model], {}]
                             end
                         end
                     elsif !options[:model].first.respond_to?(:to_ary)
-                        options[:model] = [Array(options[:model]), Hash.new]
+                        options[:model] = [Array(options[:model]), {}]
                     end
 
                     roles = options[:roles] || Set.new
                     if role = options.delete(:role)
                         roles << role.to_str
                     end
-                    roles = roles.map { |r| r.to_str }
+                    roles = roles.map(&:to_str)
                     options[:roles] = roles.to_set
 
                     if options[:success].nil?
                         options[:success] = []
                     end
-                    options[:success] = Array[*options[:success]].
-                        map { |predicate| predicate.to_unbound_task_predicate }.
-                        inject(&:or)
+                    options[:success] = Array[*options[:success]]
+                        .map(&:to_unbound_task_predicate)
+                        .inject(&:or)
 
                     if options[:failure].nil?
                         options[:failure] = []
                     end
-                    options[:failure] = Array[*options[:failure]].
-                        map { |predicate| predicate.to_unbound_task_predicate }.
-                        inject(&:or)
+                    options[:failure] = Array[*options[:failure]]
+                        .map(&:to_unbound_task_predicate)
+                        .inject(&:or)
 
-                    #options[:success] ||= false.to_unbound_task_predicate
-                    #options[:failure] ||= false.to_unbound_task_predicate
+                    # options[:success] ||= false.to_unbound_task_predicate
+                    # options[:failure] ||= false.to_unbound_task_predicate
 
                     # Validate failure and success event names
                     if options[:success]
-                        not_there = options[:success].required_events.
-                            find_all { |name| !task.has_event?(name) }
+                        not_there = options[:success].required_events
+                            .find_all { |name| !task.has_event?(name) }
                         if !not_there.empty?
-                            raise ArgumentError, "#{task} does not have the following events: #{not_there.join(", ")}"
+                            raise ArgumentError, "#{task} does not have the following events: #{not_there.join(', ')}"
                         end
                     end
 
                     if options[:failure]
-                        not_there = options[:failure].required_events.
-                            find_all { |name| !task.has_event?(name) }
+                        not_there = options[:failure].required_events
+                            .find_all { |name| !task.has_event?(name) }
                         if !not_there.empty?
-                            raise ArgumentError, "#{task} does not have the following events: #{not_there.join(", ")}"
+                            raise ArgumentError, "#{task} does not have the following events: #{not_there.join(', ')}"
                         end
                     end
 
@@ -627,6 +647,7 @@ module Roby
                     causal_link_graph = plan.event_relation_graph_for(EventStructure::CausalLink)
                     relation_graph_for(Dependency).depth_first_visit(self) do |task|
                         next if task == self
+
                         if task != self && causal_link_graph.root?(task.start_event)
                             result << task
                         end
@@ -668,6 +689,7 @@ module Roby
                     if !model[2].respond_to?(:to_hash)
                         raise ArgumentError, "expected a hash as third element, got #{model[2]}"
                     end
+
                     @fullfilled_model = model
                 end
 
@@ -691,7 +713,7 @@ module Roby
 
                         required_models, required_arguments = parent[myself, Dependency][:model]
                         current_model = Dependency.merge_fullfilled_model(current_model,
-                                               required_models, required_arguments)
+                                                                          required_models, required_arguments)
                     end
 
                     if !has_value
@@ -723,7 +745,7 @@ module Roby
                         explicit
                     elsif explicit = self.model.explicit_fullfilled_model
                         tasks, tags = explicit.partition { |m| m <= Roby::Task }
-                        [tasks.first || Roby::Task, tags, Hash.new]
+                        [tasks.first || Roby::Task, tags, {}]
                     end
                 end
 
@@ -772,24 +794,29 @@ module Roby
 
                 def has_through_method_missing?(m)
                     MetaRuby::DSLs.has_through_method_missing?(
-                        self, m, '_child' => :has_role?)
+                        self, m, "_child" => :has_role?)
                 end
+
                 def find_through_method_missing(m, args)
                     MetaRuby::DSLs.find_through_method_missing(
-                        self, m, args, '_child' => :find_child_from_role)
+                        self, m, args, "_child" => :find_child_from_role)
                 end
             end
 
             module ModelExtension
                 # True if a fullfilled model has been explicitly set on self
                 # @return [Boolean]
-                def explicit_fullfilled_model?; !!@fullfilled_model end
+                def explicit_fullfilled_model?
+                    !!@fullfilled_model
+                end
 
                 # Returns an explicitly set {#fullfilled_model}
                 #
                 # @return [nil,Array<Models::Task,TaskService>] either nil if no
                 #   explicit model has been set, or the list of models it must fullfill
-                def explicit_fullfilled_model; @fullfilled_model end
+                def explicit_fullfilled_model
+                    @fullfilled_model
+                end
 
                 # Specifies the models that all instances of this task must fullfill
                 #
@@ -812,9 +839,10 @@ module Roby
                 #   fullfilled by this task
                 def implicit_fullfilled_model
                     if !@implicit_fullfilled_model
-                        @implicit_fullfilled_model = Array.new
+                        @implicit_fullfilled_model = []
                         ancestors.each do |m|
                             next if m.singleton_class?
+
                             if m.kind_of?(Class) || (m.kind_of?(Roby::Models::TaskServiceModel) && m != Roby::TaskService)
                                 @implicit_fullfilled_model << m
                             end
@@ -848,7 +876,9 @@ module Roby
     # This exception is raised when a {hierarchy relation}[classes/Roby/TaskStructure/Hierarchy.html] fails
     class ChildFailedError < RelationFailedError
         # The child in the relation
-        def child; failed_task end
+        def child
+            failed_task
+        end
         # The relation parameters (i.e. the hash given to #depends_on)
         attr_reader :relation
         # The Explanation object that describes why the relation failed
@@ -907,7 +937,7 @@ module Roby
         def pretty_print(pp) # :nodoc:
             child.pretty_print(pp)
             pp.breakable
-            pp.text "child '#{relation[:roles].to_a.join(", ")}' of "
+            pp.text "child '#{relation[:roles].to_a.join(', ')}' of "
             parent.pretty_print(pp)
             pp.breakable
             pp.breakable
@@ -918,7 +948,10 @@ module Roby
             end
             explanation.pretty_print(pp, context_task: child)
         end
-        def backtrace; [] end
+
+        def backtrace
+            []
+        end
 
         # True if +obj+ is involved in this exception
         def involved_plan_object?(obj)

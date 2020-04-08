@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module DRoby
         # The object manager manages the IDs of an object among known peers
@@ -23,9 +25,9 @@ module Roby
             end
 
             def clear
-                @siblings_by_peer = Hash.new { |h, k| h[k] = Hash.new }
-                @siblings_by_local_object_id = Hash.new { |h, k| h[k] = Hash.new }
-                @models_by_name = Hash.new
+                @siblings_by_peer = Hash.new { |h, k| h[k] = {} }
+                @siblings_by_local_object_id = Hash.new { |h, k| h[k] = {} }
+                @models_by_name = {}
             end
 
             def find_by_id(peer_id, droby_id)
@@ -86,7 +88,7 @@ module Roby
                         siblings
                     else Hash[local_id => object.droby_id]
                     end
-                else Hash.new
+                else {}
                 end
             end
 
@@ -104,8 +106,8 @@ module Roby
                 siblings.each do |peer_id, droby_id|
                     siblings_by_peer[peer_id][droby_id] = local_object
                 end
-                siblings_by_local_object_id[local_object_id].
-                    merge!(siblings)
+                siblings_by_local_object_id[local_object_id]
+                    .merge!(siblings)
             end
 
             # Deregisters siblings of a known local object
@@ -119,8 +121,12 @@ module Roby
                 siblings.each do |peer_id, droby_id|
                     if actual_droby_id = object_siblings.delete(peer_id)
                         if actual_droby_id != droby_id
-                            raise ArgumentError, "DRobyID of #{local_object} on #{peer_id} mismatches between provided #{droby_id} and registered #{actual_droby_id}"
+                            raise ArgumentError,
+                                  "DRobyID of #{local_object} on #{peer_id} mismatches "\
+                                  "between provided #{droby_id} and registered "\
+                                  "#{actual_droby_id}"
                         end
+
                         siblings_by_peer[peer_id].delete(droby_id)
                     end
                 end
@@ -133,7 +139,7 @@ module Roby
             #
             # This registers the mapping for the local process (local_id =>
             # local_object.droby_id), along with known siblings if provided
-            def register_object(local_object, known_siblings = Hash.new)
+            def register_object(local_object, known_siblings = {})
                 register_siblings(local_object, local_id => local_object.droby_id)
                 register_siblings(local_object, known_siblings)
             end
@@ -179,7 +185,7 @@ module Roby
                 pp.text "Object manager with local ID=#{local_id}"
                 pp.nest(2) do
                     pp.breakable
-                    pp.text 'Registered objects'
+                    pp.text "Registered objects"
                     siblings_by_peer.each do |peer_id, siblings|
                         siblings.each do |peer_object_id, object|
                             pp.breakable
@@ -200,4 +206,3 @@ module Roby
         end
     end
 end
-

@@ -1,5 +1,7 @@
-require 'roby/app/scripts'
-require 'roby/interface/async'
+# frozen_string_literal: true
+
+require "roby/app/scripts"
+require "roby/interface/async"
 
 def display_notifications(interface)
     while !interface.closed?

@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 module Roby
     module DRoby
@@ -17,7 +19,10 @@ module Roby
                 module Roby
                     module DRoby
                         module V5
-                            DRobyConstantAbsoluteResolutionTest = 'invalid'
+                            # We need this constant to be wrongly named,
+                            # it is meant to exercise the code that validates
+                            # the result of local constant unmarshalling
+                            DRobyConstantAbsoluteResolutionTest = "invalid" # rubocop:disable Naming/ConstantName
                         end
                     end
                 end
@@ -25,7 +30,7 @@ module Roby
 
             describe DRobyConstant do
                 before do
-                    @peer = flexmock(known_siblings_for: Hash.new)
+                    @peer = flexmock(known_siblings_for: {})
                 end
 
                 it "dumps and resolves a class by name" do
@@ -43,7 +48,7 @@ module Roby
                 it "also provides support for constant objects to be identifiable" do
                     marshalled = droby_local_marshaller.dump(DRobyConstantIdentifiable)
                     droby_local_marshaller.register_object(DRobyConstantIdentifiable)
-                    droby_id   = droby_local_marshaller.dump(DRobyConstantIdentifiable)
+                    droby_id = droby_local_marshaller.dump(DRobyConstantIdentifiable)
                     assert_kind_of RemoteDRobyID, droby_id
                     droby_remote_marshaller.local_object(marshalled)
                     assert_same DRobyConstantIdentifiable, droby_remote_marshaller.local_object(droby_id)
@@ -93,4 +98,3 @@ module Roby
         end
     end
 end
-

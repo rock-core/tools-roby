@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     # Event objects are the objects representing a particular emission in the
     # event propagation process. They represent the common propagation
@@ -94,10 +96,16 @@ module Roby
             end
         end
 
-        def name; model.name end
-        def model; self.class end
+        def name
+            model.name
+        end
+
+        def model
+            self.class
+        end
+
         def inspect # :nodoc:
-            "#<#{model.to_s}:0x#{address.to_s(16)} generator=#{generator} model=#{model}"
+            "#<#{model}:0x#{address.to_s(16)} generator=#{generator} model=#{model}"
         end
 
         # Returns an event generator which will be emitted once +time+ seconds
@@ -107,7 +115,7 @@ module Roby
         end
 
         def to_s # :nodoc:
-            "[#{Roby.format_time(time)} @#{propagation_id}] #{self.class.to_s}: #{context}"
+            "[#{Roby.format_time(time)} @#{propagation_id}] #{self.class}: #{context}"
         end
 
         def pretty_print(pp, context: true, context_task: nil) # :nodoc:

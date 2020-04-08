@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module DRoby
         # Plan object that has been rebuilt from an log event stream
@@ -51,13 +53,13 @@ module Roby
                 @finalized_events = Set.new
                 @garbaged_tasks = Set.new
                 @garbaged_events = Set.new
-                @called_generators = Array.new
-                @emitted_events = Array.new
-                @propagated_events = Array.new
-                @failed_emissions = Array.new
-                @failed_to_start = Array.new
-                @propagated_exceptions = Array.new
-                @scheduler_states = Array.new
+                @called_generators = []
+                @emitted_events = []
+                @propagated_events = []
+                @failed_emissions = []
+                @failed_to_start = []
+                @propagated_exceptions = []
+                @scheduler_states = []
             end
 
             def merge(plan)

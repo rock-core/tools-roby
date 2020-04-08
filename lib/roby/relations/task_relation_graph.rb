@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Relations
         # Subclass of Relations::Space for tasks.
@@ -17,4 +19,3 @@ module Roby
         end
     end
 end
-

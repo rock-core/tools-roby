@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Actions
         module Models
@@ -32,10 +34,6 @@ module Roby
                     @action_interface_model = action_interface_model
                 end
 
-                def to_s
-                    "#{super} of #{action_interface_model}"
-                end
-
                 def ==(other)
                     other.kind_of?(self.class) &&
                         other.action_interface_model == action_interface_model &&
@@ -43,18 +41,18 @@ module Roby
                 end
 
                 # Instanciate this action on the given plan
-                def instanciate(plan, arguments = Hash.new)
+                def instanciate(plan, arguments = {})
                     action_interface = action_interface_model.new(plan)
 
                     if self.arguments.empty?
                         if !arguments.empty?
                             raise ArgumentError, "#{name} expects no arguments, but #{arguments.size} are given"
                         end
+
                         result = action_interface.send(name).as_plan
                     else
-                        default_arguments = self.arguments.inject(Hash.new) do |h, arg|
+                        default_arguments = self.arguments.each_with_object({}) do |arg, h|
                             h[arg.name] = arg.default
-                            h
                         end
                         arguments = Kernel.validate_options arguments, default_arguments
                         self.arguments.each do |arg|
@@ -68,9 +66,9 @@ module Roby
                     unless result.fullfills?(returned_task_type)
                         raise InvalidReturnedType.new(
                             action_interface_model, name, result, returned_task_type),
-                            "method '#{name}' of #{action_interface_model} was expected "\
-                            "to return a task of type #{returned_task_type}, but "\
-                            "returned #{result}"
+                              "method '#{name}' of #{action_interface_model} was expected "\
+                              "to return a task of type #{returned_task_type}, but "\
+                              "returned #{result}"
                     end
 
                     # Make the planning task inherit the model/argument flags
@@ -101,7 +99,7 @@ module Roby
                 end
 
                 # Returns the plan pattern that will deploy this action on the plan
-                def plan_pattern(arguments = Hash.new)
+                def plan_pattern(arguments = {})
                     job_id, arguments = Kernel.filter_options arguments, :job_id
 
                     planner = Roby::Actions::Task.new(

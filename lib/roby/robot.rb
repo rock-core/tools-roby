@@ -1,25 +1,27 @@
-require 'utilrb/logger'
+# frozen_string_literal: true
+
+require "utilrb/logger"
 
 module Robot
     def self.log_formatter(severity, time, progname, msg)
         Roby.app.notify(progname, severity.to_s, msg)
         Roby.logger.formatter.call(severity, time, progname, msg)
     end
-    extend Logger::Root('Robot', Logger::INFO, &method(:log_formatter))
+    extend Logger::Root("Robot", Logger::INFO, &method(:log_formatter))
 
     # @deprecated use Roby.app.action_from_model instead
     def self.action_from_model(model)
-        return Roby.app.action_from_model(model)
+        Roby.app.action_from_model(model)
     end
 
     # @deprecated use Roby.app.find_action_from_name instead
     def self.find_action_from_name(name)
-        return Roby.app.find_action_from_name(name)
+        Roby.app.find_action_from_name(name)
     end
 
     # @deprecated use Roby.app.action_from_name instead
     def self.action_from_name(name)
-        return Roby.app.action_from_name(name)
+        Roby.app.action_from_name(name)
     end
 
     # @deprecated use Roby.app.prepare_action instead
@@ -27,7 +29,8 @@ module Robot
         if plan != Roby.app.plan
             raise ArgumentError, "cannot call prepare_action with any other plan than Roby.app.plan"
         end
-        return Roby.app.prepare_action(name, **arguments)
+
+        Roby.app.prepare_action(name, **arguments)
     end
 
     # Implements that one can call
@@ -52,7 +55,7 @@ module Robot
         options = args.first || {}
         task, planner = Roby.app.prepare_action(name, job_id: Roby::Interface::Job.allocate_job_id, **options)
         task.plan.add_mission_task(task)
-        return task, planner
+        [task, planner]
     end
 
     # Declare the robot type of the robot configuration being loaded

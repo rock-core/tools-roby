@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Coordination
         class ActionScript < Actions
@@ -11,7 +13,7 @@ module Roby
             # The current instruction
             attr_reader :current_instruction
 
-            def initialize(root_task, arguments = Hash.new)
+            def initialize(root_task, arguments = {})
                 super
                 prepare
 
@@ -22,4 +24,3 @@ module Roby
         end
     end
 end
-

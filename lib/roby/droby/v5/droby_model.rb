@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module DRoby
         module V5
@@ -20,7 +22,7 @@ module Roby
                     elsif !supermodel
                         raise NoLocalObject,
                               "#{name}, at the root of a model hierarchy, was expected "\
-                              'to be explicitely registered but is not'
+                              "to be explicitely registered but is not"
                     else
                         create_new_proxy_model(peer)
                     end
@@ -75,5 +77,3 @@ module Roby
         end
     end
 end
-
-

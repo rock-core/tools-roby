@@ -1,4 +1,6 @@
-require 'roby/gui/relations_view/relations_ui'
+# frozen_string_literal: true
+
+require "roby/gui/relations_view/relations_ui"
 
 module Ui
     # Manage relations using a two-level tree structure. The relation
@@ -12,10 +14,15 @@ module Ui
 
         TASK_ROOT_INDEX  = 0
         EVENT_ROOT_INDEX = 1
-        CATEGORIES = ['Task structure']
+        CATEGORIES = ["Task structure"].freeze
 
-        def event_root_index; createIndex(EVENT_ROOT_INDEX, 0, -1) end
-        def task_root_index;  createIndex(TASK_ROOT_INDEX, 0, -1) end
+        def event_root_index
+            createIndex(EVENT_ROOT_INDEX, 0, -1)
+        end
+
+        def task_root_index
+            createIndex(TASK_ROOT_INDEX, 0, -1)
+        end
 
         attr_reader :relations
         attr_reader :display
@@ -23,10 +30,10 @@ module Ui
             super()
 
             @current_color = 0
-            @display   = display
+            @display = display
             @relations = []
 
-            relations[TASK_ROOT_INDEX]  = Roby::TaskStructure.relations.to_a
+            relations[TASK_ROOT_INDEX] = Roby::TaskStructure.relations.to_a
 
             RelationConfigModel.detect_qtruby_behaviour(createIndex(0, 0, 0))
         end
@@ -61,21 +68,42 @@ module Ui
 
         def parent(index)
             category = RelationConfigModel.category_from_index(index)
-            if !index.valid? || category == -1 then Qt::ModelIndex.new
-            else createIndex(category, 0, -1) end
+            if !index.valid? || category == -1
+                Qt::ModelIndex.new
+            else
+                createIndex(category, 0, -1)
+            end
         end
-        def columnCount(parent); 2 end
-        def hasChildren(parent); !parent.valid? || RelationConfigModel.category_from_index(parent) == -1 end
+
+        def columnCount(parent)
+            2
+        end
+
+        def hasChildren(parent)
+            !parent.valid? || RelationConfigModel.category_from_index(parent) == -1
+        end
+
         def rowCount(parent)
-            if !parent.valid? then relations.size
-            else relations[parent.row].size end
+            if parent.valid?
+                relations[parent.row].size
+            else
+                relations.size
+            end
         end
+
         def headerData(section, orientation, role)
             return Qt::Variant.new unless role == Qt::DisplayRole && orientation == Qt::Horizontal
-            value = if section == 0 then "Relation"
-                    else "Color" end
+
+            value =
+                if section == 0
+                    "Relation"
+                else
+                    "Color"
+                end
+
             Qt::Variant.new(value)
         end
+
         def data(index, role)
             return Qt::Variant.new unless index.valid?
 
@@ -92,7 +120,7 @@ module Ui
                             else Qt::Unchecked.to_i
                             end
                         elsif index.column == COL_NAME && role == Qt::DisplayRole
-                            relation.name.gsub(/.*Structure::/, '')
+                            relation.name.gsub(/.*Structure::/, "")
                         elsif index.column == COL_COLOR && role == Qt::DisplayRole
                             display.relation_color(relation)
                         end
@@ -102,6 +130,7 @@ module Ui
             else Qt::Variant.new
             end
         end
+
         def setData(index, value, role)
             category = RelationConfigModel.category_from_index(index)
             relation = relations[category][index.row]
@@ -120,9 +149,10 @@ module Ui
             display.update
             emit dataChanged(index, index)
         end
+
         def flags(index)
-            if !index.valid? || RelationConfigModel.category_from_index(index) == -1 then Qt::ItemIsEnabled 
-            else 
+            if !index.valid? || RelationConfigModel.category_from_index(index) == -1 then Qt::ItemIsEnabled
+            else
                 flags = Qt::ItemIsSelectable | Qt::ItemIsTristate | Qt::ItemIsEnabled | Qt::ItemIsUserCheckable
                 if index.column == 1
                     flags = Qt::ItemIsEditable | flags
@@ -140,6 +170,7 @@ module Ui
 
             nil
         end
+
         def paint(painter, option, index)
             if index.column == 1 && RelationConfigModel.category_from_index(index) >= 0
                 color = index.model.data(index, Qt::DisplayRole).to_string
@@ -156,7 +187,7 @@ module Ui
     end
 
     class LayoutMethodModel < Qt::AbstractListModel
-        METHODS    = ["Auto", "dot [rankdir=LR]", "dot [rankdir=TB]", "circo", "neato [overlap=false]", "neato [overlap=false,mode=hier]", "twopi", "fdp"]
+        METHODS = ["Auto", "dot [rankdir=LR]", "dot [rankdir=TB]", "circo", "neato [overlap=false]", "neato [overlap=false,mode=hier]", "twopi", "fdp"].freeze
         attr_reader :display, :combo
         def initialize(display, combo)
             super()
@@ -165,14 +196,17 @@ module Ui
 
         def rowCount(parent)
             return 0 if parent.valid?
-            return METHODS.size
+
+            METHODS.size
         end
+
         def data(index, role)
             return Qt::Variant.new unless role == Qt::DisplayRole && index.valid?
+
             Qt::Variant.new(METHODS[index.row])
         end
-        def layout_method(index)
-        end
+
+        def layout_method(index); end
 
         def flags(index)
             Qt::ItemIsSelectable | Qt::ItemIsEnabled
@@ -186,7 +220,7 @@ module Ui
                 end
             display.update
         end
-        slots 'selected()'
+        slots "selected()"
     end
 
     class RelationsConfig
@@ -210,7 +244,7 @@ module Ui
             super(widget)
 
             @display = display
-            @model    = RelationConfigModel.new(display)
+            @model = RelationConfigModel.new(display)
             @delegate = RelationDelegate.new
             relations.set_item_delegate @delegate
             relations.header.resize_mode = Qt::HeaderView::Stretch
@@ -223,23 +257,23 @@ module Ui
             layoutMethod.model = @layout_model
 
             showOwnership.checked = display.show_ownership
-            showOwnership.connect(SIGNAL('clicked(bool)')) do |state|
+            showOwnership.connect(SIGNAL("clicked(bool)")) do |state|
                 display.show_ownership = state
                 display.update
             end
             showFinalized.checked = !display.hide_finalized
-            showFinalized.connect(SIGNAL('clicked(bool)')) do |state|
+            showFinalized.connect(SIGNAL("clicked(bool)")) do |state|
                 display.hide_finalized = !state
                 display.update
             end
             removedPrefixes.setText(display.removed_prefixes.to_a.join(","))
-            removedPrefixes.connect(SIGNAL('textChanged(QString)')) do |removed_prefixes|
-                display.removed_prefixes = removed_prefixes.split(',')
+            removedPrefixes.connect(SIGNAL("textChanged(QString)")) do |removed_prefixes|
+                display.removed_prefixes = removed_prefixes.split(",")
                 delayed_update
             end
             hiddenLabels.setText(display.hidden_labels.to_a.join(","))
-            hiddenLabels.connect(SIGNAL('textChanged(QString)')) do |hidden_labels|
-                display.hidden_labels = hidden_labels.split(',')
+            hiddenLabels.connect(SIGNAL("textChanged(QString)")) do |hidden_labels|
+                display.hidden_labels = hidden_labels.split(",")
                 delayed_update
             end
             if display.display_policy == :explicit
@@ -250,22 +284,22 @@ module Ui
                 displayEmittersAndParents.checked = true
             end
 
-            displayExplicit.connect(SIGNAL('clicked()')) do
+            displayExplicit.connect(SIGNAL("clicked()")) do
                 display.display_policy = :explicit
                 delayed_update
             end
-            displayEmitters.connect(SIGNAL('clicked()')) do
+            displayEmitters.connect(SIGNAL("clicked()")) do
                 display.display_policy = :emitters
                 delayed_update
             end
-            displayEmittersAndParents.connect(SIGNAL('clicked()')) do
+            displayEmittersAndParents.connect(SIGNAL("clicked()")) do
                 display.display_policy = :emitters_and_parents
                 delayed_update
             end
 
             @delayed_update_timer = Qt::Timer.new(display)
             @delayed_update_timer.setSingleShot(true)
-            @delayed_update_timer.connect(SIGNAL('timeout()')) do
+            @delayed_update_timer.connect(SIGNAL("timeout()")) do
                 display.update
             end
         end
@@ -289,4 +323,3 @@ if $0 == __FILE__
     w.show
     a.exec
 end
-

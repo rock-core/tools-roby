@@ -1,5 +1,7 @@
-require 'roby/test/self'
-require 'roby/tasks/simple'
+# frozen_string_literal: true
+
+require "roby/test/self"
+require "roby/tasks/simple"
 
 describe Roby::Coordination::Script do
     attr_reader :script
@@ -12,7 +14,7 @@ describe Roby::Coordination::Script do
             attr_reader :instructions
 
             def initialize(plan)
-                @instructions = Array.new
+                @instructions = []
                 plan.add(@root_task = Roby::Tasks::Simple.new)
             end
         end
@@ -75,4 +77,3 @@ describe Roby::Coordination::Script do
         end
     end
 end
-

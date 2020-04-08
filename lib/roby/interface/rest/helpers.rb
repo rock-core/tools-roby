@@ -8,7 +8,7 @@ module Roby
                 #
                 # @return [Roby::Interface]
                 def interface
-                    env.fetch('roby.interface')
+                    env.fetch("roby.interface")
                 end
 
                 # The underlying Roby app
@@ -27,7 +27,7 @@ module Roby
 
                 # A permanent storage hash
                 def roby_storage
-                    env.fetch('roby.storage')
+                    env.fetch("roby.storage")
                 end
 
                 # The underlying Roby execution engine
@@ -46,8 +46,8 @@ module Roby
                 def execute(&block)
                     return super unless block_given?
 
-                    Roby.warn_deprecated 'Helpers#execute is deprecated, '\
-                                         'use #roby_execute instead'
+                    Roby.warn_deprecated "Helpers#execute is deprecated, "\
+                                         "use #roby_execute instead"
                     roby_execute(&block)
                 end
             end

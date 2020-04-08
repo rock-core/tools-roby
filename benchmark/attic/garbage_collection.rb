@@ -1,6 +1,8 @@
 #! /usr/bin/env ruby
-require 'roby'
-require 'benchmark'
+# frozen_string_literal: true
+
+require "roby"
+require "benchmark"
 include Roby
 
 TASK_COUNT  = 100
@@ -45,4 +47,3 @@ Benchmark.bm(15) do |bm|
     bm.report("unneeded_tasks")  { plan.unneeded_tasks }
     bm.report("garbage_collect") { plan.garbage_collect }
 end
-

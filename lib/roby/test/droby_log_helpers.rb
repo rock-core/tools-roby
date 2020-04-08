@@ -1,6 +1,8 @@
-require 'roby/droby/logfile'
-require 'roby/droby/logfile/writer'
-require 'roby/droby/event_logger'
+# frozen_string_literal: true
+
+require "roby/droby/logfile"
+require "roby/droby/logfile/writer"
+require "roby/droby/event_logger"
 
 module Roby
     module Test
@@ -24,13 +26,13 @@ module Roby
             #    @yieldparam [DRoby::EventLogger]
             #    @return [String] the file's full path
             def droby_create_event_log(path)
-                unless path.start_with?('/')
+                unless path.start_with?("/")
                     dir = make_tmpdir
                     path = File.join(dir, path)
                 end
 
                 @__event_log_path = path
-                io = File.open(path, 'w')
+                io = File.open(path, "w")
                 logfile = DRoby::Logfile::Writer.new(io)
                 @__event_logger = DRoby::EventLogger.new(logfile)
                 @__cycle_start = Time.now

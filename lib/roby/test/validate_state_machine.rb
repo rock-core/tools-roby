@@ -73,7 +73,7 @@ module Roby
             # @param [Numeric] timeout
             def assert_transitions_to_state(state_name, timeout: 5)
                 state_name = state_name.to_str
-                state_name = "#{state_name}_state" unless state_name.end_with?('_state')
+                state_name = "#{state_name}_state" unless state_name.end_with?("_state")
 
                 done = false
                 @state_machines.each do |m|
@@ -94,16 +94,16 @@ module Roby
             def find_through_method_missing(m, args)
                 MetaRuby::DSLs.find_through_method_missing(
                     current_state_task, m, args,
-                    '_event' => :find_event,
-                    '_child' => :find_child_from_role
+                    "_event" => :find_event,
+                    "_child" => :find_child_from_role
                 ) || super
             end
 
             def has_through_method_missing?(m)
                 MetaRuby::DSLs.has_through_method_missing?(
                     current_state_task, m,
-                    '_event' => :has_event?,
-                    '_child' => :has_role?
+                    "_event" => :has_event?,
+                    "_child" => :has_role?
                 ) || super
             end
 

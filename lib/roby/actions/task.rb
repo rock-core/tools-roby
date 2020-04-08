@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Actions
         # A task that calls an action interface to generate a plan
@@ -12,16 +14,19 @@ module Roby
             # @return [Transaction]
             attr_reader :transaction
 
+            # The planner result. It is either an exception or a task object
+            attr_reader :result
+
             # The action itself
             # @return [Models::Action]
             argument :action_model
             # The arguments for the action method
             # @return [Hash]
-            argument :action_arguments, default: Hash.new
+            argument :action_arguments, default: {}
 
             # The model of the roby task that is going to represent the action
             # in the plan
-            # @return [Model<Roby::Task>] 
+            # @return [Model<Roby::Task>]
             def planned_model
                 action_model.returned_task_type
             end
@@ -31,9 +36,9 @@ module Roby
             def action_interface_model
                 action_model.action_interface_model
             end
-                
+
             def job_name
-                formatted_arguments = (action_arguments || Hash.new).map do |k, v|
+                formatted_arguments = (action_arguments || {}).map do |k, v|
                     "#{k} => #{v}"
                 end.join(", ")
                 "#{action_model}(#{formatted_arguments})"
@@ -42,7 +47,7 @@ module Roby
             def to_s
                 if action_model
                     "#{super}[#{action_interface_model}:#{action_model}](#{action_arguments}) -> #{action_model.returned_type}"
-                else "#{super}"
+                else super.to_s
                 end
             end
 
@@ -58,12 +63,6 @@ module Roby
                     task
                 end
             end
-
-            # The transaction in which we build the new plan. It gets committed on
-            # success.
-            attr_reader :transaction
-            # The planner result. It is either an exception or a task object
-            attr_reader :result
 
             # Starts planning
             event :start do |context|
@@ -111,4 +110,3 @@ module Roby
         end
     end
 end
-

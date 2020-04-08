@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 
 module Roby
     module Test
@@ -6,9 +7,17 @@ module Roby
             argument :x
             argument :y
 
-            def speed; State.goto_speed end
-            def x; arguments[:x] end
-            def y; arguments[:y] end
+            def speed
+                State.goto_speed
+            end
+
+            def x
+                arguments[:x]
+            end
+
+            def y
+                arguments[:y]
+            end
 
             poll do
                 dx = x - State.pos.x
@@ -34,4 +43,3 @@ module Roby
         end
     end
 end
-

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Coordination
         extend Logger::Forward
@@ -71,7 +73,7 @@ module Roby
                     script_task = instance_for(model_task)
                 end
 
-                return script_task, model_task
+                [script_task, model_task]
             end
 
             # Resolve the given event object into a Coordination::Event and a
@@ -89,9 +91,9 @@ module Roby
                     end
                 end
                 _, model_task = resolve_task(event.task)
-                model_event  = model_task.find_event(event.symbol)
+                model_event = model_task.find_event(event.symbol)
                 script_event = instance_for(model_event)
-                return script_event, model_event
+                [script_event, model_event]
             end
 
             # Start the given task at that point in the script, and wait for it
@@ -137,7 +139,7 @@ module Roby
             # @example wait first_child.start_event, after: Time.at(0)
             #   Waits for start event to be emitted. Will return immediately if
             #   it has already been emitted.
-            def wait(event, options = Hash.new)
+            def wait(event, options = {})
                 event, model_event = resolve_event(event)
                 model.wait(model_event, options)
                 event
@@ -153,7 +155,7 @@ module Roby
             # @deprecated
             #
             # Use wait(event after: Time.at(0)) instead
-            def wait_any(event, options = Hash.new)
+            def wait_any(event, options = {})
                 wait(event, options.merge(after: Time.at(0)))
             end
 
@@ -204,7 +206,7 @@ module Roby
             #   be emitted when the timeout is reached. Otherwise, a
             #   Script::TimedOut exception is generated with the script's
             #   supporting task as origin
-            def timeout(seconds, options = Hash.new, &block)
+            def timeout(seconds, options = {}, &block)
                 timeout = timeout_start(seconds, options)
                 parse(&block)
                 timeout_stop(timeout)
@@ -213,8 +215,8 @@ module Roby
             # Start a timeout operation. Usually not used directly
             #
             # @see timeout
-            def timeout_start(seconds, options = Hash.new)
-                options, timeout_options  = Kernel.filter_options options, emit: nil
+            def timeout_start(seconds, options = {})
+                options, timeout_options = Kernel.filter_options options, emit: nil
                 if event = options[:emit]
                     _, model_event = resolve_event(event)
                 end
@@ -253,7 +255,7 @@ module Roby
     end
 
     class Task
-        Models::Task.inherited_attribute(:script, :scripts) { Array.new }
+        Models::Task.inherited_attribute(:script, :scripts) { [] }
 
         event :poll_transition
 
@@ -283,7 +285,7 @@ module Roby
 
         # Adds a task script that is going to be executed while this task
         # instance runs.
-        def script(options = Hash.new, &block)
+        def script(options = {}, &block)
             execute do |task|
                 script = model.create_script(task, &block)
                 script.prepare

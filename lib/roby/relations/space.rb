@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Relations
         # A relation space is a module which handles a list of relations
@@ -31,8 +33,8 @@ module Roby
             attr_accessor :default_graph_class
 
             def initialize # :nodoc:
-                @relations = Array.new
-                @applied   = Array.new
+                @relations = []
+                @applied   = []
                 @default_graph_class = Relations::Graph
                 super
             end
@@ -42,11 +44,21 @@ module Roby
                     if k
                         if k.kind_of?(Class)
                             known_relations = h.each_key.find_all { |rel| rel.kind_of?(Class) }
-                            raise ArgumentError, "#{k} is not a known relation (known relations are #{known_relations.map { |o| "#{o.name}" }.join(", ")})"
+                                               .map { |o| o.name.to_s }.join(", ")
+                            raise ArgumentError,
+                                  "#{k} is not a known relation (known relations "\
+                                  "are #{known_relations})"
                         elsif known_graph = h.fetch(k.class, nil)
-                            raise ArgumentError, "it seems that you're trying to use the relation API to access a graph that is not part of this object's current plan. Given graph was #{k.object_id}, and the current graph for #{k.class} is #{known_graph.object_id}"
+                            raise ArgumentError,
+                                  "it seems that you're trying to use the relation API "\
+                                  "to access a graph that is not part of this "\
+                                  "object's current plan. Given graph was "\
+                                  "#{k.object_id}, and the current graph for "\
+                                  "#{k.class} is #{known_graph.object_id}"
                         else
-                            raise ArgumentError, "graph object #{known_graph} is not a known relation graph"
+                            raise ArgumentError,
+                                  "graph object #{known_graph} is not a known "\
+                                  "relation graph"
                         end
                     end
                 end
@@ -98,6 +110,7 @@ module Roby
             # Yields the relations that are defined on this space
             def each_relation
                 return enum_for(__method__) if !block_given?
+
                 relations.each do |rel|
                     yield(rel)
                 end
@@ -108,6 +121,7 @@ module Roby
             # subset of no other relations).
             def each_root_relation
                 return enum_for(__method__) if !block_given?
+
                 relations.each do |rel|
                     yield(rel) if !rel.parent
                 end
@@ -237,16 +251,16 @@ module Roby
                 end
 
                 if parent_name
-                    synthetized_methods.class_eval <<-EOD,  __FILE__, __LINE__ + 1
+                    synthetized_methods.class_eval <<-DEF, __FILE__, __LINE__ + 1
                     def each_#{parent_name}(&iterator)
                         return enum_for(__method__) if !iterator
                         self.each_parent_object(__r_#{relation_name}__, &iterator)
                     end
-                    EOD
+                    DEF
                 end
 
                 if noinfo
-                    synthetized_methods.class_eval <<-EOD,  __FILE__, __LINE__ + 1
+                    synthetized_methods.class_eval <<-DEF, __FILE__, __LINE__ + 1
                     def each_#{child_name}(&iterator)
                         return enum_for(__method__) if !iterator
                         each_child_object(__r_#{relation_name}__, &iterator)
@@ -254,9 +268,9 @@ module Roby
                     def find_#{child_name}(&block)
                         each_child_object(__r_#{relation_name}__).find(&block)
                     end
-                    EOD
+                    DEF
                 else
-                    synthetized_methods.class_eval <<-EOD,  __FILE__, __LINE__ + 1
+                    synthetized_methods.class_eval <<-DEF, __FILE__, __LINE__ + 1
                     def enum_#{child_name}
                         Roby.warn_deprecated "enum_#{child_name} is deprecated, use each_#{child_name} instead"
                         each_#{child_name}
@@ -281,10 +295,10 @@ module Roby
                         end
                         nil
                     end
-                    EOD
+                    DEF
                 end
 
-                synthetized_methods.class_eval <<-EOD,  __FILE__, __LINE__ + 1
+                synthetized_methods.class_eval <<-DEF, __FILE__, __LINE__ + 1
                 def add_#{child_name}(to, info = nil)
                     add_child_object(to, __r_#{relation_name}__, info)
                     self
@@ -319,7 +333,7 @@ module Roby
                 end
                 def updated_#{child_name}(child, info)
                 end
-                EOD
+                DEF
 
                 if single_child
                     synthetized_methods.class_eval do
@@ -341,7 +355,7 @@ module Roby
                             current_object = object.instance_variable_get single_child_accessor
                             if current_object == expected_object
                                 object.instance_variable_set single_child_accessor,
-                                    each_out_neighbour(object).first
+                                                             each_out_neighbour(object).first
                             end
                         end
 
@@ -377,4 +391,3 @@ module Roby
         end
     end
 end
-

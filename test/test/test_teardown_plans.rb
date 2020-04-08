@@ -1,10 +1,12 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 module Roby
     module Test
         describe TeardownPlans do
-            describe '#teardown_registered_plans' do
-                it 'warns about tasks that block the plan after teardown_warn seconds' do
+            describe "#teardown_registered_plans" do
+                it "warns about tasks that block the plan after teardown_warn seconds" do
                     task_m = Roby::Task.new_submodel do
                         event(:stop) { |event| }
                     end

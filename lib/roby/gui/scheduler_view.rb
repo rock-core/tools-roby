@@ -1,10 +1,12 @@
-require 'erb'
-require 'qtwebkit'
+# frozen_string_literal: true
+
+require "erb"
+require "qtwebkit"
 module Roby
     module GUI
         class SchedulerView < Qt::WebView
             def ressources_dir
-                File.expand_path(File.dirname(__FILE__))
+                File.expand_path(__dir__)
             end
 
             def scheduler_view_css
@@ -20,7 +22,7 @@ module Roby
                     template = File.read(scheduler_view_rhtml)
                     @erb = ERB.new(template)
                 end
-                return @erb
+                @erb
             end
 
             def format_msg_string(msg, *args)

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Coordination
         # A way to organize response to faults (a.k.a. Roby exceptions)
@@ -43,13 +45,13 @@ module Roby
         # occur for a certain length of time)
         #
         # And can then be attached to plans within an action interface:
-        #  
+        #
         # @example enable a fault response table globally
         #   use_fault_response_table MyTable
         #
         # @example enable this fault response table whenever a task matching this matcher
         #   use_fault_response_table MyTable, when: MyTaskModel.mission
-        # 
+        #
         # @example enable this fault response table when this action is running
         #   use_fault_response_table MyTable, when: an_action
         #
@@ -63,7 +65,7 @@ module Roby
             # @return [{Symbol=>Object}] assigned table arguments
             attr_reader :arguments
 
-            def initialize(plan, arguments = Hash.new)
+            def initialize(plan, arguments = {})
                 # Argument massaging must be done before we call super(), as
                 # super() will attach the table on the plan
                 @arguments = model.validate_arguments(arguments)
@@ -79,8 +81,7 @@ module Roby
             #
             # @param [Plan] plan
             # @return [void]
-            def attach_to(plan)
-            end
+            def attach_to(plan); end
 
             # Returns the handlers that are defined for a particular exception
             #
@@ -100,11 +101,9 @@ module Roby
             # hook by defining a module that defines removed! and prepend it in
             # the FaultResponseTable class. Don't forget to call super in the
             # hook
-            #.
+            # .
             # @return [void]
-            def removed!
-            end
+            def removed!; end
         end
     end
 end
-

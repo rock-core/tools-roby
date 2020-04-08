@@ -1,10 +1,12 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 describe Robot do
     attr_reader :interface_m
     before do
         @interface_m = Roby::Actions::Interface.new_submodel do
-            describe 'test_action'
+            describe "test_action"
             def test_action(**options)
                 TestAction.new(**options)
             end
@@ -39,4 +41,3 @@ describe Robot do
         end
     end
 end
-

@@ -330,7 +330,7 @@ module Roby
             end
 
             def self.format_propagation_info(propagation_info, indent: 0)
-                PP.pp(propagation_info, ''.dup).split("\n").join("\n" + ' ' * indent)
+                PP.pp(propagation_info, "".dup).split("\n").join("\n" + " " * indent)
             end
 
             class Unmet < Minitest::Assertion
@@ -353,7 +353,7 @@ module Roby
                         pp.breakable
                         exp.pretty_print(pp)
                         if explanation
-                            pp.text ', '
+                            pp.text ", "
                             exp.format_unachievable_explanation(pp, explanation)
                         end
                     end
@@ -365,7 +365,7 @@ module Roby
                 end
 
                 def to_s
-                    PP.pp(self, ''.dup, 1).strip
+                    PP.pp(self, "".dup, 1).strip
                 end
             end
 
@@ -414,7 +414,7 @@ module Roby
                                             Roby.format_exception(sub_e).join("\n    ")
                                 backtrace = Roby.format_backtrace(sub_e)
                                 unless backtrace.empty?
-                                    formatted += '    ' + backtrace.join("\n    ")
+                                    formatted += "    " + backtrace.join("\n    ")
                                 end
                                 formatted
                             end.join("\n  ")
@@ -732,7 +732,7 @@ module Roby
                 end
 
                 def format_unachievable_explanation(pp, explanation)
-                    pp.text 'but it did not because of '
+                    pp.text "but it did not because of "
                     explanation.pretty_print(pp)
                 end
             end

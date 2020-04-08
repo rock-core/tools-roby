@@ -1,11 +1,13 @@
+# frozen_string_literal: true
+
 module Roby
     module Test
         class << self
             def sampling(engine, duration, period, *fields)
-                Test.info "starting sampling #{fields.join(", ")} every #{period}s for #{duration}s"
+                Test.info "starting sampling #{fields.join(', ')} every #{period}s for #{duration}s"
 
-                samples = Array.new
-                fields.map! { |n| n.to_sym }
+                samples = []
+                fields.map!(&:to_sym)
                 if fields.include?(:dt)
                     raise ArgumentError, "dt is reserved by #sampling"
                 end
@@ -14,7 +16,7 @@ module Roby
                     fields << :t
                 end
                 fields << :dt
-                
+
                 sample_type = Struct.new(*fields)
 
                 start = Time.now
@@ -31,7 +33,7 @@ module Roby
                                 new_sample = sample_type.new(*result)
 
                                 unless samples.empty?
-                                    new_sample.dt = new_sample.t- samples.last.t
+                                    new_sample.dt = new_sample.t - samples.last.t
                                 end
                                 samples << new_sample
 
@@ -73,8 +75,9 @@ module Roby
             # samples. Each element is a Stats object
             def stats(samples, spec)
                 return if samples.empty?
+
                 type = samples.first.class
-                spec = spec.inject(Hash.new) do |h, (k, v)|
+                spec = spec.inject({}) do |h, (k, v)|
                     spec[k.to_sym] = v.to_sym
                     spec
                 end
@@ -82,9 +85,9 @@ module Roby
                 spec[:dt] = :absolute
 
                 # Initialize the result value
-                fields = type.members.
-                    find_all { |n| spec[n.to_sym] != :exclude }.
-                    map { |n| n.to_sym }
+                fields = type.members
+                    .find_all { |n| spec[n.to_sym] != :exclude }
+                    .map(&:to_sym)
                 result = Struct.new(*fields).new
                 fields.each do |name|
                     result[name] = Stat.new(0, 0, 0, 0, nil, nil)
@@ -96,6 +99,7 @@ module Roby
                     sample = original_sample.dup
                     fields.each do |name|
                         next unless value = sample[name]
+
                         unless spec[name] == :absolute || spec[name] == :absolute_rate
                             if last_sample && last_sample[name]
                                 sample[name] -= last_sample[name]
@@ -113,6 +117,7 @@ module Roby
                 samples = samples.map do |sample|
                     fields.each do |name|
                         next unless value = sample[name]
+
                         if spec[name] == :rate || spec[name] == :absolute_rate
                             if sample.dt
                                 sample[name] = value / sample.dt
@@ -128,6 +133,7 @@ module Roby
                 samples.each do |sample|
                     fields.each do |name|
                         next unless value = sample[name]
+
                         if !result[name].max || value > result[name].max
                             result[name].max = value
                         end
@@ -148,7 +154,8 @@ module Roby
                 samples.each do |sample|
                     fields.each do |name|
                         next unless value = sample[name]
-                        result[name].stddev += (value - result[name].mean) ** 2
+
+                        result[name].stddev += (value - result[name].mean)**2
                     end
                 end
 
@@ -161,4 +168,3 @@ module Roby
         end
     end
 end
-

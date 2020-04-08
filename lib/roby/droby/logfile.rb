@@ -10,7 +10,7 @@ module Roby
         module Logfile
             extend Logger::Hierarchy
 
-            MAGIC_CODE = 'ROBYLOG'
+            MAGIC_CODE = "ROBYLOG"
             PROLOGUE_SIZE = MAGIC_CODE.size + 4
             FORMAT_VERSION = 5
 
@@ -37,7 +37,7 @@ module Roby
             # The version ID can be specified here mostly for testing purposes.
             def self.write_prologue(io, version: FORMAT_VERSION)
                 io.write(MAGIC_CODE)
-                io.write([version].pack('L<'))
+                io.write([version].pack("L<"))
             end
 
             # Write a log file header
@@ -47,7 +47,7 @@ module Roby
             def self.write_header(io, version: FORMAT_VERSION, **options)
                 write_prologue(io, version: version)
                 options = ::Marshal.dump(options)
-                io.write [options.size].pack('L<')
+                io.write [options.size].pack("L<")
                 io.write options
             end
 
@@ -56,7 +56,7 @@ module Roby
                 input.rewind
 
                 magic = input.read(Logfile::MAGIC_CODE.size)
-                return input.read(4).unpack('L<').first if magic == Logfile::MAGIC_CODE
+                return input.read(4).unpack1("L<") if magic == Logfile::MAGIC_CODE
 
                 input.rewind
                 header =
@@ -90,10 +90,10 @@ module Roby
             def self.read_prologue(io)
                 magic = io.read(MAGIC_CODE.size)
                 if magic != MAGIC_CODE
-                    raise InvalidFileError, 'no magic code at beginning of file'
+                    raise InvalidFileError, "no magic code at beginning of file"
                 end
 
-                log_format = io.read(4).unpack('I').first
+                log_format = io.read(4).unpack1("I")
                 validate_format(log_format)
             rescue InvalidFormatVersion
                 raise
@@ -117,7 +117,7 @@ module Roby
                     raise InvalidFormatVersion,
                           "this is an unknown format version #{format}: "\
                           "expected #{FORMAT_VERSION}. This file can be read "\
-                          'only by newer versions of Roby'
+                          "only by newer versions of Roby"
                 end
             end
 
@@ -128,8 +128,8 @@ module Roby
                 data_size = io.read(4)
                 return unless data_size
 
-                data_size = data_size.unpack('L<').first
-                buffer = io.read(data_size) || ''
+                data_size = data_size.unpack1("L<")
+                buffer = io.read(data_size) || String.new
                 if buffer.size < data_size
                     raise TruncatedFileError,
                           "expected a chunk of size #{data_size} at #{io.tell}, "\

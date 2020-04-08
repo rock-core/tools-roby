@@ -1,6 +1,8 @@
-require 'roby/test/self'
-require_relative './behaviors/plan_common_behavior'
-require_relative './behaviors/plan_replace_behaviors'
+# frozen_string_literal: true
+
+require "roby/test/self"
+require_relative "./behaviors/plan_common_behavior"
+require_relative "./behaviors/plan_replace_behaviors"
 
 module Roby
     describe Plan do
@@ -65,13 +67,13 @@ module Roby
             end
         end
 
-        describe '#locally_useful_tasks' do
+        describe "#locally_useful_tasks" do
             before do
                 @tasks = (1..10).map { Roby::Task.new }
                 @tasks.each { |t| plan.add(t) }
             end
 
-            it 'computes the merge of all strong relation graphs from locally useful roots' do
+            it "computes the merge of all strong relation graphs from locally useful roots" do
                 @tasks[0].depends_on @tasks[1]
                 @tasks[1].planned_by @tasks[2]
                 @tasks[2].depends_on @tasks[3]
@@ -82,14 +84,14 @@ module Roby
                 assert_equal [*@tasks[5, 2], *@tasks[0, 4]].to_set, plan.useful_tasks
             end
 
-            it 'passes the with_transactions flag to locally_useful_roots' do
+            it "passes the with_transactions flag to locally_useful_roots" do
                 flexmock(plan).should_receive(:locally_useful_roots)
                               .with(with_transactions: (flag = flexmock))
                               .and_return(Set.new)
                 plan.useful_tasks(with_transactions: flag)
             end
 
-            it 'ignores tasks for which the useful set is a dependency' do
+            it "ignores tasks for which the useful set is a dependency" do
                 @tasks[0].depends_on @tasks[1]
                 @tasks[1].planned_by @tasks[2]
                 flexmock(plan).should_receive(:locally_useful_roots)
@@ -97,20 +99,20 @@ module Roby
                 assert_equal @tasks[1, 2].to_set, plan.useful_tasks
             end
 
-            it 'returns standalone tasks' do
+            it "returns standalone tasks" do
                 flexmock(plan).should_receive(:locally_useful_roots)
                               .and_return(Set[@tasks[1]])
                 assert_equal [@tasks[1]].to_set, plan.locally_useful_tasks
             end
         end
 
-        describe '#useful_tasks' do
+        describe "#useful_tasks" do
             before do
                 @tasks = (1..10).map { Roby::Task.new }
                 @tasks.each { |t| plan.add(t) }
             end
 
-            it 'computes the merge of all strong relation graphs from locally useful roots' do
+            it "computes the merge of all strong relation graphs from locally useful roots" do
                 @tasks[0].depends_on @tasks[1]
                 @tasks[1].planned_by @tasks[2]
                 @tasks[2].depends_on @tasks[3]
@@ -121,14 +123,14 @@ module Roby
                 assert_equal [*@tasks[5, 2], *@tasks[0, 4]].to_set, plan.useful_tasks
             end
 
-            it 'passes the with_transactions flag to locally_useful_roots' do
+            it "passes the with_transactions flag to locally_useful_roots" do
                 flexmock(plan).should_receive(:locally_useful_roots)
                               .with(with_transactions: (flag = flexmock))
                               .and_return(Set.new)
                 plan.useful_tasks(with_transactions: flag)
             end
 
-            it 'ignores tasks for which the useful set is a dependency' do
+            it "ignores tasks for which the useful set is a dependency" do
                 @tasks[0].depends_on @tasks[1]
                 @tasks[1].planned_by @tasks[2]
                 flexmock(plan).should_receive(:locally_useful_roots)
@@ -136,13 +138,13 @@ module Roby
                 assert_equal @tasks[1, 2].to_set, plan.useful_tasks
             end
 
-            it 'returns standalone tasks' do
+            it "returns standalone tasks" do
                 flexmock(plan).should_receive(:locally_useful_roots)
                               .and_return(Set[@tasks[1]])
                 assert_equal [@tasks[1]].to_set, plan.locally_useful_tasks
             end
 
-            it 'allows to explicitely pass tasks to be used as root beyond locally_useful_roots' do
+            it "allows to explicitely pass tasks to be used as root beyond locally_useful_roots" do
                 flexmock(plan).should_receive(:locally_useful_roots)
                               .and_return(Set[])
                 assert_equal [@tasks[1]].to_set,
@@ -150,18 +152,18 @@ module Roby
             end
         end
 
-        describe '#locally_useful_roots' do
+        describe "#locally_useful_roots" do
             before do
                 plan.add_mission_task(@mission = Task.new)
                 plan.add_permanent_task(@permanent = Task.new)
                 plan.add(@task = Task.new)
             end
 
-            it 'adds permanent and mission tasks' do
+            it "adds permanent and mission tasks" do
                 assert_equal Set[@mission, @permanent], plan.locally_useful_roots
             end
 
-            it 'adds the proxied tasks if with_transactions is true' do
+            it "adds the proxied tasks if with_transactions is true" do
                 plan.in_transaction do |trsc|
                     trsc[@task]
                     assert_equal Set[@mission, @permanent, @task],
@@ -169,7 +171,7 @@ module Roby
                 end
             end
 
-            it 'does not add the proxied tasks if with_transactions is false' do
+            it "does not add the proxied tasks if with_transactions is false" do
                 plan.in_transaction do |trsc|
                     trsc[@task]
                     assert_equal Set[@mission, @permanent],
@@ -178,33 +180,33 @@ module Roby
             end
         end
 
-        describe '#unneeded_tasks' do
+        describe "#unneeded_tasks" do
             before do
                 @tasks = (1..10).map { Roby::Task.new }
                 @tasks.each { |t| plan.add(t) }
             end
 
-            it 'returns the set of tasks that are not useful' do
+            it "returns the set of tasks that are not useful" do
                 flexmock(plan).should_receive(:useful_tasks)
                               .and_return([@tasks[0], @tasks[5], @tasks[7]])
                 assert_equal (@tasks[1, 4] + @tasks[6, 1] + @tasks[8, 2]).to_set,
                              plan.unneeded_tasks
             end
 
-            it 'passes the additional roots to useful_tasks' do
+            it "passes the additional roots to useful_tasks" do
                 roots = [@tasks[0], @tasks[5], @tasks[7]]
                 assert_equal (@tasks[1, 4] + @tasks[6, 1] + @tasks[8, 2]).to_set,
                              plan.unneeded_tasks(additional_useful_roots: roots)
             end
         end
 
-        describe '#static_garbage_collect' do
+        describe "#static_garbage_collect" do
             before do
                 @tasks = (1..10).map { Roby::Task.new }
                 @tasks.each { |t| plan.add(t) }
             end
 
-            it 'yields the unneeded tasks if a block is given' do
+            it "yields the unneeded tasks if a block is given" do
                 flexmock(plan).should_receive(:useful_tasks)
                               .and_return([@tasks[0], @tasks[5], @tasks[7]])
 
@@ -214,7 +216,7 @@ module Roby
                              result
             end
 
-            it 'allows to protect some tasks and their useful subnet' do
+            it "allows to protect some tasks and their useful subnet" do
                 roots = [@tasks[0], @tasks[5], @tasks[7]]
                 plan.static_garbage_collect(protected_roots: roots)
                 assert_equal roots.to_set, plan.tasks
@@ -507,7 +509,7 @@ module Roby
             end
 
             def prepare_mappings(mappings)
-                task_event_mappings = Hash.new
+                task_event_mappings = {}
                 mappings.each do |original, copy|
                     if original.respond_to?(:each_event)
                         original.each_event do |ev|
@@ -519,7 +521,7 @@ module Roby
             end
 
             it "returns true on two empty plans" do
-                plan.same_plan?(copy, Hash.new)
+                plan.same_plan?(copy, {})
             end
 
             it "returns true on a plan with a single task" do
@@ -556,7 +558,7 @@ module Roby
 
             it "returns false for a plan with a missing task" do
                 plan.add(task = Task.new)
-                assert !plan.same_plan?(copy, Hash.new)
+                assert !plan.same_plan?(copy, {})
             end
 
             it "returns false if the plans mission sets differ" do
@@ -743,7 +745,7 @@ module Roby
                 error = Class.new(RuntimeError)
                 flexmock(Transaction).should_receive(:new).and_raise(error)
                 assert_raises(error) do
-                    plan.in_transaction { }
+                    plan.in_transaction {}
                 end
             end
             it "leaves the transaction alone if it has been committed" do
@@ -1082,11 +1084,11 @@ module Roby
             end
         end
 
-        describe '#add_job_action' do
-            it 'adds an action in a way compatible with the job system' do
+        describe "#add_job_action" do
+            it "adds an action in a way compatible with the job system" do
                 app = Roby::Application.new
                 action_m = Actions::Interface.new_submodel do
-                    describe 'action'
+                    describe "action"
                     def action; end
                 end
                 app.plan.add_job_action(action_m.action)
@@ -1097,31 +1099,31 @@ module Roby
 
                 assert_kind_of action_m::Action, placeholder
                 assert_equal action_m, job.action_model.action_interface_model
-                assert_equal 'action', job.action_model.name
+                assert_equal "action", job.action_model.name
             end
         end
 
-        describe '#make_useless' do
-            it 'marks a mission task as non-mission' do
+        describe "#make_useless" do
+            it "marks a mission task as non-mission" do
                 plan.add_mission_task(task = Roby::Task.new)
                 plan.make_useless(task)
                 refute plan.mission_task?(task)
             end
 
-            it 'marks a permanent task as non-permanent' do
+            it "marks a permanent task as non-permanent" do
                 plan.add_permanent_task(task = Roby::Task.new)
                 plan.make_useless(task)
                 refute plan.permanent_task?(task)
             end
 
-            it 'looks at the parent tasks of the argument' do
+            it "looks at the parent tasks of the argument" do
                 plan.add_permanent_task(parent = Roby::Task.new)
                 parent.depends_on(child = Roby::Task.new)
                 plan.make_useless(child)
                 refute plan.permanent_task?(parent)
             end
 
-            it 'goes through the whole useful graph chain' do
+            it "goes through the whole useful graph chain" do
                 plan.add_permanent_task(parent = Roby::Task.new)
                 parent.planned_by(planning_task = Roby::Task.new)
                 planning_task.depends_on(child = Roby::Task.new)
@@ -1129,7 +1131,7 @@ module Roby
                 refute plan.permanent_task?(parent)
             end
 
-            it 'iterates over all parents' do
+            it "iterates over all parents" do
                 plan.add_permanent_task(parent = Roby::Task.new)
                 parent.planned_by(planning_task = Roby::Task.new)
                 planning_task.depends_on(child = Roby::Task.new)

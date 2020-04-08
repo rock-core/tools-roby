@@ -1,4 +1,6 @@
-require 'roby/gui/stepping_ui'
+# frozen_string_literal: true
+
+require "roby/gui/stepping_ui"
 
 module Roby
     module GUI
@@ -76,7 +78,7 @@ module Roby
 
                         plan_rebuilder.process_one_cycle(data)
                         if plan_rebuilder.has_event_propagation_updates? ||
-                            plan_rebuilder.has_structure_updates?
+                           plan_rebuilder.has_structure_updates?
                             plan_rebuilder.clear_changes
                             return
                         end
@@ -86,8 +88,7 @@ module Roby
                 display_current_position
                 @main_widget.redraw
             end
-            slots 'step_forward()'
+            slots "step_forward()"
         end
     end
 end
-

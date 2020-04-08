@@ -1,8 +1,10 @@
+# frozen_string_literal: true
+
 module Roby::Tasks
     # Base functionality for the Sequence and Parallel aggregators
     class TaskAggregator < Roby::Task
-        def initialize(arguments = Hash.new)
-            @tasks = Array.new
+        def initialize(arguments = {})
+            @tasks = []
             @name = nil
             super
         end
@@ -16,11 +18,13 @@ module Roby::Tasks
         # TODO: is this really necessary
         def each_task(&iterator)
             yield(self)
-            tasks.each(&iterator) 
+            tasks.each(&iterator)
         end
 
         # True if this aggregator has no tasks
-        def empty?; tasks.empty? end
+        def empty?
+            tasks.empty?
+        end
 
         # Removes this aggregator from the plan
         def delete
@@ -30,7 +34,7 @@ module Roby::Tasks
                 plan.remove_task(self)
             else
                 clear_relations
-                freeze 
+                freeze
             end
         end
     end

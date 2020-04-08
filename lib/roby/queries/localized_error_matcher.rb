@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Queries
         # Object that allows to specify generalized matches on a
@@ -64,8 +66,8 @@ module Roby
                 end
 
                 if original_exception_model
-                    original_exception = exception.original_exceptions.
-                        find { |e| original_exception_model === e }
+                    original_exception = exception.original_exceptions
+                        .find { |e| original_exception_model === e }
                     if !original_exception
                         return false
                     end
@@ -80,8 +82,8 @@ module Roby
                         return false if !(failure_point_matcher === exception.failed_generator)
                     else return false
                     end
-                else
-                    return false if !(failure_point_matcher === exception.failed_task)
+                elsif !(failure_point_matcher === exception.failed_task)
+                    return false
                 end
 
                 original_exception || true
@@ -93,13 +95,13 @@ module Roby
                 end
 
                 if original_exception_model
-                    original_exception = exception.original_exceptions.
-                        find { |e| original_exception_model === e }
+                    original_exception = exception.original_exceptions
+                        .find { |e| original_exception_model === e }
                     if !original_exception
                         if exception.original_exceptions.empty?
                             return "expected one of the original exceptions to match #{original_exception_model}, but none are registered"
                         else
-                            return "expected one of the original exceptions to match #{original_exception_model}, but got #{exception.original_exceptions.map(&:to_s).join(", ")}"
+                            return "expected one of the original exceptions to match #{original_exception_model}, but got #{exception.original_exceptions.map(&:to_s).join(', ')}"
                         end
                     end
                 end
@@ -125,7 +127,7 @@ module Roby
             def to_s
                 description = "#{model}.with_origin(#{failure_point_matcher})"
                 if original_exception_model
-                    description.concat(".with_original_exception(#{original_exception_model})")
+                    description += ".with_original_exception(#{original_exception_model})"
                 end
                 description
             end
@@ -138,12 +140,10 @@ module Roby
             end
 
             match_predicate :fatal?
-            
+
             def to_execution_exception_matcher
                 Roby::Queries::ExecutionExceptionMatcher.new.with_exception(self)
             end
         end
     end
 end
-
-

@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 describe Roby::TaskService do
     describe "#match" do
@@ -15,5 +17,3 @@ describe Roby::TaskService do
         end
     end
 end
-
-

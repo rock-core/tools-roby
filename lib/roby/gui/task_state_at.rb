@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module GUI
         # Determine the state a task had at a certain point in time, for display
@@ -18,6 +20,7 @@ module Roby
             last_emitted_event = nil
             task.history.each do |ev|
                 break if ev.time > time
+
                 last_emitted_event = ev
             end
 
@@ -27,11 +30,11 @@ module Roby
 
             gen = last_emitted_event.generator
             if !gen
-                return :pending
+                :pending
             elsif gen.terminal?
-                return [:success, :finished, :running].find { |flag| task.send("#{flag}?") } 
+                %i[success finished running].find { |flag| task.send("#{flag}?") }
             else
-                return :running
+                :running
             end
         end
     end

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     # Fires when the first of its source events fires.
     #
@@ -14,7 +16,7 @@ module Roby
     #    or_ev = (a | b)
     #
     #    a.intermediate_event! # or_ev emits here
-    #    b.intermediate_event! # or_ev does *not* emit 
+    #    b.intermediate_event! # or_ev does *not* emit
     #    a.intermediate_event! # or_ev does *not* emit
     #    b.intermediate_event! # or_ev does *not* emit
     #
@@ -41,7 +43,9 @@ module Roby
         end
 
         # True if there is no source events
-        def empty?; parent_objects(EventStructure::Signal).empty? end
+        def empty?
+            parent_objects(EventStructure::Signal).empty?
+        end
 
         # Or generators will emit only once, unless this method is called. See
         # the documentation of OrGenerator for an example.
@@ -57,6 +61,7 @@ module Roby
         # Helper method called to emit the event when it is required
         def emit_if_first(context) # :nodoc:
             return unless @active
+
             @active = false
             emit(context)
         end
@@ -65,7 +70,7 @@ module Roby
         def added_signal_parent(parent, info) # :nodoc:
             super
             parent.if_unreachable(cancel_at_emission: true) do |reason, event|
-                if !emitted? && each_parent_object(EventStructure::Signal).all? { |ev| ev.unreachable? }
+                if !emitted? && each_parent_object(EventStructure::Signal).all?(&:unreachable?)
                     unreachable!(reason || parent)
                 end
             end
@@ -73,16 +78,15 @@ module Roby
 
         def removed_signal_parent(parent)
             super
-            if !emitted? && each_parent_object(EventStructure::Signal).all? { |ev| ev.unreachable? }
+            if !emitted? && each_parent_object(EventStructure::Signal).all?(&:unreachable?)
                 unreachable!
             end
         end
 
         # Adds +generator+ to the sources of this event
-        def << (generator)
+        def <<(generator)
             generator.add_signal self
             self
         end
     end
 end
-

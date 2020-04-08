@@ -1,10 +1,12 @@
+# frozen_string_literal: true
+
 module Roby
     module Test
         module DSL
             include Minitest::Spec::DSL
 
             extend MetaRuby::Attributes
-            inherited_attribute(:run_mode, :run_modes) { Array.new }
+            inherited_attribute(:run_mode, :run_modes) { [] }
             inherited_attribute(:enabled_robot, :enabled_robots) { Set.new }
 
             # Enable this test only on the configurations in which the given
@@ -48,7 +50,7 @@ module Roby
                         class_eval(&block)
                     end
                 else
-                    run_if { |app| app.single? }
+                    run_if(&:single?)
                 end
             end
 
@@ -64,7 +66,7 @@ module Roby
                         class_eval(&block)
                     end
                 else
-                    run_if { |app| app.simulation? }
+                    run_if(&:simulation?)
                 end
             end
 
@@ -111,7 +113,7 @@ module Roby
                 if !run_modes.empty? && run_modes.all? { |blk| !blk.call(app) }
                     test.skip("#{test.name} cannot run in this roby test configuration")
                 elsif !enabled_robots.empty? && !enabled_robots.include?(app.robot_name)
-                    test.skip("#{test.name} can only be run on robots #{enabled_robots.sort.join(", ")}")
+                    test.skip("#{test.name} can only be run on robots #{enabled_robots.sort.join(', ')}")
                 end
             end
 
@@ -125,7 +127,7 @@ module Roby
                         class_eval(&block)
                     end
 
-                    @__describe_blocks ||= Array.new
+                    @__describe_blocks ||= []
                     @__describe_blocks << [desc, behaviour]
                 end
             end
@@ -157,18 +159,17 @@ module Roby
             def included(target)
                 super
 
-                @__describe_blocks ||= Array.new
+                @__describe_blocks ||= []
                 if Class === target
                     @__describe_blocks.each do |desc, behaviour|
                         target.describe(desc) { include behaviour }
                     end
                 else
-                    target_blocks = (target.instance_variable_get(:@__describe_blocks) || Array.new).
-                        concat(@__describe_blocks)
+                    target_blocks = (target.instance_variable_get(:@__describe_blocks) || [])
+                        .concat(@__describe_blocks)
                     target.instance_variable_set(:@__describe_blocks, target_blocks)
                 end
             end
         end
     end
 end
-

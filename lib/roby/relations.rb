@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 require "roby/relations/bidirectional_directed_adjacency_graph"
-require 'rgl/traversal'
-require 'rgl/topsort'
+require "rgl/traversal"
+require "rgl/topsort"
 require "roby/relations/models/directed_relation_support"
 require "roby/relations/fork_merge_visitor"
 require "roby/relations/directed_relation_support"
@@ -20,7 +22,7 @@ module Roby
         class << self
             attr_reader :all_relations
         end
-        @all_relations = Array.new
+        @all_relations = []
 
         def self.each_graph_topologically(graphs)
             rel_to_graph = Hash[*graphs.flat_map { |g| [g.class, g] }]
@@ -32,7 +34,7 @@ module Roby
         end
 
         def self.add_relation(rel)
-            sorted_relations = Array.new
+            sorted_relations = []
 
             # Remove from the set of relations the ones that are not leafs
             remaining = self.all_relations
@@ -62,4 +64,3 @@ module Roby
         relation_space
     end
 end
-

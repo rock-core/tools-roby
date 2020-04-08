@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Tasks
         # A virtual task is a task representation for a combination of two events.
@@ -17,6 +19,7 @@ module Roby
                 if !ev.controlable?
                     raise ArgumentError, "the start event of a virtual task must be controlable"
                 end
+
                 @actual_start_event = ev
             end
 

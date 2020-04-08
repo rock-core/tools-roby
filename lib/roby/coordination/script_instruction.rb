@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Coordination
         class ScriptInstruction
@@ -9,4 +11,3 @@ module Roby
         end
     end
 end
-

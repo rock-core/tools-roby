@@ -1,7 +1,9 @@
-require 'roby/test/self'
-require 'roby/cli/main'
-require 'roby/interface/rest'
-require 'roby/test/aruba_minitest'
+# frozen_string_literal: true
+
+require "roby/test/self"
+require "roby/cli/main"
+require "roby/interface/rest"
+require "roby/test/aruba_minitest"
 
 module Roby
     module CLI
@@ -17,14 +19,17 @@ module Roby
                     assert_eventually { File.exist?(path) }
                 end
 
-                def assert_eventually(timeout: 10, msg: "failed while waiting for something to happen")
+                def assert_eventually(
+                    timeout: 10, msg: "failed while waiting for something to happen"
+                )
                     deadline = Time.now + timeout
-                    while true
+                    loop do
                         if yield
                             return
                         elsif deadline < Time.now
                             flunk(msg)
                         end
+
                         sleep 0.05
                     end
                 end
@@ -32,8 +37,11 @@ module Roby
                 describe "the REST API" do
                     it "starts the API on the default port if --rest is given" do
                         run_roby "run --rest"
-                        assert_eventually { Interface::REST::Server.server_alive?(
-                            'localhost', Interface::DEFAULT_REST_PORT) }
+                        assert_eventually do
+                            Interface::REST::Server.server_alive?(
+                                "localhost", Interface::DEFAULT_REST_PORT
+                            )
+                        end
                         run_roby_and_stop "quit --retry"
                     end
                     it "starts the API on a custom port if an integer argument is given to --rest" do
@@ -42,8 +50,11 @@ module Roby
                         port = tcp_server.local_address.ip_port
                         tcp_server.close
                         run_roby "run --rest=#{port}"
-                        assert_eventually { Interface::REST::Server.server_alive?(
-                            'localhost', port) }
+                        assert_eventually do
+                            Interface::REST::Server.server_alive?(
+                                "localhost", port
+                            )
+                        end
                         run_roby_and_stop "quit --retry"
                     end
                     it "properly shuts down the server" do

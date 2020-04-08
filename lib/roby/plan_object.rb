@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     # Base class for all objects which are included in a plan.
     class PlanObject < DistributedObject
@@ -13,7 +15,9 @@ module Roby
         # The non-specialized model for self
         #
         # It is always self.class
-        def concrete_model; self.class end
+        def concrete_model
+            self.class
+        end
 
         # The underlying execution engine if {#plan} is executable
         attr_reader :execution_engine
@@ -23,9 +27,7 @@ module Roby
         attr_reader :promise_executor
 
         def connection_space
-            if plan
-                plan.connection_space
-            end
+            plan&.connection_space
         end
 
         # Whether this task can be finalized
@@ -74,19 +76,19 @@ module Roby
             #      kept).
             def self.handle_options(method, options, defaults)
                 options, other = Kernel.send("#{method}_options", options,
-                    on_replace: (defaults[:on_replace] || :drop))
+                                             on_replace: (defaults[:on_replace] || :drop))
 
-                if ![:drop, :copy].include?(options[:on_replace])
+                if !%i[drop copy].include?(options[:on_replace])
                     raise ArgumentError, "wrong value for the :on_replace option. Expecting either :drop or :copy, got #{options[:on_replace]}"
                 end
 
                 if other
-                    return options, other
-                else return options
+                    [options, other]
+                else options
                 end
             end
 
-            def self.validate_options(options, defaults = Hash.new)
+            def self.validate_options(options, defaults = {})
                 handle_options(:validate, options, defaults)
             end
 
@@ -124,7 +126,7 @@ module Roby
             @removed_at = nil
             @executable = nil
             @garbage = false
-            @finalization_handlers = Array.new
+            @finalization_handlers = []
             @model = self.class
         end
 
@@ -147,7 +149,9 @@ module Roby
         end
 
         # True if this object is a transaction proxy, false otherwise
-        def transaction_proxy?; false end
+        def transaction_proxy?
+            false
+        end
 
         # The place where this object has been removed from its plan. Once an
         # object is removed from its plan, it cannot be added back again.
@@ -155,7 +159,9 @@ module Roby
 
         # True if this object has been included in a plan, but has been removed
         # from it since
-        def finalized?; !!removed_at end
+        def finalized?
+            !!removed_at
+        end
 
         # Sets the new plan. Since it is forbidden to re-use a plan object that
         # has been removed from a plan, it raises ArgumentError if it is the
@@ -163,19 +169,23 @@ module Roby
         def plan=(new_plan)
             if removed_at
                 if PlanObject.debug_finalization_place?
-                    raise ArgumentError, "#{self} has been removed from plan, cannot add it back\n" +
-                        "Removed at\n  #{removed_at.join("\n  ")}"
+                    raise ArgumentError,
+                          "#{self} has been removed from plan, cannot add it back\n"\
+                          "Removed at\n  #{removed_at.join("\n  ")}"
                 else
-                    raise ArgumentError, "#{self} has been removed from plan, cannot add it back. Set PlanObject.debug_finalization_place to true to get the backtrace of where (in the code) the object got finalized"
+                    raise ArgumentError,
+                          "#{self} has been removed from plan, cannot add it back. "\
+                          "Set PlanObject.debug_finalization_place to true to get "\
+                          "the backtrace of where (in the code) the object got finalized"
                 end
             end
             @addition_time = Time.now
             @plan = new_plan
             @local_owner_id = plan.droby_id
-            if new_plan && new_plan.executable?
+            if new_plan&.executable?
                 @execution_engine = new_plan.execution_engine
-                @promise_executor = Concurrent::SerializedExecutionDelegator.
-                    new(@execution_engine.thread_pool)
+                @promise_executor = Concurrent::SerializedExecutionDelegator
+                    .new(@execution_engine.thread_pool)
             else
                 @execution_engine = nil
                 @promise_executor = nil
@@ -194,7 +204,9 @@ module Roby
 
         # Used in plan management as a way to extract a plan object from any
         # object
-        def as_plan; self end
+        def as_plan
+            self
+        end
 
         # If +self+ is a transaction proxy, returns the underlying plan object,
         # regardless of how many transactions there is on the stack. Otherwise,
@@ -223,6 +235,7 @@ module Roby
             if intrusive.nil?
                 raise ArgumentError, "you must give a true or false to the intrusive flag"
             end
+
             merged_relations(
                 proc { |o, &b| o.each_in_neighbour(relation, &b) },
                 intrusive, &block)
@@ -232,6 +245,7 @@ module Roby
             if intrusive.nil?
                 raise ArgumentError, "you must give a true or false to the intrusive flag"
             end
+
             merged_relations(
                 proc { |o, &b| o.each_out_neighbour(relation, &b) },
                 intrusive, &block)
@@ -284,7 +298,7 @@ module Roby
             object     = self.real_object
             enumerator = enumerator.to_proc
 
-            pending = Array.new
+            pending = []
             while plan_chain.size > 1
                 plan      = plan_chain.pop
                 next_plan = plan_chain.last
@@ -293,14 +307,14 @@ module Roby
                 # automatically added, as +next_plan+ is not able to change
                 # them. Those that are included in +next_plan+ are handled
                 # later.
-                new_objects = Array.new
+                new_objects = []
                 enumerator.call(object) do |related_object|
                     next if next_plan[related_object, create: false]
 
                     if !intrusive
                         yield(object, related_object)
                     else
-                        new_objects   << related_object
+                        new_objects << related_object
                     end
                 end
 
@@ -365,8 +379,8 @@ module Roby
         # True if we are explicitely subscribed to this object
         def subscribed?
             if root_object?
-                (plan && plan.subscribed?) ||
-                    (!self_owned? && owners.any? { |peer| peer.subscribed_plan? }) ||
+                plan&.subscribed? ||
+                    (!self_owned? && owners.any?(&:subscribed_plan?)) ||
                     super
             else
                 root_object.subscribed?
@@ -385,17 +399,24 @@ module Roby
         # {Transaction#apply_modifications_to_plan}
         #
         # The default implementation does nothing
-        def commit_transaction
-        end
+        def commit_transaction; end
 
-        alias :__freeze__ :freeze
+        alias __freeze__ freeze
 
         # True if we should send updates about this object to +peer+
-        def update_on?(peer); (plan && plan.update_on?(peer)) || super end
+        def update_on?(peer)
+            plan&.update_on?(peer) || super
+        end
+
         # True if we receive updates for this object from +peer+
-        def updated_by?(peer); (plan && plan.updated_by?(peer)) || super end
+        def updated_by?(peer)
+            plan&.updated_by?(peer) || super
+        end
+
         # True if this object is useful for one of our peers
-        def remotely_useful?; (plan && plan.remotely_useful?) || super end
+        def remotely_useful?
+            plan&.remotely_useful? || super
+        end
 
         # Checks that we do not link two objects from two different plans and
         # updates the +plan+ attribute accordingly
@@ -404,9 +425,9 @@ module Roby
         # plan, but their plan mismatches.
         def synchronize_plan(other) # :nodoc:
             if !plan
-                raise RuntimeError, "cannot add a relation with #{self}, which has already been finalized"
+                raise "cannot add a relation with #{self}, which has already been finalized"
             elsif !other.plan
-                raise RuntimeError, "cannot add a relation with #{other}, which has already been finalized"
+                raise "cannot add a relation with #{other}, which has already been finalized"
             end
             return if plan == other.plan
 
@@ -415,7 +436,7 @@ module Roby
             elsif plan.template?
                 other.plan.add(self)
             else
-                raise RuntimeError, "cannot add a relation between two objects from different plans. #{self} is from #{plan} and #{other} is from #{other.plan}"
+                raise "cannot add a relation between two objects from different plans. #{self} is from #{plan} and #{other} is from #{other.plan}"
             end
         end
         protected :synchronize_plan
@@ -447,11 +468,19 @@ module Roby
         end
 
         # Return the root plan object for this object.
-        def root_object; self end
+        def root_object
+            self
+        end
+
         # True if this object is a root object in the plan.
-        def root_object?; root_object == self end
+        def root_object?
+            root_object == self
+        end
+
         # Iterates on all the children of this root object
-        def each_plan_child; self end
+        def each_plan_child
+            self
+        end
 
         # Transfers a set of relations from this plan object to +object+.
         # +changes+ is formatted as a sequence of <tt>relation, parents,
@@ -549,7 +578,7 @@ module Roby
         # {PlanObject.debug_finalization_place=}, the backtrace in this call is
         # stored in {PlanObject#removed_at}. It is false by default, as it is
         # pretty expensive.
-        # 
+        #
         # @param [Time,nil] timestamp the time at which it got finalized. It is stored in
         #   {#finalization_time}
         # @return [void]
@@ -583,7 +612,7 @@ module Roby
         #   different than the one on which the handler got installed because of
         #   replacements
         # @return [void]
-        def when_finalized(options = Hash.new, &block)
+        def when_finalized(options = {}, &block)
             options = InstanceHandler.validate_options options
             check_arity(block, 1)
             finalization_handlers << InstanceHandler.new(block, (options[:on_replace] == :copy))
@@ -608,4 +637,3 @@ module Roby
         end
     end
 end
-

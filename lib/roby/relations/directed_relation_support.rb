@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Relations
         # Base support for relations. It is mixed in objects on which a
@@ -7,7 +9,7 @@ module Roby
         # See also the definition of Relations::Graph#add_relation and
         # Relations::Graph#remove_relation for the possibility to define hooks that
         # get called when a new edge involving +self+ as a vertex gets added and
-        # removed 
+        # removed
         module DirectedRelationSupport
             attr_reader :relation_graphs
 
@@ -23,6 +25,7 @@ module Roby
             # @yieldparam [Class<Graph>]
             def each_relation
                 return enum_for(__method__) if !block_given?
+
                 relation_graphs.each do |k, g|
                     yield(k) if k != g
                 end
@@ -33,6 +36,7 @@ module Roby
             # @yieldparam [Graph]
             def each_relation_graph
                 return enum_for(__method__) if !block_given?
+
                 relation_graphs.each do |k, g|
                     yield(g) if g.has_vertex?(self) && (k == g)
                 end
@@ -44,6 +48,7 @@ module Roby
             # @yieldparam [Graph]
             def each_root_relation_graph
                 return enum_for(__method__) if !block_given?
+
                 each_relation_graph do |g|
                     yield(g) if g.root_relation?
                 end
@@ -94,8 +99,8 @@ module Roby
             end
 
             def sorted_relations
-                Relations.all_relations.
-                    find_all do |rel|
+                Relations.all_relations
+                    .find_all do |rel|
                         (rel = relation_graphs.fetch(rel, nil)) && rel.has_vertex?(self)
                     end
             end
@@ -118,7 +123,7 @@ module Roby
                 end
                 removed
             end
-            alias :clear_relations :clear_vertex
+            alias clear_relations clear_vertex
 
             def enum_relations
                 Roby.warn_deprecated "DirectedRelationSupport#enum_relations is deprecated, use #each_relation instead"
@@ -126,7 +131,9 @@ module Roby
             end
 
             # The array of relations this object is part of
-            def relations; each_relation.to_a end
+            def relations
+                each_relation.to_a
+            end
 
             # Computes and returns the set of objects related with this one (parent
             # or child). If +relation+ is given, enumerate only for this relation,

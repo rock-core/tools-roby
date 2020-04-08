@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Interface
         # The server-side object allowing to access an interface (e.g. a Roby app)
@@ -86,7 +88,7 @@ module Roby
             def handshake(id, commands)
                 @client_id = id
                 Roby::Interface.info "new interface client: #{id}"
-                result = commands.each_with_object(Hash.new) do |s, result|
+                result = commands.each_with_object({}) do |s, result|
                     result[s] = interface.send(s)
                 end
                 @performed_handshake = true
@@ -113,7 +115,7 @@ module Roby
 
             def close
                 io.close
-                @listeners.dispose if @listeners
+                @listeners&.dispose
             end
 
             def process_batch(path, calls)

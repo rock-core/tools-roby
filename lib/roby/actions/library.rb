@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Actions
         Library = Models::Library.new
@@ -18,6 +20,3 @@ class Module
         end
     end
 end
-
-
-

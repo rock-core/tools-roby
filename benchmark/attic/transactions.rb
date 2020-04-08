@@ -1,25 +1,25 @@
-TOP_SRC_DIR = File.expand_path( File.join(File.dirname(__FILE__), '..') )
-$LOAD_PATH.unshift TOP_SRC_DIR
-$LOAD_PATH.unshift File.join(TOP_SRC_DIR, 'test')
+# frozen_string_literal: true
 
-require 'roby'
-require 'roby/transactions'
-require 'utilrb/objectstats'
+TOP_SRC_DIR = File.expand_path(File.join(File.dirname(__FILE__), ".."))
+$LOAD_PATH.unshift TOP_SRC_DIR
+$LOAD_PATH.unshift File.join(TOP_SRC_DIR, "test")
+
+require "roby"
+require "roby/transactions"
+require "utilrb/objectstats"
 
 include Roby
 
 TASK_COUNT = 10
 RELATION_COUNT = 10
 def display_object_count
-    count = ObjectStats.count_by_class.
-        find_all { |k, o| k.name =~ /Roby/ }.
-        sort_by { |k, o| k.name }.
-        map { |k, o| "#{k} #{o}" }
+    count = ObjectStats.count_by_class
+        .find_all { |k, o| k.name =~ /Roby/ }
+        .sort_by { |k, o| k.name }
+        .map { |k, o| "#{k} #{o}" }
 
     puts "  #{count.join("\n  ")}"
 end
-
-
 
 def build_and_commit
     plan = Plan.new
@@ -28,7 +28,7 @@ def build_and_commit
         trsc = Transaction.new(plan)
         plan_tasks, trsc_tasks = nil
         x.report("alloc") do
-            trsc_tasks = (1..TASK_COUNT).map { trsc.discover(t = Task.new); t } 
+            trsc_tasks = (1..TASK_COUNT).map { trsc.discover(t = Task.new); t }
             plan_tasks = (1..TASK_COUNT).map { plan.discover(t = Task.new); trsc[t] }
         end
 
@@ -59,4 +59,3 @@ def build_and_commit
     end
 end
 build_and_commit
-

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module GUI
         # Widget that can be used to display the information about a plan object
@@ -11,14 +13,14 @@ module Roby
                 super
                 resize(400, 400)
 
-                connect(SIGNAL('itemDoubleClicked(QListWidgetItem*)')) do |item|
+                connect(SIGNAL("itemDoubleClicked(QListWidgetItem*)")) do |item|
                     emit selectedTime(item.data(Qt::UserRole).to_date_time)
                 end
             end
 
             # Emitted when the user double-clicks a time field in the view (e.g.
             # an event in a task history)
-            signals 'selectedTime(QDateTime)'
+            signals "selectedTime(QDateTime)"
 
             # Updates the view to display the information about +obj+
             def display(obj, plan)
@@ -26,10 +28,10 @@ module Roby
                 if obj.kind_of?(Array)
                     from, to, rel = obj
                     section = [
-                        "#{rel}",
-                        [ "from: #{from}",
-                          "to: #{to}",
-                          "info: #{plan.task_relation_graph_for(rel).edge_info(from, to)}"]
+                        rel.to_s,
+                        ["from: #{from}",
+                         "to: #{to}",
+                         "info: #{plan.task_relation_graph_for(rel).edge_info(from, to)}"]
                     ]
                     sections << section
 
@@ -48,7 +50,7 @@ module Roby
                         text.concat(Roby.format_exception(obj))
                     else
                         text = obj.history.map do |event|
-                            time_as_text = "#{Roby.format_time(event.time)}"
+                            time_as_text = Roby.format_time(event.time).to_s
                             ["#{time_as_text}: #{event.symbol}", event.time]
                         end
                     end
@@ -86,4 +88,3 @@ module Roby
         end
     end
 end
-

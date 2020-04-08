@@ -1,7 +1,9 @@
-require 'roby'
-require 'benchmark'
+# frozen_string_literal: true
 
-require 'ruby-prof'
+require "roby"
+require "benchmark"
+
+require "ruby-prof"
 
 COUNT = 1000
 Benchmark.bm(30) do |x|
@@ -25,4 +27,3 @@ Benchmark.bm(30) do |x|
         tasks.each { |t| plan.remove_task(t) }
     end
 end
-

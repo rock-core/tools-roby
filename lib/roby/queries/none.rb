@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Queries
         # Implementation of a singleton object that matches no other object
@@ -23,5 +25,3 @@ module Roby
         end
     end
 end
-
-

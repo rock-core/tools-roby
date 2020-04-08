@@ -1,8 +1,10 @@
-require 'minitest'
+# frozen_string_literal: true
+
+require "minitest"
 require "drb"
 require "tmpdir"
-require 'roby/hooks'
-require 'roby/droby'
+require "roby/hooks"
+require "roby/droby"
 
 module Roby
     module App
@@ -147,7 +149,7 @@ module Roby
 
             def test_result(pid, file, klass, method, fails, assertions, time)
                 run_hook :on_test_result, pid, file, klass, method,
-                    manager.local_object(fails), assertions, time
+                         manager.local_object(fails), assertions, time
             end
 
             def test_finished(pid)
@@ -156,4 +158,3 @@ module Roby
         end
     end
 end
-

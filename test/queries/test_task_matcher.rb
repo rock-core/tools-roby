@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-require 'roby/test/self'
-require 'roby/tasks/simple'
+require "roby/test/self"
+require "roby/tasks/simple"
 
 module Roby
     module Queries
         describe TaskMatcher do
-            describe 'plan enumeration of basic predicates' do
+            describe "plan enumeration of basic predicates" do
                 after do
                     plan.each_task do |t|
                         execute { t.start_event.emit } if t.starting?
@@ -14,7 +14,7 @@ module Roby
                     end
                 end
 
-                it 'matches on #executable?' do
+                it "matches on #executable?" do
                     plan.add(yes = Tasks::Simple.new)
                     plan.add(no = Tasks::Simple.new)
                     no.executable = false
@@ -23,7 +23,7 @@ module Roby
                     assert_finds_tasks [no], TaskMatcher.not_executable
                 end
 
-                it 'matches on #abstract?' do
+                it "matches on #abstract?" do
                     plan.add(yes = Tasks::Simple.new)
                     plan.add(no = Tasks::Simple.new)
                     yes.abstract = true
@@ -32,7 +32,7 @@ module Roby
                     assert_finds_tasks [no], TaskMatcher.not_abstract
                 end
 
-                it 'matches on #fully_instanciated?' do
+                it "matches on #fully_instanciated?" do
                     task_m = Roby::Task.new_submodel { argument :arg }
                     plan.add(yes = task_m.new(arg: 10))
                     plan.add(no = task_m.new)
@@ -40,7 +40,7 @@ module Roby
                     assert_finds_tasks [no], TaskMatcher.not_fully_instanciated
                 end
 
-                it 'matches on #partially_instanciated?' do
+                it "matches on #partially_instanciated?" do
                     task_m = Roby::Task.new_submodel { argument :arg }
                     plan.add(no = task_m.new(arg: 10))
                     plan.add(yes = task_m.new)
@@ -48,7 +48,7 @@ module Roby
                     assert_finds_tasks [no], TaskMatcher.not_partially_instanciated
                 end
 
-                it 'deals with dynamic argument assignation' do
+                it "deals with dynamic argument assignation" do
                     task_m = Roby::Task.new_submodel { argument :arg }
                     plan.add(t1 = task_m.new)
                     plan.add(t2 = task_m.new(arg: 10))
@@ -63,7 +63,7 @@ module Roby
                     assert_finds_tasks [t1, t2], TaskMatcher.not_partially_instanciated
                 end
 
-                it 'matches pending tasks' do
+                it "matches pending tasks" do
                     plan.add(t = Roby::Tasks::Simple.new)
                     assert_finds_tasks [t], TaskMatcher.pending
                     assert_finds_tasks [], TaskMatcher.not_pending
@@ -72,7 +72,7 @@ module Roby
                     assert_finds_tasks [t], TaskMatcher.not_pending
                 end
 
-                it 'matches starting tasks' do
+                it "matches starting tasks" do
                     task_m = Roby::Tasks::Simple.new_submodel do
                         event(:start) { |_| }
                     end
@@ -87,7 +87,7 @@ module Roby
                     assert_finds_tasks [], TaskMatcher.starting
                 end
 
-                it 'matches running tasks' do
+                it "matches running tasks" do
                     plan.add(t = Roby::Tasks::Simple.new)
                     assert_finds_tasks [], TaskMatcher.running
                     assert_finds_tasks [t], TaskMatcher.not_running
@@ -99,7 +99,7 @@ module Roby
                     assert_finds_tasks [t], TaskMatcher.not_running
                 end
 
-                it 'matches finishing tasks' do
+                it "matches finishing tasks" do
                     task_m = Roby::Tasks::Simple.new_submodel do
                         event(:stop) { |_| }
                     end
@@ -115,7 +115,7 @@ module Roby
                     assert_finds_tasks [], TaskMatcher.finishing
                 end
 
-                it 'matches successful tasks' do
+                it "matches successful tasks" do
                     plan.add(t = Roby::Tasks::Simple.new)
                     assert_finds_tasks [t], TaskMatcher.not_success
                     assert_finds_tasks [], TaskMatcher.success
@@ -129,7 +129,7 @@ module Roby
                     assert_finds_tasks [t], TaskMatcher.not_failed
                 end
 
-                it 'matches failed tasks' do
+                it "matches failed tasks" do
                     plan.add(t = Roby::Tasks::Simple.new)
                     assert_finds_tasks [t], TaskMatcher.not_failed
                     assert_finds_tasks [], TaskMatcher.failed
@@ -143,7 +143,7 @@ module Roby
                     assert_finds_tasks [t], TaskMatcher.not_success
                 end
 
-                it 'matches finished tasks' do
+                it "matches finished tasks" do
                     plan.add(t = Roby::Tasks::Simple.new)
                     assert_finds_tasks [t], TaskMatcher.not_finished
                     assert_finds_tasks [], TaskMatcher.finished
@@ -157,7 +157,7 @@ module Roby
                     assert_finds_tasks [t], TaskMatcher.not_success
                 end
 
-                it 'matches reusable tasks set explicitly' do
+                it "matches reusable tasks set explicitly" do
                     plan.add(t = Roby::Tasks::Simple.new)
                     assert_finds_tasks [t], TaskMatcher.reusable
                     assert_finds_tasks [], TaskMatcher.not_reusable
@@ -166,7 +166,7 @@ module Roby
                     assert_finds_tasks [t], TaskMatcher.not_reusable
                 end
 
-                it 'matches tasks that are not reusable because they are finished' do
+                it "matches tasks that are not reusable because they are finished" do
                     plan.add(t = Roby::Tasks::Simple.new)
                     assert_finds_tasks [t], TaskMatcher.reusable
                     assert_finds_tasks [], TaskMatcher.not_reusable
@@ -178,7 +178,7 @@ module Roby
                     assert_finds_tasks [t], TaskMatcher.not_reusable
                 end
 
-                it 'matches missions' do
+                it "matches missions" do
                     plan.add(t = Roby::Tasks::Simple.new)
                     assert_finds_tasks [], TaskMatcher.mission
                     plan.add_mission_task(t)
@@ -187,7 +187,7 @@ module Roby
                     assert_finds_tasks [], TaskMatcher.mission
                 end
 
-                it 'matches permanent tasks' do
+                it "matches permanent tasks" do
                     plan.add(t = Roby::Tasks::Simple.new)
                     assert_finds_tasks [], TaskMatcher.permanent
                     plan.add_permanent_task(t)
@@ -197,7 +197,7 @@ module Roby
                 end
             end
 
-            describe 'the _event accessor' do
+            describe "the _event accessor" do
                 attr_reader :task_m
                 before do
                     @task_m = Roby::Tasks::Simple.new_submodel do
@@ -205,31 +205,31 @@ module Roby
                     end
                 end
 
-                it 'returns the task event generator matcher for the given event' do
+                it "returns the task event generator matcher for the given event" do
                     matcher = task_m.match.extra_event
                     assert_equal [task_m], matcher.task_matcher.model
-                    assert_equal 'extra', matcher.symbol
+                    assert_equal "extra", matcher.symbol
                 end
-                it 'raises ArgumentError if arguments have been given' do
+                it "raises ArgumentError if arguments have been given" do
                     e = assert_raises(ArgumentError) do
                         task_m.match.extra_event(10)
                     end
-                    assert_equal 'extra_event expected zero arguments, got 1',
+                    assert_equal "extra_event expected zero arguments, got 1",
                                  e.message
                 end
-                it 'raises NoMethodError if the event does not exist '\
-                   'in the selected models' do
+                it "raises NoMethodError if the event does not exist "\
+                   "in the selected models" do
                     e = assert_raises(NoMethodError) do
                         task_m.match.does_not_exist_event
                     end
                     assert_equal "no event 'does_not_exist' in match model #{task_m}, "\
-                                 'use #which_fullfills to narrow the task model',
+                                 "use #which_fullfills to narrow the task model",
                                  e.message
                 end
-                it 'matches against Roby::Task if no models have been selected at all' do
+                it "matches against Roby::Task if no models have been selected at all" do
                     matcher = TaskMatcher.new.start_event
                     assert_equal [], matcher.task_matcher.model
-                    assert_equal 'start', matcher.symbol
+                    assert_equal "start", matcher.symbol
                 end
             end
 
@@ -334,7 +334,7 @@ class TestQueriesTaskMatcher < Minitest::Test
 
     def test_child_match
         plan.add(t1 = Tasks::Simple.new(id: 1))
-        t2 = Tasks::Simple.new_submodel.new(id: '2')
+        t2 = Tasks::Simple.new_submodel.new(id: "2")
         tag = TaskService.new_submodel do
             argument :tag_id
         end
@@ -357,7 +357,7 @@ class TestQueriesTaskMatcher < Minitest::Test
         assert_finds_nothing t1.model.match.with_child(child_match)
 
         assert_finds_tasks [t1, t2], Tasks::Simple.match.with_child(Tasks::Simple)
-        assert_finds_tasks [t1], Tasks::Simple.match.with_child(Tasks::Simple, id: '2')
+        assert_finds_tasks [t1], Tasks::Simple.match.with_child(Tasks::Simple, id: "2")
         assert_finds_tasks [t1], Tasks::Simple.match.with_child(t2.model)
                                               .with_child(t3.model)
         assert_finds_tasks [t1, t2], Tasks::Simple.match.with_child(t3.model)
@@ -516,39 +516,39 @@ end
 module Roby
     module Queries
         describe Query do
-            describe '#===' do
+            describe "#===" do
                 before do
                     @query = plan.find_tasks
                     flexmock(plan)
                     plan.add(@task = Tasks::Simple.new)
                 end
 
-                it 'does not match if one of the positive predicates returns false' do
+                it "does not match if one of the positive predicates returns false" do
                     @query.add_plan_predicate :mission_task?
                     plan.should_receive(:mission_task?).explicitly.and_return(false).once
                     refute @query === @task
                 end
 
-                it 'matches if all the positive predicates returns true' do
+                it "matches if all the positive predicates returns true" do
                     @query.add_plan_predicate :mission_task?
                     plan.should_receive(:mission_task?).explicitly.and_return(true).once
                     assert @query === @task
                 end
 
-                it 'matches if one of the negative predicates returns false' do
+                it "matches if one of the negative predicates returns false" do
                     @query.add_neg_plan_predicate :mission_task?
                     plan.should_receive(:mission_task?).explicitly.and_return(false).once
                     assert @query === @task
                 end
 
-                it 'does not match if one of the negative predicates returns true' do
+                it "does not match if one of the negative predicates returns true" do
                     @query.add_neg_plan_predicate :mission_task?
                     plan.should_receive(:mission_task?).explicitly.and_return(true).once
                     refute @query === @task
                 end
             end
 
-            describe 'in transactions with global scope' do
+            describe "in transactions with global scope" do
                 before do
                     @task_m = Roby::Task.new_submodel do
                         argument :id
@@ -564,30 +564,30 @@ module Roby
                     @trsc.discard_transaction unless @trsc.frozen?
                 end
 
-                it 'finds tasks in the transaction' do
+                it "finds tasks in the transaction" do
                     @trsc.add(@t3)
                     result = @trsc.find_tasks.which_fullfills(@task_m, id: 3).to_a
                     assert_equal [@t3], result
                 end
 
-                it 'finds proxies in the transaction' do
+                it "finds proxies in the transaction" do
                     p1 = @trsc.wrap(@t1)
                     result = @trsc.find_tasks.which_fullfills(@task_m, id: 1).to_a
                     assert_equal [p1], result
                 end
 
-                it 'finds tasks from the plan that are not yet in the transaction' do
+                it "finds tasks from the plan that are not yet in the transaction" do
                     result = @trsc.find_tasks.which_fullfills(@task_m, id: 1).to_a
                     assert_equal [@trsc[@t1]], result
                 end
 
-                it 'does not proxy plan tasks not matched by the query' do
+                it "does not proxy plan tasks not matched by the query" do
                     @trsc.find_tasks.which_fullfills(@task_m, id: 1).to_a
                     refute @trsc.has_task?(@t2)
                     refute @trsc.has_task?(@t3)
                 end
 
-                it 'finds tasks after they are added by a transaction' do
+                it "finds tasks after they are added by a transaction" do
                     @trsc.add(@t3)
                     @trsc.commit_transaction
                     result = plan.find_tasks.which_fullfills(@task_m, id: 3).to_a
@@ -595,7 +595,7 @@ module Roby
                 end
             end
 
-            describe '#roots' do
+            describe "#roots" do
                 # !!! IMPORTANT
                 # In all tests we MUST resolve the query before we check the
                 # result since we want to test whether the query creates the
@@ -605,21 +605,21 @@ module Roby
                     @trsc = Transaction.new(plan)
                 end
 
-                it 'returns all single tasks of a plan' do
+                it "returns all single tasks of a plan" do
                     t1, t2, t3 = prepare_plan add: 3
                     assert_equal [t1, t2, t3].to_set,
                                  plan.find_tasks.roots(TaskStructure::Dependency).to_set
                 end
 
-                it 'rejects tasks from a single plan that have parents' do
+                it "rejects tasks from a single plan that have parents" do
                     t1, t2, t3 = prepare_plan add: 3
                     t1.depends_on t2
                     assert_equal [t1, t3].to_set,
                                  plan.find_tasks.roots(TaskStructure::Dependency).to_set
                 end
 
-                it 'handles having a child in the transaction and the parent '\
-                   'in the plan for a relation in the plan' do
+                it "handles having a child in the transaction and the parent "\
+                   "in the plan for a relation in the plan" do
                     plan.add(parent = Tasks::Simple.new)
                     plan.add(child = Tasks::Simple.new)
                     parent.depends_on child
@@ -630,8 +630,8 @@ module Roby
                     assert_equal [@trsc[parent]], query_results
                 end
 
-                it 'handles having a parent in the transaction and the child '\
-                   'in the plan' do
+                it "handles having a parent in the transaction and the child "\
+                   "in the plan" do
                     plan.add(parent = Tasks::Simple.new)
                     plan.add(child = Tasks::Simple.new)
                     parent.depends_on child
@@ -642,7 +642,7 @@ module Roby
                     assert_equal [@trsc[parent]], query_results
                 end
 
-                it 'handles having a plan task with a new parent in the transaction' do
+                it "handles having a plan task with a new parent in the transaction" do
                     @trsc.add(parent = Tasks::Simple.new)
                     plan.add(child = Tasks::Simple.new)
                     parent.depends_on @trsc[child]
@@ -652,7 +652,7 @@ module Roby
                     assert_equal [parent], query_results
                 end
 
-                it 'handles having a plan task with a new child in the transaction' do
+                it "handles having a plan task with a new child in the transaction" do
                     plan.add(parent = Tasks::Simple.new)
                     @trsc.add(child = Tasks::Simple.new)
                     @trsc[parent].depends_on child
@@ -662,7 +662,7 @@ module Roby
                     assert_equal [@trsc[parent]], query_results
                 end
 
-                it 'handles having a plan relation removed by the transaction' do
+                it "handles having a plan relation removed by the transaction" do
                     plan.add(parent = Tasks::Simple.new)
                     plan.add(child = Tasks::Simple.new)
                     parent.depends_on child
@@ -673,7 +673,7 @@ module Roby
                     assert_equal [@trsc[parent], @trsc[child]].to_set, query_results
                 end
 
-                it 'considers objects in all levels of the plan' do
+                it "considers objects in all levels of the plan" do
                     t1, t2, t3 = prepare_plan add: 3
                     tr1, tr2, tr3 = prepare_plan tasks: 3
                     [tr1, tr2, tr3].each { |t| @trsc.add(t) }
@@ -688,7 +688,7 @@ module Roby
                     assert_equal [@trsc[t1], @trsc[t3], tr1].to_set, query_results
                 end
 
-                it 'considers the merged graph' do
+                it "considers the merged graph" do
                     t1, t2 = prepare_plan add: 2
                     @trsc.add(tr = Roby::Tasks::Simple.new)
 

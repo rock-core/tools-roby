@@ -10,7 +10,7 @@ module Roby
             def each_in_plan(plan, &block)
                 if plan != self.plan
                     raise ArgumentError,
-                          'attempting to enumerate results of a query ran '\
+                          "attempting to enumerate results of a query ran "\
                           "in #{self.plan} from #{plan}"
                 end
 
@@ -28,7 +28,7 @@ module Roby
                           "in results from #{plan}"
                 elsif !other.initial_set.equal?(initial_set)
                     raise ArgumentError,
-                          'cannot merge results with different initial sets'
+                          "cannot merge results with different initial sets"
                 end
 
                 result = dup
@@ -43,7 +43,7 @@ module Roby
                           "in results from #{plan}"
                 elsif !other.initial_set.equal?(initial_set)
                     raise ArgumentError,
-                          'cannot merge results with different initial sets'
+                          "cannot merge results with different initial sets"
                 end
 
                 result = dup

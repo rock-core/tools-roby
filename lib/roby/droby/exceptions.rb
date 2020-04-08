@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module DRoby
         # Exception raised when trying to resolve a sibling for which we
@@ -11,4 +13,3 @@ module Roby
         end
     end
 end
-

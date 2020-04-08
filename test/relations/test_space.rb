@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 module Roby
     module Relations
@@ -6,10 +8,13 @@ module Roby
             let(:support_class) do
                 Class.new do
                     attr_reader :relation_graphs
-                    def initialize(graphs = Hash.new)
+                    def initialize(graphs = {})
                         @relation_graphs = graphs
                     end
-                    def plan; Hash.new { |h, k| k } end
+
+                    def plan
+                        Hash.new { |h, k| k }
+                    end
                 end
             end
             let(:space) { Roby.RelationSpace(support_class) }
@@ -56,7 +61,7 @@ module Roby
                         class << self
                             attr_reader :relation_spaces
                         end
-                        @relation_spaces = Array.new
+                        @relation_spaces = []
                     end
                 end
                 it "includes DirectedRelationSupport on its argument" do
@@ -74,14 +79,14 @@ module Roby
                     assert(relation_class <= r1::Extension)
                 end
                 it "registers itself on the target's #relation_spaces attribute" do
-                    mock = flexmock(relation_spaces: Array.new, all_relation_spaces: Array.new, include: nil)
+                    mock = flexmock(relation_spaces: [], all_relation_spaces: [], include: nil)
                     subject.apply_on(mock)
                     assert_equal [subject], mock.relation_spaces
                 end
 
                 it "iterates over the target's supermodels and registers itself on their #all_relation_spaces attribute" do
-                    root     = flexmock(relation_spaces: Array.new, all_relation_spaces: Array.new, include: nil)
-                    submodel = flexmock(supermodel: root, relation_spaces: Array.new, all_relation_spaces: Array.new, include: nil)
+                    root     = flexmock(relation_spaces: [], all_relation_spaces: [], include: nil)
+                    submodel = flexmock(supermodel: root, relation_spaces: [], all_relation_spaces: [], include: nil)
                     subject.apply_on(submodel)
                     assert_equal [], root.relation_spaces
                     assert_equal [subject], root.all_relation_spaces
@@ -93,7 +98,7 @@ module Roby
             describe "synthetized methods" do
                 describe "single child relation" do
                     before do
-                        space.relation :R, child_name: 'child', single_child: true
+                        space.relation :R, child_name: "child", single_child: true
                     end
 
                     it "has a nil accessor by default" do
@@ -153,8 +158,8 @@ module Roby
 
                         it "wraps the child on first access" do
                             @planned_task.planned_by(@planning_task)
-                            assert_equal @planning_task, @trsc[@planned_task].
-                                planning_task.__getobj__
+                            assert_equal @planning_task, @trsc[@planned_task]
+                                .planning_task.__getobj__
                         end
 
                         it "sets the accessors to nil if the relation is removed" do
@@ -201,7 +206,7 @@ module Roby
 
                 describe "#each_PARENT" do
                     before do
-                        space.relation :R1, parent_name: 'parent'
+                        space.relation :R1, parent_name: "parent"
                     end
                     let(:recorder) { flexmock }
                     subject { create_node }
@@ -213,10 +218,9 @@ module Roby
                     end
                 end
 
-
                 describe "relation without embedded info" do
                     before do
-                        space.relation :R1, child_name: 'child', noinfo: true
+                        space.relation :R1, child_name: "child", noinfo: true
                     end
                     let(:recorder) { flexmock }
                     subject { create_node }
@@ -225,19 +229,18 @@ module Roby
                         it "is passed the child only" do
                             subject.add_child(child = create_node)
                             recorder.should_receive(:called).with([child]).once
-                            assert_nil subject.find_child { |*c| recorder.called(c) }
+                            assert_nil(subject.find_child { |*c| recorder.called(c) })
                         end
 
                         it "returns nil if there are no matching children" do
-                            assert_nil subject.find_child { |c| false }
+                            assert_nil(subject.find_child { |c| false })
                         end
 
                         it "returns the first child for which the block returns true" do
                             subject.add_child(child = create_node)
-                            assert_equal child, subject.find_child { true }
+                            assert_equal(child, subject.find_child { true })
                         end
                     end
-
 
                     describe "#each_CHILD" do
                         it "enumerates the object's children" do
@@ -250,7 +253,7 @@ module Roby
 
                 describe "relation with embedded info" do
                     before do
-                        space.relation :R1, child_name: 'child', noinfo: false
+                        space.relation :R1, child_name: "child", noinfo: false
                     end
                     let(:recorder) { flexmock }
                     subject { create_node }
@@ -269,16 +272,16 @@ module Roby
                         it "yields the child and info" do
                             subject.add_child(child = create_node, info = flexmock)
                             recorder.should_receive(:called).with([child, info]).once
-                            assert_nil subject.find_child { |*c| recorder.called(c) }
+                            assert_nil(subject.find_child { |*c| recorder.called(c) })
                         end
 
                         it "returns nil if there are no matching children" do
-                            assert_nil subject.find_child { |c| false }
+                            assert_nil(subject.find_child { |c| false })
                         end
 
                         it "returns the first child for which the block returns true" do
                             subject.add_child(child = create_node)
-                            assert_equal child, subject.find_child { true }
+                            assert_equal(child, subject.find_child { true })
                         end
                     end
 
@@ -303,4 +306,3 @@ module Roby
         end
     end
 end
-

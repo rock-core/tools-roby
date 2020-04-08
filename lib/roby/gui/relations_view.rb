@@ -1,10 +1,12 @@
-require 'roby/gui/relations_view/relations_config'
-require 'roby/gui/relations_view/relations_view_ui'
-require 'roby/gui/relations_view/relations_canvas'
+# frozen_string_literal: true
 
-require 'roby/gui/plan_rebuilder_widget'
-require 'roby/gui/object_info_view'
-require 'roby/gui/scheduler_view'
+require "roby/gui/relations_view/relations_config"
+require "roby/gui/relations_view/relations_view_ui"
+require "roby/gui/relations_view/relations_canvas"
+
+require "roby/gui/plan_rebuilder_widget"
+require "roby/gui/object_info_view"
+require "roby/gui/scheduler_view"
 
 module Roby
     module GUI
@@ -46,16 +48,16 @@ module Roby
                     self.window_title = "roby-display: Relations"
                 end
             end
-            slots 'updateWindowTitle()'
+            slots "updateWindowTitle()"
 
             def setDisplayTime(time)
                 scheduler_view.display(history_widget.current_plan.consolidated_scheduler_state)
                 view.update(time)
             end
-            slots 'setDisplayTime(QDateTime)'
+            slots "setDisplayTime(QDateTime)"
 
-            def update_time_range(start_time, current_time)
-            end
+            def update_time_range(start_time, current_time); end
+
             def update_display_time(time)
                 scheduler_view.display(history_widget.current_plan.consolidated_scheduler_state)
                 view.update(time)
@@ -72,9 +74,10 @@ module Roby
     end
 end
 
-
 class Ui::RelationsView
-    def scene; graphics.scene end
+    def scene
+        graphics.scene
+    end
 
     # The underlying RelationsCanvas object
     attr_reader :display
@@ -113,7 +116,7 @@ class Ui::RelationsView
             return unless obj.kind_of?(Roby::Task)
 
             menu = Qt::Menu.new
-            hide_this     = menu.add_action("Hide")
+            hide_this = menu.add_action("Hide")
             hide_children = menu.add_action("Hide children")
             show_children = menu.add_action("Show children")
             return unless action = menu.exec(event.globalPos)
@@ -141,7 +144,7 @@ class Ui::RelationsView
 
     ZOOM_STEP = 0.25
     def setupActions(view)
-        @display   = display = view.view
+        @display = display = view.view
 
         @actionShowAll = Qt::Action.new(view)
         @actionShowAll.objectName = "actionShowAll"
@@ -192,14 +195,14 @@ class Ui::RelationsView
         @menuView = Qt::Menu.new("View", @menubar)
         @menuView.objectName = "menuView"
 
-        @menubar.addAction(@menuView.menuAction())
+        @menubar.addAction(@menuView.menuAction)
         @menuView.addAction(@actionKeepSignals)
         @menuView.addAction(@actionShowAll)
-        @menuView.addSeparator()
+        @menuView.addSeparator
         @menuView.addAction(@actionZoom)
         @menuView.addAction(@actionUnzoom)
         @menuView.addAction(@actionFit)
-        @menuView.addSeparator()
+        @menuView.addSeparator
         @menuView.addAction(@actionSVGExport)
         @menuView.addAction(@actionPrint)
         @menuView.addAction(@actionConfigure)
@@ -221,7 +224,10 @@ class Ui::RelationsView
 
         @actionShowAll.connect(SIGNAL(:triggered)) do
             display.graphics.keys.each do |obj|
-                display.set_visibility(obj, true) if obj.kind_of?(Roby::Task::DRoby) || (obj.kind_of?(Roby::EventGenerator::DRoby) && !obj.respond_to?(:task))
+                if obj.kind_of?(Roby::Task::DRoby) ||
+                   (obj.kind_of?(Roby::EventGenerator::DRoby) && !obj.respond_to?(:task))
+                    display.set_visibility(obj, true)
+                end
             end
             display.update
         end
@@ -249,11 +255,12 @@ class Ui::RelationsView
 
         @actionPrint.connect(SIGNAL(:triggered)) do
             return unless scene
-            printer = Qt::Printer.new;
-            if Qt::PrintDialog.new(printer).exec() == Qt::Dialog::Accepted
-                painter = Qt::Painter.new(printer);
-                painter.setRenderHint(Qt::Painter::Antialiasing);
-                scene.render(painter);
+
+            printer = Qt::Printer.new
+            if Qt::PrintDialog.new(printer).exec == Qt::Dialog::Accepted
+                painter = Qt::Painter.new(printer)
+                painter.setRenderHint(Qt::Painter::Antialiasing)
+                scene.render(painter)
             end
         end
 
@@ -273,4 +280,3 @@ class Ui::RelationsView
         @actionSVGExport.enabled = defined?(Qt::SvgGenerator)
     end
 end
-

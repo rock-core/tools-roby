@@ -1,10 +1,11 @@
-require 'eventmachine'
-require 'rack'
-require 'thin'
-require 'rest-client'
-require 'grape'
+# frozen_string_literal: true
 
-require 'roby/interface/rest/server'
-require 'roby/interface/rest/helpers'
-require 'roby/interface/rest/api'
+require "eventmachine"
+require "rack"
+require "thin"
+require "rest-client"
+require "grape"
 
+require "roby/interface/rest/server"
+require "roby/interface/rest/helpers"
+require "roby/interface/rest/api"

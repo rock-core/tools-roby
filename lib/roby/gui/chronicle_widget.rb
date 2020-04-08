@@ -1,9 +1,11 @@
-require 'Qt4'
-require 'roby/gui/qt4_toMSecsSinceEpoch'
-require 'utilrb/module/attr_predicate'
-require 'roby/gui/styles'
-require 'roby/gui/object_info_view'
-require 'roby/gui/task_state_at'
+# frozen_string_literal: true
+
+require "Qt4"
+require "roby/gui/qt4_toMSecsSinceEpoch"
+require "utilrb/module/attr_predicate"
+require "roby/gui/styles"
+require "roby/gui/object_info_view"
+require "roby/gui/task_state_at"
 
 module Roby
     module GUI
@@ -91,7 +93,7 @@ module Roby
             # @see add_tasks_info remove_tasks
             attr_accessor :all_job_info
             # Scheduler information
-            # 
+            #
             # @return [Schedulers::State]
             attr_reader :scheduler_state
             # The task layout as computed in the last call to #paintEvent
@@ -116,19 +118,20 @@ module Roby
             attr_reader :sort_mode
             # See #sort_mode
             def sort_mode=(mode)
-                if ![:start_time, :last_event].include?(mode)
+                if !%i[start_time last_event].include?(mode)
                     raise ArgumentError, "sort_mode can either be :start_time or :last_event, got #{mode}"
                 end
+
                 @sort_mode = mode
             end
+
             # Whether the order defined by {#sort_mode} should be inverted
             def reverse_sort?
                 !!@reverse_sort
             end
+
             # Whether the order defined by {#sort_mode} should be inverted
-            def reverse_sort=(flag)
-                @reverse_sort = flag
-            end
+            attr_writer :reverse_sort
             # High-level filter on the list of shown tasks. Can either be :all,
             # :running, :current. Defaults to :all
             #
@@ -163,9 +166,10 @@ module Roby
 
             # See #show_mode
             def show_mode=(mode)
-                if ![:all, :running, :current, :in_range].include?(mode)
+                if !%i[all running current in_range].include?(mode)
                     raise ArgumentError, "show_mode can be :all, :running, :in_range or :current, got #{mode}"
                 end
+
                 @show_mode = mode
             end
 
@@ -214,9 +218,9 @@ module Roby
             def initialize(parent = nil)
                 super(parent)
 
-                @layout_cache = Hash.new
-                @messages_per_task = Hash.new { |h, k| h[k] = Array.new }
-                @current_tasks = Array.new
+                @layout_cache = {}
+                @messages_per_task = Hash.new { |h, k| h[k] = [] }
+                @current_tasks = []
                 @current_tasks_dirty = true
                 self.time_scale = 10
                 @task_height = 10
@@ -224,9 +228,9 @@ module Roby
                 @live_update_margin = 10
                 @start_line = 0
                 @all_tasks = Set.new
-                @all_job_info = Hash.new
+                @all_job_info = {}
                 @scheduler_state = Schedulers::State.new
-                @task_layout = Array.new
+                @task_layout = []
                 @sort_mode = :start_time
                 @reverse_sort = false
                 @show_mode = :all
@@ -238,27 +242,27 @@ module Roby
 
                 viewport = Qt::Widget.new
                 pal = Qt::Palette.new(viewport.palette)
-                pal.setColor(Qt::Palette::Background, Qt::Color.new('white'))
-                viewport.setAutoFillBackground(true);
+                pal.setColor(Qt::Palette::Background, Qt::Color.new("white"))
+                viewport.setAutoFillBackground(true)
                 viewport.setPalette(pal)
                 self.viewport = viewport
 
-                horizontal_scroll_bar.connect(SIGNAL('sliderMoved(int)')) do
+                horizontal_scroll_bar.connect(SIGNAL("sliderMoved(int)")) do
                     value = horizontal_scroll_bar.value
                     self.track_current_time = live? && (value == horizontal_scroll_bar.maximum)
                     time = base_time + Float(value) * pixel_to_time
                     update_display_time(time)
                     emit timeChanged(time - base_time)
                 end
-                horizontal_scroll_bar.connect(SIGNAL('sliderPressed()')) do
+                horizontal_scroll_bar.connect(SIGNAL("sliderPressed()")) do
                     self.horizontal_scroll_bar_down = true
                 end
-                horizontal_scroll_bar.connect(SIGNAL('sliderReleased()')) do
+                horizontal_scroll_bar.connect(SIGNAL("sliderReleased()")) do
                     self.track_current_time = live? && (horizontal_scroll_bar.value == horizontal_scroll_bar.maximum)
                     self.horizontal_scroll_bar_down = false
                     update_scroll_ranges
                 end
-                vertical_scroll_bar.connect(SIGNAL('valueChanged(int)')) do
+                vertical_scroll_bar.connect(SIGNAL("valueChanged(int)")) do
                     value = vertical_scroll_bar.value
                     if value < current_tasks.size
                         self.start_line = value
@@ -269,7 +273,7 @@ module Roby
 
             # Signal emitted when the currently displayed time changed. The time
             # is provided as an offset since base_time
-            signals 'void timeChanged(float)'
+            signals "void timeChanged(float)"
 
             # Event handler for wheel event
             def wheelEvent(event)
@@ -421,7 +425,7 @@ module Roby
 
             def update_display_point
                 display_point = viewport.size.width - live_update_margin -
-                    (current_time - display_time) * time_to_pixel
+                                (current_time - display_time) * time_to_pixel
                 display_point_min = viewport.size.width / 2
                 if display_point < display_point_min
                     display_point = display_point_min
@@ -447,7 +451,7 @@ module Roby
                     display_point = self.display_point
                     window_width  = viewport.size.width
                     start_time = display_time - display_point * pixel_to_time
-                    end_time   = start_time   + window_width * pixel_to_time
+                    end_time   = start_time + window_width * pixel_to_time
                     @displayed_time_range = [start_time, end_time]
                 end
             end
@@ -479,7 +483,7 @@ module Roby
                 if filter_out
                     current_tasks.delete_if { |t| t.to_s =~ filter_out }
                 end
-                started_tasks, pending_tasks = current_tasks.partition { |t| t.start_time }
+                started_tasks, pending_tasks = current_tasks.partition(&:start_time)
 
                 if sort_mode == :last_event
                     not_yet_started, started_tasks = started_tasks.partition { |t| t.start_time > display_time }
@@ -495,10 +499,10 @@ module Roby
                             last_event.time
                         end
                     current_tasks = current_tasks.reverse
-                    current_tasks.concat(not_yet_started.sort_by { |t| t.start_time })
+                    current_tasks.concat(not_yet_started.sort_by(&:start_time))
                     if show_mode == :all
-                        current_tasks.
-                            concat(pending_tasks.sort_by { |t| t.addition_time })
+                        current_tasks
+                            .concat(pending_tasks.sort_by(&:addition_time))
                     end
                 else
                     current_tasks =
@@ -543,9 +547,9 @@ module Roby
             def massage_slot_time_argument(time, default)
                 # Convert from QDateTime to allow update() to be a slot
                 if time.kind_of?(Qt::DateTime)
-                    return Time.at(Float(time.toMSecsSinceEpoch) / 1000)
+                    Time.at(Float(time.toMSecsSinceEpoch) / 1000)
                 elsif !time
-                    return default
+                    default
                 else time
                 end
             end
@@ -559,7 +563,7 @@ module Roby
                 update_display_time(time)
                 update
             end
-            slots 'setDisplayTime(QDateTime)'
+            slots "setDisplayTime(QDateTime)"
 
             def setCurrentTime(time = nil)
                 time = massage_slot_time_argument(time, current_time)
@@ -569,9 +573,9 @@ module Roby
                 update_current_time(time)
                 update
             end
-            slots 'setCurrentTime(QDateTime)'
+            slots "setCurrentTime(QDateTime)"
 
-            SCALES = [1, 2, 5, 10, 20, 30, 60, 90, 120, 300, 600, 1200, 1800, 3600]
+            SCALES = [1, 2, 5, 10, 20, 30, 60, 90, 120, 300, 600, 1200, 1800, 3600].freeze
             def paint_timeline(painter, fm)
                 text_height = fm.height
                 window_size = viewport.size
@@ -655,15 +659,16 @@ module Roby
                     @finalization_point = nil
 
                     @state = :pending
-                    @messages = Array.new
-                    @events = Array.new
-                    @event_max_x = Array.new
+                    @messages = []
+                    @events = []
+                    @event_max_x = []
                     @base_height = event_height
                     update
                 end
 
                 def update
                     return if @finalization_point
+
                     history_size = events.size
                     return if !task.finalization_time && task.history.size == history_size
 
@@ -677,7 +682,6 @@ module Roby
                             end_time = last_event.time
                         end
                     end
-
 
                     if start_time = task.start_time
                         @time_first_event = start_time
@@ -713,11 +717,11 @@ module Roby
 
                 def events_in_range(display_start_time, display_end_time)
                     if !@time_first_event
-                        return
+                        nil
                     elsif @time_first_event > display_end_time
-                        return
+                        nil
                     elsif @time_last_event < display_start_time
-                        return
+                        nil
                     else
                         result = []
                         events.each do |ev|
@@ -745,20 +749,19 @@ module Roby
 
             def lay_out_task(fm, task)
                 layout = layout_cache[task] ||= TaskLayout.new(task, base_time, time_to_pixel, fm)
-                layout.messages = messages_per_task.fetch(task, Array.new)
+                layout.messages = messages_per_task.fetch(task, [])
                 layout.update
                 layout
             end
 
             def paint_tasks(painter, fm, layout, top_y)
-                current_point  = Integer((current_time -  base_time) * time_to_pixel)
+                current_point  = Integer((current_time - base_time) * time_to_pixel)
                 display_offset = Integer(display_point - (display_time - base_time) * time_to_pixel)
                 display_start_time, display_end_time = displayed_time_range
                 view_height = viewport.size.height
 
-                fm = Qt::FontMetrics.new(font)
-                text_height  = fm.height
-                text_ascent  = fm.ascent
+                text_height = fm.height
+                text_ascent = fm.ascent
                 text_descent = fm.descent
 
                 update_current_tasks
@@ -768,9 +771,9 @@ module Roby
                     task_layout = lay_out_task(fm, task)
                     add_point, start_point, end_point, finalization_point =
                         task_layout.add_point, task_layout.start_point, task_layout.end_point, task_layout.finalization_point
-                    state         = task_layout.state
-                    task          = task_layout.task
-                    event_height  = task_layout.event_height
+                    state = task_layout.state
+                    task = task_layout.task
+                    event_height = task_layout.event_height
 
                     task_line_height = event_height
                     if events = task_layout.events_in_range(display_start_time, display_end_time)
@@ -807,16 +810,14 @@ module Roby
 
                     # Display the emitted events
                     event_baseline = top_task_line + event_height / 2
-                    if events
-                        events.each do |_, x, y, text|
-                            x += display_offset
-                            y += event_baseline
-                            painter.brush, painter.pen = EVENT_STYLES[EVENT_CONTROLABLE | EVENT_EMITTED]
-                            painter.drawEllipse(Qt::Point.new(x, y),
-                                                EVENT_CIRCLE_RADIUS, EVENT_CIRCLE_RADIUS)
-                            painter.pen = EVENT_NAME_PEN
-                            painter.drawText(Qt::Point.new(x + 2 * EVENT_CIRCLE_RADIUS, y), text)
-                        end
+                    events&.each do |_, x, y, text|
+                        x += display_offset
+                        y += event_baseline
+                        painter.brush, painter.pen = EVENT_STYLES[EVENT_CONTROLABLE | EVENT_EMITTED]
+                        painter.drawEllipse(Qt::Point.new(x, y),
+                                            EVENT_CIRCLE_RADIUS, EVENT_CIRCLE_RADIUS)
+                        painter.pen = EVENT_NAME_PEN
+                        painter.drawText(Qt::Point.new(x + 2 * EVENT_CIRCLE_RADIUS, y), text)
                     end
 
                     # Add the title
@@ -828,7 +829,7 @@ module Roby
                     # And finally display associated messages
                     messages_baseline = title_baseline + text_height
                     painter.pen = TASK_MESSAGE_PEN
-                    task_layout.messages.each_with_index do |msg|
+                    task_layout.messages.each do |msg|
                         messages_baseline += text_height
                         painter.drawText(Qt::Point.new(TASK_MESSAGE_MARGIN, messages_baseline), msg)
                     end
@@ -837,8 +838,8 @@ module Roby
                 end
             end
 
-            TIMELINE_GRAY_PEN = Qt::Pen.new(Qt::Color.new('gray'))
-            TIMELINE_BLACK_PEN = Qt::Pen.new(Qt::Color.new('black'))
+            TIMELINE_GRAY_PEN = Qt::Pen.new(Qt::Color.new("gray"))
+            TIMELINE_BLACK_PEN = Qt::Pen.new(Qt::Color.new("black"))
 
             def timeline_height
                 fm = Qt::FontMetrics.new(font)
@@ -861,11 +862,8 @@ module Roby
                 # Draw the "zero" line
                 painter.pen = TIMELINE_GRAY_PEN
                 painter.drawLine(display_point, fm.height + 2, display_point, size.height)
-
             ensure
-                if painter
-                    painter.end
-                end
+                painter&.end
             end
 
             def task_timeline_title(task)
@@ -876,11 +874,11 @@ module Roby
                         job_text << job_task.action_model.name.to_s
                     end
                     if job_task.action_arguments
-                        job_text << "(" + job_task.action_arguments.map do |k,v|
+                        job_text << "(" + job_task.action_arguments.map do |k, v|
                             "#{k} => #{v}"
                         end.join(", ") + ")"
                     end
-                    text = "#{job_text.join(" ")} / #{text}"
+                    text = "#{job_text.join(' ')} / #{text}"
                 end
                 text
             end
@@ -896,8 +894,8 @@ module Roby
                 if layout
                     if !@info_view
                         @info_view = ObjectInfoView.new
-                        Qt::Object.connect(@info_view, SIGNAL('selectedTime(QDateTime)'),
-                                           self, SIGNAL('selectedTime(QDateTime)'))
+                        Qt::Object.connect(@info_view, SIGNAL("selectedTime(QDateTime)"),
+                                           self, SIGNAL("selectedTime(QDateTime)"))
                     end
 
                     if @info_view.display(layout.task)
@@ -907,11 +905,11 @@ module Roby
                 event.accept
             end
 
-            signals 'selectedTime(QDateTime)'
+            signals "selectedTime(QDateTime)"
 
             def update_scroll_ranges
                 vertical_scroll_bar.setRange(0, current_tasks.size - 1)
-                line_max = current_tasks.size == 0 ? 0 : current_tasks.size - 1
+                line_max = current_tasks.empty? ? 0 : current_tasks.size - 1
                 @start_line = [line_max, @start_line].compact.min
                 return if horizontal_scroll_bar_down?
 
@@ -924,4 +922,3 @@ module Roby
         end
     end
 end
-

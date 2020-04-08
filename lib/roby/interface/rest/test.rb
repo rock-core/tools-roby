@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require 'rack/test'
-require 'rest-client'
+require "rack/test"
+require "rest-client"
 
 module Roby
     module Interface
@@ -26,8 +26,8 @@ module Roby
                 include Rack::Test::Methods
 
                 def rest_api
-                    raise NotImplementedError, 'implement #rest_api in your test '\
-                                               'to return the REST API'
+                    raise NotImplementedError, "implement #rest_api in your test "\
+                                               "to return the REST API"
                 end
 
                 # @api private

@@ -1,7 +1,9 @@
+# frozen_string_literal: true
+
 module Roby::Tasks
     class Parallel < TaskAggregator
         def name
-            @name || @tasks.map { |t| t.name }.join("|")
+            @name || @tasks.map(&:name).join("|")
         end
 
         attr_reader :children_success
@@ -16,7 +18,7 @@ module Roby::Tasks
             return super() unless task
 
             task = task.new unless task.kind_of?(Roby::Task)
-            @tasks.each do |t| 
+            @tasks.each do |t|
                 task.depends_on t
                 task.start_event.signals t.start_event
             end
@@ -29,6 +31,7 @@ module Roby::Tasks
 
         def <<(task)
             raise "trying to change a running parallel task" if running?
+
             @tasks << task
 
             start_event.signals task.start_event
@@ -38,6 +41,8 @@ module Roby::Tasks
             self
         end
 
-        def to_parallel; self end
+        def to_parallel
+            self
+        end
     end
 end

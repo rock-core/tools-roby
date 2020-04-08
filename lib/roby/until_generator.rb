@@ -1,10 +1,12 @@
+# frozen_string_literal: true
+
 module Roby
     # This event generator combines a source and a limit in a temporal pattern.
     # The generator acts as a pass-through for the source, until the limit is
     # itself emitted. It means that:
     #
     # * before the limit is emitted, the generator will emit each time its
-    #  source emits 
+    #  source emits
     # * since the point where the limit is emitted, the generator
     #   does not emit anymore
     #
@@ -27,4 +29,3 @@ module Roby
         end
     end
 end
-

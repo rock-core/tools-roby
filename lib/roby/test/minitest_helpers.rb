@@ -1,4 +1,6 @@
-require 'roby/test/expect_execution'
+# frozen_string_literal: true
+
+require "roby/test/expect_execution"
 
 module Roby
     module Test
@@ -15,10 +17,12 @@ module Roby
                 while !queue.empty?
                     e = queue.shift
                     next if seen.include?(e)
+
                     seen << e
                     if expected.any? { |expected_e| e.kind_of?(expected_e) }
                         return e
                     end
+
                     if e.respond_to?(:original_exceptions)
                         queue.concat(e.original_exceptions)
                     end
@@ -55,9 +59,9 @@ module Roby
                         assert_exception_can_be_pretty_printed(e)
                         return e
                     else
-                        flunk("#{matchers.map(&:to_s).join(", ")} exceptions expected, not #{e.class}")
+                        flunk("#{matchers.map(&:to_s).join(', ')} exceptions expected, not #{e.class}")
                     end
-                rescue ::Exception => root_e
+                rescue ::Exception => root_e # rubocop:disable Naming/RescuedExceptionsVariableName
                     assert_exception_can_be_pretty_printed(root_e)
                     all = Roby.flatten_exception(root_e)
                     if actual_e = all.find { |e| matchers.any? { |expected_e| expected_e === e } }
@@ -68,10 +72,9 @@ module Roby
                         end
                     end
                     actually_caught = roby_exception_to_string(*all)
-                    flunk("#{exp.map(&:to_s).join(", ")} exceptions expected, not #{root_e.class} #{actually_caught}")
+                    flunk("#{exp.map(&:to_s).join(', ')} exceptions expected, not #{root_e.class} #{actually_caught}")
                 end
-                flunk("#{exp.map(&:to_s).join(", ")} exceptions expected but received nothing")
-
+                flunk("#{exp.map(&:to_s).join(', ')} exceptions expected but received nothing")
             ensure
                 if plan.executable?
                     plan.execution_engine.display_exceptions =
@@ -80,14 +83,14 @@ module Roby
             end
 
             def roby_exception_to_string(*queue)
-                msg = ""
+                msg = String.new
                 seen = Set.new
                 while e = queue.shift
                     next if seen.include?(e)
+
                     seen << e
                     e_bt = Minitest.filter_backtrace(e.backtrace).join "\n    "
-                    msg << "\n\n" << Roby.format_exception(e).join("\n") +
-                        "\n    #{e_bt}"
+                    msg << "\n\n" << Roby.format_exception(e).join("\n") + "\n    #{e_bt}"
 
                     queue.concat(e.original_exceptions) if e.respond_to?(:original_exceptions)
                 end
@@ -98,16 +101,16 @@ module Roby
                 if !error?
                     super
                 else
-                    failures.map { |failure|
+                    failures.map do |failure|
                         bt = Minitest.filter_backtrace(failure.backtrace).join "\n    "
-                        msg = 
+                        msg =
                             if failure.kind_of?(Minitest::UnexpectedError)
                                 roby_exception_to_string(failure.exception)
                             else
                                 failure.message
                             end
                         "#{failure.result_label}:\n#{self.location}:\n#{msg}\n"
-                    }.join "\n"
+                    end.join("\n")
                 end
             end
 
@@ -124,21 +127,21 @@ module Roby
                 super do
                     begin
                         yield
-                    rescue Exception => root_e
-                        if !root_e.respond_to?(:each_original_exception)
+                    rescue Exception => e
+                        if !e.respond_to?(:each_original_exception)
                             raise
                         end
 
-                        exceptions = root_e.each_original_exception
-                        register_failure(root_e)
+                        exceptions = e.each_original_exception
+                        register_failure(e)
 
                         # Try to be smart and to only keep the toplevel
                         # exceptions
-                        filter_execution_exceptions(exceptions).each do |e|
-                            if !e.backtrace
-                                e.set_backtrace(root_e.backtrace)
+                        filter_execution_exceptions(exceptions).each do |original_e|
+                            if !original_e.backtrace
+                                original_e.set_backtrace(e.backtrace)
                             end
-                            register_failure(e)
+                            register_failure(original_e)
                         end
                     end
                 end
@@ -148,19 +151,18 @@ module Roby
                 exceptions.flat_map { |e| Roby.flatten_exception(e).to_a }.uniq
             end
 
-            def exception_details e, msg
+            def exception_details(e, msg)
                 [
-                    "#{msg}",
+                    msg.to_s,
                     "Class: <#{e.class}>",
                     "Message: <#{e.message.inspect}>",
                     "Pretty-print:",
                     *Roby.format_exception(e),
                     "---Backtrace---",
-                    "#{Minitest.filter_backtrace(e.backtrace).join("\n")}",
-                    "---------------",
+                    Minitest.filter_backtrace(e.backtrace).join("\n").to_s,
+                    "---------------"
                 ].join "\n"
             end
         end
     end
 end
-

@@ -1,4 +1,6 @@
-require 'fcntl'
+# frozen_string_literal: true
+
+require "fcntl"
 
 module Roby
     module Tasks
@@ -46,13 +48,13 @@ module Roby
             # running
             attr_reader :pid
 
-            def initialize(arguments = Hash.new)
+            def initialize(arguments = {})
                 if arg = arguments[:command_line]
                     arguments[:command_line] = [arg] if !arg.kind_of?(Array)
                 end
                 @pid = nil
                 @buffer = nil
-                @redirection = Hash.new
+                @redirection = {}
                 super(arguments)
             end
 
@@ -86,21 +88,21 @@ module Roby
             #
             def redirect_output(common = nil, stdout: nil, stderr: nil)
                 if @pid
-                    raise RuntimeError, "cannot change redirection after task start"
+                    raise "cannot change redirection after task start"
                 elsif common
                     stdout = stderr = common
                 end
 
-                @redirection = Hash.new
+                @redirection = {}
                 if stdout
                     @redirection[:stdout] =
-                        if [:pipe, :close].include?(stdout) then stdout
+                        if %i[pipe close].include?(stdout) then stdout
                         else stdout.to_str
                         end
                 end
                 if stderr
                     @redirection[:stderr] =
-                        if [:pipe, :close].include?(stderr) then stderr
+                        if %i[pipe close].include?(stderr) then stderr
                         else stderr.to_str
                         end
                 end
@@ -116,14 +118,14 @@ module Roby
                     [[], :close]
                 elsif redir_target == :pipe
                     pipe, io = IO.pipe
-                    [[[:close, io]], io, pipe, ''.dup]
+                    [[[:close, io]], io, pipe, "".dup]
                 elsif redir_target !~ /%p/
                     # Assume no replacement in redirection, just open the file
                     io =
-                        if redir_target[0, 1] == '+'
-                            File.open(redir_target[1..-1], 'a')
+                        if redir_target[0, 1] == "+"
+                            File.open(redir_target[1..-1], "a")
                         else
-                            File.open(redir_target, 'w')
+                            File.open(redir_target, "w")
                         end
                     [[[:close, io]], io]
                 else
@@ -138,7 +140,7 @@ module Roby
             def handle_redirection
                 if !@redirection[:stdout] && !@redirection[:stderr]
                     return [], {}
-                elsif (@redirection[:stdout] == @redirection[:stderr]) && ![:pipe, :close].include?(@redirection[:stdout])
+                elsif (@redirection[:stdout] == @redirection[:stderr]) && !%i[pipe close].include?(@redirection[:stdout])
                     io = open_redirection(working_directory)
                     return [[@redirection[:stdout], io]], Hash[out: io, err: io]
                 end
@@ -148,7 +150,7 @@ module Roby
                 err_open, err_io, @err_pipe, @err_buffer =
                     create_redirection(@redirection[:stderr])
 
-                @read_buffer = ''.dup if @out_buffer || @err_buffer
+                @read_buffer = "".dup if @out_buffer || @err_buffer
 
                 spawn_options = {}
                 spawn_options[:out] = out_io if out_io
@@ -166,7 +168,7 @@ module Roby
 
                 opened_ios, spawn_options = handle_redirection
 
-                @pid = Process.spawn *command_line, **spawn_options
+                @pid = Process.spawn(*command_line, **spawn_options)
                 opened_ios.each do |pattern, io|
                     if pattern != :close
                         target_path = File.join(working_directory,
@@ -184,15 +186,15 @@ module Roby
             # Returns the file name based on the redirection pattern and the current
             # PID value.
             def redirection_path(pattern, pid) # :nodoc:
-                pattern.gsub '%p', pid.to_s
+                pattern.gsub "%p", pid.to_s
             end
 
             # @api private
             #
             # Open the output file for redirection, before spawning
             def open_redirection(dir)
-                Dir::Tmpname.create 'roby-external-process', dir do |path, _|
-                    return File.open(path, 'w+')
+                Dir::Tmpname.create "roby-external-process", dir do |path, _|
+                    return File.open(path, "w+")
                 end
             end
 
@@ -209,32 +211,30 @@ module Roby
             # Read a given pipe, when an output is redirected to pipe
             def read_pipe(pipe, buffer)
                 received = false
-                while true
+                loop do
                     pipe.read_nonblock 1024, @read_buffer
                     received = true
                     buffer.concat(@read_buffer)
                 end
             rescue EOFError
                 if received
-                    return true, buffer.dup
+                    [true, buffer.dup]
                 end
             rescue IO::WaitReadable
                 if received
-                    return false, buffer.dup
+                    [false, buffer.dup]
                 end
             end
 
             # Method called when data is received on an intercepted stdout
             #
             # Intercept stdout by calling redirect_output(stdout: :pipe)
-            def stdout_received(data)
-            end
+            def stdout_received(data); end
 
             # Method called when data is received on an intercepted stderr
             #
             # Intercept stdout by calling redirect_output(stderr: :pipe)
-            def stderr_received(data)
-            end
+            def stderr_received(data); end
 
             def read_pipes
                 if @out_pipe

@@ -1,6 +1,8 @@
-require 'roby/test/self'
+# frozen_string_literal: true
 
-class TC_PlanObject < Minitest::Test 
+require "roby/test/self"
+
+class TC_PlanObject < Minitest::Test
     def setup
         super
         Roby.app.filter_backtraces = false
@@ -114,13 +116,12 @@ module Roby
         describe "#promise" do
             it "creates a promise using the object's own executor" do
                 plan.add(object = Task.new)
-                flexmock(Promise).should_receive(:new).
-                    with(execution_engine,
-                         ->(h) { h[:executor].equal?(object.promise_executor) && h[:description] == 'promise description' },
-                         Proc).once.and_return(promise = flexmock)
-                assert_equal promise, object.promise(description: 'promise description') {}
+                flexmock(Promise).should_receive(:new)
+                    .with(execution_engine,
+                          ->(h) { h[:executor].equal?(object.promise_executor) && h[:description] == "promise description" },
+                          Proc).once.and_return(promise = flexmock)
+                assert_equal promise, object.promise(description: "promise description") {}
             end
         end
     end
 end
-

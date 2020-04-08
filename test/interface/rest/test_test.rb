@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require 'roby/test/self'
-require 'roby/test/spec'
-require 'roby/interface/rest/test'
-require 'roby/interface/rest/task'
+require "roby/test/self"
+require "roby/test/spec"
+require "roby/interface/rest/test"
+require "roby/interface/rest/task"
 
 module Roby
     module Interface
@@ -18,14 +18,14 @@ module Roby
                         mount API
                         helpers Helpers
 
-                        get '/test' do
+                        get "/test" do
                             roby_execute { roby_plan.num_tasks }
                         end
                     end
                 end
 
-                it 'allows to execute a test that synchronizes with the engine' do
-                    assert_equal 0, JSON.parse(get('/test').body)
+                it "allows to execute a test that synchronizes with the engine" do
+                    assert_equal 0, JSON.parse(get("/test").body)
                 end
             end
         end

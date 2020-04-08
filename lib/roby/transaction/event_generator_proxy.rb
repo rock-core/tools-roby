@@ -1,8 +1,10 @@
+# frozen_string_literal: true
+
 module Roby
     class Transaction
         module EventGeneratorProxy
             proxy_for EventGenerator
-            
+
             def setup_proxy(object, plan)
                 super(object, plan)
                 @handlers.clear
@@ -59,5 +61,3 @@ module Roby
         end
     end
 end
-
-
