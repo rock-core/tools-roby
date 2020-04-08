@@ -446,7 +446,7 @@ module Roby
                         next_steps = gather_propagation do
                             finished.concat(process_waiting_work)
                             blocks = []
-                            while !once_blocks.empty?
+                            until once_blocks.empty?
                                 blocks << once_blocks.pop.last
                             end
                             call_poll_blocks(blocks)
@@ -804,7 +804,7 @@ module Roby
         # Dispatch {#once_blocks} to the other handler sets for further
         # processing
         def process_once_blocks
-            while !once_blocks.empty?
+            until once_blocks.empty?
                 type, block = once_blocks.pop
                 if type == :external_events
                     external_events_handlers << block
@@ -876,8 +876,8 @@ module Roby
 
             gather_errors do
                 next_steps = initial_events
-                while !next_steps.empty?
-                    while !next_steps.empty?
+                until next_steps.empty?
+                    until next_steps.empty?
                         next_steps = event_propagation_step(next_steps, propagation_info)
                     end
                     next_steps = gather_propagation { call_propagation_handlers }

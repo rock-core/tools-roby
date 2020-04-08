@@ -38,7 +38,7 @@ module Roby
                 # The server socket
                 attr_reader :server
 
-                def initialize(event_file_path, sampling_period = DEFAULT_SAMPLING_PERIOD, io)
+                def initialize(event_file_path, sampling_period, io)
                     @server = io
                     @pending_data = {}
                     @sampling_period = sampling_period

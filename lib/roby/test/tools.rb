@@ -46,7 +46,7 @@ module Roby
                             end
                         end
 
-                        while !timeout
+                        until timeout
                             cv.wait(mt)
                         end
                         engine.remove_periodic_handler(id)

@@ -2059,32 +2059,6 @@ Style/MultilineBlockChain:
     - 'test/test_or_generator.rb'
     - 'test/test_task.rb'
 
-# Offense count: 25
-# Cop supports --auto-correct.
-Style/NegatedWhile:
-  Exclude:
-    - 'doc/guide/ext/previous_next.rb'
-    - 'lib/roby/app/scripts/restart.rb'
-    - 'lib/roby/cli/log.rb'
-    - 'lib/roby/cli/main.rb'
-    - 'lib/roby/executable_plan.rb'
-    - 'lib/roby/execution_engine.rb'
-    - 'lib/roby/gui/stepping.rb'
-    - 'lib/roby/relations/graph.rb'
-    - 'lib/roby/test/common.rb'
-    - 'lib/roby/test/minitest_helpers.rb'
-    - 'lib/roby/test/spec.rb'
-    - 'lib/roby/test/tools.rb'
-    - 'test/app/cucumber/test_controller.rb'
-    - 'test/interface/async/client_server_test_helpers.rb'
-    - 'test/interface/test_shell_client.rb'
-    - 'test/test_execution_engine.rb'
-
-# Offense count: 1
-Style/OptionalArguments:
-  Exclude:
-    - 'lib/roby/droby/logfile/server.rb'
-
 # Offense count: 160
 # Cop supports --auto-correct.
 Style/ParallelAssignment:

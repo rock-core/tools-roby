@@ -264,7 +264,7 @@ module Roby
                     def poll_interface_until(timeout: 10)
                         deadline = Time.now + timeout
                         remaining_timeout = timeout
-                        while !yield
+                        until yield
                             controller.roby_interface.wait(timeout: remaining_timeout)
                             controller.roby_interface.poll
                             remaining_timeout = deadline - Time.now

@@ -281,7 +281,7 @@ module Roby
                 require "roby/droby/logfile/reader"
                 logfile = Roby::DRoby::Logfile::Reader.open(file)
                 last_cycle = nil
-                while !logfile.eof?
+                until logfile.eof?
                     current_pos = logfile.tell
                     begin
                         last_cycle = logfile.load_one_cycle

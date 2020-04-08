@@ -105,7 +105,7 @@ module Roby
             end
             handlers = matching_handlers.sort_by { |_, handler| handler.priority }
 
-            while !handlers.empty?
+            until handlers.empty?
                 table, handler = handlers.shift
                 if handler
                     begin
