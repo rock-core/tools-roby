@@ -11,16 +11,12 @@ module Roby
                 Argument = Struct.new :name, :doc, :required, :default do
                     def pretty_print(pp)
                         pp.text "#{name}: #{doc}"
-                        if required then pp.text " (required)"
-                        else pp.text " (optional)"
-                        end
-                        if default
-                            pp.text " default=#{default}"
-                        end
+                        pp.text required ? " (required)" : " (optional)"
+                        pp.text " default=#{default}" if default
                     end
 
                     def required?
-                        !!required
+                        required
                     end
                 end
 
@@ -57,9 +53,7 @@ module Roby
 
                 # Task model that can be used to represent this action in a plan
                 def returned_task_type
-                    if @returned_task_type
-                        return @returned_task_type
-                    end
+                    return @returned_task_type if @returned_task_type
 
                     if returned_type.kind_of?(Roby::Models::TaskServiceModel)
                         model = Class.new(Roby::Task)
@@ -101,22 +95,22 @@ module Roby
                 # @raise [ArgumentError]
                 def validate_can_overload(parent)
                     overloaded_return  = parent.returned_type
-                    overloading_return = self.returned_type
+                    overloading_return = returned_type
 
-                    if !overloading_return.fullfills?(overloaded_return)
-                        if overloading_return.kind_of?(Class)
-                            raise ArgumentError,
-                                  "overloading return type #{overloading_return} does "\
-                                  "not fullfill #{overloaded_return}, cannot merge "\
-                                  "the action models"
-                        elsif overloaded_return != Roby::Task
-                            raise ArgumentError,
-                                  "overloading return type #{overloading_return} is "\
-                                  "a service model which does not fullfill "\
-                                  "#{overloaded_return}, and Roby does not support "\
-                                  "return type specifications that are composite "\
-                                  "of services and tasks"
-                        end
+                    return if overloading_return.fullfills?(overloaded_return)
+
+                    if overloading_return.kind_of?(Class)
+                        raise ArgumentError,
+                              "overloading return type #{overloading_return} does "\
+                              "not fullfill #{overloaded_return}, cannot merge "\
+                              "the action models"
+                    elsif overloaded_return != Roby::Task
+                        raise ArgumentError,
+                              "overloading return type #{overloading_return} is "\
+                              "a service model which does not fullfill "\
+                              "#{overloaded_return}, and Roby does not support "\
+                              "return type specifications that are composite "\
+                              "of services and tasks"
                     end
                 end
 
@@ -155,7 +149,7 @@ module Roby
 
                 # Return true if a argument with the given name is specified
                 def has_arg?(name)
-                    !!find_arg(name)
+                    find_arg(name)
                 end
 
                 # Find the argument from its name
@@ -182,10 +176,13 @@ module Roby
 
                 # Sets the type of task returned by the action
                 def returns(type)
-                    if !type.kind_of?(Class) && !type.kind_of?(Roby::Models::TaskServiceModel)
-                        raise ArgumentError, "#{type} is neither a task model nor a task service model"
+                    if !type.kind_of?(Class) &&
+                       !type.kind_of?(Roby::Models::TaskServiceModel)
+                        raise ArgumentError,
+                              "#{type} is neither a task model nor a task service model"
                     elsif type.kind_of?(Class) && !(type <= Roby::Task)
-                        raise ArgumentError, "#{type} is neither a task model nor a task service model"
+                        raise ArgumentError,
+                              "#{type} is neither a task model nor a task service model"
                     end
 
                     @returned_type = type
@@ -207,14 +204,18 @@ module Roby
                         pp.text "Returns "
                         returned_type.pretty_print(pp)
                         pp.breakable
-                        if arguments.empty?
-                            pp.text "No arguments."
-                        else
-                            pp.text "Arguments:"
-                            pp.nest(2) do
-                                pp.seplist(arguments.sort_by(&:name)) do |arg|
-                                    arg.pretty_print(pp)
-                                end
+                        pretty_print_arguments(pp)
+                    end
+                end
+
+                def pretty_print_arguments(pp)
+                    if arguments.empty?
+                        pp.text "No arguments."
+                    else
+                        pp.text "Arguments:"
+                        pp.nest(2) do
+                            pp.seplist(arguments.sort_by(&:name)) do |arg|
+                                arg.pretty_print(pp)
                             end
                         end
                     end
