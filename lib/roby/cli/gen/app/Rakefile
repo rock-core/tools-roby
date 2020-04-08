@@ -13,4 +13,4 @@ YARD::Rake::YardocTask.new do |yard|
     yard.files = ["models/**/*.rb", "lib/**/*.rb"]
 end
 desc "Generate YARD documentation (alias for 'yard')"
-task :doc => :yard
+task "doc" => "yard"
