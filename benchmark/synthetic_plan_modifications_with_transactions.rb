@@ -3,54 +3,67 @@
 require "roby"
 require "benchmark"
 
-def randomly_modify_plan(plan, num_tasks, num_relation_changes, num_mission_changes, commit: true)
-    plan.in_transaction do |trsc|
-        num_tasks = num_tasks / 10 * 10
-        if plan.num_tasks < num_tasks
-            (num_tasks - plan.num_tasks).times do
-                trsc.add(Roby::Task.new)
-            end
-        end
-        tasks = (plan.tasks.to_a + trsc.tasks.to_a)
+def pick_index_in_group(group)
+    group * 10 + rand(10)
+end
 
-        num_relation_changes.times do
-            from_group, to_group = 0, 0
-            while from_group == to_group
-                from_group = rand(tasks.size / 10)
-                to_group   = rand(tasks.size / 10)
-            end
-            if from_group > to_group
-                from_group, to_group = to_group, from_group
-            end
-            from_i = from_group * 10 + rand(10)
-            to_i   = to_group * 10 + rand(10)
+def pick_from_to(tasks)
+    from_group = 0
+    to_group = 0
+    while from_group == to_group
+        from_group = rand(tasks.size / 10)
+        to_group   = rand(tasks.size / 10)
+    end
+    from_group, to_group = to_group, from_group if from_group > to_group
+    from_i = pick_index_in_group(from_group)
+    to_i   = pick_index_in_group(to_group)
 
-            from = tasks[from_i]
-            to   = tasks[to_i]
+    [tasks[from_i], tasks[to_i]]
+end
 
-            if from.plan == to.plan && from.depends_on?(to)
-                trsc[from].remove_child trsc[to]
-            else
-                trsc[from].depends_on trsc[to]
-            end
-        end
+def make_relation_change(tasks, trsc)
+    from, to = pick_from_to(tasks)
 
-        # Unmark all missions
-        all_missions = plan.mission_tasks.to_a + trsc.mission_tasks.to_a
-        all_missions.each do |t|
-            trsc.unmark_mission_task(trsc[t])
-        end
+    if from.plan == to.plan && from.depends_on?(to)
+        trsc[from].remove_child trsc[to]
+    else
+        trsc[from].depends_on trsc[to]
+    end
+end
 
-        # And randomly mark mission_count tasks
-        num_mission_changes.times do
-            task = tasks[rand(tasks.size)]
-            trsc.add_mission_task(trsc[task])
-        end
-
-        if commit
-            trsc.commit_transaction
+def adjust_plan_sizes(plan, trsc, num_tasks)
+    num_tasks = num_tasks / 10 * 10
+    if plan.num_tasks < num_tasks
+        (num_tasks - plan.num_tasks).times do
+            trsc.add(Roby::Task.new)
         end
     end
+    (plan.tasks.to_a + trsc.tasks.to_a)
+end
+
+def make_mission_changes(plan, trsc, tasks, num_mission_changes)
+    # Unmark all missions
+    all_missions = plan.mission_tasks.to_a + trsc.mission_tasks.to_a
+    all_missions.each do |t|
+        trsc.unmark_mission_task(trsc[t])
+    end
+
+    # And randomly mark mission_count tasks
+    num_mission_changes.times do
+        task = tasks[rand(tasks.size)]
+        trsc.add_mission_task(trsc[task])
+    end
+end
+
+def randomly_modify_plan(
+    plan, trsc, num_tasks, num_relation_changes, num_mission_changes
+)
+    tasks = adjust_plan_sizes(plan, trsc, num_tasks)
+
+    num_relation_changes.times do
+        make_relation_change(tasks, trsc)
+    end
+    make_mission_changes(plan, trsc, tasks, num_mission_changes)
 end
 
 COUNT = 10
@@ -63,17 +76,27 @@ Benchmark.bm(30) do |x|
         plan = Roby::ExecutablePlan.new
         Roby::ExecutionEngine.new(plan)
 
-        COUNT.times do |i|
-            randomly_modify_plan(plan, num_tasks, num_relation_changes, num_mission_changes, commit: false)
+        COUNT.times do
+            plan.in_transaction do |trsc|
+                randomly_modify_plan(
+                    plan, trsc, num_tasks, num_relation_changes, num_mission_changes
+                )
+            end
         end
     end
 
-    x.report "modifies and commits an executable plan using a transaction (#{COUNT} times)" do
+    x.report "modifies and commits an executable plan "\
+             "using a transaction (#{COUNT} times)" do
         plan = Roby::ExecutablePlan.new
         Roby::ExecutionEngine.new(plan)
 
-        COUNT.times do |i|
-            randomly_modify_plan(plan, num_tasks, num_relation_changes, num_mission_changes)
+        COUNT.times do
+            plan.in_transaction do |trsc|
+                randomly_modify_plan(
+                    plan, trsc, num_tasks, num_relation_changes, num_mission_changes
+                )
+                trsc.commit_transaction
+            end
         end
     end
 end
