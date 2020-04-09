@@ -155,4 +155,38 @@ describe Roby::Actions::Models::Action do
             refute action_m.has_arg?(:does_not_exist)
         end
     end
+
+    describe "#pretty_print" do
+        before do
+            interface_m = Roby::Actions::Interface.new_submodel
+            @action_m   = Roby::Actions::Models::Action.new(interface_m)
+        end
+
+        it "pretty prints an action model" do
+            expected = <<~TEXT
+                Action #{@action_m}
+                  Returns Roby::Task
+                  No arguments.
+            TEXT
+            assert_equal expected, PP.pp(@action_m, "".dup)
+        end
+
+        it "displays No arguments if there are no arguments" do
+        end
+
+        it "pretty-prints the argument definitions" do
+            @action_m.optional_arg("opt_arg_no_default", "opt arg no default doc")
+            @action_m.optional_arg("opt_arg", "opt arg doc", 10)
+            @action_m.required_arg("req_arg", "req arg doc")
+            expected = <<~TEXT
+                Action #{@action_m}
+                  Returns Roby::Task
+                  Arguments:
+                    opt_arg: opt arg doc (optional) default=10
+                    opt_arg_no_default: opt arg no default doc (optional)
+                    req_arg: req arg doc (required)
+            TEXT
+            assert_equal expected, PP.pp(@action_m, "".dup)
+        end
+    end
 end

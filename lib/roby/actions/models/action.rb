@@ -214,7 +214,8 @@ module Roby
                     else
                         pp.text "Arguments:"
                         pp.nest(2) do
-                            pp.seplist(arguments.sort_by(&:name)) do |arg|
+                            arguments.sort_by(&:name).each do |arg|
+                                pp.breakable
                                 arg.pretty_print(pp)
                             end
                         end
