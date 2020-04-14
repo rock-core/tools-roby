@@ -5,6 +5,10 @@ if ENV['TEST_ENABLE_COVERAGE'] == '1' || ENV['TEST_COVERAGE_MODE']
     mode = ENV['TEST_COVERAGE_MODE'] || 'simplecov'
     begin
         require mode
+        name_arg = ARGV.find { |arg| arg.match?(/--simplecov-name=/) }
+        if name_arg
+            SimpleCov.command_name name_arg.split('=')[1]
+        end
     rescue LoadError => e
         require 'roby'
         Roby.warn "coverage is disabled because the code coverage gem cannot be loaded: #{e.message}"
