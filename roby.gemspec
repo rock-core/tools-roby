@@ -55,6 +55,8 @@ Gem::Specification.new do |s|
     s.add_development_dependency "aruba"
     s.add_development_dependency "cucumber"
     s.add_development_dependency "rack-test"
+    s.add_development_dependency "rubocop"
+    s.add_development_dependency "rubocop-rock"
 
     # NOTE: stackprof and rbtrace are linux- and MRI-specific
     # Only in Gemfile !
