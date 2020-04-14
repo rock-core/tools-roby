@@ -43,5 +43,6 @@
 
   <test_depend package="aruba" />
   <test_depend package="rack-test" />
+  <test_depend package="rubocop" />
 </package>
 

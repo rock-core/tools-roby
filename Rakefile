@@ -7,6 +7,30 @@ require "yard/rake/yardoc_task"
 
 task :default
 
+TESTOPTS = ENV.delete("TESTOPTS") || ""
+
+USE_RUBOCOP = (ENV["RUBOCOP"] != "0")
+USE_JUNIT = (ENV["JUNIT"] == "1")
+REPORT_DIR = ENV["REPORT_DIR"] || File.expand_path("test_reports", __dir__)
+
+def minitest_set_options(test_task, name)
+    minitest_options = []
+    if USE_JUNIT
+        minitest_options += [
+            "--junit", "--junit-jenkins",
+            "--junit-filename=#{REPORT_DIR}/#{name}.junit.xml"
+        ]
+    end
+
+    minitest_args =
+        if minitest_options.empty?
+            ""
+        else
+            "\"" + minitest_options.join("\" \"") + "\""
+        end
+    test_task.options = "#{TESTOPTS} #{minitest_args} -- --simplecov-name=#{name}"
+end
+
 has_gui =
     if ENV["TEST_DISABLE_GUI"] == "1"
         false
@@ -22,6 +46,7 @@ has_gui =
 Rake::TestTask.new(:test) do |t|
     t.libs << "."
     t.libs << "lib"
+    minitest_set_options(t, "core")
     test_files = FileList["test/**/test_*.rb"]
     test_files = test_files.exclude("test/app/test_debug.rb") if RUBY_ENGINE != "ruby"
     if ENV["TEST_FAST"] == "1"
@@ -35,6 +60,15 @@ Rake::TestTask.new(:test) do |t|
     test_files = test_files.exclude("test/test_gui.rb") unless has_gui
     t.test_files = test_files
     t.warning = false
+end
+
+if USE_RUBOCOP
+    require "rubocop/rake_task"
+    RuboCop::RakeTask.new do |t|
+        t.formatters << "junit"
+        t.options << "-o" << "#{REPORT_DIR}/rubocop.junit.xml"
+    end
+    task "test" => "rubocop"
 end
 
 begin
