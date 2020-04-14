@@ -137,7 +137,7 @@ module TC_TransactionBehaviour
         end
         assert(plan.has_task?(t1))
         assert_equal([t2], t1.children.to_a)
- 
+
         t3 = Tasks::Simple.new
         transaction_commit(plan, t1, t2) do |trsc, p1, p2|
             p1.depends_on t3
@@ -487,7 +487,7 @@ module TC_TransactionBehaviour
             assert trsc.has_free_event?(p_ev)
         end
     end
-    
+
     # Tests insertion and removal of free events
     def test_commit_plan_events
         e1, e2 = (1..2).map { Roby::EventGenerator.new }
@@ -737,7 +737,7 @@ module TC_TransactionBehaviour
     def forwarding_graph; plan.event_relation_graph_for(Forwarding) end
     def dependency_graph; plan.task_relation_graph_for(Dependency) end
     def planned_by_graph; plan.task_relation_graph_for(PlannedBy) end
-    
+
     def test_commit_replace_updates_relations
         root, task, child, replacement = prepare_plan tasks: 4, model: Tasks::Simple
         root.depends_on task, model: Tasks::Simple
@@ -958,47 +958,6 @@ module TC_TransactionBehaviour
             assert(parent.depends_on?(child, recursive: false))
         end
         assert(!parent.depends_on?(child, recursive: false))
-    end
-
-    def test_query_roots_finds_a_path_in_plan
-        parent, child = prepare_plan add: 2
-        parent.depends_on child
-        transaction_commit(plan) do |trsc|
-            assert_equal [[parent].to_set, Set.new],
-                trsc.query_roots([[parent, child].to_set, Set.new], Dependency)
-        end
-    end
-
-    def test_query_roots_finds_a_path_in_transaction
-        transaction_commit(plan) do |trsc|
-            trsc.add(parent = Roby::Task.new)
-            parent.depends_on(child = Roby::Task.new)
-            assert_equal [[].to_set, [parent].to_set],
-                trsc.query_roots([[].to_set, [parent, child].to_set], Dependency)
-        end
-    end
-
-    def test_query_roots_finds_a_mixed_path_in_plan_and_transaction
-        root, parent, child, grand_child = prepare_plan add: 4
-        root.depends_on(parent)
-        child.depends_on grand_child
-        transaction_commit(plan, parent, child) do |trsc, p_parent, p_child|
-            p_parent.depends_on p_child
-            assert_equal [[root].to_set, [].to_set],
-                trsc.query_roots([[root, grand_child].to_set, [p_parent, p_child].to_set], Dependency)
-        end
-    end
-
-    def test_query_roots_does_ignore_relations_that_have_been_removed_in_transaction
-        root, parent, child, grand_child = prepare_plan add: 4
-        root.depends_on(parent)
-        parent.depends_on child
-        child.depends_on grand_child
-        transaction_commit(plan, parent, child) do |trsc, p_parent, p_child|
-            p_parent.remove_child p_child
-            assert_equal [[root].to_set, [p_child].to_set],
-                trsc.query_roots([[root, grand_child].to_set, [p_parent, p_child].to_set], Dependency)
-        end
     end
 
     def test_single_child_accessors_automatically_proxy_the_related_task
@@ -1459,7 +1418,7 @@ class TC_RecursiveTransaction < Minitest::Test
         end
     end
 end
- 
+
 module Roby
     describe Transaction do
         before do

@@ -9,11 +9,15 @@ module Roby
                 false
             end
 
-            # Enumerates all tasks of +plan+ which match this TaskMatcher object
-            #
-            # It is O(N). You should prefer use Query which uses the plan's task
-            # indexes, thus leading to O(1) in simple cases.
             def each(plan)
+                Roby.warn_deprecated 'MatcherBase#each is deprecated, '\
+                                     'use #each_in_plan instead'
+
+                each_in_plan(plan)
+            end
+
+            # Enumerates all tasks of +plan+ which match this TaskMatcher object
+            def each_in_plan(plan)
                 return enum_for(__method__, plan) unless block_given?
 
                 plan.each_task do |t|
@@ -22,10 +26,27 @@ module Roby
                 self
             end
 
-            # Negates this predicate
+            # Finds all matching objects in plan and returns them as an Array
             #
-            # The returned task matcher will yield tasks that are *not* matched by
-            # +self+
+            # It is essentially equivalent to each_in_plan(plan).to_a, but might
+            # be optimized in some cases
+            def to_a(plan)
+                each_in_plan(plan).to_a
+            end
+
+            # Finds all matching objects in plan and returns them as a Set
+            #
+            # It is essentially equivalent to each_in_plan(plan).to_set, but is
+            # optimized in indexed resolutions where a Set is already available
+            def to_set(plan)
+                each_in_plan(plan).to_set
+            end
+
+            def reset
+                Roby.warn_deprecated 'Matcher#reset is a no-op now, matchers '\
+                                     'don\'t cache their results anymore'
+            end
+
             def negate
                 NotMatcher.new(self)
             end
@@ -58,6 +79,30 @@ module Roby
             # @return [Array<Symbol>]
             attr_reader :neg_predicates
 
+            # @api private
+            #
+            # Add the given predicate to the set of predicates that must match
+            def add_predicate(predicate)
+                if @neg_predicates.include?(predicate)
+                    raise ArgumentError, "trying to match (#{predicate} & !#{predicate})"
+                end
+
+                @predicates << predicate
+                self
+            end
+
+            # @api private
+            #
+            # Add the given predicate to the set of predicates that must match
+            def add_neg_predicate(predicate)
+                if @predicates.include?(predicate)
+                    raise ArgumentError, "trying to match (#{predicate} & !#{predicate})"
+                end
+
+                @neg_predicates << predicate
+                self
+            end
+
             class << self
                 def declare_class_methods(*names) # :nodoc:
                     names.each do |name|
@@ -75,20 +120,10 @@ module Roby
                     method_name = name.to_s.gsub(/\?$/, '')
                     class_eval <<~PREDICATE_CODE, __FILE__, __LINE__ + 1
                         def #{method_name}
-                            if neg_predicates.include?(:#{name})
-                                raise ArgumentError,
-                                      "trying to match (#{name} & !#{name})"
-                            end
-                            predicates << :#{name}
-                            self
+                            add_predicate(:#{name})
                         end
                         def not_#{method_name}
-                            if predicates.include?(:#{name})
-                                raise ArgumentError,
-                                      "trying to match (#{name} & !#{name})"
-                            end
-                            neg_predicates << :#{name}
-                            self
+                            add_neg_predicate(:#{name})
                         end
                     PREDICATE_CODE
                     declare_class_methods(method_name, "not_#{method_name}")

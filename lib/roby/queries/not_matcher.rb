@@ -1,30 +1,36 @@
+# frozen_string_literal: true
+
 module Roby
     module Queries
+        # Negate a given task-matching predicate
+        #
+        # This matcher will match if the underlying predicate does not match.
+        class NotMatcher < MatcherBase
+            # Create a new TaskMatcher which matches if and only if +op+ does not
+            def initialize(op)
+                @op = op
+            end
 
-    # Negate a given task-matching predicate
-    #
-    # This matcher will match if the underlying predicate does not match.
-    class NotMatcher < MatcherBase
-        # Create a new TaskMatcher which matches if and only if +op+ does not
-        def initialize(op)
-            @op = op
-        end
+            # True if the task matches at least one of the underlying predicates
+            def ===(task)
+                !(@op === task)
+            end
 
-        # Filters as much as non-matching tasks as possible out of +task_set+,
-        # based on the information in +task_index+
-        def filter(initial_set, task_index)
-            # WARNING: the value returned by filter is a SUPERSET of the
-            # possible values for the query. Therefore, the result of
-            # NegateTaskMatcher#filter is NOT
+            # Version of {NotMatcher} specialized for {TaskMatcher}
             #
-            #   initial_set - @op.filter(...)
-            initial_set
-        end
+            # Do not create directly, use {TaskMatcher#negate} instead
+            class Tasks < NotMatcher
+                def evaluate(plan)
+                    @op.evaluate(plan).negate
+                end
 
-        # True if the task matches at least one of the underlying predicates
-        def ===(task)
-            !(@op === task)
+                # Enumerate the objects matching self in the plan
+                def each_in_plan(plan, &block)
+                    return enum_for(__method__, plan) unless block_given?
+
+                    evaluate(plan).each_in_plan(plan, &block)
+                end
+            end
         end
-    end
     end
 end

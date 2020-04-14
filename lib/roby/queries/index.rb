@@ -16,6 +16,12 @@ module Roby
             attr_reader :by_owner
             # Tasks that are locally owned
             attr_reader :self_owned
+            # Set of mission tasks
+            attr_reader :mission_tasks
+            # Set of permanent tasks
+            attr_reader :permanent_tasks
+            # Set of permanent events
+            attr_reader :permanent_events
 
             STATE_PREDICATES = %I[
                 pending? starting? running? finished? success? failed?
@@ -39,6 +45,9 @@ module Roby
                 @self_owned.compare_by_identity
                 @by_owner = {}
                 @by_owner.compare_by_identity
+                @mission_tasks = Set.new
+                @permanent_tasks = Set.new
+                @permanent_events = Set.new
             end
 
             def merge(source)
@@ -80,6 +89,9 @@ module Roby
                 @by_predicate.each_value(&:clear)
                 @by_owner.clear
                 @self_owned.clear
+                @mission_tasks.clear
+                @permanent_tasks.clear
+                @permanent_events.clear
             end
 
             # Add a new task to this index

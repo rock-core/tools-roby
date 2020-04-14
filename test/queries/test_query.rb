@@ -218,68 +218,218 @@ class TestCaseQueriesQuery < Minitest::Test
         end
     end
 
-    def test_transactions_simple
-        model = Roby::Task.new_submodel do
-            argument :id
+    def assert_sets_equal(a, b)
+        assert_equal a.to_set, b.to_set
+    end
+
+    def assert_empty(a)
+        assert_equal [], a.to_a
+    end
+end
+
+module Roby
+    module Queries
+        describe Query do
+            describe '#===' do
+                before do
+                    @query = plan.find_tasks
+                    flexmock(plan)
+                    plan.add(@task = Tasks::Simple.new)
+                end
+
+                it 'does not match if one of the positive predicates returns false' do
+                    @query.add_plan_predicate :mission_task?
+                    plan.should_receive(:mission_task?).explicitly.and_return(false).once
+                    refute @query === @task
+                end
+
+                it 'matches if all the positive predicates returns true' do
+                    @query.add_plan_predicate :mission_task?
+                    plan.should_receive(:mission_task?).explicitly.and_return(true).once
+                    assert @query === @task
+                end
+
+                it 'matches if one of the negative predicates returns false' do
+                    @query.add_neg_plan_predicate :mission_task?
+                    plan.should_receive(:mission_task?).explicitly.and_return(false).once
+                    assert @query === @task
+                end
+
+                it 'does not match if one of the negative predicates returns true' do
+                    @query.add_neg_plan_predicate :mission_task?
+                    plan.should_receive(:mission_task?).explicitly.and_return(true).once
+                    refute @query === @task
+                end
+            end
+
+            describe 'in transactions with global scope' do
+                before do
+                    @task_m = Roby::Task.new_submodel do
+                        argument :id
+                    end
+                    @t1, @t2, @t3 = (1..3).map { |i| @task_m.new(id: i) }
+                    @t1.depends_on @t2
+                    plan.add(@t1)
+
+                    @trsc = Transaction.new(plan)
+                end
+
+                after do
+                    @trsc.discard_transaction unless @trsc.frozen?
+                end
+
+                it 'finds tasks in the transaction' do
+                    @trsc.add(@t3)
+                    result = @trsc.find_tasks.which_fullfills(@task_m, id: 3).to_a
+                    assert_equal [@t3], result
+                end
+
+                it 'finds proxies in the transaction' do
+                    p1 = @trsc.wrap(@t1)
+                    result = @trsc.find_tasks.which_fullfills(@task_m, id: 1).to_a
+                    assert_equal [p1], result
+                end
+
+                it 'finds tasks from the plan that are not yet in the transaction' do
+                    result = @trsc.find_tasks.which_fullfills(@task_m, id: 1).to_a
+                    assert_equal [@trsc[@t1]], result
+                end
+
+                it 'does not proxy plan tasks not matched by the query' do
+                    @trsc.find_tasks.which_fullfills(@task_m, id: 1).to_a
+                    refute @trsc.has_task?(@t2)
+                    refute @trsc.has_task?(@t3)
+                end
+
+                it 'finds tasks after they are added by a transaction' do
+                    @trsc.add(@t3)
+                    @trsc.commit_transaction
+                    result = plan.find_tasks.which_fullfills(@task_m, id: 3).to_a
+                    assert_equal([@t3], result)
+                end
+            end
+
+            describe 'the _event accessor' do
+                it 'passes the event matcher returned by the underlying task matcher' do
+                    task_m = Roby::Tasks::Simple.new_submodel do
+                        event :extra
+                    end
+                    matcher = plan.find_tasks(task_m).extra_event
+                    assert_equal [task_m], matcher.task_matcher.model
+                    assert_equal 'extra', matcher.symbol
+                end
+            end
+
+            describe '#roots' do
+                # !!! IMPORTANT
+                # In all tests we MUST resolve the query before we check the
+                # result since we want to test whether the query creates the
+                # proxies
+
+                before do
+                    @trsc = Transaction.new(plan)
+                end
+
+                it 'returns all single tasks of a plan' do
+                    t1, t2, t3 = prepare_plan add: 3
+                    assert_equal [t1, t2, t3].to_set,
+                                 plan.find_tasks.roots(TaskStructure::Dependency).to_set
+                end
+
+                it 'rejects tasks from a single plan that have parents' do
+                    t1, t2, t3 = prepare_plan add: 3
+                    t1.depends_on t2
+                    assert_equal [t1, t3].to_set,
+                                 plan.find_tasks.roots(TaskStructure::Dependency).to_set
+                end
+
+                it 'handles having a child in the transaction and the parent '\
+                   'in the plan for a relation in the plan' do
+                    plan.add(parent = Tasks::Simple.new)
+                    plan.add(child = Tasks::Simple.new)
+                    parent.depends_on child
+                    @trsc[child]
+
+                    query_results =
+                        @trsc.find_tasks.roots(TaskStructure::Dependency).to_a
+                    assert_equal [@trsc[parent]], query_results
+                end
+
+                it 'handles having a parent in the transaction and the child '\
+                   'in the plan' do
+                    plan.add(parent = Tasks::Simple.new)
+                    plan.add(child = Tasks::Simple.new)
+                    parent.depends_on child
+                    @trsc[parent]
+
+                    query_results =
+                        @trsc.find_tasks.roots(TaskStructure::Dependency).to_a
+                    assert_equal [@trsc[parent]], query_results
+                end
+
+                it 'handles having a plan task with a new parent in the transaction' do
+                    @trsc.add(parent = Tasks::Simple.new)
+                    plan.add(child = Tasks::Simple.new)
+                    parent.depends_on @trsc[child]
+
+                    query_results =
+                        @trsc.find_tasks.roots(TaskStructure::Dependency).to_a
+                    assert_equal [parent], query_results
+                end
+
+                it 'handles having a plan task with a new child in the transaction' do
+                    plan.add(parent = Tasks::Simple.new)
+                    @trsc.add(child = Tasks::Simple.new)
+                    @trsc[parent].depends_on child
+
+                    query_results =
+                        @trsc.find_tasks.roots(TaskStructure::Dependency).to_a
+                    assert_equal [@trsc[parent]], query_results
+                end
+
+                it 'handles having a plan relation removed by the transaction' do
+                    plan.add(parent = Tasks::Simple.new)
+                    plan.add(child = Tasks::Simple.new)
+                    parent.depends_on child
+                    @trsc[parent].remove_child @trsc[child]
+
+                    query_results =
+                        @trsc.find_tasks.roots(TaskStructure::Dependency).to_set
+                    assert_equal [@trsc[parent], @trsc[child]].to_set, query_results
+                end
+
+                it 'considers objects in all levels of the plan' do
+                    t1, t2, t3 = prepare_plan add: 3
+                    tr1, tr2, tr3 = prepare_plan tasks: 3
+                    [tr1, tr2, tr3].each { |t| @trsc.add(t) }
+
+                    t1.depends_on t2
+                    tr1.depends_on tr2
+                    @trsc[t3].depends_on tr3
+                    refute @trsc.find_local_object_for_task(t2)
+
+                    query_results =
+                        @trsc.find_tasks.roots(TaskStructure::Dependency).to_set
+                    assert_equal [@trsc[t1], @trsc[t3], tr1].to_set, query_results
+                end
+
+                it 'considers the merged graph' do
+                    t1, t2 = prepare_plan add: 2
+                    @trsc.add(tr = Roby::Tasks::Simple.new)
+
+                    t1.depends_on t2
+                    @trsc[t2].depends_on tr
+
+                    # !!! IMPORTANT
+                    # We MUST resolve the query before we check the result
+                    # since we want to test whether the query creates the
+                    # proxies
+                    query_results =
+                        @trsc.find_tasks.roots(TaskStructure::Dependency).to_set
+                    assert_equal [@trsc[t1]].to_set, query_results
+                end
+            end
         end
-        t1, t2, t3 = (1..3).map { |i| model.new(id: i) }
-        t1.depends_on t2
-        plan.add(t1)
-
-        plan.in_transaction do |trsc|
-            assert(trsc.find_tasks.which_fullfills(Tasks::Simple).to_a.empty?)
-            assert(!trsc.has_task?(t1))
-            assert(!trsc.has_task?(t2))
-            assert(!trsc.has_task?(t3))
-
-            result = trsc.find_tasks.which_fullfills(model, id: 1).to_a
-            assert_equal([trsc[t1]], result)
-            assert(!trsc.has_task?(t2))
-            assert(!trsc.has_task?(t3))
-
-            # Now that the proxy is in the transaction, check that it is still
-            # found by the query
-            result = trsc.find_tasks.which_fullfills(model, id: 1).to_a
-            assert_equal([trsc[t1]], result)
-
-            trsc.add(t3)
-            result = trsc.find_tasks.which_fullfills(model, id: 3).to_a
-            assert_equal([t3], result)
-
-            # Commit the transaction and check that the tasks are added to the plan
-            # index
-            trsc.commit_transaction
-            result = plan.find_tasks.which_fullfills(model, id: 3).to_a
-            assert_equal([t3], result)
-        end
-    end
-
-    def test_it_does_not_match_if_a_plan_predicate_returns_false
-        flexmock(plan).should_receive(:mypred).explicitly.and_return(false).once
-        query = plan.find_tasks
-        query.plan_predicates << :mypred
-        assert !(query === Tasks::Simple.new)
-    end
-
-    def test_it_does_match_if_a_plan_predicate_returns_true
-        flexmock(plan).should_receive(:mypred).explicitly.and_return(true).once
-        query = plan.find_tasks
-        query.plan_predicates << :mypred
-        assert (query === Tasks::Simple.new)
-    end
-
-    def test_it_does_match_if_a_neg_plan_predicate_returns_false
-        flexmock(plan).should_receive(:mypred).explicitly.and_return(false).once
-        query = plan.find_tasks
-        query.neg_plan_predicates << :mypred
-        assert (query === Tasks::Simple.new)
-    end
-
-    def test_it_does_not_match_if_neg_a_plan_predicate_returns_true
-        flexmock(plan).should_receive(:mypred).explicitly.and_return(true).once
-        query = plan.find_tasks
-        query.neg_plan_predicates << :mypred
-        assert !(query === Tasks::Simple.new)
     end
 
     def assert_empty(a)
