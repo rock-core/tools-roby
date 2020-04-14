@@ -645,7 +645,7 @@ module Roby
             def self.define_method_unless_present(m, name, &block)
                 return if m.method_defined?(name)
 
-                m.define_method(name, &block)
+                m.send(:define_method, name, &block)
             end
 
             # @api private
