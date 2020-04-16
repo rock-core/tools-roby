@@ -9,6 +9,22 @@ module Roby
     module App
         # Rake task definitions for the Roby apps
         module Rake
+            # Whether the tests and rubocop should generate a JUnit report
+            #
+            # This is false by default, true if the JUNIT environment variable
+            # is set to 1
+            def self.use_junit?
+                ENV["JUNIT"] == "1"
+            end
+
+            # The reporting dir when generating JUnit reports
+            #
+            # Defaults to the current dir `.test-results` subdirectory. Can be
+            # overriden with the REPORT_DIR environment variable
+            def self.report_dir
+                ENV["REPORT_DIR"] || File.expand_path(".test-results")
+            end
+
             # Rake task to run the Roby tests
             #
             # To use, add the following to your Rakefile:
@@ -101,6 +117,10 @@ module Roby
                     @robot_names = discover_robot_names
                     @excludes = []
                     @ui = false
+
+                    @use_junit = Rake.use_junit?
+                    @report_dir = Rake.report_dir
+
                     yield self if block_given?
                     define
                 end
@@ -113,7 +133,11 @@ module Roby
 
                         desc "run the tests for configuration #{robot_name}:#{robot_type}"
                         task task_name do
-                            unless run_roby_test("-r", "#{robot_name},#{robot_type}")
+                            result = run_roby_test(
+                                "-r", "#{robot_name},#{robot_type}",
+                                report_name: "#{robot_name}:#{robot_type}"
+                            )
+                            unless result
                                 raise Failed.new("failed to run tests for "\
                                                  "#{robot_name}:#{robot_type}"),
                                       "tests failed"
@@ -126,7 +150,11 @@ module Roby
                         failures = []
                         keep_going = args.fetch(:keep_going, "1") == "1"
                         each_robot do |robot_name, robot_type|
-                            unless run_roby_test("-r", "#{robot_name},#{robot_type}")
+                            result = run_roby_test(
+                                "-r", "#{robot_name},#{robot_type}",
+                                report_name: "#{robot_name}:#{robot_type}"
+                            )
+                            unless result
                                 if keep_going
                                     failures << [robot_name, robot_type]
                                 else
@@ -170,14 +198,30 @@ module Roby
                     end
                 end
 
-                def run_roby_test(*args)
+                # Whether the tests should generate a JUnit report in {#report_dir}
+                def use_junit?
+                    @use_junit
+                end
+
+                # Path to the JUnit/Rubocop reports (if enabled)
+                attr_accessor :report_dir
+
+                def run_roby_test(*args, report_name: "report")
                     args += excludes.flat_map do |pattern|
                         ["--exclude", pattern]
                     end
                     args << "--ui" if ui?
+                    args << "--"
                     if (minitest_opts = ENV["TESTOPTS"])
-                        args << "--"
                         args.concat(Shellwords.split(minitest_opts))
+                    end
+
+                    if use_junit?
+                        args += [
+                            "--junit", "--junit-jenkins",
+                            "--junit-filename=#{report_dir}/#{report_name}.junit.xml"
+                        ]
+                        FileUtils.mkdir_p report_dir
                     end
 
                     puts "Running roby test #{args.join(' ')}"
