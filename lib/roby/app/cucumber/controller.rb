@@ -125,10 +125,15 @@ module Roby
                     roby_interface.connected?
                 end
 
+                class ConnectionTimeout < RuntimeError
+                end
+
                 # Wait for the Roby controller started with {#roby_start} to be
                 # available
-                def roby_connect
-                    raise InvalidState, 'already connected' if roby_connected?
+                def roby_connect(timeout: 20)
+                    raise InvalidState, "already connected" if roby_connected?
+
+                    deadline = Time.now + timeout
 
                     until roby_connected?
                         roby_try_connect
@@ -138,7 +143,13 @@ module Roby
                                   'remote Roby controller quit before '\
                                   'we could get a connection'
                         end
-                        roby_interface.wait
+                        roby_interface.wait(timeout: timeout / 10)
+
+                        if Time.now > deadline
+                            raise ConnectionTimeout,
+                                  "failed to connect to a Roby controller in less than "\
+                                  "#{timeout}s"
+                        end
                     end
                     @current_batch = @roby_interface.create_batch
                 end
@@ -151,10 +162,13 @@ module Roby
                     @roby_interface.close
                 end
 
+                class JoinTimedOut < RuntimeError
+                end
+
                 # Stops an already started Roby controller
                 #
                 # @raise InvalidState if no controllers were started
-                def roby_stop(join: true)
+                def roby_stop(join: true, join_timeout: 5)
                     if !roby_running?
                         raise InvalidState,
                               'cannot call #roby_stop if no controllers were started'
@@ -168,30 +182,63 @@ module Roby
                     begin
                         roby_interface.quit
                     rescue Interface::ComError
+                        puts "QUIT FAILED"
                     ensure
                         roby_interface.close
                     end
+                    return unless join
 
-                    roby_join if join
+                    roby_join_or_kill(join_timeout: join_timeout,
+                                      signal: "INT", next_signal: "KILL")
                 end
 
                 # Kill the Roby controller process
-                def roby_kill(join: true)
-                    if !roby_running?
-                        raise InvalidState, "cannot call #roby_stop if no controllers were started"
+                def roby_kill(join: true, join_timeout: 5, signal: "INT")
+                    unless roby_running?
+                        raise InvalidState,
+                              "cannot call #roby_kill if no controllers were started"
                     end
 
-                    Process.kill('INT', roby_pid)
-                    roby_join if join
+                    Process.kill(signal, roby_pid)
+                    return unless join
+
+                    roby_join_or_kill(join_timeout: join_timeout,
+                                      signal: "INT", next_signal: "KILL")
+                end
+
+                def roby_join_or_kill(join_timeout: 5, signal: "INT", next_signal: signal)
+                    roby_join(timeout: join_timeout)
+                rescue JoinTimedOut
+                    STDERR.puts "timed out while waiting for a Roby controller to stop"
+                    STDERR.puts "trying the #{signal} signal"
+                    roby_kill(signal: signal, join: false)
+                    roby_join_or_kill(join_timeout: join_timeout, signal: next_signal)
                 end
 
                 # Wait for the remote process to quit
-                def roby_join
-                    if !roby_running?
-                        raise InvalidState, "cannot call #roby_join without a running Roby controller"
+                def roby_join(timeout: nil)
+                    unless roby_running?
+                        raise InvalidState,
+                              'cannot call #roby_join without a running Roby controller'
                     end
 
-                    _, status = Process.waitpid2(roby_pid)
+                    status = nil
+                    if timeout
+                        deadline = Time.now + timeout
+                        loop do
+                            _, status = Process.waitpid2(roby_pid, Process::WNOHANG)
+                            break if status
+
+                            sleep 0.1
+                            if Time.now > deadline
+                                raise JoinTimedOut,
+                                      'roby_join timed out waiting for end of '\
+                                      "PID #{roby_pid}"
+                            end
+                        end
+                    else
+                        _, status = Process.waitpid2(roby_pid)
+                    end
                     @roby_pid = nil
                     status
                 rescue Errno::ECHILD

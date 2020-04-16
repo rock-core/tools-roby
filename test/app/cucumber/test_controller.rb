@@ -15,11 +15,23 @@ module Roby
                 end
 
                 after do
-                    if controller.roby_running?
-                        if !controller.roby_connected?
-                            controller.roby_connect
+                    ensure_roby_controller_stopped
+                end
+
+                def ensure_roby_controller_stopped
+                    return unless controller.roby_running?
+
+                    unless controller.roby_connected?
+                        begin
+                            controller.roby_connect(timeout: 1)
+                        rescue Controller::ConnectionTimeout # rubocop:disable Lint/SuppressedException
                         end
+                    end
+
+                    if controller.roby_connected?
                         controller.roby_stop
+                    else
+                        controller.roby_kill
                     end
                 end
 
@@ -78,6 +90,37 @@ module Roby
                         assert_raises(Controller::InvalidState) do
                             controller.roby_stop
                         end
+                    end
+
+                    it "is uses the INT signal if the controller does not stop" do
+                        robot_default_path =
+                            File.join(roby_app_dir, "config", "robots", "default.rb")
+                        File.open(robot_default_path, "w") do |io|
+                            io.puts <<-ROBOT_CONFIG
+                            at_exit { sleep }
+                            ROBOT_CONFIG
+                        end
+                        roby_start("default", "default", app_dir: roby_app_dir)
+                        controller.roby_stop(join_timeout: 1)
+                    end
+
+                    it "falls back to KILL if INT is not enough" do
+                        robot_default_path =
+                            File.join(roby_app_dir, "config", "robots", "default.rb")
+                        File.open(robot_default_path, "w") do |io|
+                            io.puts <<-ROBOT_CONFIG
+                            at_exit do
+                                loop do
+                                    begin
+                                        sleep
+                                    rescue Interrupt
+                                    end
+                                end
+                            end
+                            ROBOT_CONFIG
+                        end
+                        roby_start("default", "default", app_dir: roby_app_dir)
+                        controller.roby_stop(join_timeout: 1)
                     end
                 end
 
