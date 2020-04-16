@@ -166,6 +166,11 @@ module Roby
         # events of a single task. As the events are represented by their name,
         # the predicate can be reused to be applied on different tasks.
         class UnboundTaskPredicate
+            def initialize
+                @compiled_predicate = CompiledPredicate.new
+                freeze
+            end
+
             def to_unbound_task_predicate
                 self
             end
@@ -239,6 +244,8 @@ module Roby
                 def marshal_dump; end
 
                 def marshal_load(_obj); end
+
+                attr_accessor :ready
             end
 
             # Predicates are first represented as an AST using the subclasses of
@@ -260,12 +267,13 @@ module Roby
                             #{code}
                         end
                     CODE
+                @compiled_predicate.ready = true
             end
 
             # Evaluates this predicate on +task+. It returns either true or
             # false.
             def evaluate(task)
-                compile if !@compiled_predicate || !@compiled_predicate.respond_to?(:evaluate)
+                compile unless @compiled_predicate.ready
                 @compiled_predicate.evaluate(task)
             end
         end
@@ -444,6 +452,7 @@ module Roby
             attr_reader :predicate
             def initialize(pred)
                 @predicate = pred
+                super()
             end
 
             def ==(other)
@@ -491,6 +500,8 @@ module Roby
                 end
 
                 @predicate = pred
+
+                super()
             end
 
             def ==(other)
@@ -548,6 +559,7 @@ module Roby
             attr_reader :predicates
             def initialize(left, right)
                 @predicates = [left, right]
+                super()
             end
 
             def required_events
@@ -888,9 +900,10 @@ module Roby
             # by UnboundTaskPredicate#compile
             attr_reader :required_events
 
-            def initialize(event_name)
+            def initialize(event_name, deadline: nil)
                 @event_name = event_name
                 @required_events = [event_name].to_set
+                @deadline = deadline
                 super()
             end
 
@@ -943,8 +956,7 @@ module Roby
             end
 
             def from_now
-                @deadline = Time.now
-                self
+                self.class.new(@event_name, deadline: Time.now)
             end
 
             def not_followed_by(event)

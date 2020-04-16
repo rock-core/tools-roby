@@ -161,9 +161,11 @@ module Roby
                     end
                     old_value
                 end
+                result[:model].freeze
 
                 # Finally, merge the roles (the easy part ;-))
                 result[:roles] = opt1[:roles] | opt2[:roles]
+                result.freeze
 
                 result
             end
@@ -597,6 +599,8 @@ module Roby
 
                     # Check if there is already a dependency link. If it is the case,
                     # merge the options. Otherwise, just add.
+                    options.freeze
+                    options.each_value(&:freeze)
                     add_child(task, options)
                     task
                 end
