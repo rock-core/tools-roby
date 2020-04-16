@@ -9,6 +9,27 @@ module Roby
     module App
         # Rake task definitions for the Roby apps
         module Rake
+            # Whether the {.define_rubocop_if_enabled} should fail if rubocop is
+            # not available
+            #
+            # It is true if RUBOCOP is set to 1. If RUBOCOP is set to anything
+            # else that is not 0, {.define_rubocop_if_enabled} will enable
+            # rubocop only if it is available
+            def self.require_rubocop?
+                ENV["RUBOCOP"] == "1"
+            end
+
+            # Whether the tests should run RuboCop, as defined by the RUBOCOP
+            # environment variable
+            #
+            # It is true by default, false if the RUBOCOP environment variable
+            # is set to 0
+            #
+            # This affects {.define_rubocop_if_enabled}
+            def self.use_rubocop?
+                ENV["RUBOCOP"] != "0"
+            end
+
             # Whether the tests and rubocop should generate a JUnit report
             #
             # This is false by default, true if the JUNIT environment variable
@@ -255,6 +276,38 @@ module Roby
                     app.guess_app_dir unless app.app_dir
                     app.setup_robot_names_from_config_dir
                     app.robots.each.to_a
+                end
+            end
+
+            def self.define_rubocop_if_enabled(
+                junit: Rake.use_junit?, report_dir: Rake.report_dir,
+                required: Rake.require_rubocop?
+            )
+                return false unless Rake.use_rubocop?
+
+                begin
+                    require "rubocop/rake_task"
+                rescue LoadError
+                    if Rake.require_rubocop?
+                        raise
+                    else
+                        return
+                    end
+                end
+
+                define_rubocop(junit: junit, report_dir: report_dir)
+                true
+            end
+
+            def self.define_rubocop(
+                junit: Rake.use_junit?, report_dir: Rake.report_dir
+            )
+                require "rubocop/rake_task"
+                RuboCop::RakeTask.new do |t|
+                    if junit
+                        t.formatters << "junit"
+                        t.options << "-o" << "#{report_dir}/rubocop.junit.xml"
+                    end
                 end
             end
         end
