@@ -9,6 +9,7 @@ task :default
 
 TESTOPTS = ENV.delete("TESTOPTS") || ""
 
+RUBOCOP_REQUIRED = (ENV["RUBOCOP"] == "1")
 USE_RUBOCOP = (ENV["RUBOCOP"] != "0")
 USE_JUNIT = (ENV["JUNIT"] == "1")
 REPORT_DIR = ENV["REPORT_DIR"] || File.expand_path("test_reports", __dir__)
@@ -63,12 +64,16 @@ Rake::TestTask.new(:test) do |t|
 end
 
 if USE_RUBOCOP
-    require "rubocop/rake_task"
-    RuboCop::RakeTask.new do |t|
-        t.formatters << "junit"
-        t.options << "-o" << "#{REPORT_DIR}/rubocop.junit.xml"
+    begin
+        require "rubocop/rake_task"
+        RuboCop::RakeTask.new do |t|
+            t.formatters << "junit"
+            t.options << "-o" << "#{REPORT_DIR}/rubocop.junit.xml"
+        end
+        task "test" => "rubocop"
+    rescue LoadError
+        raise if RUBOCOP_REQUIRED
     end
-    task "test" => "rubocop"
 end
 
 begin
