@@ -68,18 +68,64 @@ describe Roby::TaskArguments do
         end
     end
 
+    # This is a custom implementation in TaskArguments, we must test it here
+    # rubocop:disable Style/PreferredHashMethods
+    describe "#has_key?" do
+        before do
+            flexmock(Roby).should_receive(:warn_deprecated)
+        end
+
+        it "returns true if the argument is set" do
+            plan.add(task = task_m.new(arg: 10))
+            assert task.arguments.has_key?(:arg)
+        end
+        it "returns true if the argument is set, even to nil" do
+            plan.add(task = task_m.new(arg: nil))
+            assert task.arguments.has_key?(:arg)
+        end
+        it "returns true if the argument is a delayed argument" do
+            plan.add(task = task_m.new(arg: flexmock(evaluate_delayed_argument: nil)))
+            assert task.arguments.has_key?(:arg)
+        end
+        it "returns false if the argument is not set" do
+            refute task.arguments.has_key?(:arg)
+        end
+    end
+    # rubocop:enable Style/PreferredHashMethods
+
+    describe "#key?" do
+        it "returns true if the argument is set" do
+            plan.add(task = task_m.new(arg: 10))
+            assert task.arguments.key?(:arg)
+        end
+        it "returns true if the argument is set, even to nil" do
+            plan.add(task = task_m.new(arg: nil))
+            assert task.arguments.key?(:arg)
+        end
+        it "returns true if the argument is a delayed argument" do
+            plan.add(task = task_m.new(arg: flexmock(evaluate_delayed_argument: nil)))
+            assert task.arguments.key?(:arg)
+        end
+        it "returns false if the argument is not set" do
+            refute task.arguments.key?(:arg)
+        end
+    end
+
     describe "#set?" do
-        it "should return true if the argument is set" do
+        it "returns false if the argument is not set" do
+            refute task.arguments.set?(:arg)
+        end
+        it "returns true if the argument is set" do
             plan.add(task = task_m.new(arg: 10))
             assert task.arguments.set?(:arg)
         end
-        it "should return true if the argument is set, even to nil" do
+        it "returns true if the argument is set, even to nil" do
             plan.add(task = task_m.new(arg: nil))
             assert task.arguments.set?(:arg)
         end
-        it "should return false if the argument is a delayed argument" do
+        it "returns false if the argument is a delayed argument" do
             plan.add(task = task_m.new(arg: flexmock(evaluate_delayed_argument: nil)))
-            assert !task.arguments.set?(:arg)
+            refute task.arguments.set?(:arg)
         end
     end
 

@@ -75,10 +75,19 @@ module Roby
             values[key]
         end
 
-        # True if an argument with that name is assigned, be it a proper value
-        # or a delayed value object
+        # @deprecated use {#key?} instead
         def has_key?(key)
-            values.has_key?(key)
+            values.key?(key)
+        end
+
+        # True if an argument with that name is assigned, be it a proper value
+        # or a delayed value object. This is an alias to {#assigned?}
+        #
+        # This is implemented to be consistent with the Hash API. However,
+        # because of the semantics of delayed value objects, prefer {#set?} and
+        # {#assigned?}
+        def key?(key)
+            values.key?(key)
         end
 
         # The set of argument names that have been assigned so far, either
@@ -92,7 +101,7 @@ module Roby
         # @param [Symbol] key the argument name
         # @param [Object] value the new argument value
         def writable?(key, value)
-            if has_key?(key)
+            if key?(key)
                 !task.model.arguments.include?(key) ||
                     TaskArguments.delayed_argument?(values[key])
             else
@@ -120,13 +129,13 @@ module Roby
         # Tests if a given argument has been assigned, that is either has a
         # static value or has a delayed value object
         def assigned?(key)
-            has_key?(key)
+            key?(key)
         end
 
         # Tests if a given argument has been set with a proper value (not a
         # delayed value object)
         def set?(key)
-            has_key?(key) && !TaskArguments.delayed_argument?(values.fetch(key))
+            key?(key) && !TaskArguments.delayed_argument?(values.fetch(key))
         end
 
         # True if the arguments are equal
@@ -197,7 +206,7 @@ module Roby
         #   can't be merged
         def semantic_merge_blockers(other_args)
             blockers = values.find_all do |name, arg|
-                next(false) unless other_args.has_key?(name)
+                next(false) unless other_args.key?(name)
 
                 other_arg = other_args.values[name]
 
@@ -301,7 +310,7 @@ module Roby
         # @param [Object] value the new argument value
         # @return [Object]
         def update!(key, value)
-            if values.has_key?(key)
+            if values.key?(key)
                 current_value = values[key]
                 is_updated    = (current_value != value)
                 update_static = TaskArguments.delayed_argument?(current_value)
@@ -344,7 +353,7 @@ module Roby
 
                 if TaskArguments.delayed_argument?(value)
                     @static = false
-                elsif values.has_key?(key) && TaskArguments.delayed_argument?(values[key])
+                elsif values.key?(key) && TaskArguments.delayed_argument?(values[key])
                     update_static = true
                 end
 
@@ -580,7 +589,7 @@ module Roby
                 if v.kind_of?(Roby::Task) && v.model.has_argument?(m)
                     # We are trying to access a task argument, throw no_value if the
                     # argument is not set
-                    unless v.arguments.has_key?(m)
+                    unless v.arguments.key?(m)
                         throw :no_value
                     end
 
