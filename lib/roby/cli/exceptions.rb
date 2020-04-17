@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module CLI
         # Base class for all exceptions that are considered the user's fault by
@@ -12,6 +14,5 @@ module Roby
         # The CLI command failed
         class CLICommandFailed < CLIException
         end
-
     end
 end

@@ -1,5 +1,7 @@
-require 'roby/test/self'
-require 'roby/tasks/simple'
+# frozen_string_literal: true
+
+require "roby/test/self"
+require "roby/tasks/simple"
 
 describe Roby::Coordination::Models::FaultHandler do
     attr_reader :m0, :m1, :m2, :t0, :t1, :t2, :handler
@@ -17,9 +19,7 @@ describe Roby::Coordination::Models::FaultHandler do
         @handler = Roby::Coordination::FaultHandler.new_submodel(action_interface: fault_response_table)
 
         execute do
-            [m0, m1, m2, t0, t1, t2].each do |t|
-                t.start!
-            end
+            [m0, m1, m2, t0, t1, t2].each(&:start!)
         end
     end
 
@@ -79,5 +79,3 @@ describe Roby::Coordination::Models::FaultHandler do
         end
     end
 end
-
-

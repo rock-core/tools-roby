@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 module Roby
     module Interface
@@ -7,8 +9,8 @@ module Roby
                 @io_r, @io_w = Socket.pair(:UNIX, :STREAM, 0)
             end
             after do
-                @io_r.close if !@io_r.closed?
-                @io_w.close if !@io_w.closed?
+                @io_r.close unless @io_r.closed?
+                @io_w.close unless @io_w.closed?
             end
             it "does not block on read" do
                 channel = DRobyChannel.new(@io_r, false)
@@ -26,8 +28,8 @@ module Roby
                 loop { break if read_thread.stop? }
 
                 writer = DRobyChannel.new(@io_w, true)
-                writer.write_packet(Hash.new)
-                assert_equal Hash.new, read_thread.value
+                writer.write_packet({})
+                assert_equal({}, read_thread.value)
             end
             it "does not block on write" do
                 io_w_buffer_size = @io_w.getsockopt(Socket::SOL_SOCKET, Socket::SO_RCVBUF).int
@@ -36,16 +38,16 @@ module Roby
                 channel = DRobyChannel.new(@io_w, false)
                 assert_raises(Errno::EAGAIN) { @io_w.syswrite(" ") }
 
-                channel.write_packet(Hash.new)
+                channel.write_packet({})
             end
             it "handles partial packets on write" do
                 channel = DRobyChannel.new(@io_w, false)
                 io_w_buffer_size = @io_w.getsockopt(Socket::SOL_SOCKET, Socket::SO_RCVBUF).int
-                @io_w.write("0" * (io_w_buffer_size/2))
+                @io_w.write("0" * (io_w_buffer_size / 2))
                 channel.push_write_data("1" * io_w_buffer_size)
                 assert channel.write_buffer_size < io_w_buffer_size
 
-                assert_equal "0" * (io_w_buffer_size/2), @io_r.read(io_w_buffer_size/2)
+                assert_equal "0" * (io_w_buffer_size / 2), @io_r.read(io_w_buffer_size / 2)
                 channel.push_write_data
                 assert_equal("1" * io_w_buffer_size, @io_r.read(io_w_buffer_size))
             end
@@ -61,44 +63,44 @@ module Roby
             end
 
             describe "connections closed" do
-                it 'raises ComError on writing a closed IO' do
+                it "raises ComError on writing a closed IO" do
                     channel = DRobyChannel.new(@io_w, true)
                     @io_w.close
                     assert_raises(ComError) { channel.write_packet({}) }
                 end
-                it 'raises ComError on reading a closed IO' do
+                it "raises ComError on reading a closed IO" do
                     channel = DRobyChannel.new(@io_r, true)
                     @io_r.close
                     assert_raises(ComError) { channel.read_packet }
                 end
-                it 'raises ComError on writing a pipe whose other end is closed' do
-                    channel = DRobyChannel.new(@io_w, true)
-                    @io_r.close
-                    assert_raises(ComError) { channel.write_packet(Hash.new) }
-                end
-                it 'raises ComError on reading a pipe whose other end is closed' do
-                    channel = DRobyChannel.new(@io_r, true)
-                    @io_w.close
-                    assert_raises(ComError) { channel.read_packet }
-                end
-                it 'raises ComError on writing a socket whose other end is closed' do
+                it "raises ComError on writing a pipe whose other end is closed" do
                     channel = DRobyChannel.new(@io_w, true)
                     @io_r.close
                     assert_raises(ComError) { channel.write_packet({}) }
                 end
-                it 'raises ComError on reading a socket whose other end is closed' do
+                it "raises ComError on reading a pipe whose other end is closed" do
                     channel = DRobyChannel.new(@io_r, true)
                     @io_w.close
                     assert_raises(ComError) { channel.read_packet }
                 end
-                it 'raises ComError if writing the socket raises SystemCallError a.k.a. any of the Errno constants' do
+                it "raises ComError on writing a socket whose other end is closed" do
+                    channel = DRobyChannel.new(@io_w, true)
+                    @io_r.close
+                    assert_raises(ComError) { channel.write_packet({}) }
+                end
+                it "raises ComError on reading a socket whose other end is closed" do
+                    channel = DRobyChannel.new(@io_r, true)
+                    @io_w.close
+                    assert_raises(ComError) { channel.read_packet }
+                end
+                it "raises ComError if writing the socket raises SystemCallError a.k.a. any of the Errno constants" do
                     flexmock(@io_w).should_receive(:syswrite)
                                    .and_raise(SystemCallError.new("test", 0))
                     channel = DRobyChannel.new(@io_w, true)
                     @io_r.close
                     assert_raises(ComError) { channel.write_packet([]) }
                 end
-                it 'raises ComError if reading the socket raises SystemCallError a.k.a. any of the Errno constants' do
+                it "raises ComError if reading the socket raises SystemCallError a.k.a. any of the Errno constants" do
                     flexmock(@io_r).should_receive(:sysread).and_raise(SystemCallError.new("test", 0))
                     channel = DRobyChannel.new(@io_r, true)
                     @io_w.close
@@ -109,10 +111,10 @@ module Roby
             describe "packet transmission" do
                 def assert_can_transmit(source, destination)
                     obj_send, obj_receive = flexmock, flexmock
-                    flexmock(source.marshaller).should_receive(:dump).with(obj_send).
-                        and_return(10)
-                    flexmock(destination.marshaller).should_receive(:local_object).with(10).
-                        and_return(obj_receive)
+                    flexmock(source.marshaller).should_receive(:dump).with(obj_send)
+                        .and_return(10)
+                    flexmock(destination.marshaller).should_receive(:local_object).with(10)
+                        .and_return(obj_receive)
                     source.write_packet(obj_send)
                     assert_equal obj_receive, destination.read_packet(1)
                 end
@@ -131,4 +133,3 @@ module Roby
         end
     end
 end
-

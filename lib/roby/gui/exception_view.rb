@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module GUI
         class ExceptionRendering < MetaRuby::GUI::ExceptionRendering
@@ -24,8 +26,8 @@ module Roby
             end
 
             def filter_backtrace(parsed_backtrace, raw_backtrace)
-                raw_backtrace = raw_backtrace.
-                    find_all { |l| !(excluded_patterns === l) }
+                raw_backtrace = raw_backtrace
+                    .find_all { |l| !(excluded_patterns === l) }
                 Roby.filter_backtrace(raw_backtrace, force: true)
             end
 

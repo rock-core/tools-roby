@@ -68,7 +68,7 @@ module Roby
 
                 add_expectations do
                     all_handlers_finished = false
-                    achieve(description: 'expected all planning handlers to finish') do
+                    achieve(description: "expected all planning handlers to finish") do
                         # by_handler == nil is used to indicate that an execute
                         # block is pending
                         if all_handlers_finished

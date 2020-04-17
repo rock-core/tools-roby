@@ -11,7 +11,7 @@ module Roby
             end
 
             def register_plan(plan)
-                raise 'registering nil plan' unless plan
+                raise "registering nil plan" unless plan
 
                 (@registered_plans ||= []) << plan
             end
@@ -52,7 +52,7 @@ module Roby
                                       "#{name}, quarantine=#{plan_quarantine.size} "\
                                       "tasks, tasks=#{plan.tasks.size} tasks"
                             if last_tasks != plan.tasks
-                                Roby.warn 'Known tasks:'
+                                Roby.warn "Known tasks:"
                                 plan.tasks.each do |t|
                                     Roby.warn "  #{t} running=#{t.running?} "\
                                               "finishing=#{t.finishing?}"
@@ -60,7 +60,7 @@ module Roby
                                 last_tasks = plan.tasks.dup
                             end
                             if last_quarantine != plan_quarantine
-                                Roby.warn 'Quarantined tasks:'
+                                Roby.warn "Quarantined tasks:"
                                 plan_quarantine.each do |t|
                                     Roby.warn "  #{t}"
                                 end
@@ -92,13 +92,13 @@ module Roby
                             "failed to teardown: #{plan} has #{plan.tasks.size} "\
                             "tasks and #{plan.free_events.size} events, "\
                             "#{plan.quarantined_tasks.size} of which are "\
-                            'in quarantine'
+                            "in quarantine"
                         )
 
                         unless plan.execution_engine
-                            Roby.warn 'this is most likely because this plan '\
-                                      'does not have an execution engine. Either '\
-                                      'add one or clear the plan in the tests'
+                            Roby.warn "this is most likely because this plan "\
+                                      "does not have an execution engine. Either "\
+                                      "add one or clear the plan in the tests"
                         end
                     end
 
@@ -110,7 +110,7 @@ module Roby
 
                     unless plan.transactions.empty?
                         Roby.warn "  #{plan.transactions.size} transactions left "\
-                                  'attached to the plan'
+                                  "attached to the plan"
                         plan.transactions.each(&:discard_transaction)
                     end
                 end

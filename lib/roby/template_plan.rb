@@ -1,7 +1,14 @@
+# frozen_string_literal: true
+
 module Roby
     # A plan that is used as a template to inject in other plans
     class TemplatePlan < Plan
-        def template?; true end
-        def executable?; false end
+        def template?
+            true
+        end
+
+        def executable?
+            false
+        end
     end
 end

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require 'roby/interface/rest/server'
-require 'roby/interface/rest/api'
+require "roby/interface/rest/server"
+require "roby/interface/rest/api"
 
 module Roby
     module Interface
@@ -11,7 +11,7 @@ module Roby
                 # The IP on which the REST API is bound
                 #
                 # Default is 0.0.0.0 (i.e. listen to all IPs)
-                argument :host, default: '0.0.0.0'
+                argument :host, default: "0.0.0.0"
                 # The port on which the REST API should be listening
                 #
                 # Default is 20202
@@ -22,7 +22,7 @@ module Roby
                 # The path under which this API will be available, e.g. /api
                 #
                 # Default is '/api'
-                argument :main_route, default: '/api'
+                argument :main_route, default: "/api"
 
                 event :start do |_event|
                     @rest_server = Server.new(
@@ -57,7 +57,7 @@ module Roby
                 end
 
                 # Returns the full URL to the given endpoint
-                def url_for(endpoint, host: 'localhost')
+                def url_for(endpoint, host: "localhost")
                     "http://#{host}:#{actual_port}/api/#{endpoint}"
                 end
 

@@ -1,48 +1,50 @@
-require 'thor'
-require 'roby'
-require 'roby/cli/exceptions'
-require 'roby/cli/gen_main'
+# frozen_string_literal: true
+
+require "thor"
+require "roby"
+require "roby/cli/exceptions"
+require "roby/cli/gen_main"
 
 module Roby
     module CLI
         class Main < Thor
-            desc 'add_robot ROBOT_NAME', "Deprecated, use 'gen robot' instead",
-                hide: true # backward-compatibility only
+            desc "add_robot ROBOT_NAME", "Deprecated, use 'gen robot' instead",
+                 hide: true # backward-compatibility only
             def add_robot(robot_name)
-                gen('robot', robot_name)
+                gen("robot", robot_name)
             end
 
-            desc 'init [DIR]', "Deprecated, use 'gen app' instead",
-                hide: true # backward-compatibility only
+            desc "init [DIR]", "Deprecated, use 'gen app' instead",
+                 hide: true # backward-compatibility only
             def init(*dir)
-                gen('app', *dir)
+                gen("app", *dir)
             end
 
-            desc 'gen [GEN_MODE]', 'scaffold generation'
+            desc "gen [GEN_MODE]", "scaffold generation"
             subcommand :gen, GenMain
 
             no_commands do
                 def parse_host_option
                     if url = options[:host]
                         if url =~ /(.*):(\d+)$/
-                            return Hash[host: $1, port: Integer($2)]
+                            Hash[host: $1, port: Integer($2)]
                         else
-                            return Hash[host: url]
+                            Hash[host: url]
                         end
                     elsif url = options[:vagrant]
-                        require 'roby/app/vagrant'
+                        require "roby/app/vagrant"
                         if vagrant_name =~ /(.*):(\d+)$/
                             vagrant_name, port = $1, Integer($2)
                         end
-                        return Hash[host: Roby::App::Vagrant.resolve_ip(vagrant_name),
-                                    port: port]
-                    else Hash.new
+                        Hash[host: Roby::App::Vagrant.resolve_ip(vagrant_name),
+                             port: port]
+                    else {}
                     end
                 end
 
                 def setup_interface(app = Roby.app, retry_connection: false, timeout: nil)
                     host_port = parse_host_option
-                    host = host_port[:host] || app.shell_interface_host || 'localhost'
+                    host = host_port[:host] || app.shell_interface_host || "localhost"
                     port = host_port[:port] || app.shell_interface_port || Interface::DEFAULT_PORT
 
                     app.guess_app_dir
@@ -54,7 +56,7 @@ module Roby
                     if retry_connection && timeout
                         deadline = Time.now + timeout
                     end
-                    while true
+                    loop do
                         begin
                             return Roby::Interface.connect_with_tcp_to(host, port)
                         rescue Roby::Interface::ConnectionError => e
@@ -69,8 +71,9 @@ module Roby
                         end
                     end
                 end
+
                 def display_notifications(interface)
-                    while !interface.closed?
+                    until interface.closed?
                         interface.poll
                         while interface.has_notifications?
                             _, (source, level, message) = interface.pop_notification
@@ -85,13 +88,13 @@ module Roby
                 end
             end
 
-            desc 'quit', 'quits a running Roby application to be available'
-            option :host, desc: 'the host[:port] to connect to',
-                type: :string
+            desc "quit", "quits a running Roby application to be available"
+            option :host, desc: "the host[:port] to connect to",
+                          type: :string
             option :retry,
-                desc: 'retry to connect instead of failing right away',
-                long_desc: "The argument is an optional timeout in seconds.\nThe command will retry forever if not given",
-                type: :numeric, lazy_default: 0
+                   desc: "retry to connect instead of failing right away",
+                   long_desc: "The argument is an optional timeout in seconds.\nThe command will retry forever if not given",
+                   type: :numeric, lazy_default: 0
             def quit
                 timeout = options[:retry] if options[:retry] != 0
                 interface = setup_interface(
@@ -113,13 +116,13 @@ module Roby
                 interface.close if interface && !interface.closed?
             end
 
-            desc 'wait', 'waits for a running Roby application to be available',
-                hide: true
-            option :host, desc: 'the host[:port] to connect to',
-                type: :string
+            desc "wait", "waits for a running Roby application to be available",
+                 hide: true
+            option :host, desc: "the host[:port] to connect to",
+                          type: :string
             option :timeout,
-                desc: 'how long the command should wait, in seconds (default is 10s)',
-                type: :numeric, default: 10
+                   desc: "how long the command should wait, in seconds (default is 10s)",
+                   type: :numeric, default: 10
             def wait
                 interface = setup_interface(
                     retry_connection: true,
@@ -128,19 +131,20 @@ module Roby
                 interface.close if interface && !interface.closed?
             end
 
-            desc 'check', 'verifies that the configuration is valid',
-                hide: true
-            long_desc 'This loads the specified robot configuration,'\
-                ' but does not start the app itself.'\
-                ' Use this to validate the current configuration'
-            option :robot, aliases: 'r', desc: 'the robot name', default: 'default'
+            desc "check", "verifies that the configuration is valid",
+                 hide: true
+            long_desc "This loads the specified robot configuration,"\
+                " but does not start the app itself."\
+                " Use this to validate the current configuration"
+            option :robot, aliases: "r", desc: "the robot name", default: "default"
             def check(app_dir = nil, *extra_files)
                 app = Roby.app
                 app.app_dir = app_dir if app_dir
                 app.require_app_dir
                 app.base_setup
                 app.robot(options[:robot])
-                begin app.setup
+                begin
+                    app.setup
                     extra_files.each do |path|
                         app.require(File.expand_path(path))
                     end
@@ -148,10 +152,10 @@ module Roby
                 end
             end
 
-            desc 'console', 'open a pry console after the app code has been loaded'
-            option :robot, aliases: 'r', desc: 'the robot name', default: 'default'
+            desc "console", "open a pry console after the app code has been loaded"
+            option :robot, aliases: "r", desc: "the robot name", default: "default"
             def console(*extra_files)
-                require 'pry'
+                require "pry"
                 app = Roby.app
                 app.require_app_dir
                 app.base_setup

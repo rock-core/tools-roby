@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     class DecisionControl
         # Called when there is a conflict between a set of running tasks and a
@@ -16,8 +18,7 @@ module Roby
         # removed from +transaction+.
         #
         # The default action is to do nothing
-        def finalized_plan_task(transaction, proxy)
-        end
+        def finalized_plan_task(transaction, proxy); end
 
         # Called when a transaction/execution conflict occured, where a task
         # included in the transaction has been removed from the plan.
@@ -28,8 +29,7 @@ module Roby
         # from +transaction+.
         #
         # The default action is to do nothing
-        def finalized_plan_event(transaction, proxy)
-        end
+        def finalized_plan_event(transaction, proxy); end
 
         # Called when a transaction/execution conflict occured, where relations
         # have been added in the plan and are not present in the transaction.
@@ -39,8 +39,7 @@ module Roby
         # invalidated prior to this call
         #
         # The default action is to do nothing
-        def adding_plan_relation(transaction, parent, child, relations, info)
-        end
+        def adding_plan_relation(transaction, parent, child, relations, info); end
 
         # Called when a transaction/execution conflict occured, where relations
         # have been removed from the plan, which were present in the
@@ -51,8 +50,7 @@ module Roby
         # prior to this call
         #
         # The default action is to do nothing
-        def removing_plan_relation(transaction, parent, child, relations)
-        end
+        def removing_plan_relation(transaction, parent, child, relations); end
 
         # Called when a child failed a dependency relation, but the parent is
         # not running
@@ -85,4 +83,3 @@ module Roby
         end
     end
 end
-

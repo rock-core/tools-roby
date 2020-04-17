@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module DRoby
         module V5
@@ -7,4 +9,3 @@ module Roby
         end
     end
 end
-

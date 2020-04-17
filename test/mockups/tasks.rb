@@ -1,7 +1,9 @@
-require 'roby/task'
+# frozen_string_literal: true
+
+require "roby/task"
 
 # We define here a set of tasks needed by unit testing
-if !defined?(ChoiceTask)
+unless defined?(ChoiceTask)
     class ChoiceTask < Roby::Task
         event :start do |context|
             start_event.emit context
@@ -24,4 +26,3 @@ if !defined?(ChoiceTask)
         forward start: :inter, inter: :success
     end
 end
-

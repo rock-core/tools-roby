@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Class
     # Implementation of a conversion to StateVariableModel
     #
@@ -7,7 +9,7 @@ class Class
     def to_state_variable_model(field, name)
         model = Roby::StateVariableModel.new(field, name)
         model.type = self
-        return model
+        model
     end
 end
 
@@ -39,7 +41,8 @@ module Roby
         attr_reader :superclass
 
         def to_s
-            "#<StateModel:#{object_id} path=#{path.join("/")} fields=#{@members.keys.sort.join(",")}>"
+            "#<StateModel:#{object_id} path=#{path.join('/')} "\
+            "fields=#{@members.keys.sort.join(',')}>"
         end
 
         def initialize(super_or_obj = nil, attach_to = nil, attach_name = nil)
@@ -48,7 +51,10 @@ module Roby
                 if value.respond_to?(:to_state_variable_model)
                     value.to_state_variable_model(self, name)
                 else
-                    raise ArgumentError, "cannot set #{value} on #{name} in a state model. Only allowed values are StateVariableModel, and values that respond to #to_state_variable_model"
+                    raise ArgumentError,
+                          "cannot set #{value} on #{name} in a state model. "\
+                          "Only allowed values are StateVariableModel, and values "\
+                          "that respond to #to_state_variable_model"
                 end
             end
         end
@@ -73,7 +79,8 @@ module Roby
             if name =~ /=$/
                 raise ArgumentError, "cannot write to a StateLastValueField object"
             end
-            return super
+
+            super
         end
     end
 
@@ -84,14 +91,15 @@ module Roby
     # Representation of a level in the current state
     class StateField < OpenStruct
         def to_s
-            "#<StateField:#{object_id} path=#{path.join("/")} fields=#{@members.keys.sort.join(",")}>"
+            "#<StateField:#{object_id} path=#{path.join('/')} "\
+            "fields=#{@members.keys.sort.join(',')}>"
         end
 
         # Returns a structure that gives access to the models of the
         # members of this struct. I.e.
         #
         #   state.pose.model.position
-        #   
+        #
         # is the model for state.pose.position
         #
         # Due to the use of open structures, one should always check for the
@@ -103,29 +111,24 @@ module Roby
         #
         # Note that the models are accessible from any level, i.e.
         # state.model.pose.position is an equivalent of the above example.
-        def model
-            @model
-        end
+        attr_reader :model
 
         # Returns a structure that gives access to the last known values for the
         # members of this struct. I.e.
         #
         #   state.pose.last_known.position
-        #   
+        #
         # is the last value known for state.pose.position
         #
         # Note that the last known values are accessible from any level, i.e.
         # state.last_known.pose.position is an equivalent of the above example.
-        def last_known
-            @last_known
-        end
-
+        attr_reader :last_known
 
         # Returns a structure that gives access to the data sources for the
         # members of this struct. I.e.
         #
         #   state.pose.data_sources.position
-        #   
+        #
         # will give the data source for state.pose.position if there is one.
         #
         # Due to the use of open structures, one should always check for the
@@ -137,12 +140,10 @@ module Roby
         #
         # Note that the models are accessible from any level, i.e.
         # state.model.pose.position is an equivalent of the above example.
-        def data_sources
-            @data_sources
-        end
+        attr_reader :data_sources
 
         def initialize(model = nil, attach_to = nil, attach_name = nil)
-            if !attach_to
+            unless attach_to
                 # We are root, initialize last_known and data_sources
                 @last_known = StateLastValueField.new
                 @data_sources = StateDataSourceField.new
@@ -155,8 +156,11 @@ module Roby
                 # the model's type
                 global_filter do |name, value|
                     if (field_model = model.get(name)) && (field_type = field_model.type)
-                        if !(field_type === value)
-                            raise ArgumentError, "field #{name} is expected to have values of type #{field_type.name}, #{value} is of type #{value.class}"
+                        unless field_type === value
+                            raise ArgumentError,
+                                  "field #{name} is expected to have values of "\
+                                  "type #{field_type.name}, #{value} is of type "\
+                                  "#{value.class}"
                         end
                     end
                     value
@@ -167,9 +171,9 @@ module Roby
         def link_to(parent, name)
             super
             @last_known = parent.last_known.get(name) ||
-                StateLastValueField.new(nil, parent.last_known, name)
+                          StateLastValueField.new(nil, parent.last_known, name)
             @data_sources = parent.data_sources.get(name) ||
-                StateDataSourceField.new(nil, parent.data_sources, name)
+                            StateDataSourceField.new(nil, parent.data_sources, name)
         end
 
         def attach
@@ -182,7 +186,8 @@ module Roby
         def method_missing(name, *args)
             if name =~ /(.*)=$/
                 if data_source = data_sources.get($1)
-                    raise ArgumentError, "cannot explicitely set a field for which a data source exists"
+                    raise ArgumentError,
+                          "cannot explicitely set a field for which a data source exists"
                 end
             end
             super
@@ -193,12 +198,13 @@ module Roby
         # It disables automatic substruct creation for state variables for which
         # a data source exists
         def __get(name, create_substruct = true)
-            if (source = data_sources.get(name)) && !source.kind_of?(StateDataSourceField)
+            if (source = data_sources.get(name)) &&
+               !source.kind_of?(StateDataSourceField)
                 # Don't create a substruct, we know that this subfield should be
                 # populated by the data source
                 create_substruct = false
             end
-            return super(name, create_substruct)
+            super(name, create_substruct)
         end
 
         # Read each subfield that have a source, and update both their
@@ -262,11 +268,11 @@ module Roby
         # See also #export_none and #export_all
         def export(*names)
             @exported_fields ||= Set.new
-            @exported_fields.merge names.map { |n| n.to_s }.to_set
+            @exported_fields.merge names.map(&:to_s).to_set
         end
 
         def create_subfield(name)
-            model = if self.model then self.model.get(name) end
+            model = self.model&.get(name)
             StateField.new(model, self, name)
         end
 
@@ -297,7 +303,12 @@ module Roby
             @exported_fields = exported_fields
         end
 
-        def testing?; Roby.app.testing? end
-        def simulation?; Roby.app.simulation? end
+        def testing?
+            Roby.app.testing?
+        end
+
+        def simulation?
+            Roby.app.simulation?
+        end
     end
 end

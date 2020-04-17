@@ -1,7 +1,9 @@
-require 'roby'
-require 'rake'
-require 'rake/tasklib'
-require 'shellwords'
+# frozen_string_literal: true
+
+require "roby"
+require "rake"
+require "rake/tasklib"
+require "shellwords"
 
 module Roby
     module App
@@ -92,7 +94,7 @@ module Roby
                     @ui
                 end
 
-                def initialize(task_name = 'test', all_by_default: false)
+                def initialize(task_name = "test", all_by_default: false)
                     @task_name = task_name
                     @app = Roby.app
                     @all_by_default = all_by_default
@@ -111,51 +113,51 @@ module Roby
 
                         desc "run the tests for configuration #{robot_name}:#{robot_type}"
                         task task_name do
-                            unless run_roby_test('-r', "#{robot_name},#{robot_type}")
-                                raise Failed.new('failed to run tests for '\
+                            unless run_roby_test("-r", "#{robot_name},#{robot_type}")
+                                raise Failed.new("failed to run tests for "\
                                                  "#{robot_name}:#{robot_type}"),
-                                      'tests failed'
+                                      "tests failed"
                             end
                         end
                     end
 
-                    desc 'run tests for all known robots'
+                    desc "run tests for all known robots"
                     task "#{task_name}:all-robots", [:keep_going] do |t, args|
                         failures = []
-                        keep_going = args.fetch(:keep_going, '1') == '1'
+                        keep_going = args.fetch(:keep_going, "1") == "1"
                         each_robot do |robot_name, robot_type|
-                            unless run_roby_test('-r', "#{robot_name},#{robot_type}")
+                            unless run_roby_test("-r", "#{robot_name},#{robot_type}")
                                 if keep_going
                                     failures << [robot_name, robot_type]
                                 else
-                                    raise Failed.new('failed to run tests for '\
+                                    raise Failed.new("failed to run tests for "\
                                                      "#{robot_name}:#{robot_type}"),
-                                          'tests failed'
+                                          "tests failed"
                                 end
                             end
                         end
                         unless failures.empty?
                             msg = failures
                                   .map { |name, type| "#{name}:#{type}" }
-                                  .join(', ')
-                            raise Failed.new('failed to run the following test(s): '\
-                                             "#{msg}"), 'failed ot run tests'
+                                  .join(", ")
+                            raise Failed.new("failed to run the following test(s): "\
+                                             "#{msg}"), "failed ot run tests"
                         end
                     end
 
-                    desc 'run all tests'
+                    desc "run all tests"
                     task "#{task_name}:all" do
                         unless run_roby_test
-                            raise Failed.new('failed to run tests'),
-                                  'failed to run tests'
+                            raise Failed.new("failed to run tests"),
+                                  "failed to run tests"
                         end
                     end
 
                     if all_by_default?
-                        desc 'run all tests'
+                        desc "run all tests"
                         task task_name => "#{task_name}:all"
                     else
-                        desc 'run all robot tests'
+                        desc "run all robot tests"
                         task task_name => "#{task_name}:all-robots"
                     end
                 end
@@ -170,21 +172,21 @@ module Roby
 
                 def run_roby_test(*args)
                     args += excludes.flat_map do |pattern|
-                        ['--exclude', pattern]
+                        ["--exclude", pattern]
                     end
-                    args << '--ui' if ui?
-                    if (minitest_opts = ENV['TESTOPTS'])
+                    args << "--ui" if ui?
+                    if (minitest_opts = ENV["TESTOPTS"])
                         args << "--"
                         args.concat(Shellwords.split(minitest_opts))
                     end
 
                     puts "Running roby test #{args.join(' ')}"
-                    run_roby('test', *args)
+                    run_roby("test", *args)
                 end
 
                 def run_roby(*args)
                     roby_bin = File.expand_path(
-                        File.join('..', '..', '..', 'bin', 'roby'),
+                        File.join("..", "..", "..", "bin", "roby"),
                         __dir__
                     )
                     pid = spawn(Gem.ruby, roby_bin, *args)
@@ -192,7 +194,7 @@ module Roby
                         _, status = Process.waitpid2(pid)
                         status.success?
                     rescue Interrupt
-                        Process.kill 'TERM', pid
+                        Process.kill "TERM", pid
                         Process.waitpid(pid)
                     end
                 end

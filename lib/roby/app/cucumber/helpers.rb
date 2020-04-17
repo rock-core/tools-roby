@@ -59,7 +59,7 @@ module Roby
                 elsif expected
                     raise InvalidUnit,
                           "expected #{key}=#{value} to be a #{expected}, "\
-                          'but it got no unit'
+                          "but it got no unit"
                 else
                     begin
                         Integer(value)
@@ -110,20 +110,20 @@ module Roby
                     end
                     arg_name = arg_name[0, arg_name.size - 1].to_sym
 
-                    if scanner.peek(1) == '{'
+                    if scanner.peek(1) == "{"
                         scanner.getch
                         stack << current
                         current[arg_name] = child = {}
                         current = child
                     else
                         match = scanner.scan_until(/(\s*,\s*|\s+and\s+|\s*}\s*)/)
-                        if match && (scanner[1].strip == '}')
+                        if match && (scanner[1].strip == "}")
                             current[arg_name] = match[0, match.size - scanner[1].size]
 
                             loop do
                                 current = stack.pop
                                 unless current
-                                    raise InvalidSyntax, 'unbalanced closed hash'
+                                    raise InvalidSyntax, "unbalanced closed hash"
                                 end
                                 break unless scanner.scan(/\s*}\s*/)
                             end
@@ -141,7 +141,7 @@ module Roby
                 end
 
                 unless stack.empty?
-                    raise InvalidSyntax, 'expected closing } at the end of string'
+                    raise InvalidSyntax, "expected closing } at the end of string"
                 end
 
                 current
@@ -187,9 +187,9 @@ module Roby
                             nest unless (expectation = expected[key])
 
                             msg = if is_numeric
-                                      'but it got no unit'
+                                      "but it got no unit"
                                   else
-                                      'but it is not even a number'
+                                      "but it is not even a number"
                                   end
                             raise InvalidUnit,
                                   "expected #{key}=#{arg_value} to be "\
@@ -203,24 +203,24 @@ module Roby
                 end
 
                 raw_arguments.each_with_index do |arg, arg_i|
-                    arg_name, arg_value = arg.split('=')
+                    arg_name, arg_value = arg.split("=")
 
                     if arg_value
                         if has_implicit
                             raise MixingOrderAndNames,
-                                  'cannot mix order-based syntax and explicit names'
+                                  "cannot mix order-based syntax and explicit names"
                         end
                         has_explicit = true
                     else
                         if has_explicit
                             raise MixingOrderAndNames,
-                                  'cannot mix order-based syntax and explicit names'
+                                  "cannot mix order-based syntax and explicit names"
                         end
                         arg_value = arg_name
                         arg_name = reference[arg_i]
                         unless arg_name
                             raise UnexpectedArgument,
-                                  'too many implicit values given, expected '\
+                                  "too many implicit values given, expected "\
                                   "#{reference.size} (#{reference.join(', ')})"
                         end
                         has_implicit = true
@@ -294,20 +294,20 @@ module Roby
             #
             # @raise InvalidUnit if the unit parameter is unknown
             def self.apply_unit(value, unit)
-                if unit == 'deg'
+                if unit == "deg"
                     value * Math::PI / 180
-                elsif unit == 'm'
+                elsif unit == "m"
                     value
-                elsif unit == 'h'
+                elsif unit == "h"
                     value * 3600
-                elsif unit == 'min'
+                elsif unit == "min"
                     value * 60
-                elsif unit == 's'
+                elsif unit == "s"
                     value
                 else
                     raise InvalidUnit,
                           'unknown unit #{unit}, known units are deg, m (meters), '\
-                          'h (hour), min (minute) and s (seconds)'
+                          "h (hour), min (minute) and s (seconds)"
                 end
             end
         end

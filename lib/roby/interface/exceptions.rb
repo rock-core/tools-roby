@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Interface
         # Exception thrown when something is wrong in the client/server protocol
@@ -19,4 +21,3 @@ module Roby
         end
     end
 end
-

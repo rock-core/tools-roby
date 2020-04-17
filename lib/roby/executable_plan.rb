@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     # A plan that can be used for execution
     #
@@ -27,7 +29,9 @@ module Roby
         # The DecisionControl object which is associated with this plan. This
         # object's role is to handle the conflicts that can occur during event
         # propagation.
-        def control; execution_engine.control end
+        def control
+            execution_engine.control
+        end
 
         # A set of tasks which are useful (and as such would not been garbage
         # collected), but we want to GC anyway
@@ -44,8 +48,8 @@ module Roby
             super(graph_observer: self, event_logger: event_logger)
 
             @execution_engine = ExecutionEngine.new(self)
-            @force_gc    = Set.new
-            @exception_handlers = Array.new
+            @force_gc = Set.new
+            @exception_handlers = []
             on_exception LocalizedError do |plan, error|
                 plan.default_localized_error_handling(error)
             end
@@ -72,7 +76,9 @@ module Roby
         # Check that this is an executable plan
         #
         # This always returns true for {ExecutablePlan}
-        def executable?; true end
+        def executable?
+            true
+        end
 
         def refresh_relations
             super
@@ -91,7 +97,7 @@ module Roby
         # It activates fault handlers, and adds {MissionFailedError} /
         # {PermanentTaskError}
         def default_localized_error_handling(error)
-            matching_handlers = Array.new
+            matching_handlers = []
             active_fault_response_tables.each do |table|
                 table.find_all_matching_handlers(error).each do |handler|
                     matching_handlers << [table, handler]
@@ -99,7 +105,7 @@ module Roby
             end
             handlers = matching_handlers.sort_by { |_, handler| handler.priority }
 
-            while !handlers.empty?
+            until handlers.empty?
                 table, handler = handlers.shift
                 if handler
                     begin
@@ -120,7 +126,7 @@ module Roby
                 # MissionFailedError and PermanentTaskError are not propagated,
                 # so tasks == [origin] and we should not re-add an error
                 if execution_exception.exception.kind_of?(MissionFailedError) ||
-                        execution_exception.exception.kind_of?(PermanentTaskError)
+                   execution_exception.exception.kind_of?(PermanentTaskError)
                     next
                 end
 
@@ -194,6 +200,7 @@ module Roby
 
             for trsc in transactions
                 next unless trsc.proxying?
+
                 if (parent_proxy = trsc[parent, create: false]) && (child_proxy = trsc[child, create: false])
                     trsc.adding_plan_relation(parent_proxy, child_proxy, relations, info)
                 end
@@ -235,7 +242,7 @@ module Roby
         # @param [Class<Relations::Graph>] relation the relation graph ID
         # @param [Object] info the new edge info
         def updating_edge_info(parent, child, relation, info)
-            emit_relation_change_hook(parent, child, relation, info, prefix: 'updating')
+            emit_relation_change_hook(parent, child, relation, info, prefix: "updating")
         end
 
         # @api private
@@ -248,7 +255,7 @@ module Roby
         # @param [Class<Relations::Graph>] relation the relation graph ID
         # @param [Object] info the new edge info
         def updated_edge_info(parent, child, relation, info)
-            emit_relation_change_hook(parent, child, relation, info, prefix: 'updated')
+            emit_relation_change_hook(parent, child, relation, info, prefix: "updated")
             log(:updated_edge_info, parent, child, relation, info)
         end
 
@@ -276,6 +283,7 @@ module Roby
 
             for trsc in transactions
                 next unless trsc.proxying?
+
                 if (parent_proxy = trsc[parent, create: false]) && (child_proxy = trsc[child, create: false])
                     trsc.removing_plan_relation(parent_proxy, child_proxy, relations)
                 end
@@ -333,9 +341,9 @@ module Roby
         # Calls the added_ and adding_ hooks for modifications originating from
         # a transaction that involve tasks originally from the plan
         def emit_relation_graph_transaction_application_hooks(list, prefix: nil)
-            hooks = Hash.new
+            hooks = {}
             list.each do |graph, parent, child, *args|
-                if !hooks.has_key?(graph)
+                unless hooks.has_key?(graph)
                     rel = graph.class
                     if (name = rel.child_name)
                         parent_hook = "#{prefix}_#{name}"
@@ -347,7 +355,7 @@ module Roby
                 end
 
                 parent_hook, child_hook = hooks[graph]
-                next if !child_hook
+                next unless child_hook
 
                 parent.send(parent_hook, child, *args)
                 child.send(child_hook, parent, *args)
@@ -367,23 +375,23 @@ module Roby
                 end
             end
 
-            emit_relation_graph_transaction_application_hooks(added, prefix: 'adding')
-            emit_relation_graph_transaction_application_hooks(removed, prefix: 'removing')
-            emit_relation_graph_transaction_application_hooks(updated, prefix: 'updating')
+            emit_relation_graph_transaction_application_hooks(added, prefix: "adding")
+            emit_relation_graph_transaction_application_hooks(removed, prefix: "removing")
+            emit_relation_graph_transaction_application_hooks(updated, prefix: "updating")
 
             super
 
             precedence_graph = event_relation_graph_for(EventStructure::Precedence)
             precedence_edge_count = precedence_graph.num_edges
-            emit_relation_graph_transaction_application_hooks(added, prefix: 'added')
+            emit_relation_graph_transaction_application_hooks(added, prefix: "added")
             if precedence_edge_count != precedence_graph.num_edges
                 execution_engine.event_ordering.clear
             end
-            emit_relation_graph_transaction_application_hooks(removed, prefix: 'removed')
+            emit_relation_graph_transaction_application_hooks(removed, prefix: "removed")
             if precedence_edge_count != precedence_graph.num_edges
                 execution_engine.event_ordering.clear
             end
-            emit_relation_graph_transaction_application_hooks(updated, prefix: 'updated')
+            emit_relation_graph_transaction_application_hooks(updated, prefix: "updated")
 
             added.each do |graph, parent, child, info|
                 log(:added_edge, parent, child, [graph.class], info)
@@ -401,10 +409,10 @@ module Roby
         # Emits the adding_* hooks when a plan gets merged in self
         def merging_plan(plan)
             plan.each_task_relation_graph do |graph|
-                emit_relation_graph_merge_hooks(graph, prefix: 'adding')
+                emit_relation_graph_merge_hooks(graph, prefix: "adding")
             end
             plan.each_event_relation_graph do |graph|
-                emit_relation_graph_merge_hooks(graph, prefix: 'adding')
+                emit_relation_graph_merge_hooks(graph, prefix: "adding")
             end
             super
         end
@@ -413,15 +421,15 @@ module Roby
         #
         # Emits the added_* hooks when a plan gets merged in self
         def merged_plan(plan)
-            if !plan.event_relation_graph_for(EventStructure::Precedence).empty?
+            unless plan.event_relation_graph_for(EventStructure::Precedence).empty?
                 execution_engine.event_ordering.clear
             end
 
             plan.each_task_relation_graph do |graph|
-                emit_relation_graph_merge_hooks(graph, prefix: 'added')
+                emit_relation_graph_merge_hooks(graph, prefix: "added")
             end
             plan.each_event_relation_graph do |graph|
-                emit_relation_graph_merge_hooks(graph, prefix: 'added')
+                emit_relation_graph_merge_hooks(graph, prefix: "added")
             end
 
             super
@@ -542,7 +550,7 @@ module Roby
         def call_structure_check_handler(handler)
             super
         rescue Exception => e
-            execution_engine.add_framework_error(e, 'structure checking')
+            execution_engine.add_framework_error(e, "structure checking")
         end
     end
 end

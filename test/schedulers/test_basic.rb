@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require 'roby/test/self'
-require 'roby/schedulers/basic'
+require "roby/test/self"
+require "roby/schedulers/basic"
 
 module Roby
     module Schedulers

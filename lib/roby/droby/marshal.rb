@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module DRoby
         # Handles marshalling and demarshalling objects for a given peer
@@ -29,10 +31,9 @@ module Roby
             def initialize(object_manager = ObjectManager.new(nil), peer_id = nil, auto_create_plans: false)
                 @object_manager = object_manager
                 @peer_id = peer_id
-                @context_objects = Hash.new
+                @context_objects = {}
                 @auto_create_plans = auto_create_plans
             end
-
 
             def with_object(id_to_object)
                 current_context = context_objects.dup
@@ -42,7 +43,6 @@ module Roby
                 end
 
                 yield
-
             ensure
                 context_objects.replace(current_context)
             end
@@ -55,7 +55,7 @@ module Roby
             def dump_groups(*groups)
                 current_context = context_objects.dup
                 mappings = groups.map do |collection|
-                    mapping = Array.new
+                    mapping = []
                     collection.each do |obj|
                         context_objects[obj] = obj.droby_id
                         mapping << [obj.droby_id, obj]
@@ -71,9 +71,8 @@ module Roby
 
                 if block_given?
                     yield(*marshalled)
-                else return *marshalled
+                else marshalled
                 end
-
             ensure
                 context_objects.replace(current_context)
             end
@@ -82,7 +81,7 @@ module Roby
             def load_groups(*groups)
                 current_context = context_objects.dup
 
-                updates = Array.new
+                updates = []
                 local_objects = groups.map do |collection|
                     collection.each_slice(2).map do |obj_id, marshalled_obj|
                         proxy = local_object(marshalled_obj)
@@ -104,7 +103,7 @@ module Roby
 
                 if block_given?
                     yield(*local_objects)
-                else return *local_objects
+                else local_objects
                 end
             ensure
                 context_objects.replace(current_context)
@@ -140,11 +139,11 @@ module Roby
             #   unmarshalled object
             def find_local_object(marshalled)
                 if local_object = context_objects[marshalled]
-                    return true, local_object
+                    [true, local_object]
                 elsif marshalled.kind_of?(DRobyID)
-                    return true, object_manager.fetch_by_id(peer_id, marshalled)
+                    [true, object_manager.fetch_by_id(peer_id, marshalled)]
                 elsif marshalled.kind_of?(RemoteDRobyID)
-                    return true, object_manager.fetch_by_id(marshalled.peer_id, marshalled.droby_id)
+                    [true, object_manager.fetch_by_id(marshalled.peer_id, marshalled.droby_id)]
                 elsif marshalled.respond_to?(:remote_siblings)
                     marshalled.remote_siblings.each do |peer_id, droby_id|
                         if local_object = object_manager.find_by_id(peer_id, droby_id)
@@ -157,11 +156,11 @@ module Roby
                             return true, local_object
                         end
                     end
-                    return false, nil
+                    [false, nil]
                 elsif !marshalled.respond_to?(:proxy)
-                    return true, marshalled
+                    [true, marshalled]
                 else
-                    return false, nil
+                    [false, nil]
                 end
             end
 
@@ -171,10 +170,10 @@ module Roby
             # resolved
             def local_object(marshalled, create: true)
                 resolved, local_object = find_local_object(marshalled)
-                if resolved 
+                if resolved
                     local_object
                 elsif marshalled.respond_to?(:remote_siblings)
-                    if !create
+                    unless create
                         raise NoLocalObject, "#{marshalled} cannot be resolved into a local object and create is false"
                     end
 
@@ -206,7 +205,7 @@ module Roby
 
             # Find a known model matching the given name
             #
-            # It is first resolved among the 
+            # It is first resolved among the
             # models registered with {#register_model} and then resolved in
             # the process constant hierarchy
             def find_local_model(marshalled, name: marshalled.name)
@@ -219,7 +218,7 @@ module Roby
                     return
                 end
 
-                names = name.split('::')
+                names = name.split("::")
 
                 # Look locally for the constant listed in the name
                 local_object = Object
@@ -229,7 +228,7 @@ module Roby
                     else return
                     end
                 end
-                return local_object
+                local_object
             end
 
             def local_model(marshalled, create: true)
@@ -244,12 +243,12 @@ module Roby
             end
 
             # (see ObjectManager#register_object)
-            def register_object(object, known_siblings = Hash.new)
+            def register_object(object, known_siblings = {})
                 object_manager.register_object(object, known_siblings)
             end
 
             # (see ObjectManager#register_model)
-            def register_model(local_model, known_siblings = Hash.new, name: local_model.name)
+            def register_model(local_model, known_siblings = {}, name: local_model.name)
                 object_manager.register_model(local_model, known_siblings, name: name)
             end
 
@@ -260,5 +259,3 @@ module Roby
         end
     end
 end
-
-

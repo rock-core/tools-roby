@@ -1,6 +1,8 @@
-require 'roby'
-require 'optparse'
-require 'rb-readline'
+# frozen_string_literal: true
+
+require "roby"
+require "optparse"
+require "rb-readline"
 
 app = Roby.app
 app.guess_app_dir
@@ -8,23 +10,23 @@ app.shell
 app.single
 app.load_base_config
 
-require 'pp'
+require "pp"
 
 silent = false
 opt = OptionParser.new do |opt|
-    opt.on '--silent', 'disable notifications (can also be controlled in the shell itself)' do
+    opt.on "--silent", "disable notifications (can also be controlled in the shell itself)" do
         silent = true
     end
 end
 
-host_options = Hash.new
+host_options = {}
 Roby::Application.host_options(opt, host_options)
 opt.parse! ARGV
 
 host, port = host_options.values_at(:host, :port)
 
-require 'irb'
-require 'irb/ext/save-history'
+require "irb"
+require "irb/ext/save-history"
 IRB.setup("#{host}:#{port}")
 IRB.conf[:INSPECT_MODE] = false
 IRB.conf[:IRB_NAME]     = "#{host}:#{port}"
@@ -32,7 +34,7 @@ IRB.conf[:USE_READLINE] = true
 IRB.conf[:PROMPT_MODE]  = :ROBY
 IRB.conf[:AUTO_INDENT] = true
 if Roby.app.app_dir
-    IRB.conf[:HISTORY_FILE] = File.join(Roby.app.app_dir, 'config', 'shell_history')
+    IRB.conf[:HISTORY_FILE] = File.join(Roby.app.app_dir, "config", "shell_history")
 end
 IRB.conf[:SAVE_HISTORY] = 1000
 IRB.conf[:PROMPT][:ROBY] = {
@@ -43,7 +45,7 @@ IRB.conf[:PROMPT][:ROBY] = {
     :RETURN => "=> %s\n"
 }
 
-__main_remote_interface__ =
+main_remote_interface__ =
     begin
         Roby::Interface::ShellClient.new("#{host}:#{port}") do
             Roby::Interface.connect_with_tcp_to(host, port)
@@ -53,7 +55,7 @@ __main_remote_interface__ =
         exit(1)
     end
 
-__main_remote_interface__.silent(silent)
+main_remote_interface__.silent(silent)
 
 module RbReadline
     def self.puts(msg)
@@ -91,21 +93,21 @@ Readline.completer_word_break_characters = ""
 Readline.completion_proc = lambda do |string|
     if string =~ /^\w+$/
         prefix_match = /^#{string}/
-        actions = __main_remote_interface__.client.actions.find_all do |act|
+        actions = main_remote_interface__.client.actions.find_all do |act|
             prefix_match === act.name
         end
-        if !actions.empty?
+        unless actions.empty?
             return actions.map { |act| "#{act.name}!" }
         end
     end
-    return Array.new
+    return []
 end
 
 class ShellEvalContext < BasicObject
     include ::Kernel
 
-    WHITELISTED_METHODS = [:actions, :wtf?, :cancel, :safe, :unsafe, :safe?, :help].
-        freeze
+    WHITELISTED_METHODS = %i[actions wtf? cancel safe unsafe safe? help]
+        .freeze
 
     def initialize(interface, send_q: ::Queue.new, results_q: ::Queue.new)
         @__interface = interface
@@ -136,7 +138,7 @@ class ShellEvalContext < BasicObject
     end
 
     def process_pending
-        while true
+        loop do
             begin
                 command = @__send.pop(true)
                 begin
@@ -153,9 +155,9 @@ class ShellEvalContext < BasicObject
 end
 
 begin
-    # Make __main_remote_interface__ the top-level object
-    __shell_context__ = ShellEvalContext.new(__main_remote_interface__)
-    ws  = IRB::WorkSpace.new(__shell_context__.instance_eval { binding })
+    # Make main_remote_interface__ the top-level object
+    shell_context__ = ShellEvalContext.new(main_remote_interface__)
+    ws = IRB::WorkSpace.new(shell_context__.instance_eval { binding })
     irb = IRB::Irb.new(ws)
 
     output_sync = Mutex.new
@@ -165,11 +167,11 @@ begin
 
     Thread.new do
         begin
-            __main_remote_interface__.notification_loop(0.1) do |connected, messages|
-                __shell_context__.process_pending
+            main_remote_interface__.notification_loop(0.1) do |connected, messages|
+                shell_context__.process_pending
 
                 begin
-                    if !__main_remote_interface__.silent?
+                    unless main_remote_interface__.silent?
                         output_sync.synchronize do
                             messages.each { |msg| RbReadline.puts(msg) }
                         end

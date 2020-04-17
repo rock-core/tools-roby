@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module App
         # The part of the configuration related to robot declaration
@@ -17,16 +19,16 @@ module Roby
 
             # Create a RobotConfiguration object based on a hash formatted as-is
             # from the app.yml file
-            def initialize(options = Hash.new)
-                @robots = options['robots'] || Hash.new
-                @default_robot_name = options['default_robot'] || 'default'
-                if !has_robot?(default_robot_name)
+            def initialize(options = {})
+                @robots = options["robots"] || {}
+                @default_robot_name = options["default_robot"] || "default"
+                unless has_robot?(default_robot_name)
                     robots[default_robot_name] = default_robot_name
                 end
 
-                @aliases = options['aliases'] || Hash.new
+                @aliases = options["aliases"] || {}
                 aliases.each do |name_alias, name|
-                    if !has_robot?(name)
+                    unless has_robot?(name)
                         raise ArgumentError, "cannot use #{name_alias} as an alias to #{name}: #{name} is not a declared robot"
                     end
                     if has_robot?(name_alias)
@@ -34,7 +36,7 @@ module Roby
                     end
                 end
 
-                self.strict = !!options['robots']
+                self.strict = !!options["robots"]
             end
 
             # Declare the type of an existing robot
@@ -42,6 +44,7 @@ module Roby
                 if strict? && !has_robot?(robot_type)
                     raise ArgumentError, "#{robot_type} is not a known robot"
                 end
+
                 robots[robot_name] = robot_type
             end
 
@@ -92,24 +95,36 @@ module Roby
             def resolve(name, type = nil)
                 robot_name = aliases[name] || name || default_robot_name
                 if !robot_name
-                    error(ArgumentError, "no robot name given and no default name declared in app.yml, defaulting to #{default_robot_name}:#{default_robot_type}")
-                    return default_robot_name, default_robot_type
+                    error(
+                        ArgumentError,
+                        "no robot name given and no default name declared in "\
+                        "app.yml, defaulting to #{default_robot_name}:"\
+                        "#{default_robot_type}"
+                    )
+                    [default_robot_name, default_robot_type]
                 elsif robots.has_key?(robot_name)
                     robot_type = robots[robot_name]
                     type ||= robot_type
                     if type != robot_type
-                        error(ArgumentError, "invalid robot type when resolving #{name}:#{type}, #{name} is declared to be of type #{robot_type}")
+                        error(
+                            ArgumentError,
+                            "invalid robot type when resolving #{name}:#{type}, "\
+                            "#{name} is declared to be of type #{robot_type}"
+                        )
                     end
-                    return robot_name, type
+                    [robot_name, type]
                 else
                     if !robots.empty? || strict?
-                        error(Application::NoSuchRobot, "#{name} is neither a robot name, nor an alias. Known names: #{robots.keys.sort.join(", ")}, known aliases: #{aliases.keys.join(", ")}")
+                        error(
+                            Application::NoSuchRobot,
+                            "#{name} is neither a robot name, nor an alias. "\
+                            "Known names: #{robots.keys.sort.join(', ')}, "\
+                            "known aliases: #{aliases.keys.join(', ')}"
+                        )
                     end
-                    return robot_name, (type || robot_name)
+                    [robot_name, (type || robot_name)]
                 end
             end
         end
     end
 end
-
-

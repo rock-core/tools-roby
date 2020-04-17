@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     class ::Class
         # If true, this model will never get sent to remote peers.
@@ -17,12 +19,16 @@ module Roby
         #
         # I.e., from the point of view of our peers, instances of this model are
         # actually instances of its superclass.
-        def private_model; @private_model = true end
+        def private_model
+            @private_model = true
+        end
     end
 
     class ::Module
         # There are currently no way to make a module private
-        def private_model?; false end
+        def private_model?
+            false
+        end
     end
 
     # Base class for most plan-related objects (Plan, PlanObject, ...)
@@ -37,15 +43,15 @@ module Roby
         attr_reader :owners
 
         attr_predicate :self_owned?
-        
+
         def initialize # :nodoc:
-            @owners = Array.new
+            @owners = []
             @self_owned = true
         end
 
         def initialize_copy(old) # :nodoc:
             super
-            @owners = Array.new
+            @owners = []
         end
 
         def add_owner(owner)
@@ -73,4 +79,3 @@ module Roby
         end
     end
 end
-

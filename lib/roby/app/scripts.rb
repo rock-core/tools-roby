@@ -1,6 +1,8 @@
-require 'optparse'
-require 'roby/standalone'
-require 'roby/interface'
+# frozen_string_literal: true
+
+require "optparse"
+require "roby/standalone"
+require "roby/interface"
 
 module Roby
     module App
@@ -13,13 +15,12 @@ module Roby
             #   Roby::App::Scripts::InterfaceScript.run(*ARGV) do |interface|
             #       # Do stuff with the roby interface
             #   end
-            #    
+            #
             class InterfaceScript
                 attr_reader :app
-                attr_reader :host
 
                 def initialize(app = Roby.app,
-                               default_host: app.shell_interface_host || 'localhost',
+                               default_host: app.shell_interface_host || "localhost",
                                default_port: app.shell_interface_port || Interface::DEFAULT_PORT)
                     @app = app
                     @host_options = Hash[host: default_host, port: default_port]
@@ -37,11 +38,13 @@ module Roby
                 end
 
                 def host
-                    return *@host_options.values_at(:host, :port)
+                    @host_options.values_at(:host, :port)
                 end
 
-                def run(*args, banner: "",
-                    option_parser: default_option_parser(banner: banner))
+                def run(
+                    *args, banner: "",
+                    option_parser: default_option_parser(banner: banner)
+                )
 
                     app.guess_app_dir
                     app.shell
@@ -54,7 +57,7 @@ module Roby
                     yield(interface)
                 end
 
-                def self.run(*args, banner: '', &block)
+                def self.run(*args, banner: "", &block)
                     Roby.display_exception do
                         begin
                             new.run(*args, banner: banner, &block)
@@ -69,4 +72,3 @@ module Roby
         end
     end
 end
-

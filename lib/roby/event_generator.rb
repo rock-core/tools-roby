@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     # EventGenerator objects are the objects which manage the event generation
     # process (propagation, event creation, ...). They can be combined
@@ -20,8 +22,8 @@ module Roby
             attr_reader :relation_spaces
             attr_reader :all_relation_spaces
         end
-        @relation_spaces = Array.new
-        @all_relation_spaces = Array.new
+        @relation_spaces = []
+        @all_relation_spaces = []
 
         # The event class that is used to represent this generator's emissions
         #
@@ -43,8 +45,8 @@ module Roby
         #
         #  OrGenerator.new << a << b << c << d
         #
-        def |(generator)
-            OrGenerator.new << self << generator
+        def |(other)
+            OrGenerator.new << self << other
         end
 
         # Creates a AndGenerator object which is emitted when both this object
@@ -62,11 +64,11 @@ module Roby
         #
         #  AndGenerator.new << a << b << c << d
         #
-        def &(generator)
-            AndGenerator.new << self << generator
+        def &(other)
+            AndGenerator.new << self << other
         end
 
-        attr_enumerable(:handler, :handlers) { Array.new }
+        attr_enumerable(:handler, :handlers) { [] }
 
         def initialize_copy(old) # :nodoc:
             super
@@ -75,8 +77,8 @@ module Roby
             @preconditions = old.instance_variable_get(:@preconditions).dup
             @handlers = old.handlers.dup
             @emitted = old.emitted?
-            @history  = old.history.dup
-            @pending  = false
+            @history = old.history.dup
+            @pending = false
             if old.command.kind_of?(Method)
                 @command = method(old.command.name)
             end
@@ -86,16 +88,20 @@ module Roby
 
         # Returns the model object for this particular event generator. It is in
         # general the generator class.
-        def model; self.class end
+        def model
+            self.class
+        end
+
         # The model name
-        def name; model.name end
+        def name
+            model.name
+        end
 
         attr_predicate :pending?, true
 
         def plan=(plan)
             super
-            @relation_graphs = if plan then plan.event_relation_graphs
-                               end
+            @relation_graphs = plan&.event_relation_graphs
         end
 
         # call-seq:
@@ -115,21 +121,22 @@ module Roby
             @pending         = false
             @pending_sources = []
             @unreachable     = false
-            @unreachable_events   = Hash.new
+            @unreachable_events = {}
             @unreachable_handlers = []
-            @history       = Array.new
+            @history = []
             @event_model = Event
 
             command_object ||= controlable
 
             if command_object || command_block
-                @command = if command_object.respond_to?(:call)
-                                   command_object
-                               elsif command_block
-                                   command_block
-                               else
-                                   method(:default_command)
-                               end
+                @command =
+                    if command_object.respond_to?(:call)
+                        command_object
+                    elsif command_block
+                        command_block
+                    else
+                        method(:default_command)
+                    end
             else
                 @command = nil
             end
@@ -146,27 +153,29 @@ module Roby
         attr_accessor :command
 
         # True if this event is controlable
-        def controlable?; !!@command end
+        def controlable?
+            !!@command
+        end
 
         # Checks that the event can be called. Raises various exception
         # when it is not the case.
         def check_call_validity
             if !plan
-                EventNotExecutable.new(self).
-                    exception("#emit called on #{self} which has been removed from its plan")
+                EventNotExecutable.new(self)
+                    .exception("#emit called on #{self} which has been removed from its plan")
             elsif !plan.executable?
-                EventNotExecutable.new(self).
-                    exception("#emit called on #{self} which is not in an executable plan")
+                EventNotExecutable.new(self)
+                    .exception("#emit called on #{self} which is not in an executable plan")
             elsif !controlable?
-                EventNotControlable.new(self).
-                    exception("#call called on a non-controlable event")
+                EventNotControlable.new(self)
+                    .exception("#call called on a non-controlable event")
             elsif unreachable?
                 if unreachability_reason
-                    UnreachableEvent.new(self, unreachability_reason).
-                        exception("#call called on #{self} which has been made unreachable because of #{unreachability_reason}")
+                    UnreachableEvent.new(self, unreachability_reason)
+                        .exception("#call called on #{self} which has been made unreachable because of #{unreachability_reason}")
                 else
-                    UnreachableEvent.new(self, unreachability_reason).
-                        exception("#call called on #{self} which has been made unreachable")
+                    UnreachableEvent.new(self, unreachability_reason)
+                        .exception("#call called on #{self} which has been made unreachable")
                 end
             elsif !execution_engine.allow_propagation?
                 PhaseMismatch.exception("call to #emit is not allowed in this context")
@@ -176,9 +185,9 @@ module Roby
         end
 
         def check_call_validity_after_calling
-            if !executable?
-                EventNotExecutable.new(self).
-                    exception("#call called on #{self} which is a non-executable event")
+            unless executable?
+                EventNotExecutable.new(self)
+                    .exception("#call called on #{self} which is a non-executable event")
             end
         end
 
@@ -186,21 +195,21 @@ module Roby
         # when it is not the case.
         def check_emission_validity
             if !plan
-                EventNotExecutable.new(self).
-                    exception("#emit called on #{self} which has been removed from its plan")
+                EventNotExecutable.new(self)
+                    .exception("#emit called on #{self} which has been removed from its plan")
             elsif !plan.executable?
-                EventNotExecutable.new(self).
-                    exception("#emit called on #{self} which is not in an executable plan")
+                EventNotExecutable.new(self)
+                    .exception("#emit called on #{self} which is not in an executable plan")
             elsif !executable?
-                EventNotExecutable.new(self).
-                    exception("#emit called on #{self} which is a non-executable event")
+                EventNotExecutable.new(self)
+                    .exception("#emit called on #{self} which is a non-executable event")
             elsif unreachable?
                 if unreachability_reason
-                    UnreachableEvent.new(self, unreachability_reason).
-                        exception("#emit called on #{self} which has been made unreachable because of #{unreachability_reason}")
+                    UnreachableEvent.new(self, unreachability_reason)
+                        .exception("#emit called on #{self} which has been made unreachable because of #{unreachability_reason}")
                 else
-                    UnreachableEvent.new(self, unreachability_reason).
-                        exception("#emit called on #{self} which has been made unreachable")
+                    UnreachableEvent.new(self, unreachability_reason)
+                        .exception("#emit called on #{self} which has been made unreachable")
                 end
             elsif !execution_engine.allow_propagation?
                 PhaseMismatch.exception("call to #emit is not allowed in this context")
@@ -231,9 +240,8 @@ module Roby
                 execution_engine.propagation_context([self]) do
                     command.call(context)
                 end
-
             rescue Exception => e
-                if !e.kind_of?(LocalizedError)
+                unless e.kind_of?(LocalizedError)
                     e = CommandFailed.new(e, self)
                 end
                 if command_emitted?
@@ -241,7 +249,6 @@ module Roby
                 else
                     emit_failed(e)
                 end
-
             ensure
                 @calling_command = false
             end
@@ -259,7 +266,10 @@ module Roby
         def call(*context)
             engine = execution_engine
             if engine && !engine.in_propagation_context?
-                Roby.warn_deprecated "calling EventGenerator#call outside of propagation context is deprecated. In tests, use execute { } or expect_execution { }.to { }"
+                Roby.warn_deprecated "calling EventGenerator#call outside of a "\
+                                     "propagation context is deprecated. In "\
+                                     "tests, use execute { } or expect_execution "\
+                                     "{ }.to { }"
                 engine.process_events_synchronous { call(*context) }
                 return
             end
@@ -273,7 +283,7 @@ module Roby
             # other ones: it is possible, using Distributed.update, to disable
             # ownership tests, but that does not work if the test is in
             # #emit_without_propagation
-            if !self_owned?
+            unless self_owned?
                 raise OwnershipError, "not owner"
             end
 
@@ -297,10 +307,14 @@ module Roby
             #
             # The default in Task#on is false for non-abstract tasks and true
             # for abstract tasks.
-            def copy_on_replace?; !!@copy_on_replace end
+            def copy_on_replace?
+                !!@copy_on_replace
+            end
 
             # True if this event handler should be called only once
-            def once?; !!@once end
+            def once?
+                !!@once
+            end
 
             # Generates an option hash valid for EventGenerator#on
             def as_options
@@ -333,9 +347,10 @@ module Roby
         # * if set to :forward, the handler is added to the replacing task
         #
         def on(on_replace: :drop, once: false, &handler)
-            if ![:drop, :copy].include?(on_replace)
+            unless %i[drop copy].include?(on_replace)
                 raise ArgumentError, "wrong value for the :on_replace option. Expecting either :drop or :copy, got #{on_replace}"
             end
+
             check_arity(handler, 1)
             self.handlers << EventHandler.new(handler, on_replace == :copy, once)
             self
@@ -371,9 +386,10 @@ module Roby
         # delay in seconds and in the second case it is a Time object which is
         # the absolute point in time at which this propagation must happen.
         def signals(generator, timespec = nil)
-            if !generator.controlable?
+            unless generator.controlable?
                 raise EventNotControlable.new(self), "trying to establish a signal from #{self} to #{generator} which is not controllable"
             end
+
             timespec = ExecutionEngine.validate_timespec(timespec)
 
             add_signal generator, timespec
@@ -405,23 +421,28 @@ module Roby
         #   unreachable. This is needed when the :on_replace option is :copy,
         #   since the generator that became unreachable might be different than
         #   the one on which the handler got installed
-        def if_unreachable(options = Hash.new, &block)
-            if options == true || options == false
-                Roby.warn_deprecated "if_unreachable(cancel_at_emission) has been replaced by if_unreachable(cancel_at_emission: true or false, on_replace: :policy)"
+        def if_unreachable(options = {}, &block)
+            if [true, false].include?(options)
+                Roby.warn_deprecated "if_unreachable(cancel_at_emission) has been "\
+                                     "replaced by if_unreachable(cancel_at_emission: "\
+                                     "true or false, on_replace: :policy)"
                 options = Hash[cancel_at_emission: options]
             end
             options = Kernel.validate_options options,
-                cancel_at_emission: false,
-                on_replace: :drop
+                                              cancel_at_emission: false,
+                                              on_replace: :drop
 
-            if ![:drop, :copy].include?(options[:on_replace])
-                raise ArgumentError, "wrong value for the :on_replace option. Expecting either :drop or :copy, got #{options[:on_replace]}"
+            unless %i[drop copy].include?(options[:on_replace])
+                raise ArgumentError,
+                      "wrong value for the :on_replace option. "\
+                      "Expecting either :drop or :copy, got #{options[:on_replace]}"
             end
 
             check_arity(block, 2)
             if unreachable_handlers.any? { |cancel, b| b.block == block }
                 return b.object_id
             end
+
             handler = EventHandler.new(block, options[:on_replace] == :copy, true)
             unreachable_handlers << [options[:cancel_at_emission], handler]
             handler.object_id
@@ -500,7 +521,7 @@ module Roby
         #   once { |context| ... }
         #
         # Calls the provided event handler only once
-        def once(options = Hash.new, &block)
+        def once(options = {}, &block)
             on(options.merge(once: true), &block)
             self
         end
@@ -519,10 +540,15 @@ module Roby
             self
         end
 
-        def to_event; self end
+        def to_event
+            self
+        end
 
         # Returns the set of events directly related to this one
-        def related_events(result = Set.new); related_objects(nil, result) end
+        def related_events(result = Set.new)
+            related_objects(nil, result)
+        end
+
         # Returns the set of tasks that are directly linked to this events.
         #
         # I.e. it returns the tasks that have events which are directly related
@@ -564,6 +590,7 @@ module Roby
                 if self == target
                     raise PropagationError, "#{self} is trying to signal itself"
                 end
+
                 execution_engine.queue_signal([event], target, event.context,
                                               signal_graph.edge_info(self, target))
             end
@@ -573,6 +600,7 @@ module Roby
                 if self == target
                     raise PropagationError, "#{self} is trying to signal itself"
                 end
+
                 execution_engine.queue_forward([event], target, event.context,
                                                forward_graph.edge_info(self, target))
             end
@@ -592,9 +620,9 @@ module Roby
                 begin
                     h.call(event)
                 rescue LocalizedError => e
-                    execution_engine.add_error( e )
+                    execution_engine.add_error(e)
                 rescue Exception => e
-                    execution_engine.add_error( EventHandlerError.new(e, event) )
+                    execution_engine.add_error(EventHandlerError.new(e, event))
                 end
                 h.once?
             end
@@ -606,7 +634,9 @@ module Roby
         def emit_failed(error = nil, message = nil)
             engine = execution_engine
             if engine && !engine.in_propagation_context?
-                Roby.warn_deprecated "calling EventGenerator#emit_failed outside of propagation context is deprecated. In tests, use execute { } or expect_execution { }.to { }"
+                Roby.warn_deprecated "calling EventGenerator#emit_failed outside of a "\
+                                     "propagation context is deprecated. In tests, "\
+                                     "use execute { } or expect_execution { }.to { }"
                 engine.process_events_synchronous { emit_failed(error, message) }
                 return
             end
@@ -633,7 +663,7 @@ module Roby
             new_error.set_backtrace error.backtrace
             error = new_error
 
-            if !error.kind_of?(LocalizedError)
+            unless error.kind_of?(LocalizedError)
                 error = EmissionFailed.new(error, self)
             end
 
@@ -658,9 +688,10 @@ module Roby
 
             # Create the event object
             event = new(context)
-            if !event.respond_to?(:add_sources)
+            unless event.respond_to?(:add_sources)
                 raise TypeError, "#{event} is not a valid event object in #{self}"
             end
+
             event.add_sources(execution_engine.propagation_source_events)
             event.add_sources(@pending_sources)
             fire(event)
@@ -673,7 +704,9 @@ module Roby
         def emit(*context)
             engine = execution_engine
             if engine && !engine.in_propagation_context?
-                Roby.warn_deprecated "calling EventGenerator#emit outside of propagation context is deprecated. In tests, use execute { } or expect_execution { }.to { }"
+                Roby.warn_deprecated "calling EventGenerator#emit outside of a "\
+                                     "propagation context is deprecated. In tests, "\
+                                     "use execute { } or expect_execution { }.to { }"
                 engine.process_events_synchronous { emit(*context) }
                 return
             end
@@ -687,7 +720,7 @@ module Roby
             # other ones: it is possible, using Distributed.update, to disable
             # ownership tests, but that does not work if the test is in
             # #emit_without_propagation
-            if !self_owned?
+            unless self_owned?
                 raise OwnershipError, "cannot emit an event we don't own. #{self} is owned by #{owners}"
             end
 
@@ -740,8 +773,11 @@ module Roby
                 emit_failed(EmissionFailed.new(UnreachableEvent.new(ev, reason), self))
             end
         end
+
         # For backwards compatibility. Use #achieve_with.
-        def realize_with(task); achieve_with(task) end
+        def realize_with(task)
+            achieve_with(task)
+        end
 
         # Declares that the command of this event should be achieved by calling
         # the provided block
@@ -760,10 +796,14 @@ module Roby
         #
         # @return [Promise] the promise. Do NOT chain work on this promise, as
         #   that work won't be automatically error-checked by Roby's mechanisms
-        def achieve_asynchronously(promise = nil, description: "#{self}#achieve_asynchronously", emit_on_success: true, on_failure: :fail, context: nil, &block)
+        def achieve_asynchronously(
+            promise = nil,
+            description: "#{self}#achieve_asynchronously",
+            emit_on_success: true, on_failure: :fail, context: nil, &block
+        )
             if promise && block
                 raise ArgumentError, "cannot give both a promise and a block"
-            elsif ![:fail, :emit, :nothing].include?(on_failure)
+            elsif !%i[fail emit nothing].include?(on_failure)
                 raise ArgumentError, "expected on_failure to either be :fail or :emit"
             elsif block
                 promise = execution_engine.promise(description: description, &block)
@@ -799,8 +839,11 @@ module Roby
             Roby.warn_deprecated "#happened? is deprecated, use #emitted? instead"
             emitted?
         end
+
         # Last event to have been emitted by this generator
-        def last; history.last end
+        def last
+            history.last
+        end
 
         # Defines a precondition handler for this event. Precondition handlers
         # are blocks which are called just before the event command is called.
@@ -811,7 +854,7 @@ module Roby
         end
 
         # Yields all precondition handlers defined for this generator
-        def each_precondition # :yield:reason, block
+        def each_precondition
             @preconditions.each { |o| yield(o) }
         end
 
@@ -844,19 +887,17 @@ module Roby
                              raise
                          end
 
-                if !result
+                unless result
                     raise EventPreconditionFailed.new(self), "precondition #{reason} failed"
                 end
             end
         end
 
         # Hook called just after the event command has been called
-        def called(context)
-        end
+        def called(context); end
 
         # Hook called when this event will be emitted
-        def emitting(context)
-        end
+        def emitting(context); end
 
         # Hook called when this generator has been fired. +event+ is the Event object
         # which has been created.
@@ -918,12 +959,17 @@ module Roby
         #   until.call
         #   source.call # => target is not emitted anymore
         #
-        def until(limit); UntilGenerator.new(self, limit) end
+        def until(limit)
+            UntilGenerator.new(self, limit)
+        end
 
         # Checks that ownership allows to add the self => child relation
         def add_child_object(child, type, info) # :nodoc:
-            if !child.read_write?
-                raise OwnershipError, "cannot add an event relation on a child we don't own. #{child} is owned by #{child.owners.to_a} (plan is owned by #{plan.owners.to_a if plan})"
+            unless child.read_write?
+                raise OwnershipError,
+                      "cannot add an event relation on a child we don't own. "\
+                      "#{child} is owned by #{child.owners.to_a} (plan is "\
+                      "owned by #{plan.owners.to_a if plan})"
             end
 
             super
@@ -959,12 +1005,11 @@ module Roby
 
         def unreachable_without_propagation(reason = nil, plan = self.plan)
             return if @unreachable
+
             mark_unreachable!(reason)
 
             execution_engine.log(:generator_unreachable, self, reason)
-            if execution_engine
-                execution_engine.unreachable_event(self)
-            end
+            execution_engine&.unreachable_event(self)
             call_unreachable_handlers(reason)
         end
 
@@ -987,7 +1032,9 @@ module Roby
         def unreachable!(reason = nil, plan = self.plan)
             engine = execution_engine
             if engine && !engine.in_propagation_context?
-                Roby.warn_deprecated "calling EventGenerator#unreachable! outside of propagation context is deprecated. In tests, use execute { } or expect_execution { }.to { }"
+                Roby.warn_deprecated "calling EventGenerator#unreachable! outside of a "\
+                                     "propagation context is deprecated. In tests, "\
+                                     "use execute { } or expect_execution { }.to { }"
                 execution_engine.process_events_synchronous do
                     unreachable!(reason, plan)
                 end
@@ -995,7 +1042,8 @@ module Roby
             end
 
             if !plan
-                raise FinalizedPlanObject, "#unreachable! called on #{self} but this is a finalized generator"
+                raise FinalizedPlanObject,
+                      "#unreachable! called on #{self} but this is a finalized generator"
             elsif !plan.executable?
                 unreachable_without_propagation(reason)
             else
@@ -1005,7 +1053,7 @@ module Roby
 
         def pretty_print(pp, context_task: nil) # :nodoc:
             pp.text to_s
-            pp.group(2, ' {', '}') do
+            pp.group(2, " {", "}") do
                 pp.breakable
                 pp.text "owners: "
                 pp.seplist(owners) { |r| pp.text r.to_s }
@@ -1020,7 +1068,6 @@ module Roby
             LocalizedError.to_execution_exception_matcher.with_origin(self)
         end
 
-
         def self.match
             Queries::EventGeneratorMatcher.new.with_model(self)
         end
@@ -1030,7 +1077,7 @@ module Roby
         end
 
         def replace_by(object)
-            plan.replace_subplan(Hash.new, Hash[object => object])
+            plan.replace_subplan({}, Hash[object => object])
             initialize_replacement(object)
         end
 

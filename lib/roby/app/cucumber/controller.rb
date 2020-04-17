@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'roby/interface/async'
+require "roby/interface/async"
 
 module Roby
     module App
@@ -60,12 +60,12 @@ module Roby
 
                 def initialize(
                     port: Roby::Interface::DEFAULT_PORT,
-                    keep_running: (ENV['CUCUMBER_KEEP_RUNNING'] == '1'),
-                    validation_mode: (ENV['ROBY_VALIDATE_STEPS'] == '1')
+                    keep_running: (ENV["CUCUMBER_KEEP_RUNNING"] == "1"),
+                    validation_mode: (ENV["ROBY_VALIDATE_STEPS"] == "1")
                 )
                     @roby_pid = nil
                     @roby_interface = Roby::Interface::Async::Interface
-                                      .new('localhost', port: port)
+                                      .new("localhost", port: port)
                     @background_jobs = []
                     @keep_running = keep_running
                     @validation_mode = validation_mode
@@ -90,17 +90,17 @@ module Roby
                 )
                     if roby_running?
                         raise InvalidState,
-                              'a Roby controller is already running, '\
-                              'call #roby_stop and #roby_join first'
+                              "a Roby controller is already running, "\
+                              "call #roby_stop and #roby_join first"
                     end
 
                     options = []
                     options << "--log-dir=#{log_dir}" if log_dir
                     @roby_pid = spawn(
-                        Gem.ruby, File.join(Roby::BIN_DIR, 'roby'), 'run',
+                        Gem.ruby, File.join(Roby::BIN_DIR, "roby"), "run",
                         "--robot=#{robot_name},#{robot_type}",
-                        '--controller',
-                        '--quiet',
+                        "--controller",
+                        "--quiet",
                         *options,
                         *state.map { |k, v| "--set=#{k}=#{v}" },
                         chdir: app_dir,
@@ -140,8 +140,8 @@ module Roby
                         _, status = Process.waitpid2(roby_pid, Process::WNOHANG)
                         if status
                             raise InvalidState,
-                                  'remote Roby controller quit before '\
-                                  'we could get a connection'
+                                  "remote Roby controller quit before "\
+                                  "we could get a connection"
                         end
                         roby_interface.wait(timeout: timeout / 10)
 
@@ -157,7 +157,7 @@ module Roby
                 # Disconnect the interface to the controller, but does not stop
                 # the controller
                 def roby_disconnect
-                    raise InvalidState, 'not connected' unless roby_connected?
+                    raise InvalidState, "not connected" unless roby_connected?
 
                     @roby_interface.close
                 end
@@ -171,12 +171,12 @@ module Roby
                 def roby_stop(join: true, join_timeout: 5)
                     if !roby_running?
                         raise InvalidState,
-                              'cannot call #roby_stop if no controllers were started'
+                              "cannot call #roby_stop if no controllers were started"
                     elsif !roby_connected?
                         raise InvalidState,
-                              'you need to successfully connect to the Roby '\
-                              'controller with #roby_connect before you can call '\
-                              '#roby_stop'
+                              "you need to successfully connect to the Roby "\
+                              "controller with #roby_connect before you can call "\
+                              "#roby_stop"
                     end
 
                     begin
@@ -219,7 +219,7 @@ module Roby
                 def roby_join(timeout: nil)
                     unless roby_running?
                         raise InvalidState,
-                              'cannot call #roby_join without a running Roby controller'
+                              "cannot call #roby_join without a running Roby controller"
                     end
 
                     status = nil
@@ -232,7 +232,7 @@ module Roby
                             sleep 0.1
                             if Time.now > deadline
                                 raise JoinTimedOut,
-                                      'roby_join timed out waiting for end of '\
+                                      "roby_join timed out waiting for end of "\
                                       "PID #{roby_pid}"
                             end
                         end
@@ -261,9 +261,9 @@ module Roby
                 def roby_enable_backtrace_filtering(enable: true)
                     unless roby_connected?
                         raise InvalidState,
-                              'you need to successfully connect to the Roby '\
-                              'controller with #roby_connect before you can call '\
-                              '#roby_enable_backtrace_filtering'
+                              "you need to successfully connect to the Roby "\
+                              "controller with #roby_connect before you can call "\
+                              "#roby_enable_backtrace_filtering"
                     end
                     roby_interface.client.enable_backtrace_filtering(enable: enable)
                 end
@@ -383,7 +383,7 @@ module Roby
                 def roby_poll_interface_until
                     until (result = yield)
                         if defined?(::Cucumber) && ::Cucumber.wants_to_quit
-                            raise Interrupt, 'Interrupted'
+                            raise Interrupt, "Interrupted"
                         end
 
                         roby_interface.poll
@@ -475,7 +475,7 @@ module Roby
                         if !has_arg && arg.required?
                             raise InvalidJob,
                                   "#{m} requires an argument named #{arg.name} "\
-                                  'which is not provided'
+                                  "which is not provided"
                         end
                         arguments.delete(arg_sym)
                     end

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Actions
         module Models
@@ -27,20 +29,20 @@ module Roby
                 def rebind(action_interface_model)
                     rebound = dup
                     if action_interface_model < self.action_interface_model
-                        rebound.coordination_model = coordination_model.
-                            rebind(action_interface_model)
+                        rebound.coordination_model = coordination_model
+                            .rebind(action_interface_model)
                     end
                     rebound
                 end
 
-                def instanciate(plan, arguments = Hash.new)
+                def instanciate(plan, arguments = {})
                     plan.add(root = coordination_model.task_model.new)
                     coordination_model.new(root, arguments)
                     root
                 end
 
                 # Returns the plan pattern that will deploy this action on the plan
-                def plan_pattern(arguments = Hash.new)
+                def plan_pattern(arguments = {})
                     job_id, arguments = Kernel.filter_options arguments, :job_id
 
                     planner = Roby::Actions::Task.new(

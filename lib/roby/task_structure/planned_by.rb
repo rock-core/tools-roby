@@ -1,9 +1,11 @@
+# frozen_string_literal: true
+
 module Roby::TaskStructure
     relation :PlannedBy,
-        child_name: :planning_task, 
-        parent_name: :planned_task,
-        noinfo: true,
-        single_child: true
+             child_name: :planning_task,
+             parent_name: :planned_task,
+             noinfo: true,
+             single_child: true
 
     class PlannedBy
         module Extension
@@ -13,8 +15,12 @@ module Roby::TaskStructure
             def planned_task
                 each_in_neighbour_merged(PlannedBy, intrusive: true).first
             end
+
             # The set of tasks which are planned by this one
-            def planned_tasks; parent_objects(PlannedBy) end
+            def planned_tasks
+                parent_objects(PlannedBy)
+            end
+
             # Set +task+ as the planning task of +self+
             def planned_by(task, replace: false, optional: false, plan_early: true)
                 if task.respond_to?(:as_plan)
@@ -29,7 +35,7 @@ module Roby::TaskStructure
                     end
                 end
                 add_planning_task(task, optional: optional, plan_early: true)
-                if !plan_early
+                unless plan_early
                     task.schedule_as(self)
                 end
 
@@ -43,8 +49,8 @@ module Roby::TaskStructure
             result = []
             each_edge do |planned_task, planning_task, options|
                 next if plan != planning_task.plan
-                next if !planning_task.failed?
-                next if !planned_task.self_owned?
+                next unless planning_task.failed?
+                next unless planned_task.self_owned?
 
                 if (planned_task.pending? && !planned_task.executable?) || !options[:optional]
                     result << [Roby::PlanningFailedError.new(planned_task, planning_task), nil]
@@ -64,7 +70,9 @@ module Roby
         # The planning task
         attr_reader :planning_task
         # The planned task
-        def planned_task; failed_task end
+        def planned_task
+            failed_task
+        end
         # The reason for the failure
         attr_reader :failure_reason
 
@@ -87,4 +95,3 @@ module Roby
         end
     end
 end
-

@@ -1,4 +1,6 @@
-require 'roby/schedulers/basic'
+# frozen_string_literal: true
+
+require "roby/schedulers/basic"
 module Roby
     module Schedulers
         # The temporal scheduler adds to the decisions made by the Basic
@@ -17,8 +19,8 @@ module Roby
             def initialize(with_basic = true, with_children = true, plan = nil)
                 super(with_children, plan)
                 @basic_constraints = with_basic
-                @scheduling_constraints_graph = self.plan.
-                    event_relation_graph_for(EventStructure::SchedulingConstraints)
+                @scheduling_constraints_graph = self.plan
+                    .event_relation_graph_for(EventStructure::SchedulingConstraints)
             end
 
             def can_schedule?(task, time = Time.now, stack = [])
@@ -41,7 +43,7 @@ module Roby
                 end
 
                 meets_constraints = start_event.meets_temporal_constraints?(time, &event_filter)
-                if !meets_constraints
+                unless meets_constraints
                     if failed_temporal = start_event.find_failed_temporal_constraint(time, &event_filter)
                         report_holdoff "temporal constraints not met (%2: %3)", task, failed_temporal[0], failed_temporal[1]
                     end
@@ -54,7 +56,7 @@ module Roby
                 start_event.each_backward_scheduling_constraint do |parent|
                     begin
                         stack.push task
-                        if !can_schedule?(parent.task, time, stack)
+                        unless can_schedule?(parent.task, time, stack)
                             report_holdoff "held by a schedule_as constraint with %2", task, parent
                             return false
                         end
@@ -65,7 +67,7 @@ module Roby
 
                 if basic_constraints?
                     if super
-                        return true
+                        true
                     else
                         # Special case: check in Dependency if there are some
                         # parents for which a forward constraint from +self+ to
@@ -79,13 +81,12 @@ module Roby
                                 end
                             end
                         end
-                        return false
+                        false
                     end
                 else
-                    return true
+                    true
                 end
             end
         end
     end
 end
-

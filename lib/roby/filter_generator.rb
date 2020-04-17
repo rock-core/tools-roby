@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     # Modifies an event context
     #
@@ -9,18 +11,17 @@ module Roby
             end
 
             if block
-                super() do |context| 
+                super() do |context|
                     context = context.map do |val|
                         block.call(val)
                     end
                     emit(*context)
                 end
             else
-                super() do 
+                super() do
                     emit(*user_context)
                 end
             end
         end
     end
 end
-

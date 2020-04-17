@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Test
         # Test related to execution in a Roby context
@@ -39,15 +41,16 @@ module Roby
             # The context object that allows the expect_execution { }.to { }
             # syntax
             Context = Struct.new :test, :expectations, :block do
-                SETUP_METHODS = [
-                    :timeout,
-                    :wait_until_timeout,
-                    :join_all_waiting_work,
-                    :scheduler,
-                    :garbage_collect,
-                    :validate_unexpected_errors,
-                    :display_exceptions,
-                    :poll]
+                SETUP_METHODS = %i[
+                    timeout
+                    wait_until_timeout
+                    join_all_waiting_work
+                    scheduler
+                    garbage_collect
+                    validate_unexpected_errors
+                    display_exceptions
+                    poll
+                ].freeze
 
                 def respond_to_missing?(m, include_private)
                     SETUP_METHODS.include?(m)
@@ -113,6 +116,7 @@ module Roby
                 if @current_expect_execution
                     raise InvalidContext, "cannot perform an expect_execution test within another one"
                 end
+
                 @current_expect_execution = context
             end
 
@@ -135,11 +139,11 @@ module Roby
 
             # Run exactly once cycle
             def execute_one_cycle(plan: self.plan, scheduler: false, garbage_collect: false)
-                expect_execution(plan: plan).
-                    join_all_waiting_work(false).
-                    scheduler(scheduler).
-                    garbage_collect(garbage_collect).
-                    to_run
+                expect_execution(plan: plan)
+                    .join_all_waiting_work(false)
+                    .scheduler(scheduler)
+                    .garbage_collect(garbage_collect)
+                    .to_run
             end
 
             # Add an expectation from within an execute { } or expect_execution
@@ -148,9 +152,10 @@ module Roby
             # @raise [InvalidContext] if called outside of an
             #   {#expect_execution} context
             def add_expectations(&block)
-                if !@current_expect_execution
+                unless @current_expect_execution
                     raise InvalidContext, "#add_expectations not called within an expect_execution context"
                 end
+
                 @current_expect_execution.expectations.parse(ret: false, &block)
             end
         end

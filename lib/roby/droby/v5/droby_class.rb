@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module DRoby
         module V5
@@ -16,7 +18,7 @@ module Roby
                 def initialize(name, remote_siblings, superclass)
                     @name = name
                     @remote_siblings = remote_siblings
-                    @superclass  = superclass
+                    @superclass = superclass
                 end
 
                 # Returns a local Class object to match this class
@@ -24,7 +26,7 @@ module Roby
                     # We have to manually call find_local_model here as it
                     # resolves classes by name as well as by ID
                     if m = peer.find_local_model(self)
-                        return m
+                        m
                     elsif !superclass # this class was supposed to be present
                         raise NoLocalObject, "cannot find local class #{name} as expected by the protocol"
                     else

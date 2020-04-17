@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 # Define Infinity
-if !defined? Infinity
-    Infinity = 1.0/0
+unless defined? Infinity
+    Infinity = 1.0 / 0 # rubocop:disable Naming/ConstantName
 end
 
 module Roby
@@ -16,7 +18,7 @@ module Roby
             attr_reader :deadlines
 
             def initialize
-                @deadlines = Array.new
+                @deadlines = []
             end
 
             # Adds a deadline to the set
@@ -63,7 +65,7 @@ module Roby
 
             def initialize(generator, constraining_event, deadline)
                 super(generator)
-                @constraining_event    = constraining_event
+                @constraining_event = constraining_event
                 @deadline = deadline
             end
 
@@ -88,7 +90,7 @@ module Roby
             def pretty_print(pp)
                 pp.text "Got "
                 failed_event.pretty_print(pp)
-                pp.text "It breaks the temporal constraint(s) #{allowed_intervals.map { |min, max| "[#{min}, #{max}]" }.join(" | ")} from"
+                pp.text "It breaks the temporal constraint(s) #{allowed_intervals.map { |min, max| "[#{min}, #{max}]" }.join(' | ')} from"
                 pp.nest(2) do
                     pp.breakable
                     parent_generator.pretty_print(pp)
@@ -136,13 +138,13 @@ module Roby
             attr_reader :intervals
 
             def initialize
-                @intervals = Array.new
+                @intervals = []
             end
 
             # Returns true if +value+ is included in one of the intervals
             def include?(value)
-                candidate = intervals.
-                    find { |min, max| max >= value }
+                candidate = intervals
+                    .find { |min, max| max >= value }
                 candidate && (candidate[0] <= value)
             end
 
@@ -161,7 +163,7 @@ module Roby
                     return
                 end
 
-                new_list = Array.new
+                new_list = []
                 while interval = intervals.shift
                     if interval[1] < min
                         new_list << interval
@@ -217,8 +219,9 @@ module Roby
                 super
 
                 @occurence_constraints = {
-                    true  => [0, Infinity],
-                    false => [0, Infinity] }
+                    true => [0, Infinity],
+                    false => [0, Infinity]
+                }
             end
 
             def add_occurence_constraint(min, max, recurrent)
@@ -243,17 +246,17 @@ module Roby
         # * a task ta will be started after a task tb has started *but*
         # * all temporal constraints that apply on ta also apply on tb.
         #
-        # The required edges are 
+        # The required edges are
         #
         #   tb.success -> ta.start t=[0, Infinity], o=[1, Infinity] in TemporalConstraints
         #   ta.start -> tb.start in SchedulingConstraints
         #
         # The relation code takes care of maintaining the symmetric relationship
         relation :SchedulingConstraints,
-            child_name: :forward_scheduling_constraint,
-            parent_name: :backward_scheduling_constraint,
-            dag: false,
-            noinfo: true
+                 child_name: :forward_scheduling_constraint,
+                 parent_name: :backward_scheduling_constraint,
+                 dag: false,
+                 noinfo: true
 
         class SchedulingConstraints
             # The graph of tasks related to each other by their events
@@ -352,7 +355,8 @@ module Roby
                 # True if this event is constrained by the TemporalConstraints
                 # relation in any way
                 def has_scheduling_constraints?
-                    return true if has_temporal_constraints? 
+                    return true if has_temporal_constraints?
+
                     each_backward_scheduling_constraint do |parent|
                         return true
                     end
@@ -380,9 +384,9 @@ module Roby
         #
         # The relation code takes care of maintaining the symmetric relationship
         relation :TemporalConstraints,
-            child_name: :forward_temporal_constraint,
-            parent_name: :backward_temporal_constraint,
-            dag: false
+                 child_name: :forward_temporal_constraint,
+                 parent_name: :backward_temporal_constraint,
+                 dag: false
 
         class TemporalConstraints
             module EventFiredHook
@@ -412,10 +416,11 @@ module Roby
                         is_fullfilled = target.history.any? do |target_event|
                             diff = event.time - target_event.time
                             break if diff > max_diff
+
                             disjoint_set.include?(diff)
                         end
 
-                        if !is_fullfilled
+                        unless is_fullfilled
                             deadlines.add(event.time + disjoint_set.boundaries[1], event, target)
                         end
                     end
@@ -428,13 +433,13 @@ module Roby
                 def should_emit_after(other_event, options = nil)
                     if options
                         options = Kernel.validate_options options,
-                            min_t: nil, max_t: nil, recurrent: false
+                                                          min_t: nil, max_t: nil, recurrent: false
                         recurrent = options[:recurrent]
                     end
                     other_event.add_occurence_constraint(self, 1, Infinity, recurrent)
                     if options && (options[:min_t] || options[:max_t])
                         other_event.add_temporal_constraint(self,
-                                options[:min_t] || 0, options[:max_t] || Infinity)
+                                                            options[:min_t] || 0, options[:max_t] || Infinity)
                     end
                 end
 
@@ -459,7 +464,7 @@ module Roby
                 def find_failed_temporal_constraint(time)
                     each_backward_temporal_constraint do |parent|
                         if block_given?
-                            next if !yield(parent)
+                            next unless yield(parent)
                         end
 
                         disjoint_set = parent[self, TemporalConstraints]
@@ -476,6 +481,7 @@ module Roby
                             if diff > max_diff || !disjoint_set.include?(diff)
                                 return parent, disjoint_set
                             end
+
                             disjoint_set.include?(diff)
                         end
                     end
@@ -489,7 +495,7 @@ module Roby
                 end
 
                 # Creates a temporal constraint between +self+ and +other_event+.
-                # +min+ is the minimum time 
+                # +min+ is the minimum time
                 def add_temporal_constraint(other_event, min, max)
                     if min > max
                         raise ArgumentError, "min should be lower than max (min == #{min} and max == #{max})"
@@ -535,7 +541,7 @@ module Roby
                     end
                     each_backward_temporal_constraint do |parent|
                         if block_given?
-                            next if !yield(parent)
+                            next unless yield(parent)
                         end
 
                         constraints = parent[self, TemporalConstraints]
@@ -543,6 +549,7 @@ module Roby
                         if base_time
                             negative_count = parent.history.inject(0) do |count, ev|
                                 break(count) if ev.time > base_time
+
                                 count + 1
                             end
                         else
@@ -562,7 +569,6 @@ module Roby
                     end
                     nil
                 end
-
             end
 
             # Returns the DisjointIntervalSet that represent the merge of the
@@ -602,8 +608,8 @@ module Roby
 
                 # Now look for the timeouts
                 errors = []
-                deadlines.missed_deadlines(Time.now).
-                    each do |deadline, event, generator|
+                deadlines.missed_deadlines(Time.now)
+                    .each do |deadline, event, generator|
                         errors << MissedDeadlineError.new(generator, event, deadline)
                     end
 
@@ -636,5 +642,3 @@ module Roby
         end
     end
 end
-
-

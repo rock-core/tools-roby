@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Coordination
         module Models
@@ -7,7 +9,9 @@ module Roby
                 include Script
 
                 # @return [FaultResponseTable] the table this handler is part of
-                def fault_response_table; action_interface end
+                def fault_response_table
+                    action_interface
+                end
                 # @return [Queries::ExecutionExceptionMatcher] the object
                 #   defining for which faults this handler should be activated
                 inherited_single_value_attribute(:execution_exception_matcher) { Queries.none }
@@ -23,9 +27,14 @@ module Roby
                 # @return [Boolean] if true, the last action of the response
                 #   will be to retry whichever action/missions/tasks have been
                 #   interrupted by the fault
-                def carry_on?; !!__carry_on end
+                def carry_on?
+                    !!__carry_on
+                end
+
                 # @deprecated use {#carry_on?}
-                def try_again?; carry_on? end
+                def try_again?
+                    carry_on?
+                end
                 # @return [#instanciate] an object that allows to create the
                 #   toplevel task of the fault response
                 inherited_single_value_attribute :action
@@ -60,7 +69,9 @@ module Roby
                 end
 
                 # @deprecated use {#carry_on}
-                def try_again; carry_on end
+                def try_again
+                    carry_on
+                end
 
                 # Script element that implements the replacement part of
                 # {#replace_by}
@@ -92,7 +103,9 @@ module Roby
                         true
                     end
 
-                    def to_s; "start(#{task}, #{dependency_options})" end
+                    def to_s
+                        "start(#{task}, #{dependency_options})"
+                    end
                 end
 
                 class FinalizeReplacement < Coordination::ScriptInstruction
@@ -164,9 +177,9 @@ module Roby
                             proc { |t| t.running? && t.planning_task && t.planning_task.kind_of?(Roby::Actions::Task) }
                         end
 
-                    search_graph = origin.plan.
-                        task_relation_graph_for(TaskStructure::Dependency).
-                        reverse
+                    search_graph = origin.plan
+                        .task_relation_graph_for(TaskStructure::Dependency)
+                        .reverse
                     visitor = ResponseLocationVisitor.new(search_graph, predicate)
                     search_graph.depth_first_visit(origin, visitor) {}
                     visitor.selected
@@ -180,7 +193,7 @@ module Roby
                 #
                 # @param [ExecutionException] exception
                 # @param [Hash] arguments
-                def activate(exception, arguments = Hash.new)
+                def activate(exception, arguments = {})
                     locations = find_response_locations(exception.origin)
                     if locations.empty?
                         Roby.warn "#{self} did match an exception, but the response location #{response_location} does not match anything"
@@ -201,7 +214,7 @@ module Roby
                         # In addition, if origin == task, we need to handle the
                         # error events as well
                         task.add_error_handler response_task,
-                            [task.stop_event.to_execution_exception_matcher, execution_exception_matcher].to_set
+                                               [task.stop_event.to_execution_exception_matcher, execution_exception_matcher].to_set
                     end
                     locations.each do |task|
                         # This should not be needed. However, the current GC
@@ -216,4 +229,3 @@ module Roby
         end
     end
 end
-

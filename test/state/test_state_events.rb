@@ -1,6 +1,8 @@
-require 'roby/test/self'
-require 'roby/state/events'
-require 'roby/state/pos'
+# frozen_string_literal: true
+
+require "roby/test/self"
+require "roby/state/events"
+require "roby/state/pos"
 
 class TC_StateEvents < Minitest::Test
     def test_pos_euler3d
@@ -21,24 +23,24 @@ class TC_StateEvents < Minitest::Test
 
         plan.add(d = State.on_delta(d: 10))
         assert_kind_of(PosDeltaEvent, d)
-        expect_execution { d.poll }.
-            to { not_emit d }
+        expect_execution { d.poll }
+            .to { not_emit d }
         assert_equal(State.pos, d.last_value)
 
         State.pos.x = 5
-        expect_execution { d.poll }.
-            to { not_emit d }
+        expect_execution { d.poll }
+            .to { not_emit d }
 
         State.pos.x = 10
-        expect_execution { d.poll }.
-            to { emit d }
+        expect_execution { d.poll }
+            .to { emit d }
 
-        expect_execution { d.poll }.
-            to { not_emit d }
+        expect_execution { d.poll }
+            .to { not_emit d }
 
         State.pos.x = 0
-        expect_execution { d.poll }.
-            to { emit d }
+        expect_execution { d.poll }
+            .to { emit d }
     end
 
     def test_yaw_delta_event
@@ -51,15 +53,15 @@ class TC_StateEvents < Minitest::Test
 
         assert(!y.emitted?)
         State.pos.yaw = 20
-        expect_execution { y.poll }.
-            to { emit y }
+        expect_execution { y.poll }
+            .to { emit y }
 
-        expect_execution { y.poll }.
-            to { not_emit y }
+        expect_execution { y.poll }
+            .to { not_emit y }
 
         State.pos.yaw = 0
-        expect_execution { y.poll }.
-            to { emit y }
+        expect_execution { y.poll }
+            .to { emit y }
     end
 
     def test_time_delta_event
@@ -70,23 +72,23 @@ class TC_StateEvents < Minitest::Test
             plan.add(ev = State.on_delta(t: 1))
             assert_kind_of(TimeDeltaEvent, ev)
 
-            expect_execution { ev.poll }.
-                to { not_emit ev }
+            expect_execution { ev.poll }
+                .to { not_emit ev }
             current_time += 0.5
-            expect_execution { ev.poll }.
-                to { not_emit ev }
+            expect_execution { ev.poll }
+                .to { not_emit ev }
 
             current_time += 0.5
-            expect_execution { ev.poll }.
-                to { emit ev }
+            expect_execution { ev.poll }
+                .to { emit ev }
 
             current_time += 0.5
-            expect_execution { ev.poll }.
-                to { not_emit ev }
+            expect_execution { ev.poll }
+                .to { not_emit ev }
 
             current_time += 0.5
-            expect_execution { ev.poll }.
-                to { emit ev }
+            expect_execution { ev.poll }
+                .to { emit ev }
         end
     end
 
@@ -96,14 +98,14 @@ class TC_StateEvents < Minitest::Test
             time_proxy.should_receive(:now).and_return { current_time }
 
             plan.add(ev = State.at(t: current_time + 1))
-            expect_execution { ev.poll }.
-                to { not_emit ev }
+            expect_execution { ev.poll }
+                .to { not_emit ev }
             current_time += 1
-            expect_execution { ev.poll }.
-                to { emit ev }
+            expect_execution { ev.poll }
+                .to { emit ev }
             current_time += 1
-            expect_execution { ev.poll }.
-                to { not_emit ev }
+            expect_execution { ev.poll }
+                .to { not_emit ev }
         end
     end
 
@@ -225,7 +227,4 @@ class TC_StateEvents < Minitest::Test
         State.x = 30
         expect_execution.to { emit event; not_emit reset_event }
     end
-
 end
-
-

@@ -1,8 +1,10 @@
-require 'roby/test/self'
-require 'Qt'
-require 'roby/gui/relations_view'
+# frozen_string_literal: true
 
-class TC_GUI < Minitest::Test 
+require "roby/test/self"
+require "Qt"
+require "roby/gui/relations_view"
+
+class TC_GUI < Minitest::Test
     def test_index_handling
         model = Ui::RelationConfigModel.new(nil)
         [-1, 0, 222].each do |id|
@@ -11,5 +13,3 @@ class TC_GUI < Minitest::Test
         end
     end
 end
-
-

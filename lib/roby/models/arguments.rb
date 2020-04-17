@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Models
         # Support for argument handling in the relevant models (task services
@@ -21,7 +23,7 @@ module Roby
             # The set of knwon argument names
             #
             # @return [Set<Symbol>]
-            inherited_attribute("argument", "__arguments", map: true) { Hash.new }
+            inherited_attribute("argument", "__arguments", map: true) { {} }
 
             # @return [Array<String>] the list of arguments required by this task model
             def arguments
@@ -34,7 +36,9 @@ module Roby
             # nil cannot be used as 'nil' is a valid default as well
             NO_DEFAULT_ARGUMENT = Object.new
             def NO_DEFAULT_ARGUMENT.evaluate_delayed_argument
-                raise NotImplementedError, "trying to evaluate Roby::Models::Task::NO_DEFAULT_ARGUMENT which is an internal null object"
+                raise NotImplementedError,
+                      "trying to evaluate Roby::Models::Task::NO_DEFAULT_ARGUMENT "\
+                      "which is an internal null object"
             end
             NO_DEFAULT_ARGUMENT.freeze
 
@@ -56,10 +60,10 @@ module Roby
             #   argument :main_direction, default: nil
             def argument(name, default: NO_DEFAULT_ARGUMENT, doc: nil)
                 name = name.to_sym
-                if !TaskArguments.delayed_argument?(default)
+                unless TaskArguments.delayed_argument?(default)
                     default = DefaultArgument.new(default)
                 end
-                doc ||= MetaRuby::DSLs.parse_documentation_block /\.rb$/, 'argument'
+                doc ||= MetaRuby::DSLs.parse_documentation_block(/\.rb$/, "argument")
                 __arguments[name] = Argument.new(name, default, doc)
 
                 if name =~ /^\w+$/ && !method_defined?(name)
@@ -76,14 +80,14 @@ module Roby
             #   the second is that value. Note that the default value can be nil.
             def default_argument(argname)
                 if (arg = find_argument(argname)) && arg.has_default?
-                    return true, arg.default
+                    [true, arg.default]
                 end
             end
 
             # The part of +arguments+ that is meaningful for this task model
             def meaningful_arguments(arguments)
                 self_arguments = self.arguments
-                result = Hash.new
+                result = {}
                 arguments.each_assigned_argument do |key, value|
                     if self_arguments.include?(key)
                         result[key] = value
@@ -94,12 +98,12 @@ module Roby
 
             # Checks if this model fullfills everything in +models+
             def fullfills?(models)
-                if !models.respond_to?(:each)
+                unless models.respond_to?(:each)
                     models = [models]
                 end
 
                 for tag in models
-                    if !has_ancestor?(tag)
+                    unless has_ancestor?(tag)
                         return false
                     end
                 end
@@ -108,5 +112,3 @@ module Roby
         end
     end
 end
-
-

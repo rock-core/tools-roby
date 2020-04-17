@@ -1,8 +1,10 @@
-require 'roby/test/self'
-require 'roby/test/roby_app_helpers'
-require 'roby/droby/logfile/writer'
-require 'roby/droby/logfile/client'
-require 'roby/cli/gen_main'
+# frozen_string_literal: true
+
+require "roby/test/self"
+require "roby/test/roby_app_helpers"
+require "roby/droby/logfile/writer"
+require "roby/droby/logfile/client"
+require "roby/cli/gen_main"
 
 module Roby
     class LoggerContext
@@ -31,15 +33,15 @@ module Roby
 
             describe ".guess_app_dir" do
                 after do
-                    ENV.delete('ROBY_APP_DIR')
+                    ENV.delete("ROBY_APP_DIR")
                 end
                 it "resolves the ROBY_APP_DIR environment variable if given" do
                     gen_app
-                    ENV['ROBY_APP_DIR'] = app_dir
+                    ENV["ROBY_APP_DIR"] = app_dir
                     assert_equal app_dir, Application.guess_app_dir
                 end
                 it "raises if ROBY_APP_DIR points to a directory that is not a valid Roby app" do
-                    ENV['ROBY_APP_DIR'] = app_dir
+                    ENV["ROBY_APP_DIR"] = app_dir
                     assert_raises(Application::InvalidRobyAppDirEnv) do
                         Application.guess_app_dir
                     end
@@ -53,14 +55,14 @@ module Roby
                 end
                 it "looks for a roby application starting at the current working directory" do
                     gen_app
-                    FileUtils.mkdir_p(path = File.join(app_dir, 'test', 'path', 'in', 'app'))
+                    FileUtils.mkdir_p(path = File.join(app_dir, "test", "path", "in", "app"))
                     FlexMock.use(Dir) do |mock|
                         mock.should_receive(:pwd).and_return(path)
                         assert_equal app_dir, Application.guess_app_dir
                     end
                 end
                 it "returns nil if Dir.pwd is not within a valid application " do
-                    FileUtils.mkdir_p(path = File.join(app_dir, 'test', 'path', 'in', 'app'))
+                    FileUtils.mkdir_p(path = File.join(app_dir, "test", "path", "in", "app"))
                     FlexMock.use(Dir) do |mock|
                         mock.should_receive(:pwd).and_return(path)
                         assert_nil Application.guess_app_dir
@@ -80,26 +82,26 @@ module Roby
                 end
 
                 it "converts paths that are present on disk and are prefixed by an entry in search_path" do
-                    absolute_path = File.join(app_dir, 'path', 'to', 'file')
+                    absolute_path = File.join(app_dir, "path", "to", "file")
                     FileUtils.mkdir_p File.dirname(absolute_path)
-                    File.open(absolute_path, 'w').close
+                    File.open(absolute_path, "w").close
                     assert_equal("path/to/file", app.make_path_relative(absolute_path))
                 end
             end
 
             describe "#find_and_create_log_dir" do
                 before do
-                    app.log_base_dir = File.join(make_tmpdir, 'log', 'path')
+                    app.log_base_dir = File.join(make_tmpdir, "log", "path")
                 end
 
                 it "creates the log directory and paths to it" do
-                    full_path = app.find_and_create_log_dir('tag')
-                    assert_equal File.join(app.log_base_dir, 'tag'), full_path
+                    full_path = app.find_and_create_log_dir("tag")
+                    assert_equal File.join(app.log_base_dir, "tag"), full_path
                     assert File.directory?(full_path)
                 end
                 it "saves the app metadata in the path" do
-                    app.find_and_create_log_dir('tag')
-                    metadata = YAML.load(File.read(File.join(app.log_base_dir, 'tag', 'info.yml')))
+                    app.find_and_create_log_dir("tag")
+                    metadata = YAML.load(File.read(File.join(app.log_base_dir, "tag", "info.yml")))
                     assert_equal 1, metadata.size
                     assert(metadata.first == app.app_metadata, "#{metadata} differs from #{app.app_metadata}")
                 end
@@ -110,40 +112,40 @@ module Roby
 
                 it "registers the created paths for later cleanup" do
                     existing_dirs = app.created_log_dirs.to_set
-                    app.find_and_create_log_dir('tag')
+                    app.find_and_create_log_dir("tag")
                     assert_equal [File.dirname(app.log_base_dir), app.log_base_dir].sort,
-                        app.created_log_base_dirs.to_a.sort
-                    assert_equal (existing_dirs | Set[File.join(app.log_base_dir, 'tag')]).sort,
-                        app.created_log_dirs.to_a.sort
+                                 app.created_log_base_dirs.to_a.sort
+                    assert_equal (existing_dirs | Set[File.join(app.log_base_dir, "tag")]).sort,
+                                 app.created_log_dirs.to_a.sort
                 end
                 it "handles concurrent path creation properly" do
                     FileUtils.mkdir_p app.log_base_dir
-                    flexmock(FileUtils).should_receive(:mkdir).
-                        with(File.join(app.log_base_dir, 'tag')).
-                        pass_thru { raise Errno::EEXIST }
-                    flexmock(FileUtils).should_receive(:mkdir).
-                        with(File.join(app.log_base_dir, 'tag.1')).
-                        pass_thru
+                    flexmock(FileUtils).should_receive(:mkdir)
+                        .with(File.join(app.log_base_dir, "tag"))
+                        .pass_thru { raise Errno::EEXIST }
+                    flexmock(FileUtils).should_receive(:mkdir)
+                        .with(File.join(app.log_base_dir, "tag.1"))
+                        .pass_thru
                     existing_dirs = app.created_log_dirs.to_set
-                    created = app.find_and_create_log_dir('tag')
-                    assert_equal File.join(app.log_base_dir, 'tag.1'), created
+                    created = app.find_and_create_log_dir("tag")
+                    assert_equal File.join(app.log_base_dir, "tag.1"), created
                     assert_equal [], app.created_log_base_dirs.to_a
-                    assert_equal (existing_dirs | Set[File.join(app.log_base_dir, 'tag.1')]).to_a.sort,
-                        app.created_log_dirs.sort
+                    assert_equal (existing_dirs | Set[File.join(app.log_base_dir, "tag.1")]).to_a.sort,
+                                 app.created_log_dirs.sort
                 end
                 it "sets app#time_tag to the provided time tag" do
-                    app.find_and_create_log_dir('tag')
-                    assert_equal 'tag', app.time_tag
+                    app.find_and_create_log_dir("tag")
+                    assert_equal "tag", app.time_tag
                 end
                 it "sets app#log_dir to the created log dir" do
-                    full_path = app.find_and_create_log_dir('tag')
+                    full_path = app.find_and_create_log_dir("tag")
                     assert_equal full_path, app.log_dir
                 end
                 it "handles existing log directories by appending .N suffixes" do
-                    FileUtils.mkdir_p File.join(app.log_base_dir, 'tag')
-                    FileUtils.mkdir_p File.join(app.log_base_dir, 'tag.1')
-                    full_path = app.find_and_create_log_dir('tag')
-                    assert_equal File.join(app.log_base_dir, 'tag.2'), full_path
+                    FileUtils.mkdir_p File.join(app.log_base_dir, "tag")
+                    FileUtils.mkdir_p File.join(app.log_base_dir, "tag.1")
+                    full_path = app.find_and_create_log_dir("tag")
+                    assert_equal File.join(app.log_base_dir, "tag.2"), full_path
                 end
             end
 
@@ -153,8 +155,8 @@ module Roby
                 before do
                     @base_dir = make_tmpdir
                     app.search_path = [base_dir]
-                    create_file('models', 'compositions', 'file.rb')
-                    create_file('test', 'compositions', 'test_file.rb')
+                    create_file("models", "compositions", "file.rb")
+                    create_file("test", "compositions", "test_file.rb")
                 end
 
                 def create_file(*path)
@@ -164,41 +166,41 @@ module Roby
 
                 it "returns a matching test file" do
                     m = flexmock(definition_location: [
-                        flexmock(absolute_path: File.join(base_dir, 'models', 'compositions', 'file.rb'), lineno: 120, label: 'm')
-                    ])
-                    assert_equal [File.join(base_dir, 'test', 'compositions', 'test_file.rb')],
-                        app.test_files_for(m)
+                                     flexmock(absolute_path: File.join(base_dir, "models", "compositions", "file.rb"), lineno: 120, label: "m")
+                                 ])
+                    assert_equal [File.join(base_dir, "test", "compositions", "test_file.rb")],
+                                 app.test_files_for(m)
                 end
                 it "ignores entries not in the search path" do
                     m = flexmock(definition_location: [
-                        flexmock(absolute_path: File.join(base_dir, 'models', 'compositions', 'file.rb'), lineno: 120, label: 'm')
-                    ])
+                                     flexmock(absolute_path: File.join(base_dir, "models", "compositions", "file.rb"), lineno: 120, label: "m")
+                                 ])
                     app.search_path = []
                     assert_equal [], app.test_files_for(m)
                 end
                 it "ignores entries whose first element is not 'models'" do
-                    create_file 'compositions', 'file.rb'
+                    create_file "compositions", "file.rb"
                     m = flexmock(definition_location: [
-                        flexmock(absolute_path: File.join(base_dir, 'compositions', 'file.rb'), lineno: 120, label: 'm')
-                    ])
+                                     flexmock(absolute_path: File.join(base_dir, "compositions", "file.rb"), lineno: 120, label: "m")
+                                 ])
                     assert_equal [], app.test_files_for(m)
                 end
                 it "ignores files that do not exist" do
                     m = flexmock(definition_location: [
-                        flexmock(absolute_path: File.join(base_dir, 'models', 'compositions', 'file.rb'), lineno: 120, label: 'm')
-                    ])
-                    FileUtils.rm_f File.join(base_dir, 'test', 'compositions', 'test_file.rb')
+                                     flexmock(absolute_path: File.join(base_dir, "models", "compositions", "file.rb"), lineno: 120, label: "m")
+                                 ])
+                    FileUtils.rm_f File.join(base_dir, "test", "compositions", "test_file.rb")
                     assert_equal [], app.test_files_for(m)
                 end
                 it "returns all matching entries" do
-                    create_file('models', 'compositions', 'other.rb')
-                    create_file('test', 'compositions', 'test_other.rb')
+                    create_file("models", "compositions", "other.rb")
+                    create_file("test", "compositions", "test_other.rb")
                     m = flexmock(definition_location: [
-                        flexmock(absolute_path: File.join(base_dir, 'models', 'compositions', 'file.rb'), lineno: 120, label: 'm'),
-                        flexmock(absolute_path: File.join(base_dir, 'models', 'compositions', 'other.rb'), lineno: 120, label: 'm')
-                    ])
-                    assert_equal [File.join(base_dir, 'test', 'compositions', 'test_file.rb'), File.join(base_dir, 'test', 'compositions', 'test_other.rb')],
-                        app.test_files_for(m)
+                                     flexmock(absolute_path: File.join(base_dir, "models", "compositions", "file.rb"), lineno: 120, label: "m"),
+                                     flexmock(absolute_path: File.join(base_dir, "models", "compositions", "other.rb"), lineno: 120, label: "m")
+                                 ])
+                    assert_equal [File.join(base_dir, "test", "compositions", "test_file.rb"), File.join(base_dir, "test", "compositions", "test_other.rb")],
+                                 app.test_files_for(m)
                 end
             end
 
@@ -220,7 +222,7 @@ module Roby
 
             describe "#setup_robot_names_from_config_dir" do
                 def robots_dir
-                    File.join(app_dir, 'config', 'robots')
+                    File.join(app_dir, "config", "robots")
                 end
 
                 describe "the backward-compatible behaviour" do
@@ -238,14 +240,14 @@ module Roby
                 describe "the new behaviour" do
                     before do
                         FileUtils.mkdir_p robots_dir
-                        File.open(File.join(robots_dir, "test.rb"), 'w').close
+                        File.open(File.join(robots_dir, "test.rb"), "w").close
                         app.setup_robot_names_from_config_dir
                     end
                     it "sets the robot name resolution to strict if config/robots has files" do
                         assert app.robots.strict?
                     end
                     it "registers the robots on #robots" do
-                        assert app.robots.has_robot?('test')
+                        assert app.robots.has_robot?("test")
                     end
                 end
             end
@@ -265,7 +267,7 @@ module Roby
             end
 
             it "passes arguments to the action" do
-                arguments = {id: 10}
+                arguments = { id: 10 }
 
                 task_t = Roby::Task.new_submodel
                 task, planner_task = task_t.new, task_t.new
@@ -291,28 +293,28 @@ module Roby
             end
 
             it "raises ArgumentError if there are no matches" do
-                planner.should_receive(:find_all_actions_by_type).once.
-                    with(task_m).and_return([])
+                planner.should_receive(:find_all_actions_by_type).once
+                    .with(task_m).and_return([])
                 assert_raises(ArgumentError) { app.action_from_model(task_m) }
             end
             it "returns the action if there is a single match" do
-                planner.should_receive(:find_all_actions_by_type).once.
-                    with(task_m).and_return([action = flexmock(name: 'A')])
+                planner.should_receive(:find_all_actions_by_type).once
+                    .with(task_m).and_return([action = flexmock(name: "A")])
                 assert_equal [planner, action], app.action_from_model(task_m)
             end
             it "raises if there are more than one match" do
-                planner.should_receive(:find_all_actions_by_type).once.
-                    with(task_m).and_return([flexmock(name: 'A'), flexmock(name: 'B')])
+                planner.should_receive(:find_all_actions_by_type).once
+                    .with(task_m).and_return([flexmock(name: "A"), flexmock(name: "B")])
                 assert_raises(ArgumentError) { app.action_from_model(task_m) }
             end
         end
 
         describe "shell interface setup" do
             it "binds the shell interface to the value specified in #shell_interface_host" do
-                flexmock(::TCPServer).should_receive(:new).with('127.0.0.1', Interface::DEFAULT_PORT).pass_thru
-                app.shell_interface_host = '127.0.0.1'
+                flexmock(::TCPServer).should_receive(:new).with("127.0.0.1", Interface::DEFAULT_PORT).pass_thru
+                app.shell_interface_host = "127.0.0.1"
                 app.setup_shell_interface
-                assert_equal '127.0.0.1', app.shell_interface.ip_address
+                assert_equal "127.0.0.1", app.shell_interface.ip_address
                 roby_app_call_interface
             end
             it "starts the shell interface on the port specified by #shell_interface_port" do
@@ -355,9 +357,7 @@ module Roby
             it "gives access to this port through the Roby interface" do
                 app.setup_shell_interface
                 app.start_log_server(logfile_path)
-                actual_port = roby_app_call_interface do |interface|
-                    interface.log_server_port
-                end
+                actual_port = roby_app_call_interface(&:log_server_port)
                 assert_equal app.log_server_port, actual_port
                 # synchronize on the log server startup
                 assert_roby_app_can_connect_to_log_server
@@ -366,15 +366,15 @@ module Roby
 
         describe "#load_config_yaml" do
             def create_app_yml(options)
-                FileUtils.mkdir_p File.join(app_dir, 'config')
-                File.open(File.join(app_dir, 'config', 'app.yml'), 'w') do |io|
+                FileUtils.mkdir_p File.join(app_dir, "config")
+                File.open(File.join(app_dir, "config", "app.yml"), "w") do |io|
                     YAML.dump(options, io)
                 end
             end
             before do
                 app.app_dir = app_dir
                 app.robots.strict = false
-                app.robots.declare_robot_type 'test', 'test'
+                app.robots.declare_robot_type "test", "test"
             end
 
             it "does nothing if it does not find an app.yml file" do
@@ -383,26 +383,26 @@ module Roby
             end
             it "loads the configuration found in app.yml" do
                 before = app.options.dup
-                create_app_yml('interface' => 'test')
-                assert_equal before.merge('interface' => 'test'), app.load_config_yaml
+                create_app_yml("interface" => "test")
+                assert_equal before.merge("interface" => "test"), app.load_config_yaml
             end
             it "merges configuration options in robot-specific sections" do
                 before = app.options.dup
-                app.robot 'test'
-                create_app_yml('robots' => Hash['test' => Hash['interface' => 'test']])
-                assert_equal before.merge('interface' => 'test'), app.load_config_yaml
+                app.robot "test"
+                create_app_yml("robots" => Hash["test" => Hash["interface" => "test"]])
+                assert_equal before.merge("interface" => "test"), app.load_config_yaml
             end
             it "does a recursive merge for hash entries" do
-                app.options['test'] = Hash['kept' => 10, 'overriden' => 20]
-                app.robot 'test'
-                create_app_yml('robots' => Hash['test' => Hash['test' => Hash['overriden' => 30]]])
-                assert_equal Hash['kept' => 10, 'overriden' => 30], app.load_config_yaml['test']
+                app.options["test"] = Hash["kept" => 10, "overriden" => 20]
+                app.robot "test"
+                create_app_yml("robots" => Hash["test" => Hash["test" => Hash["overriden" => 30]]])
+                assert_equal Hash["kept" => 10, "overriden" => 30], app.load_config_yaml["test"]
             end
             it "simply overrides non-hash entries" do
-                app.options['overriden'] = 10
-                app.robot 'test'
-                create_app_yml('robots' => Hash['test' => Hash['overriden' => 30]])
-                assert_equal 30, app.load_config_yaml['overriden']
+                app.options["overriden"] = 10
+                app.robot "test"
+                create_app_yml("robots" => Hash["test" => Hash["overriden" => 30]])
+                assert_equal 30, app.load_config_yaml["overriden"]
             end
         end
 
@@ -413,29 +413,29 @@ module Roby
 
             it "applies the configuration from the 'interface' key" do
                 app.should_receive(:apply_config_interface).with(host_port = flexmock).once
-                app.apply_config('interface' => host_port)
+                app.apply_config("interface" => host_port)
             end
 
             it "falls back to droby.host for backward compatibility" do
                 flexmock(Roby).should_receive(:warn_deprecated).with(/droby\.host/).once
                 app.should_receive(:apply_config_interface).with(host_port = flexmock).once
-                app.apply_config('droby' => Hash['host' => host_port])
+                app.apply_config("droby" => Hash["host" => host_port])
             end
         end
 
         describe "#apply_config_interface" do
             it "parses host and port" do
-                app.apply_config_interface('host:23455')
-                assert_equal 'host', app.shell_interface_host
-                assert_equal 23455, app.shell_interface_port
+                app.apply_config_interface("host:23455")
+                assert_equal "host", app.shell_interface_host
+                assert_equal 23_455, app.shell_interface_port
             end
             it "uses the default interface port if none is specified" do
-                app.apply_config_interface('host')
-                assert_equal 'host', app.shell_interface_host
+                app.apply_config_interface("host")
+                assert_equal "host", app.shell_interface_host
                 assert_equal Interface::DEFAULT_PORT, app.shell_interface_port
             end
             it "sets the host to 'nil' if none is given" do
-                app.apply_config_interface(':2354')
+                app.apply_config_interface(":2354")
                 assert_nil app.shell_interface_host
                 assert_equal 2354, app.shell_interface_port
             end
@@ -481,7 +481,7 @@ module Roby
                 assert app.self_file?(File.join(app_dir, "test", "file"))
             end
             it "returns false if the file's base path is not the app dir" do
-                refute app.self_file?('/not/in/app/dir')
+                refute app.self_file?("/not/in/app/dir")
             end
         end
 
@@ -494,20 +494,20 @@ module Roby
                 attr_reader :task_m, :path
 
                 before do
-                    @task_m = Roby::Task.new_submodel(name: 'Test')
-                    flexmock(app).should_receive(:test_files_for).
-                        with(task_m).once.
-                        and_return([@path = flexmock])
-                    flexmock(app).should_receive(:test_files_for).
-                        and_return([])
+                    @task_m = Roby::Task.new_submodel(name: "Test")
+                    flexmock(app).should_receive(:test_files_for)
+                        .with(task_m).once
+                        .and_return([@path = flexmock])
+                    flexmock(app).should_receive(:test_files_for)
+                        .and_return([])
                 end
 
                 it "registers models using #test_files_for" do
                     assert_equal [[path, Set[task_m].to_set]], app.each_test_file_for_loaded_models.to_a
                 end
                 it "registers models that private_specializations? defined but are not specialized" do
-                    flexmock(task_m).should_receive(:private_specialization?).explicitly.
-                        and_return(false)
+                    flexmock(task_m).should_receive(:private_specialization?).explicitly
+                        .and_return(false)
                     assert_equal [[path, Set[task_m].to_set]], app.each_test_file_for_loaded_models.to_a
                 end
             end
@@ -516,11 +516,11 @@ module Roby
                 attr_reader :task_m
 
                 before do
-                    @task_m = Roby::Task.new_submodel(name: 'Test')
-                    flexmock(app).should_receive(:test_files_for).
-                        with(task_m).never
-                    flexmock(app).should_receive(:test_files_for).
-                        and_return([])
+                    @task_m = Roby::Task.new_submodel(name: "Test")
+                    flexmock(app).should_receive(:test_files_for)
+                        .with(task_m).never
+                    flexmock(app).should_receive(:test_files_for)
+                        .and_return([])
                 end
 
                 it "ignores models that have no names" do
@@ -529,14 +529,14 @@ module Roby
                 end
 
                 it "ignores event models" do
-                    flexmock(task_m).should_receive(:has_ancestor?).
-                        with(Roby::Event).and_return(true)
+                    flexmock(task_m).should_receive(:has_ancestor?)
+                        .with(Roby::Event).and_return(true)
                     assert_equal [], app.each_test_file_for_loaded_models.to_a
                 end
 
                 it "ignores private specializations" do
-                    flexmock(task_m).should_receive(:private_specialization?).
-                        explicitly.and_return(true)
+                    flexmock(task_m).should_receive(:private_specialization?)
+                        .explicitly.and_return(true)
                     assert_equal [], app.each_test_file_for_loaded_models.to_a
                 end
             end
@@ -548,7 +548,7 @@ module Roby
 
                 def touch_test_files(*paths)
                     paths.map do |p|
-                        full_p = File.join(app.app_dir, 'test', 'lib', *p)
+                        full_p = File.join(app.app_dir, "test", "lib", *p)
                         FileUtils.mkdir_p File.dirname(full_p)
                         FileUtils.touch full_p
                         [full_p, Set.new]
@@ -557,20 +557,20 @@ module Roby
 
                 it "enumerates test_*.rb files in test/lib" do
                     expected = touch_test_files \
-                        ['test_root.rb'],
-                        ['subdir', 'test_subdir.rb']
+                        ["test_root.rb"],
+                        ["subdir", "test_subdir.rb"]
                     assert_equal expected.to_set, app.each_test_file_for_loaded_models.to_set
                 end
                 it "enumerates *_test.rb files in test/lib" do
                     expected = touch_test_files \
-                        ['root_test.rb'],
-                        ['subdir', 'subdir_test.rb']
+                        ["root_test.rb"],
+                        ["subdir", "subdir_test.rb"]
                     assert_equal expected.to_set, app.each_test_file_for_loaded_models.to_set
                 end
                 it "ignores files not matching the test pattern" do
                     touch_test_files \
-                        ['root_test_root.rb'],
-                        ['subdir', 'subdir.rb']
+                        ["root_test_root.rb"],
+                        ["subdir", "subdir.rb"]
                     assert_equal [], app.each_test_file_for_loaded_models.to_a
                 end
             end
@@ -585,17 +585,17 @@ module Roby
 
             describe "--set" do
                 it "sets the specified configuration parameter to the given value" do
-                    parser.parse(['--set=a=10'])
+                    parser.parse(["--set=a=10"])
                     assert_equal 10, Conf.a
                 end
                 it "parses words separated by dots as a chain of elements in the conf structure" do
-                    parser.parse(['--set=a.deep.value=10'])
+                    parser.parse(["--set=a.deep.value=10"])
                     assert_equal 10, Conf.a.deep.value
                 end
                 it "parses the value in YAML" do
-                    flexmock(YAML).should_receive(:load).
-                        with('random_string').and_return(value = flexmock)
-                    parser.parse(['--set=a.deep.value=random_string'])
+                    flexmock(YAML).should_receive(:load)
+                        .with("random_string").and_return(value = flexmock)
+                    parser.parse(["--set=a.deep.value=random_string"])
                     assert_equal value, Conf.a.deep.value
                 end
             end
@@ -623,27 +623,27 @@ module Roby
                 it "raises ArgumentError if there is no symlink" do
                     error = assert_raises(ArgumentError) { app.log_current_dir }
                     assert_equal "#{current_path} does not exist or is not a symbolic link",
-                        error.message
+                                 error.message
                 end
                 it "raises ArgumentError if the link is not a symlink" do
                     FileUtils.touch current_path
                     error = assert_raises(ArgumentError) { app.log_current_dir }
                     assert_equal "#{current_path} does not exist or is not a symbolic link",
-                        error.message
+                                 error.message
                 end
                 it "raises ArgumentError if the link points to a non-existent directory" do
-                    log_dir = File.join(self.log_dir, 'test')
+                    log_dir = File.join(self.log_dir, "test")
                     FileUtils.ln_s log_dir, current_path
                     error = assert_raises(ArgumentError) { app.log_current_dir }
                     assert_equal "#{current_path} points to #{log_dir}, which does not exist",
-                        error.message
+                                 error.message
                 end
                 it "raises ArgumentError if the link does not point to a directory" do
-                    FileUtils.touch(log_dir = File.join(self.log_dir, 'test'))
+                    FileUtils.touch(log_dir = File.join(self.log_dir, "test"))
                     FileUtils.ln_s log_dir, current_path
                     error = assert_raises(ArgumentError) { app.log_current_dir }
                     assert_equal "#{current_path} points to #{log_dir}, which is not a directory",
-                        error.message
+                                 error.message
                 end
             end
         end
@@ -651,18 +651,18 @@ module Roby
         describe "#log_read_metadata" do
             it "returns an empty array if the current log directory cannot be determined" do
                 flexmock(app).should_receive(:log_current_dir).and_raise(ArgumentError)
-                assert_equal Array.new, app.log_read_metadata
+                assert_equal [], app.log_read_metadata
             end
             it "returns an empty array if the log directory does not have an info.yml file" do
                 app.log_dir = make_tmpdir
-                assert_equal Array.new, app.log_read_metadata
+                assert_equal [], app.log_read_metadata
             end
             it "returns the unmarshalled contents of the info.yml file" do
                 app.log_dir = make_tmpdir
-                File.open(File.join(app.log_dir, 'info.yml'), 'w') do |io|
-                    YAML.dump(Hash['test' => true], io)
+                File.open(File.join(app.log_dir, "info.yml"), "w") do |io|
+                    YAML.dump(Hash["test" => true], io)
                 end
-                assert_equal Hash['test' => true], app.log_read_metadata
+                assert_equal Hash["test" => true], app.log_read_metadata
             end
         end
 
@@ -671,21 +671,21 @@ module Roby
                 @opt = OptionParser.new
             end
             it "sets the host/port pair if both are given" do
-                Application.host_options(@opt, options = Hash[host: 'test', port: 666])
-                @opt.parse(['--host=bla:90'])
-                assert_equal 'bla', options[:host]
+                Application.host_options(@opt, options = Hash[host: "test", port: 666])
+                @opt.parse(["--host=bla:90"])
+                assert_equal "bla", options[:host]
                 assert_equal 90, options[:port]
             end
             it "sets only the host and leaves the port if no port is given" do
-                Application.host_options(@opt, options = Hash[host: 'test', port: 666])
-                @opt.parse(['--host=bla'])
-                assert_equal 'bla', options[:host]
+                Application.host_options(@opt, options = Hash[host: "test", port: 666])
+                @opt.parse(["--host=bla"])
+                assert_equal "bla", options[:host]
                 assert_equal 666, options[:port]
             end
             it "does not modify the options if no --host argument is given" do
-                Application.host_options(@opt, options = Hash[host: 'test', port: 666])
+                Application.host_options(@opt, options = Hash[host: "test", port: 666])
                 @opt.parse([])
-                assert_equal 'test', options[:host]
+                assert_equal "test", options[:host]
                 assert_equal 666, options[:port]
             end
         end
@@ -727,9 +727,9 @@ module Roby
                 assert_equal @test_dir_1, $LOAD_PATH[1]
             end
             it "injects the app's lib dirs if they exist with the same precedence than the search path" do
-                FileUtils.mkdir File.join(@test_dir_0, 'lib')
+                FileUtils.mkdir File.join(@test_dir_0, "lib")
                 app.update_load_path
-                assert_equal File.join(@test_dir_0, 'lib'), $LOAD_PATH[0]
+                assert_equal File.join(@test_dir_0, "lib"), $LOAD_PATH[0]
                 assert_equal @test_dir_0, $LOAD_PATH[1]
                 assert_equal @test_dir_1, $LOAD_PATH[2]
             end
@@ -759,15 +759,15 @@ module Roby
             it "allows to extend the API through plugins" do
                 plugin = Module.new do
                     def self.setup_rest_interface(app, api)
-                        api.get('/extended') { 42 }
+                        api.get("/extended") { 42 }
                     end
                 end
-                @app.add_plugin 'test', plugin
+                @app.add_plugin "test", plugin
                 server = nil
                 capture_log(Robot, :info) { server = @app.setup_rest_interface }
                 server.wait_start
-                returned_value = RestClient.
-                    get("http://localhost:#{server.port}/api/extended")
+                returned_value = RestClient
+                    .get("http://localhost:#{server.port}/api/extended")
                 assert_equal 42, Integer(returned_value)
             end
         end
@@ -791,20 +791,20 @@ module Roby
             describe "during base configuration loading" do
                 before do
                     Roby.const_set :LoggerSetupTests,
-                        LoggerContext.new(@formatter = flexmock)
+                                   LoggerContext.new(@formatter = flexmock)
                 end
 
                 it "sets up the log levels" do
-                    @app.log_setup 'roby/logger_setup_tests', 'DEBUG'
+                    @app.log_setup "roby/logger_setup_tests", "DEBUG"
                     @app.load_base_config
                     assert_equal Logger::DEBUG, Roby::LoggerSetupTests.logger.level
                 end
                 it "ignores absent contexts" do
-                    @app.log_setup 'roby/does_not_exist', 'DEBUG'
+                    @app.log_setup "roby/does_not_exist", "DEBUG"
                     @app.load_base_config
                 end
                 it "does not redirect to files" do
-                    @app.log_setup 'roby/logger_setup_tests', 'DEBUG:file'
+                    @app.log_setup "roby/logger_setup_tests", "DEBUG:file"
                     @app.load_base_config
                     flexmock(STDOUT).should_receive(:write).once
                     LoggerSetupTests.logger << "bla"
@@ -817,11 +817,11 @@ module Roby
                     plugin.singleton_class.class_eval do
                         define_method(hook_name) do |app|
                             Roby.const_set :LoggerSetupTests,
-                                LoggerContext.new(@formatter = ->(s) { "" })
+                                           LoggerContext.new(@formatter = ->(s) { "" })
                         end
                     end
-                    @app.log_setup 'roby/logger_setup_tests', 'DEBUG'
-                    @app.add_plugin 'test', plugin
+                    @app.log_setup "roby/logger_setup_tests", "DEBUG"
+                    @app.add_plugin "test", plugin
                     @app.base_setup
                     assert_equal Logger::DEBUG, Roby::LoggerSetupTests.logger.level
                 end
@@ -830,10 +830,10 @@ module Roby
                 end
 
                 def assert_handles_robot_hook(hook_name)
-                    @app.log_setup 'roby/logger_setup_tests', 'DEBUG'
+                    @app.log_setup "roby/logger_setup_tests", "DEBUG"
                     @app.send(hook_name) do
                         Roby.const_set :LoggerSetupTests,
-                            LoggerContext.new(@formatter = flexmock)
+                                       LoggerContext.new(@formatter = flexmock)
                     end
                     @app.base_setup
                     assert_equal Logger::DEBUG, Roby::LoggerSetupTests.logger.level
@@ -842,20 +842,20 @@ module Roby
                     assert_handles_robot_hook :on_init
                 end
                 it "raises for missing contexts" do
-                    @app.log_setup 'roby/logger_setup_tests', 'DEBUG'
+                    @app.log_setup "roby/logger_setup_tests", "DEBUG"
                     assert_raises(Application::InvalidLoggerName) do
                         @app.setup
                     end
                 end
                 it "sets up redirections to files" do
                     Roby.const_set :LoggerSetupTests,
-                        LoggerContext.new(@formatter = ->(s) { s })
-                    @app.log_setup 'roby/logger_setup_tests', 'DEBUG:file.txt'
+                                   LoggerContext.new(@formatter = ->(s) { s })
+                    @app.log_setup "roby/logger_setup_tests", "DEBUG:file.txt"
                     @app.log_dir = make_tmpdir
                     flexmock(Robot).should_receive(:info).with(/^redirected logger for #{Roby::LoggerSetupTests} to #{File.join(@app.log_dir, 'file.txt')}/)
                     @app.setup
                     Roby::LoggerSetupTests.logger << "TEST"
-                    assert_equal "TEST", File.read(File.join(@app.log_dir, 'file.txt'))
+                    assert_equal "TEST", File.read(File.join(@app.log_dir, "file.txt"))
                 end
             end
         end
@@ -902,8 +902,8 @@ module Roby
 
             it "handles properly if the engine's run method raises unexpectedly" do
                 error = Class.new(RuntimeError).exception("test")
-                flexmock(@app.execution_engine).should_receive(:run).
-                    and_raise(error)
+                flexmock(@app.execution_engine).should_receive(:run)
+                    .and_raise(error)
                 run_thread = Thread.new do
                     if (t = Thread.current).respond_to?(:report_on_exception=)
                         t.report_on_exception = false
@@ -932,14 +932,14 @@ module Roby
             end
         end
 
-        describe '#controller' do
+        describe "#controller" do
             it 'registers the block into the "controllers" set' do
                 block = -> { true }
                 app.controller(&block)
                 assert_equal [block], app.controllers.map(&:block)
             end
 
-            it 'appends new blocks to the existing list' do
+            it "appends new blocks to the existing list" do
                 block0 = -> { true }
                 block1 = -> { true }
                 app.controller(&block0)
@@ -947,7 +947,7 @@ module Roby
                 assert_equal [block0, block1], app.controllers.map(&:block)
             end
 
-            it 'removes existing blocks if reset is true' do
+            it "removes existing blocks if reset is true" do
                 block0 = -> { true }
                 block1 = -> { true }
                 app.controller(&block0)

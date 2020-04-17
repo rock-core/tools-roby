@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 module Roby
     module TaskStructure
@@ -47,9 +49,9 @@ module Roby
 
                 it "generates a PlanningFailedError error localized on the planned task if the planner fails" do
                     execute { planner.start! }
-                    error = expect_execution { planner.failed! }.
-                        to { have_error_matching PlanningFailedError.match.with_origin(task) }.
-                        exception
+                    error = expect_execution { planner.failed! }
+                        .to { have_error_matching PlanningFailedError.match.with_origin(task) }
+                        .exception
                     assert_equal planner, error.planning_task
                     assert_equal task, error.planned_task
                 end
@@ -63,9 +65,9 @@ module Roby
                     execute { planner.start! }
 
                     expect_execution { planner.failed! }.to do
-                        have_error_matching PlanningFailedError.match.with_origin(task).
-                            to_execution_exception_matcher.
-                            with_trace(task => root)
+                        have_error_matching PlanningFailedError.match.with_origin(task)
+                            .to_execution_exception_matcher
+                            .with_trace(task => root)
                     end
                 end
             end
@@ -77,17 +79,14 @@ module Roby
                 plan.add(planned_task = Roby::Task.new)
                 planned_task.planned_by(planning_task = Roby::Task.new)
                 plan.in_transaction do |trsc|
-                    assert_equal planned_task, trsc[planning_task].
-                        planned_task.__getobj__
+                    assert_equal planned_task, trsc[planning_task]
+                        .planned_task.__getobj__
                 end
             end
 
             def test_as_plan
-                model = Tasks::Simple.new_submodel do
-                    def self.as_plan
-                        new(id: 10)
-                    end
-                end
+                model = Tasks::Simple.new_submodel
+                flexmock(model).should_receive(:as_plan).and_return { model.new(id: 10) }
                 root = prepare_plan add: 1, model: Tasks::Simple
                 agent = root.planned_by(model)
                 assert_kind_of model, agent
@@ -96,4 +95,3 @@ module Roby
         end
     end
 end
-

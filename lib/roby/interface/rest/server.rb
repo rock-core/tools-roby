@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-require 'eventmachine'
-require 'rack'
-require 'thin'
-require 'rest-client'
-require 'grape'
-require 'roby/interface/rest/helpers'
+require "eventmachine"
+require "rack"
+require "thin"
+require "rest-client"
+require "grape"
+require "roby/interface/rest/helpers"
 
 module Roby
     module Interface
@@ -37,10 +37,10 @@ module Roby
                 # @param [Grape::API] api used to route requests.
                 # @param [String] prefix for routes. e.g. host:port/main_route/ping
                 def initialize(app,
-                               host: '0.0.0.0',
+                               host: "0.0.0.0",
                                port: Roby::Interface::DEFAULT_REST_PORT,
                                api: REST::API,
-                               main_route: '/api',
+                               main_route: "/api",
                                **thin_options)
 
                     @app = app
@@ -79,8 +79,8 @@ module Roby
                     storage = {}
                     Class.new do
                         define_method(:call) do |env|
-                            env['roby.interface'] = interface
-                            env['roby.storage'] = storage
+                            env["roby.interface"] = interface
+                            env["roby.storage"] = storage
                             api.call(env)
                         end
                     end.new
@@ -150,7 +150,7 @@ module Roby
                     @wait_start.wait(timeout)
                     return if @wait_start.complete?
 
-                    raise Timeout, 'timed out while waiting for the server to start'
+                    raise Timeout, "timed out while waiting for the server to start"
                 end
 
                 # Asks the server to stop
@@ -173,8 +173,8 @@ module Roby
                 def join(timeout: nil)
                     if timeout
                         unless @server_thread.join(timeout)
-                            raise Timeout, 'timed out while waiting for '\
-                                           'the server to stop'
+                            raise Timeout, "timed out while waiting for "\
+                                           "the server to stop"
                         end
                     else
                         @server_thread.join
@@ -189,7 +189,7 @@ module Roby
                 def server_alive?
                     return false unless @wait_start.complete?
 
-                    self.class.server_alive?('localhost', port, main_route: main_route)
+                    self.class.server_alive?("localhost", port, main_route: main_route)
                 end
 
                 # Tests whether the server is actually alive
@@ -198,7 +198,7 @@ module Roby
                 #
                 # @raise InvalidServer if there is a server at the expected
                 #   host and port, but not a Roby REST server
-                def self.server_alive?(host, port, main_route: '/api')
+                def self.server_alive?(host, port, main_route: "/api")
                     test_value = rand(10)
                     returned_value = RestClient.get(
                         "http://#{host}:#{port}#{main_route}/ping",

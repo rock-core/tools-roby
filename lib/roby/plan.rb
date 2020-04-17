@@ -85,7 +85,7 @@ module Roby
         attr_reader :graph_observer
 
         def initialize(graph_observer: nil, event_logger: DRoby::NullEventLogger.new)
-            @local_owner = DRoby::PeerID.new('local')
+            @local_owner = DRoby::PeerID.new("local")
 
             @tasks = Set.new
             @free_events = Set.new
@@ -482,21 +482,21 @@ module Roby
         # @deprecated use {#add_mission_task} instead
         def add_mission(task)
             Roby.warn_deprecated(
-                '#add_mission is deprecated, use #add_mission_task instead'
+                "#add_mission is deprecated, use #add_mission_task instead"
             )
             add_mission_task(task)
         end
 
         # @deprecated use {#mission_task?} instead
         def mission?(task)
-            Roby.warn_deprecated '#mission? is deprecated, use #mission_task? instead'
+            Roby.warn_deprecated "#mission? is deprecated, use #mission_task? instead"
             mission_task?(task)
         end
 
         # @deprecated use {#unmark_mission_task} instead
         def unmark_mission(task)
             Roby.warn_deprecated(
-                '#unmark_mission is deprecated, use #unmark_mission_task instead'
+                "#unmark_mission is deprecated, use #unmark_mission_task instead"
             )
             unmark_mission_task(task)
         end
@@ -559,8 +559,8 @@ module Roby
         # @deprecated use {#add_permanent_task} or {#add_permanent_event} instead
         def add_permanent(object)
             Roby.warn_deprecated(
-                '#add_permanent is deprecated, use either #add_permanent_task '\
-                'or #add_permanent_event instead'
+                "#add_permanent is deprecated, use either #add_permanent_task "\
+                "or #add_permanent_event instead"
             )
             object = normalize_add_arguments([object]).first
             if object.respond_to?(:to_task)
@@ -574,8 +574,8 @@ module Roby
         # @deprecated use {#unmark_permanent_task} or {#unmark_permanent_event} instead
         def unmark_permanent(object)
             Roby.warn_deprecated(
-                '#unmark_permanent is deprecated, use either #unmark_permanent_task '\
-                'or #unmark_permanent_event'
+                "#unmark_permanent is deprecated, use either #unmark_permanent_task "\
+                "or #unmark_permanent_event"
             )
 
             if object.respond_to?(:to_task)
@@ -590,8 +590,8 @@ module Roby
         # @deprecated use {#permanent_task?} or {#permanent_event?} instead
         def permanent?(object)
             Roby.warn_deprecated(
-                '#permanent? is deprecated, use either '\
-                '#permanent_task? or #permanent_event?'
+                "#permanent? is deprecated, use either "\
+                "#permanent_task? or #permanent_event?"
             )
 
             if object.respond_to?(:to_task)
@@ -715,11 +715,11 @@ module Roby
             if !from.plan
                 raise ArgumentError,
                       "#{from} has been removed from plan, "\
-                      'cannot use as source in a replacement'
+                      "cannot use as source in a replacement"
             elsif !to.plan
                 raise ArgumentError,
                       "#{to} has been removed from plan, "\
-                      'cannot use as target in a replacement'
+                      "cannot use as target in a replacement"
             elsif from.plan != self
                 raise ArgumentError,
                       "trying to replace #{from} but its plan "\
@@ -1093,11 +1093,11 @@ module Roby
                 if plan_object.removed_at
                     raise ArgumentError,
                           "cannot add #{plan_object} in #{self}, "\
-                          'it has been removed from the plan'
+                          "it has been removed from the plan"
                 elsif !p
                     raise InternalError,
                           "there seem to be an inconsistency, #{plan_object}#plan "\
-                          'is nil but #removed_at is not set'
+                          "is nil but #removed_at is not set"
                 elsif p.empty?
                     raise InternalError,
                           "there seem to be an inconsistency, #{plan_object} "\
@@ -1469,15 +1469,15 @@ module Roby
         #   {#has_task_event?} instead
         def include?(object)
             Roby.warn_deprecated(
-                'Plan#include? is deprecated, use one of the more specific '\
-                '#has_task? #has_task_event? and #has_free_event?'
+                "Plan#include? is deprecated, use one of the more specific "\
+                "#has_task? #has_task_event? and #has_free_event?"
             )
             has_free_event?(object) || has_task_event?(object) || has_task?(object)
         end
 
         # Count of tasks in this plan
         def size
-            Roby.warn_deprecated 'Plan#size is deprecated, use #num_tasks instead'
+            Roby.warn_deprecated "Plan#size is deprecated, use #num_tasks instead"
             @tasks.size
         end
 
@@ -1542,9 +1542,9 @@ module Roby
                 else
                     raise ArgumentError,
                           "#{object} has already been removed from its plan. "\
-                          'Set PlanObject.debug_finalization_place to true to '\
-                          'get the backtrace of where (in the code) the object '\
-                          'got finalized'
+                          "Set PlanObject.debug_finalization_place to true to "\
+                          "get the backtrace of where (in the code) the object "\
+                          "got finalized"
                 end
             elsif object.plan.template?
                 raise ArgumentError, "#{object} has never been included in this plan"
@@ -1621,8 +1621,8 @@ module Roby
         # @deprecated use {#remove_task} or {#remove_free_event} instead
         def remove_object(object, timestamp = Time.now)
             Roby.warn_deprecated(
-                '#remove_object is deprecated, use either '\
-                '#remove_task or #remove_free_event'
+                "#remove_object is deprecated, use either "\
+                "#remove_task or #remove_free_event"
             )
 
             if has_task?(object)
@@ -1664,7 +1664,7 @@ module Roby
 
             unless remaining.empty?
                 Roby.warn "#{remaining.size} tasks remaining after clearing "\
-                          'the plan as they are still running'
+                          "the plan as they are still running"
                 remaining.each do |t|
                     Roby.warn "  #{t}"
                 end

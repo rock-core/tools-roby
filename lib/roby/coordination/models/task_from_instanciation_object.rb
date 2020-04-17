@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Coordination
         module Models
@@ -19,13 +21,14 @@ module Roby
 
                 # Called by the state machine implementation to create a Roby::Task
                 # instance that will perform the state's actions
-                def instanciate(plan, variables = Hash.new)
+                def instanciate(plan, variables = {})
                     instanciation_object.instanciate(plan)
                 end
 
-                def to_s; "#{instanciation_object}[#{model}]" end
+                def to_s
+                    "#{instanciation_object}[#{model}]"
+                end
             end
         end
     end
 end
-

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require 'roby/test/self'
-require 'roby/tasks/simple'
+require "roby/test/self"
+require "roby/tasks/simple"
 
 module Roby
     module Queries
@@ -18,13 +18,13 @@ module Roby
                 task_matcher.should_receive(:===).with(other_task).and_return(false)
             end
 
-            describe 'not in generalized mode' do
-                describe '#===' do
+            describe "not in generalized mode" do
+                describe "#===" do
                     def create_matcher(*args)
                         Roby::Queries::TaskEventGeneratorMatcher.new(task_matcher, *args)
                     end
 
-                    it 'filters the task event generator using the plan object match' do
+                    it "filters the task event generator using the plan object match" do
                         matcher = Roby::Tasks::Simple.match.start_event.executable
                         plan.add(t = Roby::Tasks::Simple.new)
                         flexmock(t.start_event).should_receive(executable?: true)
@@ -35,133 +35,133 @@ module Roby
                         refute matcher === a.start_event
                     end
 
-                    it 'returns false for a plain event generator' do
+                    it "returns false for a plain event generator" do
                         plan.add(generator = Roby::EventGenerator.new)
                         refute create_matcher === generator
                     end
 
-                    it 'returns false if the task matcher returns false' do
+                    it "returns false if the task matcher returns false" do
                         task_matcher.should_receive(:===).with(task).and_return(false)
                         refute create_matcher === generator
                     end
-                    it 'returns true if the task matcher returns true and '\
-                       'the symbol match is default' do
+                    it "returns true if the task matcher returns true and "\
+                       "the symbol match is default" do
                         task_matcher.should_receive(:===).with(task).and_return(true)
                         assert create_matcher === generator
                     end
-                    it 'should return false if the task matcher returns true '\
-                       'but the symbol does not match' do
+                    it "should return false if the task matcher returns true "\
+                       "but the symbol does not match" do
                         task_matcher.should_receive(:===).with(task).and_return(true)
-                        refute create_matcher('bla') === generator
+                        refute create_matcher("bla") === generator
                     end
-                    it 'returns true if the task matcher returns true '\
-                       'and the symbol matches' do
+                    it "returns true if the task matcher returns true "\
+                       "and the symbol matches" do
                         task_matcher.should_receive(:===).with(task).and_return(true)
                         symbol_match = flexmock
-                        symbol_match.should_receive(:===).with('stop').and_return(true)
+                        symbol_match.should_receive(:===).with("stop").and_return(true)
                         assert create_matcher(symbol_match) === generator
                     end
-                    it 'returns false if it is forwarded to another task for which '\
-                       'the task matcher returns false' do
+                    it "returns false if it is forwarded to another task for which "\
+                       "the task matcher returns false" do
                         task_matcher.should_receive(:===).with(task).and_return(false)
                         refute create_matcher === source_generator
                     end
-                    it 'returns false if it is forwarded to another task for which '\
-                       'the task matcher returns true and the symbol match is default' do
+                    it "returns false if it is forwarded to another task for which "\
+                       "the task matcher returns true and the symbol match is default" do
                         task_matcher.should_receive(:===).with(task).and_return(true)
                         refute create_matcher === source_generator
                     end
-                    it 'returns false if it is forwarded to another task for which '\
-                       'the task matcher returns true but the symbol does not match' do
+                    it "returns false if it is forwarded to another task for which "\
+                       "the task matcher returns true but the symbol does not match" do
                         task_matcher.should_receive(:===).with(task).and_return(true)
-                        refute create_matcher('bla') === source_generator
+                        refute create_matcher("bla") === source_generator
                     end
-                    it 'returns false if it is forwarded to another task for which '\
-                       'the task matcher returns true even if the symbol matches' do
+                    it "returns false if it is forwarded to another task for which "\
+                       "the task matcher returns true even if the symbol matches" do
                         task_matcher.should_receive(:===).with(task).and_return(true)
                         @symbol_match = flexmock
-                        symbol_match.should_receive(:===).with('failed').and_return(false)
-                        symbol_match.should_receive(:===).with('failed').and_return(false)
-                        symbol_match.should_receive(:===).with('stop').and_return(true)
+                        symbol_match.should_receive(:===).with("failed").and_return(false)
+                        symbol_match.should_receive(:===).with("failed").and_return(false)
+                        symbol_match.should_receive(:===).with("stop").and_return(true)
                         refute create_matcher(symbol_match) === source_generator
                     end
                 end
             end
 
-            describe 'in generalized mode' do
-                describe '#===' do
+            describe "in generalized mode" do
+                describe "#===" do
                     def create_matcher(*args)
                         Roby::Queries::TaskEventGeneratorMatcher
                             .new(task_matcher, *args)
                             .generalized
                     end
 
-                    it 'returns false for a plain event generator' do
+                    it "returns false for a plain event generator" do
                         plan.add(generator = Roby::EventGenerator.new)
                         refute create_matcher === generator
                     end
-                    it 'returns false for a finalized generator that is not directly '\
-                       'the expected generator' do
+                    it "returns false for a finalized generator that is not directly "\
+                       "the expected generator" do
                         execute { plan.remove_task(task) }
-                        refute create_matcher('bla') === task.start_event
+                        refute create_matcher("bla") === task.start_event
                     end
-                    it 'returns false if the task matcher returns false' do
+                    it "returns false if the task matcher returns false" do
                         task_matcher.should_receive(:===).with(task).and_return(false)
                         refute create_matcher === generator
                     end
-                    it 'returns true if the task matcher returns true '\
-                       'and the symbol match is default' do
+                    it "returns true if the task matcher returns true "\
+                       "and the symbol match is default" do
                         task_matcher.should_receive(:===).with(task).and_return(true)
                         assert create_matcher === generator
                     end
-                    it 'returns false if the task matcher returns true '\
-                       'but the symbol does not match' do
+                    it "returns false if the task matcher returns true "\
+                       "but the symbol does not match" do
                         task_matcher.should_receive(:===).with(task).and_return(true)
-                        refute create_matcher('bla') === generator
+                        refute create_matcher("bla") === generator
                     end
-                    it 'returns true if the task matcher returns true and '\
-                       'the symbol matches' do
+                    it "returns true if the task matcher returns true and "\
+                       "the symbol matches" do
                         task_matcher.should_receive(:===).with(task).and_return(true)
                         symbol_match = flexmock
-                        symbol_match.should_receive(:===).with('stop').and_return(true)
+                        symbol_match.should_receive(:===).with("stop").and_return(true)
                         assert create_matcher(symbol_match) === generator
                     end
-                    it 'returns false if it is forwarded to another task for which '\
-                       'the task matcher returns false' do
+                    it "returns false if it is forwarded to another task for which "\
+                       "the task matcher returns false" do
                         task_matcher.should_receive(:===).with(task).and_return(false)
                         refute create_matcher === source_generator
                     end
-                    it 'returns true if it is forwarded to another task for which '\
-                       'the task matcher returns true and the symbol match is default' do
+                    it "returns true if it is forwarded to another task for which "\
+                       "the task matcher returns true and the symbol match is default" do
                         task_matcher.should_receive(:===).with(task).and_return(true)
                         assert create_matcher === source_generator
                     end
-                    it 'returns false if it is forwarded to another task for which '\
-                       'the task matcher returns true but the symbol does not match' do
+                    it "returns false if it is forwarded to another task for which "\
+                       "the task matcher returns true but the symbol does not match" do
                         task_matcher.should_receive(:===).with(task).and_return(true)
-                        refute create_matcher('bla') === source_generator
+                        refute create_matcher("bla") === source_generator
                     end
-                    it 'returns true if it is forwarded to another task for which '\
-                       'the task matcher returns true and the symbol matches' do
+                    it "returns true if it is forwarded to another task for which "\
+                       "the task matcher returns true and the symbol matches" do
                         task_matcher.should_receive(:===).with(task).and_return(true)
                         @symbol_match = flexmock
-                        symbol_match.should_receive(:===).with('failed').and_return(false)
-                        symbol_match.should_receive(:===).with('failed').and_return(false)
-                        symbol_match.should_receive(:===).with('stop').and_return(true)
+                        symbol_match.should_receive(:===).with("failed").and_return(false)
+                        symbol_match.should_receive(:===).with("failed").and_return(false)
+                        symbol_match.should_receive(:===).with("stop").and_return(true)
                         assert create_matcher(symbol_match) === source_generator
                     end
                 end
             end
 
-            describe 'plan enumeration' do
-                it 'raises if trying to enumerate the plan using a generalized matcher' do
+            describe "plan enumeration" do
+                it "raises if trying to enumerate the plan using a generalized matcher" do
                     matcher = Roby::Tasks::Simple.match.stop_event.generalized
                     assert_raises(ArgumentError) do
                         matcher.each_in_plan(plan)
                     end
                 end
 
-                it 'enumerates the event from the matching tasks' do
+                it "enumerates the event from the matching tasks" do
                     plan.add(t1 = Roby::Tasks::Simple.new(id: 20))
                     plan.add(t2 = Roby::Tasks::Simple.new(id: 21))
 
@@ -176,7 +176,7 @@ module Roby
                     assert_equal [t1.stop_event], results
                 end
 
-                it 'post-filters the events using #===' do
+                it "post-filters the events using #===" do
                     plan.add(t1 = Roby::Tasks::Simple.new(id: 20))
                     plan.add(t2 = Roby::Tasks::Simple.new(id: 21))
 

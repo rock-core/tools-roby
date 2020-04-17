@@ -1,8 +1,10 @@
+# frozen_string_literal: true
+
 module Roby
     module Coordination
         module Models
             # Base class for model validation errors
-            class CoordinationModelError < Exception; end
+            class CoordinationModelError < RuntimeError; end
 
             # Exception thrown when using a non-root event in a context where
             # only root events are allowed
@@ -39,4 +41,3 @@ module Roby
         end
     end
 end
-

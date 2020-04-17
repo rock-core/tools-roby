@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module Interface
         # The job's planning task is ready to be executed
@@ -114,12 +116,12 @@ module Roby
                 super(app)
 
                 @tracked_jobs = Set.new
-                @job_notifications = Array.new
-                @job_listeners = Array.new
-                @exception_notifications = Array.new
-                @exception_listeners = Array.new
-                @job_monitoring_state = Hash.new
-                @cycle_end_listeners = Array.new
+                @job_notifications = []
+                @job_listeners = []
+                @exception_notifications = []
+                @exception_listeners = []
+                @job_monitoring_state = {}
+                @cycle_end_listeners = []
 
                 app.plan.add_trigger Roby::Interface::Job do |task|
                     if task.job_id && (planned_task = task.planned_task)
@@ -127,9 +129,9 @@ module Roby
                     end
                 end
                 execution_engine.on_exception(on_error: :raise) do |kind, exception, tasks|
-                    involved_job_ids = tasks.
-                        flat_map { |t| job_ids_of_task(t) if t.plan }.
-                        compact.to_set
+                    involved_job_ids = tasks
+                        .flat_map { |t| job_ids_of_task(t) if t.plan }
+                        .compact.to_set
                     @exception_notifications << [kind, exception, tasks, involved_job_ids]
                 end
                 execution_engine.at_cycle_end do
@@ -150,8 +152,8 @@ module Roby
             def log_server_port
                 app.log_server_port
             end
-            command :log_server_port, 'returns the port of the log server',
-                advanced: true
+            command :log_server_port, "returns the port of the log server",
+                    advanced: true
 
             # The set of actions available on {#app}
             #
@@ -165,14 +167,14 @@ module Roby
                 end
                 result
             end
-            command :actions, 'lists a summary of the available actions'
+            command :actions, "lists a summary of the available actions"
 
             # Starts a job
             #
             # @return [Integer] the job ID
-            def start_job(m, arguments = Hash.new)
+            def start_job(m, arguments = {})
                 _task, planning_task = app.prepare_action(m, mission: true,
-                    job_id: Job.allocate_job_id, **arguments)
+                                                             job_id: Job.allocate_job_id, **arguments)
                 planning_task.job_id
             end
 
@@ -194,8 +196,8 @@ module Roby
                 else false
                 end
             end
-            command :kill_job, 'forcefully kills the given job',
-                job_id: 'the job ID. It is the return value of the xxx! command and can also be obtained by calling jobs'
+            command :kill_job, "forcefully kills the given job",
+                    job_id: "the job ID. It is the return value of the xxx! command and can also be obtained by calling jobs"
 
             # Drop a job
             #
@@ -208,10 +210,10 @@ module Roby
             #   false otherwise
             # @see kill_job
             def drop_job(job_id)
-                return if !(task = find_job_by_id(job_id))
+                return unless (task = find_job_by_id(job_id))
 
                 placeholder_task = task.planned_task
-                if !placeholder_task
+                unless placeholder_task
                     plan.unmark_mission_task(task)
                     return true
                 end
@@ -224,7 +226,7 @@ module Roby
                 end
             end
             command :drop_job, "remove this job from the list of jobs, this does not necessarily kill the job's main task",
-                job_id: 'the job ID. It is the return value of the xxx! command and can also be obtained by calling jobs'
+                    job_id: "the job ID. It is the return value of the xxx! command and can also be obtained by calling jobs"
 
             # Enumerates the job listeners currently registered through
             # {#on_job_notification}
@@ -252,7 +254,7 @@ module Roby
                     if event == JOB_MONITORED
                         tracked_jobs << job_id
                         final_tracked_jobs << job_id
-                    elsif event == JOB_DROPPED || event == JOB_LOST || event == JOB_FINALIZED
+                    elsif [JOB_DROPPED, JOB_LOST, JOB_FINALIZED].include?(event)
                         final_tracked_jobs.delete(job_id)
                     end
                 end
@@ -275,7 +277,7 @@ module Roby
                 end
 
                 exception_notifications = @exception_notifications
-                @exception_notifications = Array.new
+                @exception_notifications = []
                 exception_notifications.each do |kind, exception, tasks, involved_job_ids|
                     @exception_listeners.each do |block|
                         block.call(kind, exception, tasks, involved_job_ids)
@@ -408,7 +410,7 @@ module Roby
                     state = @job_monitoring_state[job_id]
                     if !state.monitored? && (status == :mission)
                         job_notify(JOB_MONITORED, job_id, job_name, service.task,
-                            service.task.planning_task)
+                                   service.task.planning_task)
                         job_notify(job_state(service.task), job_id, job_name)
                         state.monitored = true
                     elsif state.monitored? && (status != :mission)
@@ -473,29 +475,29 @@ module Roby
 
             def job_state(task)
                 if !task.plan
-                    return JOB_FINALIZED
+                    JOB_FINALIZED
                 elsif !plan.mission_task?(task)
-                    return JOB_DROPPED
+                    JOB_DROPPED
                 elsif task.success_event.emitted?
-                    return JOB_SUCCESS
+                    JOB_SUCCESS
                 elsif task.failed_event.emitted?
-                    return JOB_FAILED
+                    JOB_FAILED
                 elsif task.stop_event.emitted?
-                    return JOB_FINISHED
+                    JOB_FINISHED
                 elsif task.running?
-                    return JOB_STARTED
+                    JOB_STARTED
                 elsif task.pending?
                     if planner = task.planning_task
                         if planner.success?
-                            return JOB_READY
+                            JOB_READY
                         elsif planner.stop?
-                            return JOB_PLANNING_FAILED
+                            JOB_PLANNING_FAILED
                         elsif planner.running?
-                            return JOB_PLANNING
+                            JOB_PLANNING
                         else
-                            return JOB_PLANNING_READY
+                            JOB_PLANNING_READY
                         end
-                    else return JOB_READY
+                    else JOB_READY
                     end
                 end
             end
@@ -521,12 +523,12 @@ module Roby
                 end
                 result
             end
-            command :jobs, 'returns the list of non-finished jobs'
+            command :jobs, "returns the list of non-finished jobs"
 
             def find_job_info_by_id(id)
                 if planning_task = plan.find_tasks(Job).with_arguments(job_id: id).to_a.first
                     task = planning_task.planned_task || planning_task
-                    return job_state(task), task, planning_task
+                    [job_state(task), task, planning_task]
                 end
             end
 
@@ -544,7 +546,7 @@ module Roby
             # planning task
             def find_job_placeholder_by_id(id)
                 if task = find_job_by_id(id)
-                    return task.planned_task || task
+                    task.planned_task || task
                 end
             end
 
@@ -566,7 +568,7 @@ module Roby
                 app.reload_actions
                 actions
             end
-            command :reload_actions, 'reloads the files in models/actions/'
+            command :reload_actions, "reloads the files in models/actions/"
 
             # Notification about plan exceptions
             #
@@ -607,9 +609,7 @@ module Roby
             # Notify the end-of-cycle to the listeners registered with
             # {#on_cycle_end}
             def notify_cycle_end
-                cycle_end_listeners.each do |listener|
-                    listener.call
-                end
+                cycle_end_listeners.each(&:call)
             end
 
             # Remove a handler that has been added to {#on_cycle_end}
@@ -621,7 +621,7 @@ module Roby
             def quit
                 execution_engine.quit
             end
-            command :quit, 'requests that the Roby application quits'
+            command :quit, "requests that the Roby application quits"
 
             # Requests for the Roby application to quit
             def restart
@@ -630,27 +630,27 @@ module Roby
             command :restart, "restart this app's process"
 
             # This is implemented on ShellClient directly
-            command 'describe', 'gives details about the given action',
-                action: 'the action itself'
+            command "describe", "gives details about the given action",
+                    action: "the action itself"
 
             # This is implemented on Server directly
-            command 'enable_notifications', 'enables the forwarding of notifications'
-            command 'disable_notifications', 'disables the forwarding of notifications'
+            command "enable_notifications", "enables the forwarding of notifications"
+            command "disable_notifications", "disables the forwarding of notifications"
 
             # Enable or disable backtrace filtering
             def enable_backtrace_filtering(enable: true)
                 app.filter_backtraces = enable
             end
-            command :enable_backtrace_filtering, 'enable or disable backtrace filtering',
-                enable: 'true to enable, false to disable',
-                advanced: true
+            command :enable_backtrace_filtering, "enable or disable backtrace filtering",
+                    enable: "true to enable, false to disable",
+                    advanced: true
 
             # Returns the app's log directory
             def log_dir
                 app.log_dir
             end
             command :log_dir, "the app's log directory",
-                advanced: true
+                    advanced: true
         end
     end
 end

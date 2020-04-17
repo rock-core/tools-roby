@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     @state = Roby::StateSpace.new
     @conf = Roby::ConfModel.new
@@ -19,7 +21,9 @@ module Roby
         # It is always the same as Roby.app.plan
         #
         # @return [Plan]
-        def plan; app.plan end
+        def plan
+            app.plan
+        end
 
         # The main execution engine
         #
@@ -60,7 +64,7 @@ module Roby
         # This is the object that defines the core execution policies (e.g. what
         # to do if the dependency of a non-running task stops). See
         # {DecisionControl}
-        def control(object)
+        def control=(object)
             app.plan.execution_engine.control = object
         end
 
@@ -70,10 +74,12 @@ module Roby
             app.execution_engine
         end
     end
-    
+
     # Defines a global exception handler on the main plan.
     # See also Plan#on_exception
-    def self.on_exception(matcher, &handler); Roby.app.plan.on_exception(matcher, &handler) end
+    def self.on_exception(matcher, &handler)
+        Roby.app.plan.on_exception(matcher, &handler)
+    end
 
     # The main state object
     State = Roby.state

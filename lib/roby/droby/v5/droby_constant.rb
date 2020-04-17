@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module DRoby
         module V5
@@ -21,9 +23,14 @@ module Roby
                     @@valid_constants.clear
                 end
 
-                @@valid_constants = Hash.new
-                def self.valid_constants; @@valid_constants end
-                def to_s; "#<dRoby:Constant #{name}>" end
+                @@valid_constants = {}
+                def self.valid_constants
+                    @@valid_constants
+                end
+
+                def to_s
+                    "#<dRoby:Constant #{name}>"
+                end
 
                 # Generic implementation of the constant-dumping method. This is to
                 # be included in all kind of classes which should be dumped by their
@@ -53,10 +60,13 @@ module Roby
                             raise ConstantResolutionFailed, "cannot resolve constant name for #{self}"
                         end
 
-                        if (local_constant == self)
+                        if local_constant == self
                             DRobyConstant.valid_constants[self] = DRobyConstant.new(name, peer.known_siblings_for(self))
                         else
-                            raise MismatchingLocalConstant, "got DRobyConstant whose name '#{name}' resolves to #{local_constant}(#{local_constant.class}), not itself (#{self})"
+                            raise MismatchingLocalConstant,
+                                  "got DRobyConstant whose name '#{name}' resolves "\
+                                  "to #{local_constant}(#{local_constant.class}), "\
+                                  "not itself (#{self})"
                         end
                     end
 
@@ -70,16 +80,17 @@ module Roby
                 # The constant name
                 attr_reader :name
 
-                def initialize(name, remote_siblings = Hash.new)
+                def initialize(name, remote_siblings = {})
                     @name = name
                     @remote_siblings = remote_siblings
                 end
+
                 # Returns the local object which can be referenced by this name, or
                 # raises ArgumentError.
-                def proxy(peer); constant(name) end
+                def proxy(peer)
+                    constant(name)
+                end
             end
         end
     end
 end
-
-

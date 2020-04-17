@@ -1,4 +1,6 @@
-require 'state_machine/machine'
+# frozen_string_literal: true
+
+require "state_machine/machine"
 
 module Roby
     # Helper to get a more roby-like feeling to the state machine definitions
@@ -19,7 +21,7 @@ module Roby
             }
             state_machine.state(state) do
                 define_method(:poll) do |task|
-                    if !@script_engine
+                    unless @script_engine
                         @script_engine = script_engine.bind(task)
                         @script_engine.prepare
                         @script_engine.step
@@ -139,15 +141,15 @@ module Roby
             new_paths = []
             initialized = false
 
-            while event_list.size > 0
+            until event_list.empty?
                 current_event = event_list.first
                 # expand path
                 @transitions.each do |transition|
                     # Get transitions that match event
-                    if current_event == transition.event()
+                    if current_event == transition.event
                         # expand first set of transactions
-                        if not initialized
-                            new_paths << [ transition ]
+                        if !initialized
+                            new_paths << [transition]
                         else
                             # find transitions that lead to the last transition
                             paths.each do |path|
@@ -168,13 +170,13 @@ module Roby
             if paths.size == 1
                 # Retrieve last (by time) transitions target state
                 return paths[0].last.to_name
-            elsif paths.size > 0
-                throw "Event list is ambigious, requiring more events"
+            elsif !paths.empty?
+                raise "event list is ambiguous, requiring more events"
             end
 
-            throw "Event list is invalid"
+            raise "event list is invalid"
         end
-    end # module TaskStateHelper
+    end
 
     # The TaskStateHelper allows to add a statemachine to
     # a Roby::Task and allows the tracking of events within
@@ -187,7 +189,7 @@ module Roby
         end
 
         def namespace=(name)
-            @namespace=name
+            @namespace = name
         end
 
         # Proxy object used in the definition of state machines on Roby::Task
@@ -238,14 +240,14 @@ module Roby
         # can be retrieved via
         #     yourtask.state_machine.status
         #
-        def refine_running_state (*args, &block)
+        def refine_running_state(*args, &block)
             if args.last.kind_of?(Hash)
                 options = args.pop
             end
-            options = Kernel.validate_options(options || Hash.new, namespace: nil)
+            options = Kernel.validate_options(options || {}, namespace: nil)
 
             if options.has_key?(:namespace)
-                self.namespace=options[:namespace]
+                self.namespace = options[:namespace]
             end
 
             # Check if a model of a class ancestor already exists
@@ -286,7 +288,7 @@ module Roby
             # Roby requires the self to be the subclassed Roby::Task
             # Thus embed import into refine_running_state and using eval here
             machine.events.each do |e|
-                if !has_event?(e.name)
+                unless has_event?(e.name)
                     event e.name, controlable: true
                 end
                 # when event is called transition the state_machine
@@ -304,5 +306,4 @@ module Roby
         # Setup is done in #initialize
         # Polling is done in Task.do_poll
     end
-end # module Roby
-
+end

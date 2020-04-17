@@ -1,13 +1,15 @@
-source 'https://rubygems.org'
+# frozen_string_literal: true
+
+source "https://rubygems.org"
 
 platform :mri do
-    gem 'stackprof'
-    gem 'rbtrace'
-    group 'gui' do
-        gem 'qtbindings'
+    gem "rbtrace"
+    gem "stackprof"
+    group "gui" do
+        gem "qtbindings"
     end
 end
-gem 'coveralls'
-gem 'yard'
+gem "coveralls"
+gem "yard"
 
 gemspec

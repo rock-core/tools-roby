@@ -20,7 +20,7 @@ module Roby
                             end
                             .join('\n  ')
 
-                        flunk('expected to receive a log event '\
+                        flunk("expected to receive a log event "\
                               "#{m}(#{args.map(&:to_s).join(', ')}) but did not. "\
                               "Received:\n  #{received_events_s}")
                     end
@@ -44,7 +44,7 @@ module Roby
             def assert_exception_can_be_pretty_printed(e)
                 # verify that the exception can be pretty-printed, all Roby
                 # exceptions should
-                PP.pp(e, ''.dup)
+                PP.pp(e, "".dup)
             end
 
             # Better equality test for sets
@@ -137,18 +137,18 @@ module Roby
             def assert_child_of(parent, child, relation, *info)
                 assert_same parent.relation_graphs, child.relation_graphs,
                             "#{parent} and #{child} cannot be related as they "\
-                            'are not acting on the same relation graphs'
+                            "are not acting on the same relation graphs"
                 graph = parent.relation_graph_for(relation)
                 assert graph.has_vertex?(parent),
                        "#{parent} and #{child} canot be related in #{relation}"\
-                       ' as the former is not in the graph'
+                       " as the former is not in the graph"
                 assert graph.has_vertex?(child),
                        "#{parent} and #{child} canot be related in #{relation}"\
-                       ' as the latter is not in the graph'
+                       " as the latter is not in the graph"
                 assert parent.child_object?(child, relation),
                        "#{child} is not a child of #{parent} in #{relation}"
                 unless info.empty?
-                    assert_equal info.first, parent[child, relation], 'info differs'
+                    assert_equal info.first, parent[child, relation], "info differs"
                 end
             end
 
@@ -157,7 +157,7 @@ module Roby
             def refute_child_of(parent, child, relation)
                 assert_same parent.relation_graphs, child.relation_graphs,
                             "#{parent} and #{child} cannot be related as they "\
-                            'are not acting on the same relation graphs'
+                            "are not acting on the same relation graphs"
                 graph = parent.relation_graph_for(relation)
                 refute(graph.has_vertex?(parent) && graph.has_vertex?(child) &&
                        parent.child_object?(child, relation))
@@ -165,7 +165,7 @@ module Roby
 
             # This assertion fails if the relative error between +found+ and
             # +expected+is more than +error+
-            def assert_relative_error(expected, found, error, msg = '')
+            def assert_relative_error(expected, found, error, msg = "")
                 if expected == 0
                     assert_in_delta(0, found, error,
                                     "comparing #{found} to #{expected} in #{msg}")
@@ -178,7 +178,7 @@ module Roby
             # This assertion fails if +found+ and +expected+ are more than +dl+
             # meters apart in the x, y and z coordinates, or +dt+ radians apart
             # in angles
-            def assert_same_position(expected, found, dl = 0.01, dt = 0.01, msg = '')
+            def assert_same_position(expected, found, dl = 0.01, dt = 0.01, msg = "")
                 assert_relative_error(expected.x, found.x, dl, msg)
                 assert_relative_error(expected.y, found.y, dl, msg)
                 assert_relative_error(expected.z, found.z, dl, msg)
@@ -200,7 +200,7 @@ module Roby
                 dumped =
                     begin Marshal.dump(droby)
                     rescue Exception => e
-                        require 'roby/droby/logfile/writer'
+                        require "roby/droby/logfile/writer"
                         obj, exception = Roby::DRoby::Logfile::Writer
                                          .find_invalid_marshalling_object(droby)
                         raise e, "#{obj} cannot be marshalled: "\
@@ -294,7 +294,7 @@ module Roby
                 enable_scheduler: nil, garbage_collect_pass: true
             )
                 Roby.warn_deprecated "#{__method__} is deprecated, use "\
-                                     '#expect_execution { ... }.to { emit event } instead'
+                                     "#expect_execution { ... }.to { emit event } instead"
                 expect_execution { yield if block_given? }
                     .timeout(timeout)
                     .scheduler(enable_scheduler)
@@ -308,8 +308,8 @@ module Roby
             # @deprecated use #expect_execution { ... }.to { quarantine task }
             def assert_task_quarantined(task, timeout: 5)
                 Roby.warn_deprecated "#{__method__} is deprecated, use "\
-                                     '#expect_execution { ... }.to { quarantine task } '\
-                                     'instead'
+                                     "#expect_execution { ... }.to { quarantine task } "\
+                                     "instead"
                 expect_execution { yield }
                     .timeout(timeout)
                     .to { quarantine task }
@@ -319,8 +319,8 @@ module Roby
             #                 .to { become_unreachable generator }
             def assert_event_becomes_unreachable(generator, timeout: 5)
                 Roby.warn_deprecated "#{__method__} is deprecated, use "\
-                                     '#expect_execution { ... }.to '\
-                                     '{ become_unreachable generator } instead'
+                                     "#expect_execution { ... }.to "\
+                                     "{ become_unreachable generator } instead"
                 expect_execution { yield }
                     .timeout(timeout)
                     .to { become_unreachable generator }
@@ -332,7 +332,7 @@ module Roby
                                                   failure_point: EventGenerator, &block)
                 Roby.warn_deprecated(
                     "#{__method__} is deprecated, use instead expect_execution { ... }"\
-                    '.to { have_error_matching ... }'
+                    ".to { have_error_matching ... }"
                 )
                 assert_event_emission_failed(
                     exception,
@@ -348,9 +348,9 @@ module Roby
                                              failure_point: EventGenerator,
                                              execution_engine: nil, &block)
                 Roby.warn_deprecated "#{__method__} is deprecated, use "\
-                                     '#expect_execution { ... }.to '\
-                                     '{ have_error_matching EmissionFailed.match... } '\
-                                     'instead'
+                                     "#expect_execution { ... }.to "\
+                                     "{ have_error_matching EmissionFailed.match... } "\
+                                     "instead"
                 assert_event_exception(
                     exception,
                     original_exception: original_exception,
@@ -366,9 +366,9 @@ module Roby
                                                  failure_point: EventGenerator,
                                                  execution_engine: nil, &block)
                 Roby.warn_deprecated "#{__method__} is deprecated, use "\
-                                     '#expect_execution { ... }.to '\
-                                     '{ have_error_matching CommandFailed.match... } '\
-                                     'instead'
+                                     "#expect_execution { ... }.to "\
+                                     "{ have_error_matching CommandFailed.match... } "\
+                                     "instead"
 
                 assert_event_exception(
                     exception,
@@ -385,9 +385,9 @@ module Roby
                                             failure_point: EventGenerator,
                                             execution_engine: nil, &block)
                 Roby.warn_deprecated "#{__method__} is deprecated, use "\
-                                     '#expect_execution { ... }.to '\
-                                     '{ have_error_matching CommandFailed.match... } '\
-                                     'instead'
+                                     "#expect_execution { ... }.to "\
+                                     "{ have_error_matching CommandFailed.match... } "\
+                                     "instead"
 
                 assert_event_exception(
                     exception,
@@ -403,8 +403,8 @@ module Roby
                                             failure_point: EventGenerator,
                                             execution_engine: nil, &block)
                 Roby.warn_deprecated "#{__method__} is deprecated, use "\
-                                     '#expect_execution { ... }.to '\
-                                     '{ have_error_matching ... } instead'
+                                     "#expect_execution { ... }.to "\
+                                     "{ have_error_matching ... } instead"
 
                 assert_event_exception(
                     matcher,
@@ -418,8 +418,8 @@ module Roby
                                        original_exception: nil,
                                        failure_point: EventGenerator)
                 Roby.warn_deprecated "#{__method__} is deprecated, use "\
-                                     '#expect_execution { ... }.to '\
-                                     '{ have_error_matching ... } instead'
+                                     "#expect_execution { ... }.to "\
+                                     "{ have_error_matching ... } instead"
 
                 matcher = create_exception_matcher(
                     matcher,
@@ -436,8 +436,8 @@ module Roby
                                            original_exception: nil,
                                            tasks: [])
                 Roby.warn_deprecated "#{__method__} is deprecated, use "\
-                                     '#expect_execution { ... }.to '\
-                                     '{ fail_to_start ... } instead'
+                                     "#expect_execution { ... }.to "\
+                                     "{ fail_to_start ... } instead"
                 matcher = create_exception_matcher(
                     matcher,
                     original_exception: original_exception,
@@ -456,8 +456,8 @@ module Roby
                                        kill_tasks: tasks,
                                        garbage_collect: false)
                 Roby.warn_deprecated "#{__method__} is deprecated, "\
-                                     'use #expect_execution { ... }.to '\
-                                     '{ have_error_matching ... } instead'
+                                     "use #expect_execution { ... }.to "\
+                                     "{ have_error_matching ... } instead"
                 matcher = create_exception_matcher(
                     matcher,
                     original_exception: original_exception,
@@ -476,8 +476,8 @@ module Roby
                                          original_exception: nil,
                                          tasks: [])
                 Roby.warn_deprecated "#{__method__} is deprecated, use "\
-                                     '#expect_execution { ... }.to '\
-                                     '{ have_handled_error_matching ... } instead'
+                                     "#expect_execution { ... }.to "\
+                                     "{ have_handled_error_matching ... } instead"
                 matcher = create_exception_matcher(
                     matcher,
                     original_exception: original_exception,
@@ -493,8 +493,8 @@ module Roby
                                           original_exception: nil,
                                           tasks: [])
                 Roby.warn_deprecated "#{__method__} is deprecated, use "\
-                                     '#expect_execution { ... }.to '\
-                                     '{ have_error_matching ... } instead'
+                                     "#expect_execution { ... }.to "\
+                                     "{ have_error_matching ... } instead"
                 matcher = create_exception_matcher(
                     matcher,
                     original_exception: original_exception,
@@ -514,19 +514,19 @@ module Roby
             # @deprecated
             def assert_free_event_exception_warning
                 Roby.warn_deprecated "#{__method__} is deprecated, and has no "\
-                                     'replacements. It is not needed when using '\
-                                     'the expect_execution harness'
+                                     "replacements. It is not needed when using "\
+                                     "the expect_execution harness"
                 messages = capture_log(execution_engine, :warn) do
                     yield
                 end
-                assert_equal ['1 free event exceptions'], messages
+                assert_equal ["1 free event exceptions"], messages
             end
 
             # @deprecated
             def assert_notifies_free_event_exception(matcher, failure_point: nil)
                 Roby.warn_deprecated "#{__method__} is deprecated, and has no "\
-                                     'replacements. It is not needed when using '\
-                                     'the expect_execution harness'
+                                     "replacements. It is not needed when using "\
+                                     "the expect_execution harness"
                 flexmock(execution_engine)
                     .should_receive(:notify_exception)
                     .with(
@@ -541,8 +541,8 @@ module Roby
                                   original_exception: nil,
                                   failure_point: PlanObject)
                 Roby.warn_deprecated "#{__method__} is deprecated, use "\
-                                     '#expect_execution { ... }.to '\
-                                     '{ have_error_matching ... } instead'
+                                     "#expect_execution { ... }.to "\
+                                     "{ have_error_matching ... } instead"
 
                 matcher = create_exception_matcher(
                     matcher,
@@ -557,8 +557,8 @@ module Roby
             #                 .to { have_framework_error_matching ... } instead
             def assert_adds_framework_error(matcher)
                 Roby.warn_deprecated "#{__method__} is deprecated, use "\
-                                     '#expect_execution { ... }.to '\
-                                     '{ have_framework_error_matching ... } instead'
+                                     "#expect_execution { ... }.to "\
+                                     "{ have_framework_error_matching ... } instead"
                 expect_execution { yield }
                     .to { have_framework_error_matching matcher }
             end
@@ -633,7 +633,7 @@ module Roby
                                                 timeout: 5,
                                                 start: true)
                 Roby.warn_deprecated "#{__method__} is deprecated, use "\
-                                     '#validate_state_machine instead'
+                                     "#validate_state_machine instead"
                 state_machines =
                     state_machine_task
                     .each_coordination_object
@@ -642,7 +642,7 @@ module Roby
                     raise ArgumentError, "#{state_machine_task} has no state machines"
                 end
 
-                if to_state.respond_to?(:to_str) && !to_state.end_with?('_state')
+                if to_state.respond_to?(:to_str) && !to_state.end_with?("_state")
                     to_state = "#{to_state}_state"
                 end
 
@@ -673,10 +673,10 @@ module Roby
             # which is hard (if not impossible) to represent when using an
             # editor that cleans trailing whitespaces
             def assert_pp(expected, object)
-                actual = PP.pp(object, ''.dup).chomp
+                actual = PP.pp(object, "".dup).chomp
                 actual = actual.split("\n").map do |line|
                     if line =~ /^\s+$/
-                        ''
+                        ""
                     else
                         line
                     end
@@ -711,7 +711,7 @@ module Roby
             #    capture. Use either 'context' or 'event', but not both
             def run_state_machine_capture(task, capture_name, context: [], event: nil)
                 if event && (!context.kind_of?(Array) || !context.empty?)
-                    raise ArgumentError, 'cannot pass both context and event'
+                    raise ArgumentError, "cannot pass both context and event"
                 end
 
                 (capture, state_machine) = find_state_machine_capture(task, capture_name)

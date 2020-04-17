@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     # Combine event generators using an AND. The generator will emit once all
     # its source events have emitted, and become unreachable if any of its
@@ -42,7 +44,7 @@ module Roby
             # events of each event generator. We compare the event stored in
             # this hash with the last events of each source to know if the
             # source fired since it has been added to this AndGenerator
-            @events = Hash.new
+            @events = {}
 
             # This flag is true unless we are not waiting for the emission
             # anymore.
@@ -78,6 +80,7 @@ module Roby
         # Helper method that will emit the event if all the sources are emitted.
         def emit_if_achieved(context) # :nodoc:
             return if @events.empty? || !@active
+
             each_parent_object(EventStructure::Signal) do |source|
                 return if @events[source] == source.last
             end
@@ -86,8 +89,10 @@ module Roby
         end
 
         # True if the generator has no sources
-        def empty?; relation_graph_for(EventStructure::Signal).root?(self) end
-        
+        def empty?
+            relation_graph_for(EventStructure::Signal).root?(self)
+        end
+
         # Adds a new source to +events+ when a source event is added
         def added_signal_parent(parent, info) # :nodoc:
             super
@@ -111,15 +116,19 @@ module Roby
         end
 
         # The set of source events
-        def events;  each_parent_object(EventStructure::Signal).to_set end
+        def events
+            each_parent_object(EventStructure::Signal).to_set
+        end
+
         # The set of generators that have not been emitted yet.
-        def waiting; each_parent_object(EventStructure::Signal).find_all { |ev| @events[ev] == ev.last } end
-        
+        def waiting
+            each_parent_object(EventStructure::Signal).find_all { |ev| @events[ev] == ev.last }
+        end
+
         # Add a new source to this generator
-        def << (generator)
+        def <<(generator)
             generator.add_signal self
             self
         end
     end
 end
-

@@ -1,11 +1,13 @@
-require 'roby/test/self'
-require 'roby/schedulers/temporal'
+# frozen_string_literal: true
+
+require "roby/test/self"
+require "roby/schedulers/temporal"
 
 class TC_Schedulers_Temporal < Minitest::Test
     attr_reader :scheduler
 
     def scheduler_initial_events
-        while true
+        loop do
             break if execute { scheduler.initial_events.empty? }
         end
     end
@@ -50,7 +52,7 @@ class TC_Schedulers_Temporal < Minitest::Test
     end
 
     def verify_event_ordering(*events)
-        mock = flexmock("event ordering for #{events.map(&:to_s).join(", ")}")
+        mock = flexmock("event ordering for #{events.map(&:to_s).join(', ')}")
         events.each do |ev|
             mock.should_receive(:emitted).with(ev).ordered.once
             ev.on { |event| mock.emitted(event.generator) }
@@ -163,6 +165,3 @@ class TC_Schedulers_Temporal < Minitest::Test
         assert scheduler.can_schedule?(t1, Time.now)
     end
 end
-
-
-

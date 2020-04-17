@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module PlanReplaceBehaviors
         module Common
@@ -66,8 +68,8 @@ module Roby
 
         def self.replace_task_common(context)
             context.it "calls the replaced hook" do
-                flexmock(replacement_plan).should_receive(:replaced).
-                    with(replacement_plan[@replaced_task], replacement_plan[@replacing_task]).once
+                flexmock(replacement_plan).should_receive(:replaced)
+                    .with(replacement_plan[@replaced_task], replacement_plan[@replacing_task]).once
                 perform_replacement
             end
 
@@ -100,8 +102,8 @@ module Roby
             end
 
             context.it "raises if the replacing task does not fullfill the replaced task" do
-                flexmock(replacement_plan[@replacing_task]).should_receive(:fullfills?).
-                    and_return(false)
+                flexmock(replacement_plan[@replacing_task]).should_receive(:fullfills?)
+                    .and_return(false)
                 assert_raises(InvalidReplace) do
                     perform_replacement
                 end
@@ -118,7 +120,7 @@ module Roby
 
             context.it "provides a more useful error message if the InvalidReplace error is caused by mismatching arguments" do
                 model = Task.new_submodel
-                @replaced_task.fullfilled_model = [Task, [], {arg: 10}]
+                @replaced_task.fullfilled_model = [Task, [], { arg: 10 }]
                 @replacing_task.arguments[:arg] = 20
                 e = assert_raises(InvalidReplace) do
                     perform_replacement
@@ -238,14 +240,14 @@ module Roby
 
         def self.replace_common(context)
             context.it "calls the replaced hook" do
-                flexmock(replacement_plan).should_receive(:replaced).
-                    with(replacement_plan[@replaced_task], replacement_plan[@replacing_task]).once
+                flexmock(replacement_plan).should_receive(:replaced)
+                    .with(replacement_plan[@replaced_task], replacement_plan[@replacing_task]).once
                 perform_replacement
             end
 
             context.it "raises if the replacing task does not fullfill the replaced task" do
-                flexmock(replacement_plan[@replacing_task]).should_receive(:fullfills?).
-                    and_return(false)
+                flexmock(replacement_plan[@replacing_task]).should_receive(:fullfills?)
+                    .and_return(false)
                 assert_raises(InvalidReplace) do
                     perform_replacement
                 end
@@ -262,7 +264,7 @@ module Roby
 
             context.it "provides a more useful error message if the InvalidReplace error is caused by mismatching arguments" do
                 model = Task.new_submodel
-                @replaced_task.fullfilled_model = [Task, [], {arg: 10}]
+                @replaced_task.fullfilled_model = [Task, [], { arg: 10 }]
                 @replacing_task.arguments[:arg] = 20
                 e = assert_raises(InvalidReplace) do
                     perform_replacement
@@ -336,8 +338,8 @@ module Roby
             end
 
             context.it "ignores out edges to free events" do
-                @replaced_task.start_event.
-                    forward_to(ev = Roby::EventGenerator.new)
+                @replaced_task.start_event
+                    .forward_to(ev = Roby::EventGenerator.new)
                 perform_replacement
                 assert @replaced_task.start_event.child_object?(ev, EventStructure::Forwarding)
                 refute @replacing_task.start_event.child_object?(ev, EventStructure::Forwarding)

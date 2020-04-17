@@ -1,9 +1,10 @@
+# frozen_string_literal: true
+
 module Roby
     module App
         # Class that holds the robot-specific configuration blocks as defined
-        # inside 
+        # inside
         class RobotConfig
         end
     end
 end
-

@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 module Roby
     module Queries
@@ -9,7 +11,7 @@ module Roby
                     @localized_error_m = Class.new(LocalizedError)
                     @matcher = localized_error_m.to_execution_exception_matcher
                     task = Roby::Task.new
-                    @error   = localized_error_m.new(task).to_execution_exception
+                    @error = localized_error_m.new(task).to_execution_exception
                 end
 
                 it "matches both handled and unhandled exceptions if unset" do
@@ -83,4 +85,3 @@ module Roby
         end
     end
 end
-

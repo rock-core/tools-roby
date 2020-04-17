@@ -1,7 +1,9 @@
-require 'roby/test/self'
-require 'roby/tasks/simple'
+# frozen_string_literal: true
 
-require './test/test_plan'
+require "roby/test/self"
+require "roby/tasks/simple"
+
+require "./test/test_plan"
 
 # Check that a transaction behaves like a plan
 class TC_TransactionAsPlan < Minitest::Test
@@ -10,12 +12,16 @@ class TC_TransactionAsPlan < Minitest::Test
 
     attr_reader :real_plan
     attr_reader :plan
-    def engine; (real_plan || plan).engine end
+    def engine
+        (real_plan || plan).engine
+    end
+
     def setup
         super
         @real_plan = Roby::Plan.new
         @plan = Transaction.new(real_plan)
     end
+
     def teardown
         if real_plan
             @plan.discard_transaction
@@ -96,7 +102,7 @@ module TC_TransactionBehaviour
     def test_wrapping_a_task_copies_relations_between_its_events_and_the_tasks_outside
         plan.add(parent = Roby::Task.new)
         plan.add(task = Roby::Task.new)
-        plan.add(child  = Roby::Task.new)
+        plan.add(child = Roby::Task.new)
         parent.start_event.signals task.start_event
         task.start_event.signals child.start_event
 
@@ -202,7 +208,7 @@ module TC_TransactionBehaviour
         yield(trsc, *proxies)
 
         # Check that no task in trsc are in plan, and that no task of plan are in trsc
-        assert( (trsc.tasks & plan.tasks).empty?, (trsc.tasks & plan.tasks).to_a.map(&:to_s).join("\n  "))
+        assert((trsc.tasks & plan.tasks).empty?, (trsc.tasks & plan.tasks).to_a.map(&:to_s).join("\n  "))
 
         plan = trsc.plan
         trsc.send(op)
@@ -224,7 +230,6 @@ module TC_TransactionBehaviour
         plan.tasks.each do |t|
             assert_kind_of(Roby::Task, t, t.class.ancestors.inspect)
         end
-
     rescue
         trsc.discard_transaction
         raise
@@ -233,6 +238,7 @@ module TC_TransactionBehaviour
     def transaction_commit(plan, *needed_proxies, &block)
         transaction_op(plan, :commit_transaction, *needed_proxies, &block)
     end
+
     def transaction_discard(plan, *needed_proxies, &block)
         transaction_op(plan, :discard_transaction, *needed_proxies, &block)
     end
@@ -360,7 +366,7 @@ module TC_TransactionBehaviour
             trsc.replace(p, t2)
         end
 
-        assert(! plan.find_plan_service(t))
+        assert(!plan.find_plan_service(t))
         assert_equal(service, plan.find_plan_service(t2))
         assert_equal(t2, service.task)
     end
@@ -642,15 +648,15 @@ module TC_TransactionBehaviour
 
     def test_commit_modified_relations
         (t1, t2) = prepare_plan(add: 2)
-        flexmock(t1.relation_graph_for(Dependency)).
-            should_receive(:merge_info).
-            and_return { |a, b| a.merge(b) }
+        flexmock(t1.relation_graph_for(Dependency))
+            .should_receive(:merge_info)
+            .and_return { |a, b| a.merge(b) }
 
         t1.add_child(t2, Hash[0, 1, 2, 3])
         transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-            flexmock(p1.relation_graph_for(Dependency)).
-                should_receive(:merge_info).
-                and_return { |_, _, a, b| a.merge(b) }
+            flexmock(p1.relation_graph_for(Dependency))
+                .should_receive(:merge_info)
+                .and_return { |_, _, a, b| a.merge(b) }
             p1.add_child(p2, Hash[0, 5, 4, 5])
             assert_equal Hash[0, 5, 2, 3, 4, 5], p1[p2, Dependency]
             assert_equal Hash[0, 1, 2, 3], t1[t2, Dependency]
@@ -733,10 +739,21 @@ module TC_TransactionBehaviour
         assert_child_of parent.stop_event, child.start_event, Forwarding, info
     end
 
-    def signal_graph; plan.event_relation_graph_for(Signal) end
-    def forwarding_graph; plan.event_relation_graph_for(Forwarding) end
-    def dependency_graph; plan.task_relation_graph_for(Dependency) end
-    def planned_by_graph; plan.task_relation_graph_for(PlannedBy) end
+    def signal_graph
+        plan.event_relation_graph_for(Signal)
+    end
+
+    def forwarding_graph
+        plan.event_relation_graph_for(Forwarding)
+    end
+
+    def dependency_graph
+        plan.task_relation_graph_for(Dependency)
+    end
+
+    def planned_by_graph
+        plan.task_relation_graph_for(PlannedBy)
+    end
 
     def test_commit_replace_updates_relations
         root, task, child, replacement = prepare_plan tasks: 4, model: Tasks::Simple
@@ -1393,12 +1410,16 @@ class TC_RecursiveTransaction < Minitest::Test
     include TC_TransactionBehaviour
 
     attr_reader :real_plan
-    def engine; (real_plan || plan).engine end
+    def engine
+        (real_plan || plan).engine
+    end
+
     def setup
         super
         @real_plan = @plan
         @plan = Roby::Transaction.new(real_plan)
     end
+
     def teardown
         plan.discard_transaction
         real_plan.clear
@@ -1451,7 +1472,7 @@ module Roby
                         intermediate.depends_on(other = Roby::Task.new)
                         @replaced_task.start_event.forward_to other.start_event
                         other.stop_event.forward_to @replaced_task.stop_event
-                        replaced_proxy  = @transaction[@replaced_task]
+                        replaced_proxy = @transaction[@replaced_task]
                         replacing_proxy = @transaction[@replacing_task]
                         # transactions do wrap task events if they are involved
                         # in relations with other task's events. Moreover, a
@@ -1459,8 +1480,8 @@ module Roby
                         # #initialize_replacement, so we get both start and
                         # stop on both sides
                         @transaction.replace(replaced_proxy, replacing_proxy)
-                        assert_equal [:start, :stop], replaced_proxy.each_event.map(&:symbol)
-                        assert_equal [:start, :stop], replacing_proxy.each_event.map(&:symbol)
+                        assert_equal %i[start stop], replaced_proxy.each_event.map(&:symbol)
+                        assert_equal %i[start stop], replacing_proxy.each_event.map(&:symbol)
                     end
 
                     it "does not wrap events that are not needed" do
@@ -1469,8 +1490,8 @@ module Roby
                         replaced_proxy  = @transaction[@replaced_task]
                         replacing_proxy = @transaction[@replacing_task]
                         @transaction.replace(replaced_proxy, replacing_proxy)
-                        assert_equal [:start, :stop], replaced_proxy.each_event.map(&:symbol)
-                        assert_equal [:start, :stop], replacing_proxy.each_event.map(&:symbol)
+                        assert_equal %i[start stop], replaced_proxy.each_event.map(&:symbol)
+                        assert_equal %i[start stop], replacing_proxy.each_event.map(&:symbol)
                     end
                 end
 

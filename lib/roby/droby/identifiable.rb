@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Roby
     module DRoby
         module Identifiable
@@ -17,6 +19,3 @@ module Roby
         end
     end
 end
-
-
-

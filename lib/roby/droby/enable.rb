@@ -1,4 +1,6 @@
-require 'roby/droby'
+# frozen_string_literal: true
+
+require "roby/droby"
 
 Exception.extend  Roby::DRoby::V5::Builtins::ClassDumper
 Exception.extend  Roby::DRoby::Identifiable
@@ -20,8 +22,7 @@ class Class
 end
 
 class NilClass
-    def droby_id
-    end
+    def droby_id; end
 end
 
 module Roby
@@ -150,4 +151,3 @@ module Roby
         end
     end
 end
-

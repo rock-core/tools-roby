@@ -1,4 +1,6 @@
-require 'roby/test/self'
+# frozen_string_literal: true
+
+require "roby/test/self"
 
 module Roby
     module DRoby
@@ -24,28 +26,27 @@ module Roby
                 end
 
                 def transfer(obj)
-                    ::Marshal.load(::Marshal.dump(marshaller.dump(obj))).
-                        proxy(demarshaller)
+                    ::Marshal.load(::Marshal.dump(marshaller.dump(obj)))
+                        .proxy(demarshaller)
                 end
 
                 describe "provided_models_of" do
                     it "stops at the superclass" do
-                        super_m   = Module.new
+                        super_m = Module.new
                         super_m.include Module.new
                         m = Module.new do
                             extend ModelDumper
                             include super_m
                         end
 
-                        flexmock(m).should_receive(:supermodel).explicitly.
-                            and_return(super_m)
+                        flexmock(m).should_receive(:supermodel).explicitly
+                            .and_return(super_m)
 
                         assert_equal [], DRobyModel.provided_models_of(m)
-
                     end
 
                     it "selects only the modules that are extended by ModelDumper" do
-                        dumped_m  = Module.new do
+                        dumped_m = Module.new do
                             extend ModelDumper
                         end
                         ignored_m = Module.new
@@ -53,10 +54,11 @@ module Roby
                             extend ModelDumper
                             include dumped_m
                             include ignored_m
-                            def self.supermodel; nil end
+                            def self.supermodel
+                                nil
+                            end
                         end
                         assert_equal [dumped_m], DRobyModel.provided_models_of(m)
-
                     end
                 end
 
@@ -64,7 +66,7 @@ module Roby
                     attr_reader :provided_m, :local, :droby_model
                     before do
                         @provided_m = Module.new { extend Identifiable }
-                        @droby_model = DRobyModel.new('', Hash.new, Class.new, [marshalled_m = flexmock])
+                        @droby_model = DRobyModel.new("", {}, Class.new, [marshalled_m = flexmock])
                         marshalled_m.should_receive(:proxy).and_return(provided_m)
                         @local = Class.new { extend Identifiable }
                     end
@@ -84,5 +86,3 @@ module Roby
         end
     end
 end
-
-
