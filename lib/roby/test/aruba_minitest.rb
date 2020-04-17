@@ -44,12 +44,14 @@ module Roby
                 @aruba_api.run_command(*args)
             end
 
-            def run_roby_and_stop(cmd, *args, fail_on_error: true)
-                run_command_and_stop("#{Gem.ruby} #{roby_bin} #{cmd}", *args, fail_on_error: fail_on_error)
+            def run_roby_and_stop(cmd, *args, fail_on_error: true, **opts)
+                run_command_and_stop("#{Gem.ruby} #{roby_bin} #{cmd}", *args,
+                                     fail_on_error: fail_on_error, **opts)
             end
 
-            def run_roby(cmd, *args, fail_on_error: true)
-                run_command("#{Gem.ruby} #{roby_bin} #{cmd}", *args, fail_on_error: fail_on_error)
+            def run_roby(cmd, *args, fail_on_error: true, **opts)
+                run_command("#{Gem.ruby} #{roby_bin} #{cmd}", *args,
+                            fail_on_error: fail_on_error, **opts)
             end
 
             def method_missing(m, *args, &block)

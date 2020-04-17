@@ -288,11 +288,9 @@ module Roby
                 begin
                     require "rubocop/rake_task"
                 rescue LoadError
-                    if Rake.require_rubocop?
-                        raise
-                    else
-                        return
-                    end
+                    raise if required
+
+                    return
                 end
 
                 define_rubocop(junit: junit, report_dir: report_dir)
