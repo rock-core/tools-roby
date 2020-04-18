@@ -7,7 +7,68 @@ require "shellwords"
 
 module Roby
     module App
-        # Rake task definitions for the Roby apps
+        # Utility for Rakefile's in the generated apps
+        #
+        # = Tests
+        #
+        # {Rake::TestTask} generates a set of Rake tasks which run the tests.
+        # One task is created per robot configuration in `config/robots/`, and
+        # one "test" task is created that runs all the others. For instance,
+        # adding
+        #
+        #   Roby::App::Rake::TestTask.new
+        #
+        # in an app that has `config/robots/default.rb` and
+        # `config/robots/live.rb` will generate the `test:default`, `test:live`
+        # and `test` tasks.
+        #
+        # See {Rake::TestTask} documentation for possible configuration.
+        # Attributes can be modified in a block passed to `new`, e.g.:
+        #
+        #   Roby::App::Rake::TestTask.new do |t|
+        #       t.robot_names.delete(%w[default default])
+        #   end
+        #
+        # The tests will by default run the default minitest reporter. However,
+        # if the JUNIT environment variable is set to 1, they will instead be
+        # configured to generate a junit-compatible report. The report is named
+        # after the robot configuration (e.g. `default:default.junit.xml`) and
+        # placed in the report dir.
+        #
+        # The report dir is by default a `.test-results` folder at the root of
+        # the app. It can be changed by setting the `REPORT_DIR` environment
+        # variable.
+        #
+        # = Rubocop
+        #
+        # {Rake.define_rubocop} will configure a "rubocop" task. Its sibling,
+        # {Rake.define_rubocop_if_enabled} will do so, but controlled by a
+        # `RUBOCOP` environment variable:
+        #
+        #   - `RUBOCOP=1` will require that rubocop is present and define the
+        #     task
+        #   - `RUBOCOP=0` will never define the task
+        #   - any other value (including not having the variable defined) will
+        #     define the task only if rubocop is available.
+        #
+        # Note that the method only defines the task. If you mean to have it run
+        # along with the tests, you must add it explicitely as a dependency
+        #
+        #   task "test" => "rubocop"
+        #
+        # When using {Rake.define_rubocop_if_enabled}, use the method's return
+        # value to guard against the cases where the task is not defined, e.g.
+        #
+        #   task "test" => "rubocop" if Roby::App::Rake.define_rubocop_if_enabled
+        #
+        # The task uses rubocop's standard output formatter by default.
+        # However, if the JUNIT environment variable is set to 1, it will
+        # instead be configured to generate a junit-compatible report named
+        # `rubocop.junit.xml` in the same report dir than the tests.
+        #
+        # The report dir is by default a `.test-results` folder at the root of
+        # the app. It can be changed by setting the `REPORT_DIR` environment
+        # variable.
         module Rake
             # Whether the {.define_rubocop_if_enabled} should fail if rubocop is
             # not available
