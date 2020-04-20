@@ -67,8 +67,10 @@ if USE_RUBOCOP
     begin
         require "rubocop/rake_task"
         RuboCop::RakeTask.new do |t|
-            t.formatters << "junit"
-            t.options << "-o" << "#{REPORT_DIR}/rubocop.junit.xml"
+            if USE_JUNIT
+                t.formatters << "junit"
+                t.options << "-o" << "#{REPORT_DIR}/rubocop.junit.xml"
+            end
         end
         task "test" => "rubocop"
     rescue LoadError
