@@ -95,14 +95,18 @@ task :uic do
     rbuic = "rbuic4"
     rbuic = "/usr/lib/kde4/bin/rbuic4" if File.exist?("/usr/lib/kde4/bin/rbuic4")
 
+    failed = false
     UIFILES.each do |file|
         file = "lib/roby/" + file
         unless system(rbuic, "-o", file.gsub(/\.ui$/, "_ui.rb"), file)
             STDERR.puts "Failed to generate #{file}"
+            failed = true
         end
     end
+    raise "uic generation failed" if failed
 end
 task "compile" => "uic"
+task "test" => "uic" if has_gui
 
 YARD::Rake::YardocTask.new
 task "doc" => "yard"
