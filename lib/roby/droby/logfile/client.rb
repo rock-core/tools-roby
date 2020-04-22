@@ -57,7 +57,7 @@ module Roby
                     @rx = 0
                     @socket =
                         begin TCPSocket.new(host, port)
-                        rescue Errno::ECONNREFUSED => e
+                        rescue Errno::ECONNREFUSED, Errno::EADDRNOTAVAIL => e
                             raise Interface::ConnectionError, "cannot contact Roby log server at '#{host}:#{port}': #{e.message}"
                         end
                     socket.fcntl(Fcntl::FD_CLOEXEC, 1)
