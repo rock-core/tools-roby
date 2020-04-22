@@ -99,9 +99,12 @@ module Roby
                 end
 
                 it "retries connection if there is nothing to connect to" do
-                    flexmock(Robot).should_receive(:warn)
-                                   .with(/failed to connect.*Connection refused/)
-                                   .at_least.once
+                    flexmock(Robot)
+                        .should_receive(:warn)
+                        .with(/failed\sto\sconnect.*(?:
+                               Connection\srefused|
+                               Cannot\sassign\srequested\saddress)/x)
+                        .at_least.once
                     gen_app
                     t = Thread.new do
                         Base.new.setup_roby_for_interface(
@@ -124,18 +127,23 @@ module Roby
 
                     it "retries and then fails if retry_connection is set and "\
                        "there is a timeout" do
-                        flexmock(Robot).should_receive(:warn)
-                                       .with(/failed to connect.*Connection refused/)
-                                       .at_least.once
+                        flexmock(Robot)
+                            .should_receive(:warn)
+                            .with(/failed\sto\sconnect.*(?:
+                                   Connection\srefused|
+                                   Cannot\sassign\srequested\saddress)/x)
+                            .at_least.once
                         gen_app
                         tic = Time.now
-                        assert_raises(RuntimeError) do
+                        e = assert_raises(Roby::Interface::ConnectionError) do
                             Base.new.setup_roby_for_interface(
                                 app: app, retry_connection: true, timeout: 2,
                                 retry_period: 1
                             )
                         end
-                        assert(Time.now - tic > 1.5)
+                        assert_operator Time.now - tic, :>, 1.5,
+                                        "#{e} received after #{Time.now - tic} "\
+                                        "seconds, expected a timeout of 2s"
                     end
                 end
             end

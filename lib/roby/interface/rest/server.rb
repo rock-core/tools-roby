@@ -210,7 +210,7 @@ module Roby
                                              "#{returned_value}"
                     end
                     true
-                rescue Errno::ECONNREFUSED
+                rescue Errno::ECONNREFUSED, Errno::EADDRNOTAVAIL
                     false
                 rescue RestClient::Exception => e
                     raise InvalidServer, "unexpected server answer to 'ping': #{e}"
