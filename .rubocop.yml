@@ -10,6 +10,8 @@ inherit_mode:
 
 AllCops:
   TargetRubyVersion: "2.5"
+  Exclude:
+    - "lib/roby/gui/**/*_ui.rb"
 
 Naming/FileName:
   Exclude:
