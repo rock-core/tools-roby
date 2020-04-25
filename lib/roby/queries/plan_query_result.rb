@@ -60,7 +60,7 @@ module Roby
             # Called by TaskMatcher#result_set and Query#result_set to get the set
             # of tasks matching +matcher+
             def self.from_plan(plan, matcher) # :nodoc:
-                filtered = matcher.filter(
+                filtered = matcher.filter_tasks_sets(
                     plan.tasks, plan.task_index, initial_is_complete: true
                 )
 
