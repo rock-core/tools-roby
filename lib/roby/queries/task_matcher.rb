@@ -468,6 +468,14 @@ module Roby
                 [positive_sets, negative_sets]
             end
 
+            # @deprecated use {#filter_tasks_sets} instead
+            def filter(initial_set, index, initial_is_complete: false)
+                Roby.warn_deprecated "TaskMatcher#filter is deprecated, "\
+                                     "use {#filter_tasks_sets} instead"
+                filter_tasks_sets(initial_set, index,
+                                  initial_is_complete: initial_is_complete)
+            end
+
             # Filters tasks from an initial set to remove as many not-matching
             # tasks as possible
             #
@@ -479,7 +487,7 @@ module Roby
             # @return [([Set],[Set])] a list of 'positive' sets and a list of 'negative'
             #    sets. The result is computed as
             #    positive.inject(&:&) - negative.inject(&:|)
-            def filter(initial_set, index, initial_is_complete: false)
+            def filter_tasks_sets(initial_set, index, initial_is_complete: false)
                 positive_sets, negative_sets = indexed_sets(index)
                 if !initial_is_complete || positive_sets.empty?
                     positive_sets << initial_set

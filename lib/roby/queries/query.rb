@@ -56,6 +56,19 @@ module Roby
             def each(&block)
                 result_set(plan).each_in_plan(plan, &block)
             end
+
+            # @deprecated use {#filter_tasks_sets} instead
+            def filter(*args, &block)
+                if block_given? # Enumerable version
+                    super
+                else
+                    Roby.warn_deprecated "Query#filter is deprecated, "\
+                                         "use #filter_tasks_sets instead"
+                    # TaskMatcher version
+                    filter_tasks_sets(*args, &block)
+                end
+            end
+
             include ::Enumerable
         end
     end
