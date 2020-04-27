@@ -458,7 +458,9 @@ module Roby
             end
 
             # Whether the shell should stop displaying any notification
-            attr_writer :silent
+            def silent(silent) # rubocop:disable Style/TrivialAccessors
+                @silent = silent
+            end
 
             # Make the remote app quit
             #
