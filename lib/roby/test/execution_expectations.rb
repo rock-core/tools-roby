@@ -633,20 +633,19 @@ module Roby
                 end
 
                 if @return_objects.respond_to?(:to_ary)
-                    @return_objects.map do |obj|
-                        if obj.respond_to?(:return_object)
-                            obj.return_object
-                        else
-                            obj
-                        end
-                    end
+                    compute_returned_objects(@return_objects)
                 else
-                    obj = @return_objects
-                    if obj.respond_to?(:return_object)
-                        obj.return_object
-                    else
-                        obj
-                    end
+                    compute_returned_objects([@return_objects]).first
+                end
+            end
+
+            # Process the value returned by the `.to { }` block to convert it to
+            # the actual result of the expectations
+            def compute_returned_objects(return_objects)
+                return_objects.map do |ret|
+                    obj = ret.respond_to?(:return_object) ? ret.return_object : ret
+                    obj = ret.filter_result(obj) if ret.respond_to?(:filter_result)
+                    obj
                 end
             end
 
@@ -704,12 +703,14 @@ module Roby
                 end
             end
 
+            # @api private
             # Null implementation of an expectation
             class Expectation
                 attr_reader :backtrace
 
                 def initialize(backtrace)
                     @backtrace = backtrace
+                    @result_filters = []
                 end
 
                 # Verifies whether the expectation is met at this point
@@ -734,6 +735,24 @@ module Roby
                 def format_unachievable_explanation(pp, explanation)
                     pp.text "but it did not because of "
                     explanation.pretty_print(pp)
+                end
+
+                # Add a block that should be used to filter the result of this
+                # expectation before returning it to the caller
+                #
+                # This is meant to be used to re-use general expectations in more
+                # specific ones
+                def filter_result_with(&block)
+                    @result_filters << block
+                    self
+                end
+
+                # Filter the result of this expectation before returning it to the
+                # user
+                #
+                # @see filter_result_with
+                def filter_result(result)
+                    @result_filters.inject(result) { |o, b| b.call(o) }
                 end
             end
 

@@ -23,6 +23,28 @@ module Roby
                     assert to_executed
                     refute was_expect_executed
                 end
+
+                it "returns a plain value returned by the to { } block" do
+                    ret = flexmock
+                    assert_equal(ret, expect_execution.to { ret })
+                end
+
+                it "calls #return_value on the block's return value" do
+                    ret = flexmock(return_object: 10)
+                    assert_equal(10, expect_execution.to { ret })
+                end
+
+                it "calls #return_value on the the elements of an array" do
+                    ret1 = flexmock(return_object: 10)
+                    ret2 = flexmock(return_object: 20)
+                    assert_equal([10, 20, 42], expect_execution.to { [ret1, ret2, 42] })
+                end
+
+                it "processes the value returned by #return_object through #filter_result" do
+                    ret1 = flexmock(return_object: 10)
+                    ret1.should_receive(:filter_result).with(10).and_return(15).once
+                    assert_equal([15, 42], expect_execution.to { [ret1, 42] })
+                end
             end
 
             describe "#verify" do
@@ -203,6 +225,24 @@ module Roby
             end
 
             describe "standard expectations" do
+                it "implements a generic result filtering" do
+                    expectation_class = Class.new(ExecutionExpectations::Expectation) do
+                        def return_object
+                            10
+                        end
+                    end
+
+                    expectation = expectation_class.new([]).filter_result_with { |a| a * 2 }
+                    result = expect_execution.to { add_expectation(expectation) }
+                    assert_equal 20, result
+
+                    expectation = expectation_class.new([])
+                                  .filter_result_with { |a| a * 2 }
+                                  .filter_result_with { |a| a - 5 }
+                    result = expect_execution.to { add_expectation(expectation) }
+                    assert_equal 15, result
+                end
+
                 describe "#emits a generator instance" do
                     it "validates when the event is emitted" do
                         plan.add(generator = EventGenerator.new)
