@@ -646,18 +646,32 @@ module Roby
                         end
                         assert (Time.now - base_time) >= 1
                     end
+                    it "uses the given description for to_s" do
+                        expectation = nil
+                        expect_execution.timeout(0).to do
+                            expectation = maintain(description: "some text") { true }
+                        end
+                        assert_equal "some text", expectation.to_s
+                    end
+                    it "accepts a proc as description, to be resolved when needed" do
+                        expectation = nil
+                        value = 0
+                        expect_execution.timeout(0).to do
+                            expectation =
+                                maintain(description: -> { value.to_s }) { value = 10 }
+                        end
+
+                        assert_equal "10", expectation.to_s
+                    end
                 end
 
                 describe "#achieve" do
                     it "succeeds if the block returns true" do
-                        expect_execution
-                            .to { achieve { true } }
+                        expect_execution.to { achieve { true } }
                     end
                     it "fails if the block never returns true" do
                         assert_raises(ExecutionExpectations::Unmet) do
-                            expect_execution
-                                .timeout(0)
-                                .to { achieve {} }
+                            expect_execution.timeout(0).to { achieve {} }
                         end
                     end
                     it "remains achieved once it did" do
@@ -665,20 +679,33 @@ module Roby
                         # ExecutionExpectations evaluates #update_match multiple
                         # times.
                         flipflop = false
-                        expect_execution
-                            .timeout(0)
-                            .to do
-                                achieve { flipflop = !flipflop }
-                            end
+                        expect_execution.timeout(0).to do
+                            achieve { flipflop = !flipflop }
+                        end
                     end
                     it "returns the block's value" do
                         obj = flexmock
-                        ret = expect_execution
-                            .timeout(0)
-                            .to do
-                                achieve { obj }
-                            end
+                        ret = expect_execution.timeout(0).to do
+                            achieve { obj }
+                        end
                         assert_same obj, ret
+                    end
+                    it "uses the given description for to_s" do
+                        expectation = nil
+                        expect_execution.timeout(0).to do
+                            expectation = achieve(description: "some text") { true }
+                        end
+                        assert_equal "some text", expectation.to_s
+                    end
+                    it "accepts a proc as description, to be resolved when needed" do
+                        expectation = nil
+                        value = 0
+                        expect_execution.timeout(0).to do
+                            expectation =
+                                achieve(description: -> { value.to_s }) { value = 10 }
+                        end
+
+                        assert_equal "10", expectation.to_s
                     end
                 end
 

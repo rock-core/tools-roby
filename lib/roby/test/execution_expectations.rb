@@ -1148,7 +1148,7 @@ module Roby
                 def initialize(at_least_during, block, description, backtrace)
                     super(backtrace)
                     @at_least_during = at_least_during
-                    @description = description
+                    @description = description || @backtrace[0].to_s
                     @block = block
                     @deadline = Time.now + at_least_during
                     @failed = false
@@ -1172,14 +1172,18 @@ module Roby
                 end
 
                 def to_s
-                    @description || @backtrace[0].to_s
+                    if @description.respond_to?(:call)
+                        @description.call
+                    else
+                        @description
+                    end
                 end
             end
 
             class Achieve < Expectation
                 def initialize(block, description, backtrace)
                     super(backtrace)
-                    @description = description
+                    @description = description || @backtrace[0].to_s
                     @block = block
                 end
 
@@ -1192,7 +1196,11 @@ module Roby
                 end
 
                 def to_s
-                    @description || @backtrace[0].to_s
+                    if @description.respond_to?(:call)
+                        @description.call
+                    else
+                        @description
+                    end
                 end
             end
 
