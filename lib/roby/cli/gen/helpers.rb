@@ -196,8 +196,10 @@ module Roby
                     indent = ""
                     open_code = []
                     close_code = []
-                    module_path.each do |m|
-                        open_code.push "#{indent}module #{m}"
+                    last_module_i = module_path.size - 1
+                    module_path.each_with_index do |m, i|
+                        nodoc = " #:nodoc:" if i == last_module_i
+                        open_code.push "#{indent}module #{m}#{nodoc}"
                         close_code.unshift "#{indent}end"
                         indent += "    "
                     end
