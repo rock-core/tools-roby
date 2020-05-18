@@ -360,7 +360,7 @@ module Roby
             for h in handlers
                 if h.copy_on_replace?
                     event ||= yield
-                    event.on(h.as_options, &h.block)
+                    event.on(**h.as_options, &h.block)
                 end
             end
 
@@ -368,7 +368,9 @@ module Roby
                 cancel, h = h
                 if h.copy_on_replace?
                     event ||= yield
-                    event.if_unreachable(cancel_at_emission: cancel, on_replace: :copy, &h.block)
+                    event.if_unreachable(
+                        cancel_at_emission: cancel, on_replace: :copy, &h.block
+                    )
                 end
             end
 
@@ -521,8 +523,8 @@ module Roby
         #   once { |context| ... }
         #
         # Calls the provided event handler only once
-        def once(options = {}, &block)
-            on(options.merge(once: true), &block)
+        def once(**options, &block)
+            on(**options.merge(once: true), &block)
             self
         end
 

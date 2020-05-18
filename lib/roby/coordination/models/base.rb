@@ -70,9 +70,8 @@ module Roby
                 #   task model that is going to be used as a toplevel task for the
                 #   state machine
                 # @return [Model<StateMachine>] a subclass of StateMachine
-                def setup_submodel(subclass, options = {})
-                    options = Kernel.validate_options options, root: Roby::Task
-                    subclass.root(options[:root])
+                def setup_submodel(subclass, root: Roby::Task, **options)
+                    subclass.root(root)
                     super
                 end
 
@@ -133,10 +132,13 @@ module Roby
                         super
                 end
 
-                def method_missing(m, *args, &block)
+                def method_missing(m, *args, **kw, &block)
                     if has_argument?(m)
-                        unless args.empty?
-                            raise ArgumentError, "expected zero arguments to #{m}, got #{args.size}: #{args}"
+                        unless args.empty? && kw.empty?
+                            raise ArgumentError,
+                                  "expected zero arguments to #{m}, "\
+                                  "got #{args.size} positional arguments (#{args}) and "\
+                                  "#{kw.size} keyword arguments (#{kw})"
                         end
 
                         Variable.new(m)

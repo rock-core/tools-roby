@@ -31,7 +31,7 @@ module Roby
                         else value
                         end
                     end
-                    action.as_plan(arguments)
+                    action.as_plan(**arguments)
                 end
 
                 # Returns the action's underlying coordination model if there is one

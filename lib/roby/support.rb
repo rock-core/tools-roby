@@ -109,6 +109,51 @@ module Roby
         end
     end
 
+    # Helper to handle Ruby 2.7 behavior when mixing symbols and non-symbols in
+    # "last arg used as keyword hash"
+    #
+    # Under Ruby 2.7, the call
+    #
+    #   def provides(*ary, **kw)
+    #   end
+    #   provides "some" => "mapping", as: "name"
+    #
+    # Will pass all arguments to the keywords splat. This method extracts them
+    # again, adding the resulting hash to the ary argument if there are any,
+    # and doing nothing otherwise (for backward and forward compatibility)
+    def self.sanitize_keywords_to_array(array, keywords)
+        hash = sanitize_keywords(keywords)
+        array << hash unless hash.empty?
+    end
+
+    # Helper to handle Ruby 2.7 behavior when mixing symbols and non-symbols in
+    # "last arg used as keyword hash"
+    #
+    # Under Ruby 2.7, the call
+    #
+    #   def provides(hash = {}, **kw)
+    #   end
+    #   provides "some" => "mapping", as: "name"
+    #
+    # Will pass all arguments to the keywords splat. This method extracts them
+    # again, merging resulting hash into the hash argument if there are any,
+    # and doing nothing otherwise (for backward and forward compatibility)
+    def self.sanitize_keywords_to_hash(hash, keywords)
+        extracted = sanitize_keywords(keywords)
+        hash.merge!(extracted) unless extracted.empty?
+    end
+
+    def self.sanitize_keywords(keywords)
+        hash = {}
+        keywords.delete_if do |k, v|
+            unless k.kind_of?(Symbol)
+                hash[k] = v
+                true
+            end
+        end
+        hash
+    end
+
     logger_m = Logger::Root("Roby", Logger::WARN) do |_severity, time, progname, msg|
         "#{Roby.format_time(time)} (#{progname}) #{msg}\n"
     end

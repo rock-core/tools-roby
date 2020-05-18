@@ -138,7 +138,7 @@ module Roby
                 " Use this to validate the current configuration"
             option :robot, aliases: "r", desc: "the robot name", default: "default"
             option :set, desc: "set configuration variable(s)",
-                         type: :array
+                         type: :array, default: []
             def check(app_dir = nil, *extra_files)
                 app = Roby.app
                 app.app_dir = app_dir if app_dir

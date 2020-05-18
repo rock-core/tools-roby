@@ -18,7 +18,7 @@ module Roby
                     @event_io = event_io
                     @buffer_io = StringIO.new("".dup, "w")
 
-                    Logfile.write_header(event_io, options)
+                    Logfile.write_header(event_io, **options)
                 end
 
                 def self.open(path, **options)
