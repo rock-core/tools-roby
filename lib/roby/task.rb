@@ -1089,7 +1089,7 @@ module Roby
             check_arity(block, 1)
             @poll_handlers << (handler = InstanceHandler.new(block, (options[:on_replace] == :copy)))
             ensure_poll_handler_called
-            handler
+            Roby.disposable { @poll_handlers.delete(handler) }
         end
 
         # Remove a poll handler from this instance
@@ -1097,7 +1097,7 @@ module Roby
         # @param [Object] handler the ID returned by {#poll}
         # @return [void]
         def remove_poll_handler(handler)
-            @poll_handlers.delete(handler)
+            handler.dispose
         end
 
         # @api private

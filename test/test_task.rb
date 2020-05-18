@@ -896,6 +896,28 @@ module Roby
                 assert_equal [expected, expected], poll_cycles
             end
 
+            it "returns a disposable that un-subscribes it" do
+                poll_count = 0
+                plan.add_permanent_task(task = task_m.new)
+                handler = task.poll { poll_count += 1 }
+                execute { task.start! }
+                poll_count = 0
+                handler.dispose
+                execute_one_cycle
+                assert_equal 0, poll_count
+            end
+
+            it "can be de-registered through the deprecated remove_poll_handler method" do
+                poll_count = 0
+                plan.add_permanent_task(task = task_m.new)
+                handler = task.poll { poll_count += 1 }
+                execute { task.start! }
+                poll_count = 0
+                task.remove_poll_handler(handler)
+                execute_one_cycle
+                assert_equal 0, poll_count
+            end
+
             it "is called after the start handlers" do
                 mock = flexmock
 
