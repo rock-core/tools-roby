@@ -58,7 +58,7 @@ module Roby
 
                 # Returns the full URL to the given endpoint
                 def url_for(endpoint, host: "localhost")
-                    "http://#{host}:#{actual_port}/api/#{endpoint}"
+                    "http://#{host}:#{actual_port}#{main_route}/#{endpoint}"
                 end
 
                 poll do
