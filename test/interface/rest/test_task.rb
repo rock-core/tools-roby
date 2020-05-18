@@ -27,6 +27,33 @@ module Roby
                     refute Server.server_alive?(
                         "127.0.0.1", rest_task.actual_port)
                 end
+
+                it "can be configured with a different mounting point" do
+                    @rest_task = Task.new(host: "127.0.0.1", port: 0, main_route: "/root")
+                    plan.add(rest_task)
+                    expect_execution { rest_task.start! }
+                        .to { emit rest_task.start_event }
+
+                    assert Server.server_alive?(
+                        "127.0.0.1", rest_task.actual_port, main_route: "/root")
+                    assert_raises(REST::Server::InvalidServer) do
+                        Server.server_alive?(
+                            "127.0.0.1", rest_task.actual_port, main_route: "/api")
+                    end
+                end
+
+                describe "#url_for" do
+                    it "returns the full URL to an API path" do
+                        rest_task = Task.new(host: "127.0.0.1", port: 0,
+                                             main_route: "/root")
+                        plan.add(rest_task)
+                        expect_execution { rest_task.start! }
+                            .to { emit rest_task.start_event }
+                        actual_port = rest_task.actual_port
+                        assert_equal "http://some_host:#{actual_port}/root/sub/path",
+                                     rest_task.url_for("sub/path", host: "some_host")
+                    end
+                end
             end
         end
     end
