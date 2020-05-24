@@ -114,17 +114,36 @@ module Roby
             #
             # @param [Float] at_least_during the minimum duration in seconds. If
             #   zero, the expectations will run at least one execution cycle. The
-            #   exact duration depends on the other expectations.
+            #   exact duration depends on the other expectations. Cannot be used
+            #   with at_least_until.
+            # @param [Float] at_least_until the expected generator. The expectations
+            #   will run until the generator is emitted. Cannot be used with
+            #   at_least_during.
             # @yieldparam [ExecutionEngine::PropagationInfo]
             #   all_propagation_info all that happened during the propagations
             #   since the beginning of expect_execution block. It contains event
             #   emissions and raised/caught errors.
             # @yieldreturn [Boolean] expected to be true over duration seconds
             def maintain(
-                at_least_during: 0, description: nil, backtrace: caller(1), &block
+                at_least_during: nil,
+                at_least_until: nil,
+                description: nil,
+                backtrace: caller(1),
+                &block
             )
+                if at_least_during && at_least_until
+                    raise ArgumentError, "at_least_until and at_least_during "\
+                                         "are mutually exclusive"
+                end
+
+                at_least_during = 0 unless at_least_during || at_least_until
                 add_expectation(
-                    Maintain.new(at_least_during, block, description, backtrace)
+                    Maintain.new(
+                        at_least_during || at_least_until,
+                        block,
+                        description,
+                        backtrace
+                    )
                 )
             end
 
@@ -1145,30 +1164,49 @@ module Roby
             end
 
             class Maintain < Expectation
-                def initialize(at_least_during, block, description, backtrace)
+                def initialize(at_least, block, description, backtrace)
                     super(backtrace)
-                    @at_least_during = at_least_during
+
+                    if at_least.kind_of? EventGenerator
+                        @at_least_until = at_least
+                    else
+                        @at_least_during = at_least
+                        @deadline = Time.now + at_least
+                    end
+
                     @description = description || @backtrace[0].to_s
                     @block = block
-                    @deadline = Time.now + at_least_during
                     @failed = false
+                end
+
+                def emitted?(propagation_info)
+                    return false unless @at_least_until
+
+                    @emitted_events =
+                        propagation_info
+                        .emitted_events
+                        .find_all { |ev| ev.generator == @at_least_until }
+                    !@emitted_events.empty?
                 end
 
                 def update_match(propagation_info)
                     if !@block.call(propagation_info)
                         @failed = true
                         false
-                    elsif Time.now > @deadline
-                        true
+                    else
+                        emitted?(propagation_info) ||
+                            (@at_least_during && Time.now > @deadline)
                     end
                 end
 
                 def unachievable?(_propagation_info)
-                    @failed
+                    @failed || @at_least_until&.unreachable?
                 end
 
                 def explain_unachievable(_propagation_info)
-                    "#{self} returned false"
+                    return "#{self} returned false" if @failed
+
+                    @at_least_until&.unreachability_reason
                 end
 
                 def to_s
