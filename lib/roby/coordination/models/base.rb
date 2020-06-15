@@ -136,7 +136,7 @@ module Roby
                 def method_missing(m, *args, &block)
                     if has_argument?(m)
                         unless args.empty?
-                            raise ArgumentError, "expected zero arguments to #{m}, got #{args.size}"
+                            raise ArgumentError, "expected zero arguments to #{m}, got #{args.size}: #{args}"
                         end
 
                         Variable.new(m)

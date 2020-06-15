@@ -137,12 +137,20 @@ module Roby
                 " but does not start the app itself."\
                 " Use this to validate the current configuration"
             option :robot, aliases: "r", desc: "the robot name", default: "default"
+            option :set, desc: "set configuration variable(s)",
+                         type: :array
             def check(app_dir = nil, *extra_files)
                 app = Roby.app
                 app.app_dir = app_dir if app_dir
                 app.require_app_dir
                 app.base_setup
                 app.robot(options[:robot])
+
+                options[:set].each do |v|
+                    app.argv_set << v
+                    Roby::Application.apply_conf_from_argv(v)
+                end
+
                 begin
                     app.setup
                     extra_files.each do |path|
