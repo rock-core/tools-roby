@@ -1411,6 +1411,7 @@ module Roby
                 recorder.barrier
                 execute_one_cycle
             end
+
             it "queues execution within the same loop with type is :propagation" do
                 recorder = flexmock
                 recorder.should_receive(:called).once.ordered
@@ -1430,6 +1431,22 @@ module Roby
                     achieve { called }
                     have_framework_error_matching error_m
                 end
+            end
+
+            it "returns an object that can dispose the handler before it is executed" do
+                called = false
+                handler = execution_engine.once { called = true }
+                handler.dispose
+                execute_one_cycle
+                refute called
+            end
+
+            it "can be disposed of after its execution" do
+                called = false
+                handler = execution_engine.once { called = true }
+                execute_one_cycle
+                handler.dispose
+                assert called
             end
         end
 

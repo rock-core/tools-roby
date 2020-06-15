@@ -1423,7 +1423,11 @@ module Roby
         # @param (see PropagationHandlerMethods#create_propagation_handler)
         def once(sync: nil, description: "once block", type: :external_events, **options, &block)
             waiting_work << sync if sync
-            once_blocks << create_propagation_handler(description: description, type: type, once: true, **options, &block)
+            type, handler = create_propagation_handler(
+                description: description, type: type, once: true, **options, &block
+            )
+            once_blocks << [type, handler]
+            handler
         end
 
         # Schedules +block+ to be called once after +delay+ seconds passed, in
