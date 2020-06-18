@@ -29,7 +29,7 @@ module Roby
             # Enable this test only on the given robot
             def run_on_robot(*robot_names, &block)
                 if block
-                    describe "in interactive mode" do
+                    describe "in robot configurations #{robot_names.sort.join(', ')}" do
                         run_on_robot(*robot_names)
                         class_eval(&block)
                     end
