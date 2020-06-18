@@ -1,0 +1,13 @@
+# frozen_string_literal: true
+
+<% indent, open_code, close_code = ::Roby::CLI::Gen.in_module(*class_name[0..-2]) %><%= open_code %>
+<%= indent %>task_service "<%= class_name.last %>" do
+<%= indent %>    # Define an argument that all tasks providing this service will have
+<%= indent %>    # These arguments are often used as a way to recognize one instance of
+<%= indent %>    # the service from another
+<%= indent %>    # argument :power_output
+
+<%= indent %>    # Tell syskit that this service provides another
+<%= indent %>    # provides AnotherSrv
+<%= indent %>end
+<%= close_code %>

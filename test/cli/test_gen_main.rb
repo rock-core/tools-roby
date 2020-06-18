@@ -9,6 +9,7 @@ module Roby
             include Test::ArubaMinitest
 
             def validate_app_runs(*args)
+                run_roby_and_stop ["check", *args].join(" ")
                 roby_run = run_roby ["run", *args].join(" ")
                 run_roby_and_stop "quit --retry"
                 roby_run.stop
@@ -39,6 +40,16 @@ module Roby
                 end
             end
 
+            it "generates a valid task service template" do
+                run_roby_and_stop "gen app"
+                run_roby_and_stop "gen task-srv some_srv"
+                append_to_file "config/robots/default.rb", <<~REQUIRES
+                    Robot.requires { require "models/services/some_srv" }
+                REQUIRES
+                validate_app_runs
+                validate_app_tests
+            end
+
             describe "within an existing app" do
                 before do
                     run_roby_and_stop "gen app"
@@ -47,7 +58,7 @@ module Roby
                 describe "gen robot" do
                     it "generates a new valid robot configuration" do
                         run_roby_and_stop "gen robot test"
-                        validate_app_runs "-rtest"
+                        validate_app_runs "-r", "test"
                         validate_app_tests
                     end
                 end

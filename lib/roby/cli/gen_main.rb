@@ -146,6 +146,23 @@ module Roby
                              "require_path" => File.join("models", "tasks", *file_name)
                          )
             end
+
+            desc "task-srv NAME", "creates a new Roby task service model"
+            option :robot,
+                   aliases: "r", desc: "the robot name for robot-specific scaffolding",
+                   type: :string, default: nil
+            def task_srv(name)
+                Roby.app.require_app_dir(needs_current: true)
+                Roby.app.load_base_config
+
+                file_name, class_name = Gen.resolve_name(
+                    "services", name, options[:robot], %w[models services], %w[Services]
+                )
+
+                template File.join("task_srv", "class.rb"),
+                         File.join("models", "services", *file_name) + ".rb",
+                         context: Gen.make_context("class_name" => class_name)
+            end
         end
     end
 end
