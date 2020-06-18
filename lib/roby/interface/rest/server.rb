@@ -72,18 +72,32 @@ module Roby
 
                 # @api private
                 #
+                # Intermediate Rack middleware used to inject the roby storage
+                # and interface objects that allow {Helpers} to function
+                class RackMiddleware
+                    attr_reader :interface
+                    attr_reader :storage
+
+                    def initialize(api, interface, storage = {})
+                        @api = api
+                        @interface = interface
+                        @storage = storage
+                    end
+
+                    def call(env)
+                        env["roby.interface"] = interface
+                        env["roby.storage"] = storage
+                        @api.call(env)
+                    end
+                end
+
+                # @api private
+                #
                 # Helper method that transforms a Grape API class so that it
                 # gets an #interface accessor that provides the interface
                 # object the API is meant to work on
-                def self.attach_api_to_interface(api, interface)
-                    storage = {}
-                    Class.new do
-                        define_method(:call) do |env|
-                            env["roby.interface"] = interface
-                            env["roby.storage"] = storage
-                            api.call(env)
-                        end
-                    end.new
+                def self.attach_api_to_interface(api, interface, storage = {})
+                    RackMiddleware.new(api, interface, storage)
                 end
 
                 # Starts the server

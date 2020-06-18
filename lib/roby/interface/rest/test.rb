@@ -30,15 +30,22 @@ module Roby
                                                "to return the REST API"
                 end
 
+                # The {Helpers#roby_storage} object that is being accessed by the API
+                def roby_storage
+                    @roby_storage ||= {}
+                end
+
                 # @api private
                 #
                 # Overloaded from Rack::Test to inject the app and plan
                 # and make them available to the API
                 def build_rack_mock_session
                     interface = Roby::Interface::Interface.new(app)
-                    actual_api = Roby::Interface::REST::Server.attach_api_to_interface(
-                        rest_api, interface
-                    )
+                    actual_api =
+                        Roby::Interface::REST::Server
+                        .attach_api_to_interface(
+                            rest_api, interface, roby_storage
+                        )
                     Rack::MockSession.new(actual_api)
                 end
             end
