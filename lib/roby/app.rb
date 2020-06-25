@@ -549,10 +549,7 @@ module Roby
                 "--set=KEY=VALUE", String, "set a value on the Conf object"
             ) do |value|
                 Roby.app.argv_set << value
-                key, value = value.split("=")
-                path = key.split(".")
-                base_conf = path[0..-2].inject(Conf) { |c, name| c.send(name) }
-                base_conf.send("#{path[-1]}=", YAML.load(value))
+                apply_conf_from_argv(value)
             end
             parser.on(
                 "--log=SPEC", String,
@@ -580,6 +577,22 @@ module Roby
                 STDERR.puts parser
                 exit
             end
+        end
+
+        # Apply the --set command line parameters stored in {#argv_set} to a conf object
+        def apply_argv_set(conf: Conf)
+            argv_set.each do |value|
+                self.class.apply_conf_from_argv(value, conf: conf)
+            end
+        end
+
+        # Set a value in a conf object (defaults to Conf) from a parameter
+        # given on the command line
+        def self.apply_conf_from_argv(value, conf: Conf)
+            key, value = value.split("=")
+            path = key.split(".")
+            base_conf = path[0..-2].inject(conf) { |c, name| c.send(name) }
+            base_conf.send("#{path[-1]}=", YAML.load(value))
         end
 
         # Sets up provided option parser to add the --host and --vagrant option
@@ -862,6 +875,8 @@ module Roby
         #
         # The #cleanup method is the reverse of #setup
         def setup
+            apply_argv_set
+
             base_setup
             # Set up the loaded plugins
             call_plugins(:setup, self)
@@ -2601,6 +2616,7 @@ module Roby
         # Reload files in config/
         def reload_config
             clear_config
+            apply_argv_set
             if has_app?
                 require_robot_file
             end

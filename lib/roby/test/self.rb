@@ -84,6 +84,7 @@ module Roby
                 execution_engine&.shutdown
                 Roby.app.shutdown
                 Roby.app.cleanup
+                Roby.app.argv_set.clear
                 State.clear
                 State.clear_model
                 Conf.clear

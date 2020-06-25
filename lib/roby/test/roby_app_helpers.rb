@@ -21,18 +21,36 @@ module Roby
                 app.stop_log_server
                 app.stop_shell_interface
                 app.cleanup
-                pending_children = @spawned_pids.find_all do |pid|
+                kill_spawned_pids
+                super
+            end
+
+            def kill_spawned_pids(
+                pids = @spawned_pids, signal: "INT", next_signal: "KILL", timeout: 5
+            )
+                pending_children = pids.find_all do |pid|
                     begin
-                        Process.kill "INT", pid
+                        Process.kill signal, pid
                         true
                     rescue Errno::ESRCH # rubocop:disable Lint/SuppressedException
                     end
                 end
 
-                pending_children.each do |pid|
-                    Process.waitpid2(pid)
+                deadline = Time.now + timeout
+                while Time.now < deadline
+                    pending_children.delete_if do |pid|
+                        Process.waitpid2(pid, Process::WNOHANG)
+                    end
+                    return if pending_children.empty?
+
+                    sleep 0.01
                 end
-                super
+
+                return if pending_children.empty?
+
+                flunk("failed to stop #{pending_children}") unless next_signal
+
+                kill_spawned_pids(pending_children, signal: next_signal, next_signal: nil)
             end
 
             def gen_app(app_dir = self.app_dir)
@@ -142,6 +160,9 @@ module Roby
                 dir
             end
 
+            # Spawn the roby app process
+            #
+            # @return [Integer] the app PID
             def roby_app_spawn(*args, silent: false, **options)
                 if silent
                     options[:out] ||= "/dev/null"
@@ -150,6 +171,16 @@ module Roby
                 pid = spawn(roby_bin, *args, chdir: app_dir, **options)
                 @spawned_pids << pid
                 pid
+            end
+
+            # Start the roby app, and wait for it to be ready
+            #
+            # @return [(Integer,Roby::Interface::Client)] the app PID and connected
+            #   roby interface
+            def roby_app_start(*args, silent: false, **options)
+                pid = roby_app_spawn(*args, silent: silent, **options)
+                interface = assert_roby_app_is_running(pid)
+                [pid, interface]
             end
 
             def register_pid(pid)

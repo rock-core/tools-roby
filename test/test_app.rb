@@ -930,6 +930,67 @@ module Roby
                 assert fatal_log.grep(/Exefcution thread FORCEFULLY quitting/)
                 assert fatal_log.grep(/in test: test ()/)
             end
+
+            describe "the --set option" do
+                before do
+                    gen_app
+                    @config_path = File.join(app_dir, "config", "robots", "default.rb")
+                end
+
+                it "is supported by check" do
+                    File.open(@config_path, "a") do |io|
+                        io.puts <<~CONTROLLER
+                            Robot.requires { puts "TEST: \#{Conf.some.field}" }
+                        CONTROLLER
+                    end
+
+                    out_r, out_w = IO.pipe
+                    roby_app_spawn("check", "--set", "some.field=42", out: out_w)
+                    out_w.close
+                    output = out_r.read
+                    assert_equal "TEST: 42\n", output
+                end
+
+                it "re-applies the given configuration parameters on reload" do
+                    File.open(@config_path, "a") do |io|
+                        io.puts <<~CONTROLLER
+                            Robot.requires do
+                                STDOUT.sync = true
+
+                                unless File.file?("already_loaded")
+                                    puts "TEST: \#{Conf.some.field}"
+                                    Conf.some.delete :field
+                                    puts "TEST: DELETED"
+                                    Roby.app.reload_config
+                                    puts "TEST: \#{Conf.some.field}"
+                                    FileUtils.touch "already_loaded"
+                                end
+                            end
+                        CONTROLLER
+                    end
+
+                    out_r, out_w = IO.pipe
+                    roby_app_spawn("check", "--set", "some.field=42", out: out_w)
+                    out_w.close
+                    output = out_r.read
+                    assert_equal "TEST: 42\nTEST: DELETED\nTEST: 42\n", output
+                end
+
+                it "is supported by run" do
+                    File.open(@config_path, "a") do |io|
+                        io.puts <<~CONTROLLER
+                            Robot.requires { puts "TEST: \#{Conf.some.field}" }
+                        CONTROLLER
+                    end
+
+                    out_r, out_w = IO.pipe
+                    pid = roby_app_spawn("run", "--set", "some.field=42", out: out_w)
+                    out_w.close
+                    assert_roby_app_quits(pid)
+                    output = out_r.read
+                    assert_match(/TEST: 42/, output)
+                end
+            end
         end
 
         describe "#controller" do
