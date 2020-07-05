@@ -41,7 +41,7 @@ module Roby
                 # @return [Action] an action using this action model and the given
                 #   arguments
                 def new(**arguments)
-                    Actions::Action.new(self, normalize_arguments(arguments))
+                    Actions::Action.new(self, **normalize_arguments(arguments))
                 end
 
                 def ==(other)

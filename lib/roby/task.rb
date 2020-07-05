@@ -385,7 +385,7 @@ module Roby
         end
 
         def create_fresh_copy
-            model.new(arguments.dup)
+            model.new(**arguments.dup)
         end
 
         def initialize_copy(old) # :nodoc:

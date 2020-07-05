@@ -27,7 +27,7 @@ module Roby
                 submodel, task_model: nil, symbol: nil, command: false,
                 terminal: false, **options, &block
             )
-                super(submodel, options, &block)
+                super(submodel, **options, &block)
                 submodel.task_model = task_model
                 submodel.symbol     = symbol
                 submodel.terminal   = terminal

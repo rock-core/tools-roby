@@ -784,13 +784,13 @@ module Roby
 
             def self.it_matches_common_replace_transaction_behaviour
                 it_matches_common_replace_transaction_behaviour_for_handler(:finalization_handlers) do |event, args|
-                    event.when_finalized(args) {}
+                    event.when_finalized(**args) {}
                 end
                 it_matches_common_replace_transaction_behaviour_for_handler(:handlers) do |event, args|
-                    event.on(args) {}
+                    event.on(**args) {}
                 end
                 it_matches_common_replace_transaction_behaviour_for_handler(:unreachable_handlers) do |event, args|
-                    event.if_unreachable(args) {}
+                    event.if_unreachable(**args) {}
                 end
             end
 
@@ -2902,7 +2902,7 @@ class TC_Task < Minitest::Test
         task, planner_task = task_t.new, task_t.new
         task.planned_by planner_task
         flexmock(Roby.app).should_receive(:prepare_action)
-                          .with(task_t, {}).and_return([task, planner_task])
+                          .with(task_t, any).and_return([task, planner_task])
 
         plan.add(as_plan = task_t.as_plan)
         assert_same task, as_plan

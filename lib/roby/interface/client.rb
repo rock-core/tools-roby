@@ -344,7 +344,14 @@ module Roby
             #   action -- the job ID for the newly created action
             def call(path, m, *args)
                 if (action_match = /(.*)!$/.match(m.to_s))
-                    start_job(action_match[1], *args)
+                    if args.empty?
+                        args = [{}]
+                    elsif args.size > 1 || !args.last.kind_of?(Hash)
+                        raise ArgumentError,
+                              "expected a single Hash argument, but got #{args}"
+                    end
+
+                    start_job(action_match[1], **args.first)
                 else
                     io.write_packet([path, m, *args])
                     result, = poll(1, timeout: @call_timeout)

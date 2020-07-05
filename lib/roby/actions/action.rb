@@ -63,7 +63,7 @@ module Roby
 
             # Deploys this action on the given plan
             def instanciate(plan, **arguments)
-                model.instanciate(plan, self.arguments.merge(arguments))
+                model.instanciate(plan, **self.arguments.merge(arguments))
             end
 
             def to_s

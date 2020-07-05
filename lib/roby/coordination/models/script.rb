@@ -243,9 +243,9 @@ module Roby
                 #   calling {Base#task} on the relevant object
                 # @param [Hash] options the dependency relation options. See
                 #   {Roby::TaskStructure::Dependency::Extension#depends_on}
-                def execute(task, options = {})
+                def execute(task, **options)
                     task = validate_or_create_task task
-                    start(task, options)
+                    start(task, **options)
                     wait(task.success_event)
                 end
 

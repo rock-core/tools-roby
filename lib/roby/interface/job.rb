@@ -37,7 +37,7 @@ module Roby
                 to_s
             end
 
-            def initialize(arguments = {})
+            def initialize(**)
                 super
                 if Conf.app.auto_allocate_job_ids? && !job_id
                     allocate_job_id

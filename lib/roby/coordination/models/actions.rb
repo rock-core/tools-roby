@@ -185,11 +185,11 @@ module Roby
                     action_interface&.find_action_by_name(m.to_s) || super
                 end
 
-                def method_missing(m, *args)
-                    if action = action_interface.find_action_by_name(m.to_s)
-                        action.new(*args)
-                    else super
-                    end
+                def method_missing(m, *args, **kw)
+                    action = action_interface.find_action_by_name(m.to_s)
+                    return super unless action
+
+                    action.new(*args, **kw)
                 end
             end
         end

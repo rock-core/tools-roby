@@ -232,7 +232,7 @@ module Roby
                           "that returns it"
                 end
 
-                new(arguments)
+                new(**arguments)
             end
 
             # @deprecated
