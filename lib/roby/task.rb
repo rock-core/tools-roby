@@ -1112,6 +1112,12 @@ module Roby
 
         # @api private
         #
+        # Method under which `Models::Task#poll` registers its given block.
+        # Defined empty at this level to allow calling super() unconditionally
+        def poll_handler; end
+
+        # @api private
+        #
         # Internal method used to register the poll blocks in the engine
         # execution cycle
         def do_poll(plan) # :nodoc:
@@ -1126,9 +1132,7 @@ module Roby
                     execute_block.block.call(self)
                 end
 
-                if respond_to?(:poll_handler)
-                    poll_handler
-                end
+                poll_handler
 
                 if machine = state_machine
                     machine.do_poll(self)
