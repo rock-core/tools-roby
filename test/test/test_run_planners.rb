@@ -31,6 +31,16 @@ module Roby
                 RunPlanners.deregister_planning_handler(@handler_class) if @handler_class
             end
 
+            it "raises right away if the argument is not a task and cannot be converted "\
+               "to one" do
+                obj = flexmock
+                e = assert_raises(ArgumentError) do
+                    run_planners(obj)
+                end
+                assert_equal "#{obj} is not a Roby task and cannot be converted to one",
+                             e.message
+            end
+
             it "calls the handler's start and finished? methods under propagation" do
                 @handler_class = Class.new(RunPlanners::PlanningHandler) do
                     def start(tasks)
