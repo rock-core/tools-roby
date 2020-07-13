@@ -896,6 +896,14 @@ module Roby
                 assert_equal [expected, expected], poll_cycles
             end
 
+            it "has an empty default implementation that can be called with super()" do
+                called = false
+                task_m.poll { super(); called = true }
+                plan.add(task = task_m.new)
+                execute { task.start! }
+                assert called
+            end
+
             it "returns a disposable that un-subscribes it" do
                 poll_count = 0
                 plan.add_permanent_task(task = task_m.new)
