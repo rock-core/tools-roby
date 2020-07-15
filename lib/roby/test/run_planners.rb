@@ -52,6 +52,11 @@ module Roby
             #   planning tasks generate subplans containing planning tasks
             #   themselves)
             def run_planners(root_task, recursive: true)
+                unless root_task.respond_to?(:as_plan)
+                    raise ArgumentError,
+                          "#{root_task} is not a Roby task and cannot be converted to one"
+                end
+
                 unless execution_engine.in_propagation_context?
                     service = nil
                     expect_execution do
