@@ -17,6 +17,16 @@ module Roby
             # until it bails out
             attr_reader :max_write_buffer_size
 
+            # This is a workaround for a very bad performance behavior on first
+            # load. These classes are auto-loaded and it takes forever to load
+            # them in multithreaded contexts.
+            WEBSOCKET_CLASSES = [
+                WebSocket::Frame::Outgoing::Client,
+                WebSocket::Frame::Outgoing::Server,
+                WebSocket::Frame::Incoming::Client,
+                WebSocket::Frame::Incoming::Server
+            ].freeze
+
             def initialize(
                 io, client,
                 marshaller: DRoby::Marshal.new(auto_create_plans: true),
