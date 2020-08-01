@@ -13,6 +13,16 @@ module Roby
             describe Interface do
                 include ClientServerTestHelpers
 
+                it "exposes the host" do
+                    interface = Interface.new("localhost", port: 20) {}
+                    assert_equal "localhost", interface.remote_name
+                end
+
+                it "exposes the port" do
+                    interface = Interface.new("localhost", port: 20) {}
+                    assert_equal 20, interface.remote_port
+                end
+
                 describe "connection handling" do
                     it "#poll retries connecting if the connection method raised ConnectionError" do
                         interface = Interface.new { raise ConnectionError }

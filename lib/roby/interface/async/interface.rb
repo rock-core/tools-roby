@@ -25,6 +25,9 @@ module Roby
 
                 # @return [String] a string that describes the remote host
                 attr_reader :remote_name
+                # @return [Integer,nil] the port of the remote shell interface. nil
+                #   to use the default port
+                attr_reader :remote_port
                 # @return [#call] an object that can create a Client instance
                 attr_reader :connection_method
                 # @return [Client,nil] the socket used to communicate to the server,
@@ -138,10 +141,12 @@ module Roby
                     port: Roby::Interface::DEFAULT_PORT,
                     connect: true, &connection_method
                 )
-
+                    @remote_port = port
                     @connection_method = connection_method || lambda {
-                        Roby::Interface.connect_with_tcp_to(remote_name, port,
-                                                            handshake: %i[actions commands jobs log_server_port])
+                        Roby::Interface.connect_with_tcp_to(
+                            remote_name, port,
+                            handshake: %i[actions commands jobs log_server_port]
+                        )
                     }
                     @log_server_port = nil
 
