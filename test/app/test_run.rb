@@ -2,12 +2,142 @@
 
 require "roby/test/self"
 require "roby/test/roby_app_helpers"
+require "roby/test/aruba_minitest"
 
 module Roby
     describe "run" do
-        include Roby::Test::RobyAppHelpers
+        describe "robot argument" do
+            include Test::ArubaMinitest
+            before do
+                run_roby_and_stop "gen app --quiet"
+            end
+
+            describe "deprecated behavior not using the config/robots/ folder" do
+                before do
+                    FileUtils.rm_rf expand_path("config/robots")
+                end
+
+                it "uses a name given to -r as name and type by default" do
+                    write_file "scripts/controllers/somename.rb", <<~DISPLAY
+                        puts "Roby.app.robot_name=\#{Roby.app.robot_name}"
+                        puts "Roby.app.robot_type=\#{Roby.app.robot_type}"
+                    DISPLAY
+
+                    cmd = run_roby "run -r somename -c"
+                    run_roby_and_stop "wait"
+                    run_roby_and_stop "quit"
+
+                    assert_match(/^Roby.app.robot_name=somename$/, cmd.stdout)
+                    assert_match(/^Roby.app.robot_type=somename$/, cmd.stdout)
+                end
+
+                it "uses the name and type given to -r" do
+                    write_file "scripts/controllers/somename.rb", <<~DISPLAY
+                        puts "Roby.app.robot_name=\#{Roby.app.robot_name}"
+                        puts "Roby.app.robot_type=\#{Roby.app.robot_type}"
+                    DISPLAY
+
+                    cmd = run_roby "run -r somename,sometype -c"
+                    run_roby_and_stop "wait"
+                    run_roby_and_stop "quit"
+
+                    assert_match(/^Roby.app.robot_name=somename$/, cmd.stdout)
+                    assert_match(/^Roby.app.robot_type=sometype$/, cmd.stdout)
+                end
+
+                it "runs the controller script named as the type if there is none "\
+                   "for the robot name" do
+                    write_file "scripts/controllers/sometype.rb", <<~DISPLAY
+                        puts "Roby.app.robot_name=\#{Roby.app.robot_name}"
+                        puts "Roby.app.robot_type=\#{Roby.app.robot_type}"
+                    DISPLAY
+
+                    cmd = run_roby "run -r somename,sometype -c"
+                    run_roby_and_stop "wait"
+                    run_roby_and_stop "quit"
+
+                    assert_match(/^Roby.app.robot_name=somename$/, cmd.stdout)
+                    assert_match(/^Roby.app.robot_type=sometype$/, cmd.stdout)
+                end
+            end
+
+            it "raises if configuration files exist in config/robots/ "\
+               "and the robot name does not match one" do
+                cmd = run_roby_and_stop "run -r somename", fail_on_error: false
+                assert_equal 1, cmd.exit_status
+
+                assert_match(/somename is neither a robot name, nor an alias/,
+                             cmd.stderr)
+            end
+
+            describe "strict robot naming" do
+                before do
+                    write_file "config/robots/somename.rb", <<~DISPLAY
+                        puts "Roby.app.robot_name=\#{Roby.app.robot_name}"
+                        puts "Roby.app.robot_type=\#{Roby.app.robot_type}"
+                    DISPLAY
+                end
+
+                it "uses the files in config/robots/ to determine the list of "\
+                   "available names" do
+                    cmd = run_roby "run -r somename"
+                    run_roby_and_stop "wait"
+                    run_roby_and_stop "quit"
+
+                    assert_match(/^Roby.app.robot_name=somename$/, cmd.stdout)
+                    assert_match(/^Roby.app.robot_type=somename$/, cmd.stdout)
+                end
+
+                it "uses the robot type as defined in app.yml" do
+                    write_file "config/app.yml", <<~APPYML
+                        robots:
+                            robots:
+                                somename: sometype
+                    APPYML
+
+                    cmd = run_roby "run -r somename"
+                    run_roby_and_stop "wait"
+                    run_roby_and_stop "quit"
+
+                    assert_match(/^Roby.app.robot_name=somename$/, cmd.stdout)
+                    assert_match(/^Roby.app.robot_type=sometype$/, cmd.stdout)
+                end
+
+                it "uses the default robot as defined in app.yml" do
+                    write_file "config/app.yml", <<~APPYML
+                        robots:
+                            default_robot: somename
+                    APPYML
+
+                    cmd = run_roby "run"
+                    run_roby_and_stop "wait"
+                    run_roby_and_stop "quit"
+
+                    assert_match(/^Roby.app.robot_name=somename$/, cmd.stdout)
+                    assert_match(/^Roby.app.robot_type=somename$/, cmd.stdout)
+                end
+
+                it "applies the declared type for the default robot" do
+                    write_file "config/app.yml", <<~APPYML
+                        robots:
+                            default_robot: somename
+                            robots:
+                                somename: sometype
+                    APPYML
+
+                    cmd = run_roby "run"
+                    run_roby_and_stop "wait"
+                    run_roby_and_stop "quit"
+
+                    assert_match(/^Roby.app.robot_name=somename$/, cmd.stdout)
+                    assert_match(/^Roby.app.robot_type=sometype$/, cmd.stdout)
+                end
+            end
+        end
 
         describe "single script run call" do
+            include Roby::Test::RobyAppHelpers
+
             it "terminates if given an invalid model script" do
                 out, = capture_subprocess_io do
                     dir = roby_app_setup_single_script

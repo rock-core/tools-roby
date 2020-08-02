@@ -766,6 +766,8 @@ module Roby
             @cleanup_handlers      = []
             @controllers           = []
             @action_handlers       = []
+
+            @robots = App::RobotNames.new
         end
 
         # Loads the base configuration
@@ -996,14 +998,7 @@ module Roby
         # The robot names configuration
         #
         # @return [App::RobotNames]
-        def robots
-            unless @robots
-                robots = App::RobotNames.new(options["robots"] || {})
-                robots.strict = !!options["robots"]
-                @robots = robots
-            end
-            @robots
-        end
+        attr_reader :robots
 
         # Declares a block that should be executed when the Roby app gets
         # initialized (i.e. just after init.rb gets loaded)
@@ -1825,6 +1820,8 @@ module Roby
 
             Application.info "loading config file #{file}"
             options = YAML.safe_load(File.read(file)) || {}
+
+            @robots.load_config_yaml(options["robots"] || {})
 
             if robot_name && (robot_config = options.delete("robots"))
                 options = options.recursive_merge(robot_config[robot_name] || {})
