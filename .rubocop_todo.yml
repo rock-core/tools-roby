@@ -139,7 +139,6 @@ Layout/LineLength:
     - 'lib/roby/task_structure/planned_by.rb'
     - 'lib/roby/tasks/external_process.rb'
     - 'lib/roby/tasks/virtual.rb'
-    - 'lib/roby/test/aruba_minitest.rb'
     - 'lib/roby/test/assertions.rb'
     - 'lib/roby/test/common.rb'
     - 'lib/roby/test/dsl.rb'
@@ -1412,7 +1411,6 @@ Naming/MethodParameterName:
     - 'lib/roby/task_structure/dependency.rb'
     - 'lib/roby/task_structure/executed_by.rb'
     - 'lib/roby/tasks/virtual.rb'
-    - 'lib/roby/test/aruba_minitest.rb'
     - 'lib/roby/test/assertions.rb'
     - 'lib/roby/test/event_reporter.rb'
     - 'lib/roby/test/execution_expectations.rb'
@@ -1700,7 +1698,6 @@ Style/Documentation:
     - 'lib/roby/tasks/group.rb'
     - 'lib/roby/tasks/parallel.rb'
     - 'lib/roby/tasks/timeout.rb'
-    - 'lib/roby/test/aruba_minitest.rb'
     - 'lib/roby/test/assertion.rb'
     - 'lib/roby/test/assertions.rb'
     - 'lib/roby/test/dsl.rb'
@@ -1864,7 +1861,6 @@ Style/GuardClause:
     - 'lib/roby/task_structure/planned_by.rb'
     - 'lib/roby/tasks/external_process.rb'
     - 'lib/roby/tasks/thread.rb'
-    - 'lib/roby/test/aruba_minitest.rb'
     - 'lib/roby/test/assertions.rb'
     - 'lib/roby/test/common.rb'
     - 'lib/roby/test/minitest_helpers.rb'
@@ -1982,7 +1978,6 @@ Style/IfUnlessModifier:
     - 'lib/roby/tasks/group.rb'
     - 'lib/roby/tasks/thread.rb'
     - 'lib/roby/tasks/virtual.rb'
-    - 'lib/roby/test/aruba_minitest.rb'
     - 'lib/roby/test/common.rb'
     - 'lib/roby/test/expect_execution.rb'
     - 'lib/roby/test/minitest_helpers.rb'
@@ -2027,7 +2022,6 @@ Style/MissingRespondToMissing:
     - 'lib/roby/state/open_struct.rb'
     - 'lib/roby/state/state_model.rb'
     - 'lib/roby/task_arguments.rb'
-    - 'lib/roby/test/aruba_minitest.rb'
 
 # Offense count: 53
 Style/MultilineBlockChain:

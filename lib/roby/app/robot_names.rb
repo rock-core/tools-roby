@@ -15,28 +15,48 @@ module Roby
             # @return [Boolean] if true, Roby will generate an error if a
             #   non-declared robot is used. Otherwise, it will only issue a
             #   warning
-            attr_predicate :strict?, true
+            def strict?
+                @strict
+            end
+
+            # Sets {#strict?}
+            #
+            # @see strict?
+            attr_writer :strict
 
             # Create a RobotConfiguration object based on a hash formatted as-is
             # from the app.yml file
             def initialize(options = {})
-                @robots = options["robots"] || {}
-                @default_robot_name = options["default_robot"] || "default"
+                @robots = { "default" => "default" }
+                @default_robot_name = "default"
+                @aliases = {}
+                @strict = false
+
+                load_config_yaml(options)
+            end
+
+            def load_config_yaml(options)
+                @robots = options["robots"] || @robots
+                @strict = !!options["robots"]
+
+                @default_robot_name = options["default_robot"] || @default_robot_name
                 unless has_robot?(default_robot_name)
                     robots[default_robot_name] = default_robot_name
                 end
 
-                @aliases = options["aliases"] || {}
+                @aliases = options["aliases"] || @aliases
                 aliases.each do |name_alias, name|
                     unless has_robot?(name)
-                        raise ArgumentError, "cannot use #{name_alias} as an alias to #{name}: #{name} is not a declared robot"
+                        raise ArgumentError,
+                              "cannot use #{name_alias} as an alias to #{name}: "\
+                              "#{name} is not a declared robot"
                     end
                     if has_robot?(name_alias)
-                        raise ArgumentError, "cannot use #{name_alias} as an alias to #{name}: #{name_alias} is already a declared robot"
+                        raise ArgumentError,
+                              "cannot use #{name_alias} as an alias to #{name}: "\
+                              "#{name_alias} is already a declared robot"
                     end
                 end
-
-                self.strict = !!options["robots"]
             end
 
             # Declare the type of an existing robot

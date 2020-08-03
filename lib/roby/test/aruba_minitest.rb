@@ -13,6 +13,12 @@ module Roby
         # The run methods are renamed as they have been renamed in Aruba 1.0
         # alpha, run -> run_command and run_simple -> run_command_and_stop
         module ArubaMinitest
+            # A "api-only" class that includes the Aruba API module
+            #
+            # Aruba's API is implemented with modules, but is self-contained.
+            # Create an object we can delegate to. This was needed because Aruba
+            # defined #run, which is also a minitest method (this is not the case
+            # anymore, but this lingers)
             class API
                 include ::Aruba::Api
             end
@@ -34,9 +40,7 @@ module Roby
             def run_command_and_stop(*args, fail_on_error: true)
                 cmd = run_command(*args)
                 cmd.stop
-                if fail_on_error
-                    assert_command_finished_successfully(cmd)
-                end
+                assert_command_finished_successfully(cmd) if fail_on_error
                 cmd
             end
 
@@ -54,24 +58,29 @@ module Roby
                             fail_on_error: fail_on_error, **opts)
             end
 
-            def method_missing(m, *args, &block)
-                if @aruba_api.respond_to?(m)
-                    @aruba_api.send(m, *args, &block)
-                else
-                    super
+            def respond_to_missing?(name, include_private = false)
+                @aruba_api.respond_to?(name) || super
+            end
+
+            def method_missing(name, *args, &block)
+                if @aruba_api.respond_to?(name)
+                    return @aruba_api.send(name, *args, &block)
                 end
+
+                super
             end
 
             def assert_command_stops(cmd, fail_on_error: true)
                 cmd.stop
-                if fail_on_error
-                    assert_command_finished_successfully(cmd)
-                end
+                assert_command_finished_successfully(cmd) if fail_on_error
             end
 
             def assert_command_finished_successfully(cmd)
                 refute cmd.timed_out?, "#{cmd} timed out on stop"
-                assert_equal 0, cmd.exit_status, "#{cmd} finished with a non-zero exit status (#{cmd.exit_status})\n-- STDOUT\n#{cmd.stdout}\n-- STDERR\n#{cmd.stderr}"
+                assert_equal 0, cmd.exit_status,
+                             "#{cmd} finished with a non-zero exit status "\
+                             "(#{cmd.exit_status})\n-- STDOUT\n#{cmd.stdout}\n"\
+                             "-- STDERR\n#{cmd.stderr}"
             end
         end
     end
