@@ -995,6 +995,15 @@ module Roby
             stop_rest_interface(join: true)
         end
 
+        # @api private
+        #
+        # Run the blocks registered with {#controller}
+        #
+        # This must be called in excecution propagation context
+        def run_controller_blocks
+            controllers.each(&:call)
+        end
+
         # The robot names configuration
         #
         # @return [App::RobotNames]

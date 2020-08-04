@@ -6,6 +6,7 @@ require "roby/test/common"
 require "roby/test/dsl"
 require "roby/test/teardown_plans"
 require "roby/test/minitest_helpers"
+require "roby/test/robot_test_helpers"
 require "roby/test/run_planners"
 require "timecop"
 
@@ -19,6 +20,7 @@ module Roby
             include Test::TeardownPlans
             include Test::MinitestHelpers
             include Test::RunPlanners
+            include Test::RobotTestHelpers
             include Utilrb::Timepoints
             extend DSL
 
@@ -213,6 +215,10 @@ module Roby
 
         register_spec_type Spec do |desc|
             desc.kind_of?(Class) && (desc <= Roby::Task)
+        end
+
+        register_spec_type Spec do |desc|
+            desc == Robot
         end
     end
 end

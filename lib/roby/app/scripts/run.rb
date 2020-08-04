@@ -149,7 +149,7 @@ error = Roby.display_exception(STDERR) do
                     load controller_file
                 end
 
-                Roby.app.controllers.each(&:call)
+                Roby.app.run_controller_blocks
 
                 if Roby.app.controllers.empty? && !controller_file
                     Robot.info "no controller block registered, and found "\
