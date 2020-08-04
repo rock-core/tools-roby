@@ -884,6 +884,8 @@ module Roby
             call_plugins(:setup, self)
             # And run the setup handlers
             setup_handlers.each(&:call)
+            # Re-apply configuration parameters from the command line
+            apply_argv_set
 
             require_models
 
