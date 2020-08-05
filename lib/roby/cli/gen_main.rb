@@ -37,6 +37,10 @@ module Roby
                          File.join(dir, "config", "robots", "default.rb"),
                          context: Gen.make_context("robot_name" => "default"),
                          verbose: !options[:quiet]
+                template File.join(robot_path, "config", "robots", "test.rb"),
+                         File.join(dir, "test", "robots", "test_default.rb"),
+                         context: Gen.make_context("robot_name" => "default"),
+                         verbose: !options[:quiet]
                 dir
             end
 
@@ -47,6 +51,9 @@ module Roby
 
                 template File.join(robot_path, "config", "robots", "robot.rb"),
                          File.join("config", "robots", "#{name}.rb"),
+                         context: Gen.make_context("robot_name" => name)
+                template File.join(robot_path, "config", "robots", "test.rb"),
+                         File.join("test", "robots", "test_#{name}.rb"),
                          context: Gen.make_context("robot_name" => name)
             end
 
