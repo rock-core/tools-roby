@@ -17,6 +17,10 @@ module Roby
                     define_method :test_child do
                         task_m.new
                     end
+                    describe("an action that raises").returns(task_m)
+                    define_method :test_action_with_error do
+                        raise "some error"
+                    end
                     describe("an action that adds a new planner").returns(task_m)
                     define_method :test_action_with_child do
                         planned_tasks[0].depends_on(
@@ -120,10 +124,33 @@ module Roby
                     assert_equal @planned_tasks, result
                     assert child_planner.finished?
                 end
+
                 it "re-runs planners that have been added in the first pass" do
                     plan.add(root_task = @action_m.test_action_with_child.as_plan)
                     root_task = run_planners(root_task, recursive: true)
                     refute root_task.test_child.abstract?
+                end
+
+                it "ignores tasks that have failed planning" do
+                    # NOTE: since all of this is done under execution context,
+                    # the execution_expectation harness *will* report the
+                    # unexpected error. What we want is that the run_planners
+                    # continue functioning in these conditions
+                    plan.add(root_task = @action_m.test_action_with_error.as_plan)
+                    assert_raises(ExecutionExpectations::UnexpectedErrors) do
+                        run_planners(root_task, recursive: true)
+                    end
+                end
+
+                it "reacts to failures in a way that is compatible with "\
+                   "the expectations" do
+                    # NOTE: since all of this is done under execution context,
+                    # the execution_expectation harness *will* report the
+                    # unexpected error. What we want is that the run_planners
+                    # continue functioning in these conditions
+                    plan.add(root_task = @action_m.test_action_with_error.as_plan)
+                    expect_execution { run_planners(root_task, recursive: true) }
+                        .to { have_error_matching PlanningFailedError.match }
                 end
             end
         end

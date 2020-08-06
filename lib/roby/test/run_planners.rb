@@ -30,10 +30,12 @@ module Roby
                     tasks = root_tasks.to_set
                 end
 
-                by_handler = tasks
-                             .find_all { |t| t.abstract? && t.planning_task }
-                             .group_by { |t| RunPlanners.planner_handler_for(t) }
-                             .map { |h_class, h_tasks| [h_class.new(test), h_tasks] }
+                by_handler =
+                    tasks
+                    .find_all { |t| t.abstract? && t.planning_task }
+                    .find_all { |t| !t.planning_task.failed? }
+                    .group_by { |t| RunPlanners.planner_handler_for(t) }
+                    .map { |h_class, h_tasks| [h_class.new(test), h_tasks] }
                 return root_tasks.map(&:as_service), [] if by_handler.empty?
 
                 placeholder_tasks = {}
@@ -201,7 +203,7 @@ module Roby
 
                 # (see PlanningHandler#finished?)
                 def finished?
-                    @planning_tasks.all?(&:success?)
+                    @planning_tasks.all?(&:finished?)
                 end
             end
             roby_plan_with Roby::Task.match.with_child(Roby::Actions::Task),
