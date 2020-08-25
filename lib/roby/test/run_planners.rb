@@ -10,66 +10,83 @@ module Roby
             # @api private
             #
             # Helper that sets up the planning handlers for {#run_planners}
-            def self.setup_planning_handlers(test, plan, root_task, recursive: true)
-                if root_task.respond_to?(:as_plan)
-                    root_task = root_task.as_plan
-                    plan.add(root_task)
+            def self.setup_planning_handlers(test, plan, root_tasks, recursive: true)
+                root_tasks = root_tasks.map do |root_task|
+                    if root_task.respond_to?(:as_plan)
+                        root_task = root_task.as_plan
+                        plan.add(root_task)
+                    end
+                    root_task
                 end
 
-                tasks = if recursive
+                if recursive
+                    tasks = root_tasks.each_with_object(root_tasks.to_set) do |task, s|
+                        s.merge(
                             plan.task_relation_graph_for(Roby::TaskStructure::Dependency)
-                                .enum_for(:depth_first_visit, root_task).to_a
-                        else
-                            [root_task]
-                        end
+                                .enum_for(:depth_first_visit, task).to_set
+                        )
+                    end
+                else
+                    tasks = root_tasks.to_set
+                end
 
-                by_handler = tasks
-                             .find_all { |t| t.abstract? && t.planning_task }
-                             .group_by { |t| RunPlanners.planner_handler_for(t) }
-                             .map { |h_class, h_tasks| [h_class.new(test), h_tasks] }
-                return root_task.as_service, [] if by_handler.empty?
+                by_handler =
+                    tasks
+                    .find_all { |t| t.abstract? && t.planning_task }
+                    .find_all { |t| !t.planning_task.failed? }
+                    .group_by { |t| RunPlanners.planner_handler_for(t) }
+                    .map { |h_class, h_tasks| [h_class.new(test), h_tasks] }
+                return root_tasks.map(&:as_service), [] if by_handler.empty?
 
                 placeholder_tasks = {}
                 by_handler.each do |handler, handler_tasks|
                     handler_tasks.each do |t|
-                        placeholder_tasks[t] = t.as_service
+                        placeholder_tasks[t] ||= t.as_service
                     end
                     handler.start(handler_tasks)
                 end
 
-                [(placeholder_tasks[root_task] || root_task.as_service), by_handler]
+                services = root_tasks.map { |t| placeholder_tasks[t] ||= t.as_service }
+                [services, by_handler]
             end
 
             # @api public
             #
             # Run the planners that are required by a task or subplan
             #
-            # @param [Task] root_task the task whose planners we want to run, or
-            #   the root of the subplan
+            # @param [Task,Array<Task>] root_task the task whose planners we
+            #   want to run, or the root of the subplan
             # @param [Boolean] recursive whether the method attempts to run the
             #   planners recursively in both plan (considering the whole subplan
             #   of root_task) and time (re-run planners for tasks if existing
             #   planning tasks generate subplans containing planning tasks
             #   themselves)
-            def run_planners(root_task, recursive: true)
-                unless root_task.respond_to?(:as_plan)
+            def run_planners(root_tasks, recursive: true)
+                was_array = root_tasks.respond_to?(:to_ary)
+                root_tasks = Array(root_tasks)
+                if (not_a_task = root_tasks.find { |t| !t.respond_to?(:as_plan) })
                     raise ArgumentError,
-                          "#{root_task} is not a Roby task and cannot be converted to one"
+                          "#{not_a_task} is not a Roby task and cannot "\
+                          "be converted to one"
                 end
 
                 unless execution_engine.in_propagation_context?
-                    service = nil
+                    services = nil
                     expect_execution do
-                        service = run_planners(root_task, recursive: recursive)
+                        services = run_planners(root_tasks, recursive: recursive)
                     end.to_run
-                    return service&.to_task
+
+                    result_tasks = services.map(&:to_task)
+                    return was_array ? result_tasks : result_tasks.first
                 end
 
-                root_task_service, by_handler =
+                root_task_services, by_handler =
                     RunPlanners.setup_planning_handlers(
-                        self, plan, root_task, recursive: recursive
+                        self, plan, root_tasks, recursive: recursive
                     )
-                return root_task_service if by_handler.empty?
+                if by_handler.empty?
+                    return was_array ? root_task_services : root_task_services.first
+                end
 
                 add_expectations do
                     all_handlers_finished = false
@@ -81,10 +98,10 @@ module Roby
                             if recursive
                                 by_handler = nil
                                 execute do
-                                    new_root = root_task_service.to_task
-                                    root_task_service, by_handler =
+                                    new_roots = root_task_services.map(&:to_task)
+                                    root_task_services, by_handler =
                                         RunPlanners.setup_planning_handlers(
-                                            self, plan, new_root, recursive: true
+                                            self, plan, new_roots, recursive: true
                                         )
                                 end
                             else
@@ -102,7 +119,8 @@ module Roby
                         by_handler&.empty?
                     end
                 end
-                root_task_service
+
+                was_array ? root_task_services : root_task_services.first
             end
 
             # Interface for a planning handler for {#roby_run_planner}
@@ -185,7 +203,7 @@ module Roby
 
                 # (see PlanningHandler#finished?)
                 def finished?
-                    @planning_tasks.all?(&:success?)
+                    @planning_tasks.all?(&:finished?)
                 end
             end
             roby_plan_with Roby::Task.match.with_child(Roby::Actions::Task),
