@@ -546,15 +546,6 @@ module Roby
                     flexmock(app).should_receive(:test_files_for).and_return([])
                 end
 
-                def touch_test_files(*paths)
-                    paths.map do |p|
-                        full_p = File.join(app.app_dir, "test", "lib", *p)
-                        FileUtils.mkdir_p File.dirname(full_p)
-                        FileUtils.touch full_p
-                        [full_p, Set.new]
-                    end
-                end
-
                 it "enumerates test_*.rb files in test/lib" do
                     expected = touch_test_files \
                         ["test_root.rb"],
@@ -573,6 +564,68 @@ module Roby
                         ["subdir", "subdir.rb"]
                     assert_equal [], app.each_test_file_for_loaded_models.to_a
                 end
+
+                def touch_test_files(*paths)
+                    full_paths = super(*paths.map { |ary| ["lib"] + ary })
+                    full_paths.map { |p| [p, Set.new] }
+                end
+            end
+        end
+
+        describe "each_test_file_in_app" do
+            before do
+                gen_app
+                FileUtils.touch File.join(app_dir, "config", "robots", "current_robot.rb")
+            end
+
+            it "enumerates test files in test/ recursively" do
+                paths = touch_test_files \
+                    %w[test_root.rb],
+                    %w[subdir test_subdir.rb]
+                paths << File.join(app_dir, "test", "robots", "test_default.rb")
+                assert_equal paths, app.each_test_file_in_app.to_set
+            end
+
+            it "ignores the paths that do not match test_*.rb" do
+                touch_test_files \
+                    %w[root_test_root.rb],
+                    %w[subdir subdir.rb]
+                path = File.join(app_dir, "test", "robots", "test_default.rb")
+                assert_equal [path], app.each_test_file_in_app.to_a
+            end
+
+            it "only loads the test file in test/robots/ that match the current "\
+               "robot name" do
+                touch_test_files \
+                    %w[robots test_current_robot.rb],
+                    %w[robots test_some_robot.rb],
+                    %w[robots test_another_robot.rb]
+                app.robots.robots["current_robot"] = "current_robot"
+                app.robot "current_robot"
+                path = File.join(app_dir, "test", "robots", "test_current_robot.rb")
+                assert_equal [path], app.each_test_file_in_app.to_a
+            end
+
+            it "falls back to the robot type test if there is one and none for the "\
+               "robot type" do
+                touch_test_files \
+                    %w[robots test_current_robot_type.rb],
+                    %w[robots test_some_robot.rb],
+                    %w[robots test_another_robot.rb]
+                app.robots.robots["current_robot"] = "current_robot_type"
+                app.robot "current_robot", "current_robot_type"
+                path = File.join(app_dir, "test", "robots", "test_current_robot_type.rb")
+                assert_equal [path], app.each_test_file_in_app.to_a
+            end
+
+            it "does not load any robot test if there is none matching" do
+                touch_test_files \
+                    %w[robots test_current_robot_type.rb],
+                    %w[robots test_some_robot.rb],
+                    %w[robots test_another_robot.rb]
+                app.robots.robots["current_robot"] = "some_other_type"
+                app.robot "current_robot", "some_other_type"
+                assert_equal [], app.each_test_file_in_app.to_a
             end
         end
 
@@ -1015,6 +1068,15 @@ module Roby
                 app.controller(reset: true, &block1)
                 assert_equal [block1], app.controllers.map(&:block)
             end
+        end
+
+        def touch_test_files(*paths)
+            paths.map do |p|
+                full_p = File.join(app.app_dir, "test", *p)
+                FileUtils.mkdir_p File.dirname(full_p)
+                FileUtils.touch full_p
+                full_p
+            end.to_set
         end
     end
 end
