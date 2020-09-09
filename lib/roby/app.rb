@@ -1894,10 +1894,11 @@ module Roby
         end
 
         def setup_robot_names_from_config_dir
-            robot_config_files = find_files_in_dirs "config", "robots",
-                                                    all: true,
-                                                    order: :specific_first,
-                                                    pattern: ->(p) { File.extname(p) == ".rb" }
+            robot_config_files = find_files_in_dirs(
+                "config", "robots",
+                all: true, order: :specific_first,
+                pattern: ->(p) { File.extname(p) == ".rb" }
+            )
 
             robots.strict = !robot_config_files.empty?
             robot_config_files.each do |path|
@@ -2977,7 +2978,9 @@ module Roby
         # @return [Boolean]
         def autodiscover_tests_in?(path)
             suffix = File.basename(path)
-            if robots.has_robot?(suffix) && ![robot_name, robot_type].include?(suffix)
+            if path == File.join(app_dir, "test", "robots")
+                false
+            elsif robots.has_robot?(suffix) && ![robot_name, robot_type].include?(suffix)
                 false
             elsif defined? super
                 super
@@ -2994,6 +2997,15 @@ module Roby
             dir = File.join(app_dir, "test")
             return unless File.directory?(dir)
 
+            robot_test_dir = File.join(dir, "robots")
+            [robot_name, robot_type].each do |name|
+                robot_test_file = File.join(robot_test_dir, "test_#{name}.rb")
+                if File.file?(robot_test_file)
+                    yield(robot_test_file)
+                    break
+                end
+            end
+
             Find.find(dir) do |path|
                 # Skip the robot-specific bits that don't apply on the
                 # selected robot
@@ -3001,7 +3013,7 @@ module Roby
                     Find.prune unless autodiscover_tests_in?(path)
                 end
 
-                if File.file?(path) && path =~ /test_.*\.rb$/
+                if File.file?(path) && /^test_.*\.rb$/.match?(File.basename(path))
                     yield(path)
                 end
             end

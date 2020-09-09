@@ -64,4 +64,5 @@ Style/AccessModifierDeclarations:
 Naming/MethodParameterName:
   AllowedNames:
   - as
+  - kw
 

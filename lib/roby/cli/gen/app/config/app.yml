@@ -4,13 +4,13 @@ log:
   # unless the environment variable ROBY_BASE_LOG_DIR is set in which case it is
   # relative to this directory.
   # dir: logs/
-  
+
   # Whether backtraces should be filtered (i.e. call sites from the framework
   # are hidden)
   # The default is true
   #
   # filter_backtraces: false
-  
+
   # Log system events. It can be either true, false or stats. If true, all
   # plan-level events are logged, allowing to use the roby-log GUI to replay
   # the plans. If false, nothing is logged. If set to stats, only execution
@@ -51,7 +51,7 @@ log:
   #
   # Log files are saved in the log directory (controlled by the 'dir' option above, it is
   # 'log' by default).
-  
+
   # Set to false to disables the log server and true to enable it (it is enabled by
   # default). The log server allows to display the controller state remotely by using the
   # <tt>roby-log</tt> tool. Note that it is completely separated from the Roby remote
@@ -70,11 +70,5 @@ log:
 engine:
   # The length of a cycle (in seconds). It defaults to 100ms.
   # cycle: 0.1
-
-# Per-robot configuration. In these, you can override global options, or set
-# new options.
-# dala:
-#   droby:
-#     host: ":1287"
 
 # vim: sw=2

@@ -5,6 +5,7 @@ require "thor"
 
 module Roby
     module CLI
+        # Scaffolding CLI (roby gen)
         class GenMain < Thor
             include Thor::Actions
 
@@ -19,8 +20,9 @@ module Roby
                 end
             end
 
-            desc "app [DIR]", "creates a new app scaffold in the current directory, "\
-                              "or DIR if given"
+            desc "app [DIR]",
+                 "creates a new app scaffold in the current directory, "\
+                 "or DIR if given"
             option :quiet, type: :boolean, default: false
             def app(dir = nil, init_path: "roby_app", robot_path: "roby_app")
                 if dir
@@ -60,8 +62,8 @@ module Roby
             desc "action ACTION_FILE_OR_CLASS",
                  "create a new action interface at the provided file"
             option :robot,
-                   aliases: "r", desc: "the robot name for robot-specific scaffolding",
-                   type: :string, default: nil
+                   aliases: "r", type: :string, default: nil,
+                   desc: "the robot name for robot-specific scaffolding"
             def actions(name)
                 Roby.app.require_app_dir(needs_current: true)
                 Roby.app.load_base_config
