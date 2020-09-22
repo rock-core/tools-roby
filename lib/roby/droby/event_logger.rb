@@ -151,14 +151,14 @@ module Roby
             ensure @dump_time += (Time.now - start)
             end
 
-            def flush_cycle(*last_message)
+            def flush_cycle(*last_message, need_timepoints: true)
                 start = Time.now
                 if threaded?
                     @dump_thread.value unless @dump_thread.alive?
 
                     synchronize do
                         append_message(*last_message)
-                        @dump_queue << @current_cycle
+                        @dump_queue << [need_timepoints, @current_cycle]
                         @current_cycle = []
                     end
                 else
@@ -172,10 +172,18 @@ module Roby
 
             # Main dump loop if the logger is threaded
             def dump_loop
-                while (cycle = @dump_queue.pop)
+                while (need_timepoints, cycle = @dump_queue.pop)
+                    cycle = filter_out_timepoints(cycle) unless need_timepoints
                     logfile.dump(cycle)
                     logfile.flush if sync?
                 end
+            end
+
+            TIMEPOINT_EVENTS = %I[timepoint timepoint_group_start timepoint_group_end]
+                               .freeze
+
+            def filter_out_timepoints(cycle)
+                cycle.find_all { |m, _| !TIMEPOINT_EVENTS.include?(m) }
             end
         end
     end

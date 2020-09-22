@@ -2439,7 +2439,10 @@ module Roby
             end
 
             cycle_end(stats)
-            log_flush_cycle :cycle_end, stats
+            log_flush_cycle(
+                :cycle_end, stats,
+                need_timepoints: (stats[:end] > cycle_length)
+            )
 
             @cycle_start += cycle_length
             @cycle_index += 1
