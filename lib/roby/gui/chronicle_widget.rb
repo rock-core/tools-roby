@@ -765,7 +765,7 @@ module Roby
                 text_descent = fm.descent
 
                 update_current_tasks
-                current_tasks[start_line..-1].each do |task|
+                current_tasks[start_line..-1]&.each do |task|
                     break if top_y > view_height
 
                     task_layout = lay_out_task(fm, task)
