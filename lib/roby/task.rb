@@ -289,16 +289,6 @@ module Roby
         # @return [Symbol]
         def current_state
             # Started and not finished
-            if running?
-                if respond_to?("state_machine")
-                    # state_machine.status # => String
-                    # state_machine.status_name # => Symbol
-                    return state_machine.status_name
-                else
-                    return :running
-                end
-            end
-
             # True, when task has never been started
             if pending?
                 :pending
@@ -306,14 +296,19 @@ module Roby
                 :failed_to_start
             elsif starting?
                 :starting
-            # True, when terminal event is pending
+            # True, when terminal event is pending. Note that a finishing task
+            # is running
             elsif finishing?
                 :finishing
+            elsif running?
+                state_machine&.status_name || :running
             # Terminated with success or failure
             elsif success?
                 :succeeded
             elsif failed?
                 :failed
+            elsif stop_event.emitted?
+                :finished
             end
         end
 
