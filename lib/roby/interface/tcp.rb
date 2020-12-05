@@ -163,7 +163,8 @@ module Roby
             addr = socket.addr(true)
             channel = DRobyChannel.new(socket, true, marshaller: marshaller)
             Client.new(channel, "#{addr[2]}:#{addr[1]}", handshake: handshake)
-        rescue Errno::ECONNREFUSED, Errno::EADDRNOTAVAIL, Errno::ETIMEDOUT => e
+        rescue Errno::ECONNREFUSED, Errno::EADDRNOTAVAIL, Errno::ETIMEDOUT,
+               Errno::EHOSTUNREACH, Errno::ENETUNREACH => e
             raise ConnectionError, "failed to connect to #{host}:#{port}: #{e.message}",
                   e.backtrace
         rescue SocketError => e
