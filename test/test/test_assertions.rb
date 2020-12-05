@@ -37,6 +37,15 @@ module Roby
                 end
 
                 describe "validate_state_machine" do
+                    it "handles an action object" do
+                        task_m = @task_m
+                        test = self
+                        validate_state_machine @interface.test_machine do
+                            test.assert_kind_of task_m, current_state_task
+                            test.assert current_state_task.pending?
+                        end
+                    end
+
                     it "plans the machine's start state" do
                         task_m = @task_m
                         test = self
