@@ -35,7 +35,9 @@ module Roby
             # @param block a block evaluated in a {ValidateStateMachine} context
             def validate_state_machine(task_or_action, &block)
                 machine = ValidateStateMachine.new(self, task_or_action)
-                machine.start unless task_or_action.running?
+                unless task_or_action.respond_to?(:running?) && task_or_action.running?
+                    machine.start
+                end
                 machine.evaluate(&block)
             end
 

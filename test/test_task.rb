@@ -1467,6 +1467,47 @@ module Roby
                 assert_equal(ret, task.promise {})
             end
         end
+
+        describe "#current_state" do
+            it "returns the name of all the phases of a successful execution" do
+                task_m = Tasks::Simple.new_submodel do
+                    event(:start) { |context| }
+                    event(:stop) { |context| }
+                end
+                plan.add(task = task_m.new)
+                assert_equal :pending, task.current_state
+                execute { task.start! }
+                assert_equal :starting, task.current_state
+                execute { task.start_event.emit }
+                assert_equal :running, task.current_state
+                execute { task.stop! }
+                assert_equal :finishing, task.current_state
+                execute { task.success_event.emit }
+                assert_equal :succeeded, task.current_state
+            ensure
+                execute { task.stop_event.emit } if task.running?
+            end
+
+            it "returns :failed_to_start for a task that failed to start" do
+                plan.add(task = Tasks::Simple.new)
+                execute { task.failed_to_start!("something") }
+                assert_equal :failed_to_start, task.current_state
+            end
+
+            it "returns :failed for a failed execution" do
+                plan.add(task = Tasks::Simple.new)
+                execute { task.start! }
+                execute { task.failed_event.emit }
+                assert_equal :failed, task.current_state
+            end
+
+            it "returns :finished for a task that finished with neither :success or :failed" do
+                plan.add(task = Tasks::Simple.new)
+                execute { task.start! }
+                execute { task.stop_event.emit }
+                assert_equal :finished, task.current_state
+            end
+        end
     end
 end
 
