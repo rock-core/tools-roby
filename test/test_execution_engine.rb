@@ -372,6 +372,46 @@ module Roby
                 expect_execution.garbage_collect(true).to_run
             end
 
+            it "does not finalize a task which is strongly related to another, "\
+               "this other task being pending but returning false in #can_finalize?" do
+                plan.add(task = Tasks::Simple.new)
+                can_finalize = false
+                flexmock(task).should_receive(:can_finalize?).and_return { can_finalize }
+
+                agent_m = Tasks::Simple.new_submodel do
+                    event :ready
+                end
+                task.executed_by(agent = agent_m.new)
+                execute { execution_engine.garbage_collect }
+
+                assert task.plan
+                assert agent.plan
+
+                # This is the actual manifestation of the bug this test has
+                # been written for. The agent was getting garbage-collected,
+                # which led to a non-finalized task that should have an agent
+                # to not have one
+                assert task.execution_agent
+
+                can_finalize = true
+                expect_execution { execution_engine.garbage_collect }
+                    .to do
+                        finalize agent
+                        finalize task
+                    end
+            ensure
+                can_finalize = true
+            end
+
+            it "does garbage-collect tasks passed in the force_gc set, "\
+               "regardless of whether they are in the unneeded_tasks set" do
+                plan.add_mission_task(task = Tasks::Simple.new)
+                execute { task.start! }
+
+                expect_execution { plan.execution_engine.garbage_collect([task]) }
+                    .to { emit task.stop_event }
+            end
+
             describe "handling of the quarantine" do
                 it "does not attempt to terminate a running quarantined task" do
                     plan.add(task = Tasks::Simple.new)

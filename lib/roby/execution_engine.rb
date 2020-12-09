@@ -1980,16 +1980,6 @@ module Roby
                     break
                 end
 
-                if local_tasks.all? { |t| t.pending? || t.finished? }
-                    local_tasks.each do |t|
-                        debug { "GC: #{t} is not running, removed" }
-                        if plan.garbage_task(t)
-                            did_something = true
-                        end
-                    end
-                    break
-                end
-
                 # Mark all root local_tasks as garbage.
                 roots = local_tasks.dup
                 plan.each_task_relation_graph do |g|
