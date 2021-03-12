@@ -130,6 +130,22 @@ module Roby
         # @see #register_exception #clear_exceptions
         attr_reader :registered_exceptions
 
+        # Whether internal timepoints should be logged
+        #
+        # This generates a magnitude higher amount of data than "normal"
+        # logging. Enable this during development if you have issues with
+        # Roby being unresponsive
+        def log_timepoints?
+            if @log_timepoints.nil?
+                log["timepoints"]
+            else
+                @log_timepoints
+            end
+        end
+
+        # Override {#log_timepoints?} as configured in app.yml
+        attr_writer :log_timepoints
+
         # @!method development_mode?
         #
         # Whether the app should run in development mode
@@ -946,7 +962,7 @@ module Roby
             logfile_path = File.join(log_dir, "#{robot_name}-events.log")
             event_io = File.open(logfile_path, "w")
             logfile = DRoby::Logfile::Writer.new(event_io, plugins: plugins.map { |n, _| n })
-            plan.event_logger = DRoby::EventLogger.new(logfile)
+            plan.event_logger = DRoby::EventLogger.new(logfile, log_timepoints: log_timepoints?)
             plan.execution_engine.event_logger = plan.event_logger
 
             Robot.info "logs are in #{log_dir}"

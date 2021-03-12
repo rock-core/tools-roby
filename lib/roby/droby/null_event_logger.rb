@@ -3,6 +3,8 @@
 module Roby
     module DRoby
         class NullEventLogger
+            def log_timepoints?; end
+
             def dump(m, time, *args); end
 
             def dump_timepoint(m, time, *args); end

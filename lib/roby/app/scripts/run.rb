@@ -43,6 +43,9 @@ options = OptionParser.new do |opt|
     opt.on "--no-logs", "treat the log directory as ephemeral" do
         app.public_logs = false
     end
+    opt.on "--log-timepoints", "log internal Roby timings" do
+        app.log_timepoints = true
+    end
     opt.on "--wait-shell-connection", "wait for a shell connection before running" do
         wait_shell_connection = true
     end

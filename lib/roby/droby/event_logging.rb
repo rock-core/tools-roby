@@ -14,6 +14,8 @@ module Roby
 
             # Log a timepoint on the underlying logger
             def log_timepoint(name)
+                return unless event_logger.log_timepoints?
+
                 current_thread = Thread.current
                 event_logger.dump_timepoint(
                     :timepoint, Time.now,
@@ -23,6 +25,8 @@ module Roby
 
             # Run a block within a timepoint group
             def log_timepoint_group(name)
+                return yield unless event_logger.log_timepoints?
+
                 log_timepoint_group_start(name)
                 yield
             ensure
@@ -34,6 +38,8 @@ module Roby
             # The logger will NOT do any validation of the group start/end
             # pairing at logging time. This is done at replay time
             def log_timepoint_group_start(name)
+                return unless event_logger.log_timepoints?
+
                 current_thread = Thread.current
                 event_logger.dump_timepoint(
                     :timepoint_group_start, Time.now,
@@ -46,6 +52,8 @@ module Roby
             # The logger will NOT do any validation of the group start/end
             # pairing at logging time. This is done at replay time
             def log_timepoint_group_end(name)
+                return unless event_logger.log_timepoints?
+
                 current_thread = Thread.current
                 event_logger.dump_timepoint(
                     :timepoint_group_end, Time.now,
