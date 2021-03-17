@@ -9,12 +9,17 @@ module Roby
 
             attr_reader :received_events
 
-            def initialize(io, enabled: false)
+            def initialize(io, enabled: false, log_timepoints: false)
                 @io = io
                 @enabled = enabled
                 @filters = []
                 @filters_out = []
                 @received_events = []
+                @log_timepoints = log_timepoints
+            end
+
+            def log_timepoints?
+                @log_timepoints
             end
 
             def dump_time
