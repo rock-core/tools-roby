@@ -41,6 +41,7 @@ module Roby
                                port: Roby::Interface::DEFAULT_REST_PORT,
                                api: REST::API,
                                main_route: "/api",
+                               storage: {},
                                middlewares: [Rack::CommonLogger, Rack::ShowExceptions],
                                **thin_options)
 
@@ -50,7 +51,9 @@ module Roby
                     @interface = Interface.new(app)
                     @wait_start = Concurrent::IVar.new
 
-                    api = self.class.attach_api_to_interface(api, @interface)
+                    api = self.class.attach_api_to_interface(
+                        api, @interface, storage
+                    )
                     rack_app = Rack::Builder.new do
                         yield(self) if block_given?
 

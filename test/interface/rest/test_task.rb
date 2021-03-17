@@ -87,6 +87,32 @@ module Roby
                     end
                 end
 
+                it "uses the return value from rest_server_args to compute the args" do
+                    api = Class.new(Grape::API) do
+                        mount API
+                        helpers Helpers
+
+                        get "/storage_value" do
+                            roby_storage[:test_storage_value]
+                        end
+                    end
+                    task_m = Task.new_submodel do
+                        define_method(:rest_api) { api }
+                        def rest_server_args
+                            super.merge(
+                                storage: { test_storage_value: 10 }
+                            )
+                        end
+                    end
+
+                    plan.add(task = task_m.new(port: 0))
+                    expect_execution { task.start! }.to { emit task.start_event }
+
+                    assert_equal "10", RestClient.get(
+                        "http://127.0.0.1:#{task.actual_port}/api/storage_value"
+                    )
+                end
+
                 describe "#url_for" do
                     it "returns the full URL to an API path" do
                         rest_task = Task.new(host: "127.0.0.1", port: 0,
