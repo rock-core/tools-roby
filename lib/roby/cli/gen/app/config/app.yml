@@ -25,6 +25,15 @@ log:
   #
   events: true
 
+  # Whether Roby's internal timepoints should be logged as well
+  #
+  # These timepoints allow to trace timing during Roby's internal processing.
+  # They do generate an order of magnitude more data than the system's events.
+  # One would enable this only to debug unexpected timing issues
+  #
+  # This value can be overriden on the "run" command line with --log-timepoints
+  timepoints: false
+
   # Logging levels.
   #
   # Logging in Roby is controlled per-module in a hierarchical way. It means that to get

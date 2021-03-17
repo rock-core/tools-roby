@@ -29,6 +29,14 @@ module Roby
             # The time spent logging so far
             attr_reader :dump_time
 
+            # @!method log_timepoints?
+            # @!method log_timepoints=(flag)
+            #
+            # Controls whether the logger should save generated timepoints
+            # or ignore them. This makes the logs bigger by an order of
+            # magnitude (at least)
+            attr_predicate :log_timepoints, true
+
             # @!method stats_mode?
             # @!method stats_mode=(flag)
             #
@@ -53,7 +61,7 @@ module Roby
             #   be done in a separate thread, and this parameter is the maximum
             #   amount of cycles that can be queued in a backlog until the
             #   main thread waits on the logger
-            def initialize(logfile, queue_size: 50)
+            def initialize(logfile, queue_size: 50, log_timepoints: false)
                 @stats_mode = false
                 @logfile = logfile
                 @object_manager = ObjectManager.new(nil)
@@ -62,6 +70,7 @@ module Roby
                 @sync = true
                 @dump_time = 0
                 @mutex = Mutex.new
+                @log_timepoints = log_timepoints
                 return unless queue_size > 0
 
                 @dump_queue  = SizedQueue.new(queue_size)
@@ -133,7 +142,7 @@ module Roby
             end
 
             def dump_timepoint(event, time, args)
-                return if stats_mode?
+                return if stats_mode? || !log_timepoints?
 
                 synchronize do
                     @current_cycle << event << time.tv_sec << time.tv_usec << args
