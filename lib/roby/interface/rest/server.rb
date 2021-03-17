@@ -41,6 +41,7 @@ module Roby
                                port: Roby::Interface::DEFAULT_REST_PORT,
                                api: REST::API,
                                main_route: "/api",
+                               middlewares: [Rack::CommonLogger, Rack::ShowExceptions],
                                **thin_options)
 
                     @app = app
@@ -54,8 +55,7 @@ module Roby
                         yield(self) if block_given?
 
                         map main_route do
-                            use Rack::CommonLogger
-                            use Rack::ShowExceptions
+                            middlewares.each { |m| use m }
                             run api
                         end
                     end

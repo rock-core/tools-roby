@@ -24,14 +24,21 @@ module Roby
                 # Default is '/api'
                 argument :main_route, default: "/api"
 
+                # Whether all requests are to be displayed
+                argument :verbose, default: false
+
                 event :start do |_event|
-                    @rest_server = Server.new(
-                        roby_app, host: host, port: port,
-                                  main_route: main_route, api: rest_api
-                    )
+                    @rest_server = Server.new(roby_app, **rest_server_args)
                     start_event.achieve_asynchronously do
                         @rest_server.start
                     end
+                end
+
+                def rest_server_args
+                    base_args = { host: host, port: port,
+                                  main_route: main_route, api: rest_api }
+                    base_args[:middlewares] = [] unless verbose
+                    base_args
                 end
 
                 # The Roby app that is being exposed

@@ -14,7 +14,8 @@ module Roby
                     @rest_task = Task.new(host: "127.0.0.1", port: 0)
                     plan.add(rest_task)
 
-                    expect_execution { rest_task.start! }.to { emit rest_task.start_event }
+                    expect_execution { rest_task.start! }
+                        .to { emit rest_task.start_event }
                 end
 
                 it "starts a webserver with our API on start" do
@@ -39,6 +40,50 @@ module Roby
                     assert_raises(REST::Server::InvalidServer) do
                         Server.server_alive?(
                             "127.0.0.1", rest_task.actual_port, main_route: "/api")
+                    end
+                end
+
+                describe "default middlewares" do
+                    before do
+                        api = Class.new(Grape::API) do
+                            format :json
+
+                            mount API
+                            get "fail" do
+                                raise "some error"
+                            end
+                        end
+                        @task_m = Task.new_submodel { define_method(:rest_api) { api } }
+                    end
+
+                    it "does not install reporting middlewares if verbose is false" do
+                        plan.add(task = @task_m.new(port: 0, verbose: false))
+                        expect_execution { task.start! }.to { emit task.start_event }
+
+                        _, err = capture_subprocess_io do
+                            assert_raises(RestClient::InternalServerError) do
+                                RestClient.get(
+                                    "http://127.0.0.1:#{task.actual_port}/api/fail"
+                                )
+                            end
+                        end
+                        assert_equal "", err
+                    end
+
+                    it "installs both the logger and error reporting middlewares if "\
+                       "verbose is true" do
+                        plan.add(task = @task_m.new(port: 0, verbose: true))
+                        expect_execution { task.start! }.to { emit task.start_event }
+
+                        _, err = capture_subprocess_io do
+                            assert_raises(RestClient::InternalServerError) do
+                                RestClient.get(
+                                    "http://127.0.0.1:#{task.actual_port}/api/fail"
+                                )
+                            end
+                        end
+                        assert_match(/some error/, err)
+                        assert_match(%r{GET /api/fail.*500}m, err)
                     end
                 end
 
