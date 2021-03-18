@@ -382,7 +382,9 @@ module Roby
                 # Poll the interface until the block returns a truthy value
                 def roby_poll_interface_until
                     until (result = yield)
-                        if defined?(::Cucumber) && ::Cucumber.wants_to_quit
+                        if defined?(::Cucumber) &&
+                           ::Cucumber.respond_to?(:wants_to_quit) &&
+                           ::Cucumber.wants_to_quit
                             raise Interrupt, "Interrupted"
                         end
 
