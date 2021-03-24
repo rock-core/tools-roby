@@ -72,6 +72,55 @@ module Roby
                 assert @handler_class.valid?
             end
 
+            it "calls a handler with all tasks except those whose planning failed, "\
+               "but processes only the ones returned by #filter_tasks" do
+                @handler_class = Class.new(RunPlanners::PlanningHandler) do
+                    def filter_tasks(tasks)
+                        if defined? @@tasks
+                            []
+                        else
+                            @@tasks = tasks
+                        end
+                    end
+
+                    def start(tasks)
+                        raise "unexpected tasks" if @@tasks != tasks
+                    end
+
+                    def self.tasks
+                        @@tasks
+                    end
+
+                    def finished?
+                        true
+                    end
+                end
+
+                planning_task_m = Roby::Task.new_submodel { terminates }
+
+                RunPlanners.roby_plan_with(@task_m.match, @handler_class)
+                tasks = 3.times.map do |i|
+                    plan.add(t = @task_m.new)
+                    t.planned_by(planning_task_m.new)
+                    t
+                end
+                execute do
+                    tasks[0].planning_task.start!
+                    tasks[1].planning_task.start!
+                end
+
+                expect_execution do
+                    tasks[0].planning_task.failed_event.emit
+                    tasks[1].planning_task.success_event.emit
+                end.to { have_error_matching Roby::PlanningFailedError }
+                tasks[1].abstract = false
+
+                run_planners(tasks)
+                assert_equal 2, @handler_class.tasks.size
+                assert_equal tasks[1, 2].to_set,
+                             @handler_class.tasks.to_set
+            end
+
             it "handles being given an object instead of an array" do
                 plan.add(root_task = @action_m.test_action(id: 0).as_plan)
                 assert_equal @planned_tasks[0], run_planners(

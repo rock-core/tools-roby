@@ -32,10 +32,20 @@ module Roby
 
                 by_handler =
                     tasks
-                    .find_all { |t| t.abstract? && t.planning_task }
-                    .find_all { |t| !t.planning_task.failed? }
+                    .find_all { |t| t.planning_task && !t.planning_task.failed? }
                     .group_by { |t| RunPlanners.planner_handler_for(t) }
                     .map { |h_class, h_tasks| [h_class.new(test), h_tasks] }
+
+                by_handler = by_handler.filter_map do |handler, handler_tasks|
+                    filtered_tasks =
+                        if handler.respond_to?(:filter_tasks)
+                            handler.filter_tasks(handler_tasks)
+                        else
+                            handler_tasks.find_all(&:abstract?)
+                        end
+
+                    [handler, filtered_tasks] unless filtered_tasks.empty?
+                end
                 return root_tasks.map(&:as_service), [] if by_handler.empty?
 
                 placeholder_tasks = {}
@@ -189,6 +199,10 @@ module Roby
             class ActionPlanningHandler
                 def initialize(test)
                     @test = test
+                end
+
+                def filter_tasks(tasks)
+                    tasks.find_all(&:abstract?)
                 end
 
                 # (see PlanningHandler#start)
