@@ -56,6 +56,24 @@ module Roby
                     end
                 end
 
+                it "makes available the storage argument as roby_storage in the API" do
+                    api = Class.new(Grape::API) do
+                        mount API
+                        helpers Helpers
+
+                        get "/storage_value" do
+                            roby_storage[:test_storage_value]
+                        end
+                    end
+                    storage = { test_storage_value: 10 }
+                    @server = REST::Server.new(@app, port: 0, api: api, storage: storage)
+                    @server.start
+
+                    assert_equal "10", RestClient.get(
+                        "http://127.0.0.1:#{@server.port}/api/storage_value"
+                    )
+                end
+
                 describe "over TCP" do
                     describe "a given port of zero" do
                         before do
