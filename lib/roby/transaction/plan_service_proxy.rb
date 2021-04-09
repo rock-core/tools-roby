@@ -22,8 +22,6 @@ module Roby
             end
 
             def commit_transaction
-                super
-
                 replacement_handlers.each do |h|
                     __getobj__.on_replacement(&h)
                 end

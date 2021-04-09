@@ -100,14 +100,16 @@ module Roby
                 service.on_plan_status_change { |state| spy.called(state) }
                 plan.unmark_mission_task(task)
             end
-            it "is not called when Plan#add_mission_task is called on a task that is already a mission" do
+            it "is not called when Plan#add_mission_task is called on a task that "\
+               "is already a mission" do
                 spy.should_receive(:called).with(:normal).once.ordered
                 spy.should_receive(:called).with(:mission).once.ordered
                 service.on_plan_status_change { |state| spy.called(state) }
                 plan.add_mission_task(task)
                 plan.add_mission_task(task)
             end
-            it "is not called when Plan#unmark_mission_task is called on a task that is not a mission" do
+            it "is not called when Plan#unmark_mission_task is called on a task "\
+               "that is not a mission" do
                 spy.should_receive(:called).with(:normal).once.ordered
                 service.on_plan_status_change { |state| spy.called(state) }
                 plan.unmark_mission_task(task)
@@ -125,14 +127,16 @@ module Roby
                 service.on_plan_status_change { |state| spy.called(state) }
                 plan.unmark_permanent_task(task)
             end
-            it "is not called when Plan#add_permanent_task is called on a task that is already permanent" do
+            it "is not called when Plan#add_permanent_task is called on a task "\
+               "that is already permanent" do
                 spy.should_receive(:called).with(:normal).once.ordered
                 spy.should_receive(:called).with(:permanent).once.ordered
                 service.on_plan_status_change { |state| spy.called(state) }
                 plan.add_permanent_task(task)
                 plan.add_permanent_task(task)
             end
-            it "is not called when Plan#unmark_permanent_task is called on a task that is not permanent" do
+            it "is not called when Plan#unmark_permanent_task is called on a task "\
+               "that is not permanent" do
                 spy.should_receive(:called).with(:normal).once.ordered
                 service.on_plan_status_change { |state| spy.called(state) }
                 plan.unmark_permanent_task(task)
@@ -197,7 +201,8 @@ module Roby
                 end
             end
 
-            it "does not call replacement handlers for replacements happening in the transaction" do
+            it "does not call replacement handlers for replacements "\
+               "happening in the transaction" do
                 spy.should_receive(:called).never
                 service.on_replacement do
                     spy.called
@@ -222,7 +227,8 @@ module Roby
                     trsc.commit_transaction
                 end
             end
-            it "calls new replacement handlers for replacements happening at commit time" do
+            it "calls new replacement handlers for replacements "\
+               "happening at commit time" do
                 spy.should_receive(:called).with(t1, t2).once
 
                 plan.in_transaction do |trsc|
@@ -255,6 +261,23 @@ module Roby
                     end
                 end
                 plan.replace_task(t1, t2)
+            end
+            it "does not call #commit_transaction on the underlying transaction proxy" do
+                plan.in_transaction do |trsc|
+                    # There is one call ... from the commit itself
+                    flexmock(trsc[service].task)
+                        .should_receive(:commit_transaction).once
+                    trsc.commit_transaction
+                end
+            end
+            it "does not call #commit_transaction on the underlying plan object" do
+                plan.in_transaction do |trsc|
+                    trsc.add(task = Roby::Tasks::Simple.new)
+                    service_proxy = trsc[service]
+                    trsc.replace_task(service_proxy.task, task)
+                    flexmock(task).should_receive(:commit_transaction).once
+                    trsc.commit_transaction
+                end
             end
         end
     end
