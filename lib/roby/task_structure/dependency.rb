@@ -70,6 +70,7 @@ module Roby
                         raise Roby::ModelViolation, "inconsistency in fullfilled models: #{model} and #{m} are incompatible"
                     end
                 end
+                tags.uniq!
 
                 arguments = arguments.merge(required_arguments) do |name, old, new|
                     if old != new

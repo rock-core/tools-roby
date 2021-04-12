@@ -602,6 +602,11 @@ module Roby
                     merged = Dependency.merge_fullfilled_model(target, [source_tag_m], Hash[arg1: 20])
                     assert_equal [target_tag_m, source_tag_m], merged[1]
                 end
+                it "removes duplicate tags" do
+                    target = [task_m, [target_tag_m], Hash[arg0: 10]]
+                    merged = Dependency.merge_fullfilled_model(target, [target_tag_m], Hash[arg1: 20])
+                    assert_equal [target_tag_m], merged[1]
+                end
                 it "merges the arguments" do
                     target = [task_m, [target_tag_m], Hash[arg0: 10]]
                     merged = Dependency.merge_fullfilled_model(target, [source_tag_m], Hash[arg1: 20])
