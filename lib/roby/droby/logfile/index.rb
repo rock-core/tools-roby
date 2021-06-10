@@ -11,30 +11,62 @@ module Roby
                     stat = File.stat(event_io.path)
                     event_log = Reader.new(event_io)
 
-                    index_io.write(
-                        [stat.size, stat.mtime.tv_sec, stat.mtime.tv_nsec]
-                            .pack("Q<L<L<")
-                    )
+                    write_header(index_io, stat.size, stat.mtime)
                     until event_log.eof?
-                        current_pos = event_log.tell
+                        pos = event_log.tell
+                        yield(Float(pos) / end_pos) if block_given?
+
                         cycle = event_log.load_one_cycle
-                        info  = cycle.last.last
-                        event_count = 0
-                        cycle.each_slice(4) do |m, *|
-                            event_count += 1 if m.to_s !~ /^timepoint/
-                        end
-                        info[:event_count] = event_count
-                        info[:pos] = current_pos
-
-                        yield(Float(event_io.tell) / end_pos) if block_given?
-
-                        info = ::Marshal.dump(info)
-                        index_io.write [info.size].pack("L<")
-                        index_io.write info
+                        write_one_cycle(index_io, pos, cycle)
                     end
                 rescue EOFError # rubocop:disable Lint/SuppressedException
                 ensure
                     index_io&.flush
+                end
+
+                # Convert a log's cycle into the info hash expected in the index file
+                #
+                # @param [Integer] pos the position of the cycle in the log file
+                # @param cycle the decoded cycle information, as returned by e.g.
+                #   Reader#load_one_cycle
+                def self.process_one_cycle(pos, cycle)
+                    info = cycle.last.last
+                    event_count = 0
+                    cycle.each_slice(4) do |m, *|
+                        event_count += 1 if m.to_s !~ /^timepoint/
+                    end
+                    info[:event_count] = event_count
+                    info[:pos] = pos
+                    info
+                end
+
+                # Write the index's header
+                #
+                # @param [Integer] size the size of the log file being indexed
+                # @param [Time] mtime the modification time of the log file being indexed
+                def self.write_header(index_io, size, mtime)
+                    index_io.write(
+                        [size, mtime.tv_sec, mtime.tv_nsec].pack("Q<L<L<")
+                    )
+                end
+
+                # Write a cycle's index entry based on the decoded log chunk
+                #
+                # @param index_io the IO object to write to
+                # @param [Integer] pos the position of the cycle's data
+                # @param cycle the cycle data, decoded with e.g. Reader#load_one_cycle
+                def self.write_one_cycle(index_io, pos, cycle)
+                    info = process_one_cycle(pos, cycle)
+                    write_entry(index_io, info)
+                end
+
+                # Write an index entry from the raw info hash
+                #
+                # @param index_io the IO object to write to
+                # @param [Hash] info the info hash to be saved in the index
+                def self.write_entry(index_io, info)
+                    info = ::Marshal.dump(info)
+                    Logfile.write_entry(index_io, info)
                 end
 
                 # Rebuild the index of a given log file

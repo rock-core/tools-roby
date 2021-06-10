@@ -138,6 +138,27 @@ module Roby
 
                 buffer
             end
+
+            # Decode a chunk loaded with {.read_one_chunk}
+            def self.decode_one_chunk(chunk)
+                begin ::Marshal.load_with_missing_constants(chunk)
+                rescue ArgumentError => e
+                    if e.message == "marshal data too short"
+                        raise TruncatedFileError, "marshal data invalid"
+                    end
+
+                    raise
+                end
+            rescue Exception => e # rubocop:disable Lint/RescueException
+                raise e, "#{e.message}, running roby-log repair "\
+                         "might repair the file", e.backtrace
+            end
+
+            # Write a single entry in the log file
+            def self.write_entry(io, chunk)
+                io.write([chunk.size].pack("L<"))
+                io.write chunk
+            end
         end
     end
 end
