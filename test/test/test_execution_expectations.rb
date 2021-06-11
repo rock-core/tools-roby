@@ -151,6 +151,29 @@ module Roby
                             expectations.verify
                         end
 
+                        it "runs the execution cycle even if there is waiting work" do
+                            event = Concurrent::Event.new
+                            execution_engine.promise { event.wait }.execute
+
+                            count = 0
+                            expectations.poll do
+                                count += 1
+                                event.set if count == 2
+                            end
+                            expectations.verify
+                        end
+
+                        it "raises if async work does not finish" do
+                            event = Concurrent::Event.new
+                            execution_engine.promise { event.wait }.execute
+
+                            assert_raises(ExecutionEngine::JoinAllWaitingWorkTimeout) do
+                                expectations.verify
+                            end
+                        ensure
+                            event.set
+                        end
+
                         it "executes the block only once" do
                             execution_engine.should_receive(:has_waiting_work?)
                                 .and_return(true, false)

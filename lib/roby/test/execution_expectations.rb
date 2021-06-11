@@ -447,7 +447,7 @@ module Roby
             # Whether the execution will run until the timeout if the
             # expectations have not been met yet.
             #
-            # The default is 5s
+            # The default is true
             #
             # @param [Boolean] wait
             dsl_attribute :wait_until_timeout
@@ -570,9 +570,11 @@ module Roby
                 timeout_deadline = Time.now + @timeout
 
                 @execute_blocks << block if block
+                cycle_length = 0.1 # 100 ms cycles
+                engine = @plan.execution_engine
 
                 loop do
-                    engine = @plan.execution_engine
+                    cycle_start = Time.now
                     engine.start_new_cycle
                     with_execution_engine_setup do
                         propagation_info = engine.process_events(
@@ -589,6 +591,9 @@ module Roby
 
                         exceptions = engine.cycle_end({}, raise_framework_errors: false)
                         all_propagation_info.framework_errors.concat(exceptions)
+
+                        remaining_timeout = timeout_deadline - Time.now
+                        break if remaining_timeout < 0
                     end
 
                     unmet = find_all_unmet_expectations(all_propagation_info)
@@ -608,21 +613,24 @@ module Roby
                         validate_has_no_unexpected_error(all_propagation_info)
                     end
 
+                    unless has_pending_execute_blocks? ||
+                           (@join_all_waiting_work && engine.has_waiting_work?)
+                        break if unmet.empty? # all conditions are met
+                        break unless @wait_until_timeout
+                    end
+
                     remaining_timeout = timeout_deadline - Time.now
                     break if remaining_timeout < 0
 
-                    if engine.has_waiting_work? && @join_all_waiting_work
-                        _, propagation_info = with_execution_engine_setup do
-                            engine.join_all_waiting_work(timeout: remaining_timeout)
-                        end
-                        all_propagation_info.merge(propagation_info)
-                    elsif !has_pending_execute_blocks? && unmet.empty?
-                        break
-                    end
+                    cycle_sleep = Time.now - cycle_start - cycle_length
+                    sleep(cycle_sleep) if cycle_sleep > 0
+                end
 
-                    break unless has_pending_execute_blocks? ||
-                                 @wait_until_timeout ||
-                                 (engine.has_waiting_work? && @join_all_waiting_work)
+                if engine.has_waiting_work? && @join_all_waiting_work
+                    with_execution_engine_setup do
+                        engine.join_all_waiting_work(timeout: 0)
+                    end
+                    # If this is reached, that's fine, we'll raise for unmet conditions
                 end
 
                 unmet = find_all_unmet_expectations(all_propagation_info)
