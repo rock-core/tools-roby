@@ -122,9 +122,9 @@ module Roby
                     run_cmd = run_roby "run --port 9999"
                     shell_cmd = run_roby "shell --host localhost:9999"
                     shell_cmd.write "quit\n"
-                    assert_command_stops run_cmd
                     shell_cmd.write "exit\n"
                     assert_command_stops shell_cmd
+                    assert_command_stops run_cmd
                 end
             end
         end
