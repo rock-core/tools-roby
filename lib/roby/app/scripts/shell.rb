@@ -3,6 +3,7 @@
 require "roby"
 require "optparse"
 require "rb-readline"
+require "readline"
 
 app = Roby.app
 app.guess_app_dir
