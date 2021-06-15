@@ -3,6 +3,7 @@
 require "roby"
 require "optparse"
 require "rb-readline"
+require "readline"
 
 app = Roby.app
 app.guess_app_dir
@@ -103,9 +104,7 @@ Readline.completion_proc = lambda do |string|
     return []
 end
 
-class ShellEvalContext < BasicObject
-    include ::Kernel
-
+class ShellEvalContext
     WHITELISTED_METHODS = %i[actions wtf? cancel safe unsafe safe? help]
         .freeze
 
@@ -157,7 +156,7 @@ end
 begin
     # Make main_remote_interface__ the top-level object
     shell_context__ = ShellEvalContext.new(main_remote_interface__)
-    ws = IRB::WorkSpace.new(shell_context__.instance_eval { binding })
+    ws = IRB::WorkSpace.new(shell_context__)
     irb = IRB::Irb.new(ws)
 
     output_sync = Mutex.new
