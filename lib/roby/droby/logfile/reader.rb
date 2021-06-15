@@ -57,19 +57,18 @@ module Roby
                     event_io.seek(pos)
                 end
 
+                def read_one_chunk
+                    Logfile.read_one_chunk(event_io)
+                end
+
+                def decode_one_chunk(chunk)
+                    Logfile.decode_one_chunk(chunk)
+                end
+
                 def load_one_cycle
-                    return unless (chunk = Logfile.read_one_chunk(event_io))
+                    return unless (chunk = read_one_chunk)
 
-                    begin ::Marshal.load_with_missing_constants(chunk)
-                    rescue ArgumentError => e
-                        if e.message == "marshal data too short"
-                            raise TruncatedFileError, "marshal data invalid"
-                        end
-
-                        raise
-                    end
-                rescue Exception => e
-                    raise e, "#{e.message}, running roby-log repair might repair the file", e.backtrace
+                    decode_one_chunk(chunk)
                 end
 
                 def self.process_options_hash(options_hash)
