@@ -65,6 +65,46 @@ module Roby
                 assert_equal [:cycle_end, 0, 0, [Hash[test: 10]]], data
             end
 
+            it "handles a chunk whose payload is truncated" do
+                path = File.join(tmpdir, "test-events.log")
+                w = Logfile::Writer.open(path)
+                w.dump([:cycle_end, 0, 0, [Hash[test: 10]]])
+                pos = w.tell
+                w.close
+                File.truncate(path, pos - 1)
+
+                r = Logfile::Reader.open(path)
+                assert_raises(Logfile::TruncatedFileError) do
+                    r.load_one_cycle
+                end
+            end
+
+            it "handles a chunk whose chunk header is truncated" do
+                path = File.join(tmpdir, "test-events.log")
+                w = Logfile::Writer.open(path)
+                before = w.tell
+                w.dump([:cycle_end, 0, 0, [Hash[test: 10]]])
+                w.close
+                File.truncate(path, before + 2)
+
+                r = Logfile::Reader.open(path)
+                assert_raises(Logfile::TruncatedFileError) do
+                    r.load_one_cycle
+                end
+            end
+
+            it "returns nil if called on EOF" do
+                path = File.join(tmpdir, "test-events.log")
+                w = Logfile::Writer.open(path)
+                w.dump([:cycle_end, 0, 0, [Hash[test: 10]]])
+                w.close
+
+                Logfile::Reader.open(path) do |r|
+                    r.load_one_cycle
+                    refute r.load_one_cycle
+                end
+            end
+
             it "raises on creation if it encounters the wrong magic" do
                 File.open(dummy_path = File.join(tmpdir, "dummy"), "w") do |io|
                     io.write "FGOEIJDOEJIDEOIJ"
@@ -81,6 +121,86 @@ module Roby
                 end
                 assert_raises(Logfile::InvalidFormatVersion) do
                     Logfile::Reader.open(dummy_path)
+                end
+            end
+
+            describe "handling of truncated files" do
+                before do
+                    @path = File.join(tmpdir, "test-events.log")
+                end
+
+                describe "guess_version" do
+                    it "returns nil for empty files" do
+                        write_file.close
+                        refute guess_version
+                    end
+
+                    it "returns nil for partial magic code" do
+                        write_file { |io| io.write Logfile::MAGIC_CODE[0..-2] }
+                        refute guess_version
+                    end
+
+                    it "returns nil for files that have only the magic code" do
+                        write_file { |io| io.write Logfile::MAGIC_CODE }
+                        refute guess_version
+                    end
+
+                    it "returns nil for which the version code is truncated" do
+                        write_file do |io|
+                            io.write Logfile::MAGIC_CODE
+                            io.write "\x1\x2"
+                        end
+                        refute guess_version
+                    end
+
+                    def guess_version
+                        File.open(@path) do |io|
+                            Logfile.guess_version(io)
+                        end
+                    end
+                end
+
+                describe "read_prologue" do
+                    it "raises for empty files" do
+                        write_file.close
+                        assert_raises(Logfile::InvalidFileError) do
+                            read_prologue
+                        end
+                    end
+
+                    it "raises for partial magic codes" do
+                        write_file { |io| io.write Logfile::MAGIC_CODE[0..-2] }
+                        assert_raises(Logfile::InvalidFileError) do
+                            read_prologue
+                        end
+                    end
+
+                    it "raises for a file truncated after the magic code" do
+                        write_file { |io| io.write Logfile::MAGIC_CODE }
+                        assert_raises(Logfile::InvalidFileError) do
+                            read_prologue
+                        end
+                    end
+
+                    it "raises for a partial version code" do
+                        write_file do |io|
+                            io.write Logfile::MAGIC_CODE
+                            io.write "\x1\x2"
+                        end
+                        assert_raises(Logfile::InvalidFileError) do
+                            read_prologue
+                        end
+                    end
+
+                    def read_prologue
+                        File.open(@path) do |io|
+                            Logfile.read_prologue(io)
+                        end
+                    end
+                end
+
+                def write_file(&block)
+                    File.open(@path, "w", &block)
                 end
             end
 

@@ -54,10 +54,19 @@ module Roby
             # Guess the log file format version for the given IO
             def self.guess_version(input)
                 input.rewind
+                return unless (magic = input.read(Logfile::MAGIC_CODE.size))
+                return input.read(4)&.unpack1("L<") if magic == Logfile::MAGIC_CODE
 
-                magic = input.read(Logfile::MAGIC_CODE.size)
-                return input.read(4).unpack1("L<") if magic == Logfile::MAGIC_CODE
+                guess_version_from_marshalled_header(input)
+            ensure
+                input.rewind
+            end
 
+            # @api private
+            #
+            # Guess the version of older files that had a single marshalled
+            # object as header
+            def self.guess_version_from_marshalled_header(input)
                 input.rewind
                 header =
                     begin ::Marshal.load(input) # rubocop:disable Security/MarshalLoad
@@ -93,7 +102,10 @@ module Roby
                     raise InvalidFileError, "no magic code at beginning of file"
                 end
 
-                log_format = io.read(4).unpack1("I")
+                unless (log_format = io.read(4)&.unpack1("L<"))
+                    raise InvalidFileError, "file truncated, cannot read prologue"
+                end
+
                 validate_format(log_format)
             rescue InvalidFormatVersion
                 raise
@@ -128,12 +140,18 @@ module Roby
                 data_size = io.read(4)
                 return unless data_size
 
-                data_size = data_size.unpack1("L<")
-                buffer = io.read(data_size) || String.new
+                actual_pos = io.tell
+                unless (data_size = data_size.unpack1("L<"))
+                    raise TruncatedFileError,
+                          "file truncated, expected 4 bytes at #{actual_pos}"
+                end
+
+                buffer = io.read(data_size) || ""
                 if buffer.size < data_size
                     raise TruncatedFileError,
-                          "expected a chunk of size #{data_size} at #{io.tell}, "\
-                          "but got only #{buffer ? buffer.size : '0'} bytes"
+                          "truncated file, expected a chunk of size #{data_size} "\
+                          "at #{actual_pos + 4}, but got only "\
+                          "#{buffer ? buffer.size : '0'} bytes"
                 end
 
                 buffer
