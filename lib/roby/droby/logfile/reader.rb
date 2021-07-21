@@ -126,17 +126,34 @@ module Roby
                     end
                 end
 
+                # Open a reader on the file indicated by path
+                #
+                # @param [String] path the path to the file
+                # @param [String,nil] index_path the path to the file's index. If nil,
+                #   the index path will be the file's path with the '.log' extension
+                #   replaced by '.idx'
+                #
+                # @overload open(path, index_path: nil)
+                #   @return [Reader]
+                #
+                # @overload open(path, index_path: nil) { |reader| ... }
+                #   @yieldparam [Reader] reader
+                #   @return the value returned by the block
+                #
+                #   Yield the reader, and automatically closes it on return of the block
                 def self.open(path, index_path: nil)
-                    io = new(File.open(path), index_path: index_path)
-                    if block_given?
-                        begin
-                            yield(io)
-                        ensure
-                            io.close unless io.closed?
-                        end
-                    else
-                        io
+                    io = File.open(path)
+                    reader = new(File.open(path), index_path: index_path)
+                    return reader unless block_given?
+
+                    begin
+                        yield(reader)
+                    ensure
+                        reader.close unless reader.closed?
                     end
+                rescue ::Exception => e
+                    io.close if io && !io.closed?
+                    raise
                 end
             end
         end
