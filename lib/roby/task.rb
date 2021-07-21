@@ -548,7 +548,10 @@ module Roby
         #
         # Once set it cannot be unset
         def quarantined!
+            return if quarantined?
+
             @quarantined = true
+            plan&.handle_quarantined_task(self)
         end
 
         def failed_to_start?

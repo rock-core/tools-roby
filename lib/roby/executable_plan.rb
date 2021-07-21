@@ -66,11 +66,16 @@ module Roby
         # This is used as a last resort, when the task cannot be stopped/GCed by
         # normal means.
         def quarantine_task(task)
-            log(:quarantined_task, droby_id, task)
-
             task.quarantined!
+        end
+
+        # @api private
+        #
+        # Actually put the task in quarantine. This is used for symmetry between
+        # {Task#quarantine!} and {#quarantine_task}
+        def handle_quarantined_task(task)
+            log(:quarantined_task, droby_id, task)
             task.clear_relations(remove_internal: false, remove_strong: false)
-            self
         end
 
         # Check that this is an executable plan

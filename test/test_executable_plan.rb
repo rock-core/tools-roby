@@ -239,13 +239,26 @@ module Roby
                 assert_logs_event(:quarantined_task, plan.droby_id, task)
                 plan.quarantine_task(task)
             end
+            it "adds the task to the quarantined task set" do
+                plan.quarantine_task(task)
+                assert_includes plan.quarantined_tasks, task
+            end
             it "marks the task as quarantined" do
                 plan.quarantine_task(task)
                 assert task.quarantined?
             end
             it "removes all non-strong task relations and all external event relations" do
-                task.should_receive(:clear_relations).with(remove_internal: false, remove_strong: false).once
+                task.should_receive(:clear_relations)
+                    .with(remove_internal: false, remove_strong: false).once
                 plan.quarantine_task(task)
+            end
+            it "is symmetric with Task#quarantined!" do
+                assert_logs_event(:quarantined_task, plan.droby_id, task)
+                task.should_receive(:clear_relations)
+                    .with(remove_internal: false, remove_strong: false).once
+                task.quarantined!
+                assert_includes plan.quarantined_tasks, task
+                assert task.quarantined?
             end
         end
 
