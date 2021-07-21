@@ -7,6 +7,7 @@ app = Roby.app
 app.require_app_dir
 app.public_shell_interface = true
 app.public_logs = true
+app.public_log_server = true
 
 # Reset any disposition about INT, the run behavior depends on its behavior (and
 # this is the CLI)

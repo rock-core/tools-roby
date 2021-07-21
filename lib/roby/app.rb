@@ -746,6 +746,7 @@ module Roby
             @options = DEFAULT_OPTIONS.dup
 
             @public_logs = false
+            @public_log_server = false
             @log_create_current = true
             @created_log_dirs = []
             @created_log_base_dirs = []
@@ -983,7 +984,7 @@ module Roby
                 FileUtils.ln_s log_dir, File.join(log_base_dir, "current")
             end
 
-            if log["events"] && public_logs?
+            if log["events"] && public_log_server?
                 logfile_path = prepare_event_log
 
                 # Start a log server if needed, and poll the log directory for new
@@ -2488,6 +2489,15 @@ module Roby
         #
         # Only the run modes have public logs by default
         attr_predicate :public_logs?, true
+
+        # @!method public_log_server?
+        # @!method public_log_server=(flag)
+        #
+        # If set to true, this Roby application will start a log server, from
+        # which tools like the Syskit IDE can access the Roby logs at runtime
+        #
+        # Only the run modes have a public display server by default
+        attr_predicate :public_log_server?, true
 
         # @!method log_create_current?
         # @!method log_create_current=(flag)
