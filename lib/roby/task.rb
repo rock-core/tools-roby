@@ -591,24 +591,38 @@ module Roby
                     graph = plan.event_relation_graph_for(rel)
                     next if !remove_strong && graph.strong?
 
-                    to_remove = []
-                    graph.each_in_neighbour(event) do |neighbour|
-                        unless task_events.include?(neighbour)
-                            to_remove << neighbour << event
-                        end
+                    parents = graph.each_in_neighbour(event).find_all do |neighbour|
+                        !task_events.include?(neighbour)
                     end
-                    graph.each_out_neighbour(event) do |neighbour|
-                        unless task_events.include?(neighbour)
-                            to_remove << event << neighbour
-                        end
+                    children = graph.each_out_neighbour(event).find_all do |neighbour|
+                        !task_events.include?(neighbour)
                     end
-                    to_remove.each_slice(2) do |from, to|
-                        graph.remove_edge(from, to)
+
+                    unless remove_strong
+                        parents = filter_events_from_strongly_related_tasks(parents)
+                        children = filter_events_from_strongly_related_tasks(children)
                     end
-                    removed ||= !to_remove.empty?
+
+                    parents.each { |from| graph.remove_edge(from, event) }
+                    children.each { |to| graph.remove_edge(event, to) }
+                    removed ||= !parents.empty? || !children.empty?
                 end
             end
             removed
+        end
+
+        def filter_events_from_strongly_related_tasks(events)
+            return events if events.empty?
+
+            strong_graphs = plan.each_relation_graph.find_all(&:strong?)
+            events.find_all do |ev|
+                next(true) unless ev.respond_to?(:task)
+
+                task = ev.task
+                strong_graphs.none? do |g|
+                    g.has_edge?(self, task) || g.has_edge?(task, ev)
+                end
+            end
         end
 
         # Remove all relations in which +self+ or its event are involved
