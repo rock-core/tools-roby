@@ -192,6 +192,7 @@ module Roby
                     capture_subprocess_io do
                         while resolve_thread.alive?
                             app.shell_interface.process_pending_requests
+                            sleep 0.01
                         end
                     end
                     assert_roby_app_can_connect_to_log_server

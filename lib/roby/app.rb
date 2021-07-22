@@ -2174,7 +2174,7 @@ module Roby
             if options["debug"]
                 server_flags << "--debug"
             elsif options["silent"]
-                redirect_flags[:out] = redirect_flags[:err] = :close
+                redirect_flags[:out] = redirect_flags[:err] = "/dev/null"
             end
 
             @log_server_port = tcp_server.local_address.ip_port
