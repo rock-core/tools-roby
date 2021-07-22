@@ -47,7 +47,7 @@ module Roby
             def commit_transaction
                 super
 
-                handlers.each { |h| __getobj__.on(h.as_options, &h.block) }
+                handlers.each { |h| __getobj__.on(**h.as_options, &h.block) }
                 unreachable_handlers.each do |cancel, h|
                     on_replace = if h.copy_on_replace? then :copy
                                  else :drop

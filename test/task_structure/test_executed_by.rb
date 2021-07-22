@@ -17,9 +17,15 @@ module Roby
                 forward start: :ready
             end
 
+            before do
+                @agent_m = Roby::Tasks::Simple.new_submodel do
+                    event :ready
+                end
+            end
+
             def test_relationships
                 plan.add(task = Tasks::Simple.new)
-                exec_task = ExecutionAgentModel.new
+                exec_task = @agent_m.new
 
                 task.executed_by exec_task
                 assert_equal(exec_task, task.execution_agent)
@@ -34,12 +40,10 @@ module Roby
                 assert_equal([ExecutionAgentModel, { id: 20 }], submodel.execution_agent)
             end
 
-            def test_failure_to_emit_ready_marks_executed_tasks_as_failed_to_start_by_default
+            it "marks executed tasks as failed to start by default if the agent fails "\
+               "to get ready" do
                 plan.add(task = Roby::Tasks::Simple.new)
-                execution_agent = Roby::Tasks::Simple.new_submodel do
-                    event :ready
-                end.new
-                task.executed_by execution_agent
+                task.executed_by(execution_agent = @agent_m.new)
                 execute { execution_agent.start! }
                 reason = execute do
                     execution_agent.ready_event.unreachable!(reason = flexmock)
@@ -49,26 +53,22 @@ module Roby
                 assert_equal reason, task.failure_reason
             end
 
-            def test_what_to_do_when_an_execution_agent_fails_to_start_is_determined_by_the_control_object
+            it "lets the control object decide what to do with executed tasks if the "\
+               "agent fails to start" do
                 plan.add(task = Roby::Tasks::Simple.new)
-                execution_agent = Roby::Tasks::Simple.new_submodel do
-                    event :ready
-                end.new
-                task.executed_by execution_agent
+                task.executed_by(execution_agent = @agent_m.new)
 
-                flexmock(plan.control).should_receive(:execution_agent_failed_to_start)
+                flexmock(plan.control)
+                    .should_receive(:execution_agent_failed_to_start)
                     .once
 
-                execute { execution_agent.failed_to_start!(reason = flexmock) }
+                execute { execution_agent.failed_to_start!(flexmock) }
                 refute task.failed_to_start?
             end
 
-            def test_emission_of_stop_marks_pending_executed_tasks_as_failed_to_start_by_default
+            it "marks pending executed tasks as failed to start by default on stop" do
                 plan.add(task = Roby::Tasks::Simple.new)
-                execution_agent = Roby::Tasks::Simple.new_submodel do
-                    event :ready
-                end.new
-                task.executed_by execution_agent
+                task.executed_by(execution_agent = @agent_m.new)
                 execute do
                     execution_agent.start!
                     execution_agent.ready_event.emit
@@ -78,14 +78,13 @@ module Roby
                 assert_equal execution_agent.failed_event.last, task.failure_reason
             end
 
-            def test_what_to_do_when_an_execution_agent_stops_with_pending_tasks_is_determined_by_the_control_object
+            it "lets the control object decide what to do with pending executed tasks "\
+               "when the agent stops" do
                 plan.add(task = Roby::Tasks::Simple.new)
-                execution_agent = Roby::Tasks::Simple.new_submodel do
-                    event :ready
-                end.new
-                task.executed_by execution_agent
+                task.executed_by(execution_agent = @agent_m.new)
 
-                flexmock(plan.control).should_receive(:pending_executed_by_failed)
+                flexmock(plan.control)
+                    .should_receive(:pending_executed_by_failed)
                     .once
 
                 execute do
@@ -98,42 +97,36 @@ module Roby
                 refute task.failed_to_start?
             end
 
-            def test_nominal
+            it "allows for the execution of the executed tasks" do
                 plan.add(task = Tasks::Simple.new)
-                task.executed_by(ExecutionAgentModel.new)
-                task.executed_by(exec = ExecutionAgentModel.new)
+                task.executed_by(exec = @agent_m.new)
 
-                FlexMock.use do |mock|
-                    exec.start_event.on { |ev| mock.agent_started }
-                    exec.ready_event.on { |ev| mock.agent_ready }
-                    task.start_event.on { |ev| mock.task_started }
+                mock = flexmock
+                exec.start_event.on { |_| mock.agent_started }
+                exec.ready_event.on { |_| mock.agent_ready }
+                task.start_event.on { |_| mock.task_started }
 
-                    mock.should_receive(:agent_started).once.ordered
-                    mock.should_receive(:agent_ready).once.ordered
-                    mock.should_receive(:task_started).once.ordered
-                    execute do
-                        exec.start!
-                        task.start!
-                    end
+                mock.should_receive(:agent_started).once.ordered
+                mock.should_receive(:agent_ready).once.ordered
+                mock.should_receive(:task_started).once.ordered
+                execute do
+                    exec.start!
+                    exec.ready_event.emit
+                    task.start!
                 end
             end
 
-            def test_executed_by_verifies_that_the_agent_has_a_ready_event
+            it "verifies that the execution agent has a 'ready' event" do
                 plan.add(task = Tasks::Simple.new)
                 exec = Roby::Tasks::Simple.new
                 assert_raises(ArgumentError) do
                     task.executed_by exec
                 end
-                exec = Roby::Tasks::Simple.new_submodel do
-                    event :ready
-                end.new
-                task.executed_by exec
             end
 
-            def test_agent_fails
+            it "emits aborted on the running executed tasks when it stops" do
                 plan.add(task = Tasks::Simple.new)
-                task.executed_by(exec = ExecutionAgentModel.new)
-                task.execution_agent
+                task.executed_by(exec = @agent_m.new)
                 execute do
                     exec.start!
                     exec.ready_event.emit
@@ -144,23 +137,27 @@ module Roby
                     .to { emit task.aborted_event }
             end
 
-            def test_task_has_wrong_agent
+            it "raises if the agent is of the wrong type" do
                 task_model = Tasks::Simple.new_submodel
                 task_model.executed_by ExecutionAgentModel, id: 2
 
-                # Wrong agent type
                 plan.add(task = task_model.new)
                 assert_raises(Roby::ModelViolation) do
                     task.executed_by SecondExecutionModel.new(id: 2)
                 end
-                assert !task.execution_agent
+                refute task.execution_agent
+            end
+
+            it "raises if the agent has unexpected arguments" do
+                task_model = Tasks::Simple.new_submodel
+                task_model.executed_by ExecutionAgentModel, id: 2
 
                 # Wrong agent arguments
                 plan.add(task = task_model.new)
                 assert_raises(Roby::ModelViolation) do
-                    task.executed_by SecondExecutionModel.new(id: 2)
+                    task.executed_by ExecutionAgentModel.new(id: 3)
                 end
-                assert !task.execution_agent
+                refute task.execution_agent
             end
 
             def test_model_requires_agent_but_none_exists
@@ -168,7 +165,12 @@ module Roby
                 task_model.executed_by ExecutionAgentModel, id: 2
                 plan.add(task = task_model.new)
                 expect_execution { task.start! }
-                    .to { fail_to_start task, reason: TaskStructure::MissingRequiredExecutionAgent }
+                    .to do
+                        fail_to_start(
+                            task,
+                            reason: TaskStructure::MissingRequiredExecutionAgent
+                        )
+                    end
             end
 
             def test_as_plan
@@ -196,10 +198,15 @@ module Roby
                 plan.add(agent = ExecutionAgentModel.new)
                 task.executed_by agent
                 expect_execution { task.start! }
-                    .to { fail_to_start task, reason: TaskStructure::ExecutionAgentNotReady }
+                    .to do
+                        fail_to_start(
+                            task, reason: TaskStructure::ExecutionAgentNotReady
+                        )
+                    end
             end
 
-            it "marks the executed tasks as failed_to_start if the agent's ready_event becomes unreachable" do
+            it "marks the executed tasks as failed_to_start if the agent's "\
+               "ready_event becomes unreachable" do
                 plan.add(task = Tasks::Simple.new)
                 task.executed_by(agent = BaseExecutionAgent.new)
                 execute { agent.start! }
@@ -209,7 +216,8 @@ module Roby
                     .to { fail_to_start task, reason: error_m }
             end
 
-            it "does not mark the executed task as failed_to_start because the ready_event becomes unreachable once it has been emitted" do
+            it "does not mark the executed task as failed_to_start "\
+               "because the ready_event becomes unreachable once it has been emitted" do
                 plan.add(task = Tasks::Simple.new)
                 task.executed_by(agent = BaseExecutionAgent.new)
                 execute do
@@ -222,7 +230,9 @@ module Roby
                 refute task.failed_to_start?
                 execute { task.start! }
             end
-            it "does not mark the executed task as failed_to_start when the ready_event becomes unreachable if the relation was established after the event's emission" do
+            it "does not mark the executed task as failed_to_start when the ready_event "\
+               "becomes unreachable if the relation was established "\
+               "after the event's emission" do
                 plan.add(task = Tasks::Simple.new)
                 plan.add(agent = BaseExecutionAgent.new)
                 execute do
