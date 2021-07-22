@@ -2293,80 +2293,44 @@ module Roby
         # loop can forcefully quit
         INTERRUPT_FORCE_EXIT_DEAD_ZONE = 10
 
+        EventLoopExitState = Struct.new(
+            :last_stop_count, :last_quit_warning, :force_exit_deadline
+        )
+
         # The main event loop. It returns when the execution engine is asked to
         # quit. In general, this does not need to be called direclty: use #run
         # to start the event loop in a separate thread.
         def event_loop
-            last_stop_count = 0
-            last_quit_warning = Time.now
             @cycle_start = Time.now
             @cycle_index = 0
 
-            force_exit_deadline = nil
-
+            exit_state = EventLoopExitState.new(0, Time.now, nil)
             loop do
-                begin
-                    if profile_gc?
-                        GC::Profiler.enable
-                    end
+                GC::Profiler.enable if profile_gc?
 
-                    if quitting?
-                        if forced_exit?
-                            return
-                        end
+                if quitting?
+                    return if forced_exit?
+                    return if event_loop_teardown(exit_state)
+                end
 
-                        begin
-                            remaining = clear
-                            return unless remaining
+                log_timepoint_group "cycle" do
+                    execute_one_cycle
+                end
 
-                            if (last_stop_count != remaining.size) || (Time.now - last_quit_warning) > 10
-                                if last_stop_count == 0
-                                    info "Roby quitting ..."
-                                end
+                GC::Profiler.disable if profile_gc?
+            rescue Interrupt
+                event_loop_handle_interrupt(exit_state)
+            rescue Exception => e
+                if quitting?
+                    fatal "Execution thread FORCEFULLY quitting "\
+                          "because of unhandled exception"
+                    Roby.log_exception_with_backtrace(e, self, :fatal)
+                    raise
+                else
+                    quit
 
-                                issue_quit_progression_warning(remaining)
-                                last_quit_warning = Time.now
-                                last_stop_count = remaining.size
-                            end
-                        rescue Exception => e
-                            warn "Execution thread failed to clean up"
-                            Roby.log_exception_with_backtrace(e, self, :warn, filter: false)
-                            return
-                        end
-                    end
-
-                    log_timepoint_group "cycle" do
-                        execute_one_cycle
-                    end
-
-                    if profile_gc?
-                        GC::Profiler.disable
-                    end
-                rescue Exception => e
-                    if e.kind_of?(Interrupt)
-                        if quitting?
-                            if force_exit_deadline && (force_exit_deadline - Time.now) < 0
-                                fatal "Quitting without cleaning up"
-                                force_quit
-                            else
-                                fatal "Still #{Integer(force_exit_deadline - Time.now)}s before interruption will quit without cleaning up"
-                            end
-                        else
-                            fatal "Received interruption request"
-                            fatal "Interrupt again in #{INTERRUPT_FORCE_EXIT_DEAD_ZONE}s to quit without cleaning up"
-                            quit
-                            force_exit_deadline = Time.now + INTERRUPT_FORCE_EXIT_DEAD_ZONE
-                        end
-                    elsif !quitting?
-                        quit
-
-                        fatal "Execution thread quitting because of unhandled exception"
-                        Roby.log_exception_with_backtrace(e, self, :fatal)
-                    else
-                        fatal "Execution thread FORCEFULLY quitting because of unhandled exception"
-                        Roby.log_exception_with_backtrace(e, self, :fatal)
-                        raise
-                    end
+                    fatal "Execution thread quitting because of unhandled exception"
+                    Roby.log_exception_with_backtrace(e, self, :fatal)
                 end
             end
         ensure
@@ -2375,6 +2339,57 @@ module Roby
                 plan.tasks.each do |t|
                     warn "  #{t}"
                 end
+            end
+        end
+
+        # @api private
+        #
+        # Handle the teardown logic for {#event_loop}
+        #
+        # @return [Boolean] whether {#event_loop} can stop now (true), or not (false)
+        def event_loop_teardown(exit_state)
+            return true unless (remaining = clear)
+
+            display_warning = (exit_state.last_stop_count != remaining.size) ||
+                              (Time.now - exit_state.last_quit_warning) > 10
+            return unless display_warning
+
+            if display_warning
+                info "Roby quitting ..." if exit_state.last_stop_count == 0
+
+                issue_quit_progression_warning(remaining)
+                exit_state.last_quit_warning = Time.now
+                exit_state.last_stop_count = remaining.size
+            end
+            false
+        rescue Exception => e
+            warn "Execution thread failed to clean up"
+            Roby.log_exception_with_backtrace(e, self, :warn, filter: false)
+            true
+        end
+
+        # @api private
+        #
+        # Handle a received Interrupt for {#event_loop}
+        def event_loop_handle_interrupt(exit_state)
+            if quitting?
+                exit_state.force_exit_deadline ||=
+                    Time.now + INTERRUPT_FORCE_EXIT_DEADLINE
+                time_until_deadline = exit_state.force_exit_deadline - Time.now
+                if time_until_deadline < 0
+                    fatal "Quitting without cleaning up"
+                    force_quit
+                else
+                    fatal "Still #{time_until_deadline.ceil}s before "\
+                          "interruption will quit without cleaning up"
+                end
+            else
+                fatal "Received interruption request"
+                fatal "Interrupt again in #{INTERRUPT_FORCE_EXIT_DEAD_ZONE}s "\
+                      "to quit without cleaning up"
+                quit
+                exit_state.force_exit_deadline =
+                    Time.now + INTERRUPT_FORCE_EXIT_DEAD_ZONE
             end
         end
 
