@@ -1924,24 +1924,23 @@ module Roby
             end
         end
 
-        # Kills and removes all unneeded tasks. +force_on+ is a set of task
-        # whose garbage-collection must be performed, even though those tasks
-        # are actually useful for the system. This is used to properly kill
-        # tasks for which errors have been detected.
+        # Kills and removes unneeded tasks for which there are no dependencies
+        #
+        # @param [Array<Task>,nil] force_on a set of task whose
+        #   garbage-collection must be performed, even though those tasks are
+        #   actually useful for the system. This is used to properly kill tasks
+        #   for which errors have been detected.
         #
         # @return [Boolean] true if events have been called (thus requiring
         #   some propagation) and false otherwise
         def garbage_collect(force_on = nil)
             if force_on && !force_on.empty?
                 info "GC: adding #{force_on.size} tasks in the force_gc set"
-                mismatching_plan = force_on.find_all do |t|
-                    if t.plan == self.plan
-                        plan.force_gc << t
-                        false
-                    else
-                        true
-                    end
+                valid_plan, mismatching_plan = force_on.partition do |t|
+                    t.plan == self.plan
                 end
+                plan.force_gc.merge(valid_plan)
+
                 unless mismatching_plan.empty?
                     mismatches_s = mismatching_plan.map { |t| "#{t}(plan=#{t.plan})" }
                                                    .join(", ")
@@ -1953,13 +1952,12 @@ module Roby
 
             unmark_finished_missions_and_permanent_tasks
 
-            # The set of tasks for which we queued stop! at this cycle
+            # The set of tasks for which we will queue stop! at this cycle
             # #finishing? is false until the next event propagation cycle
             finishing = Set.new
-            did_something = true
-            while did_something
-                did_something = false
 
+            # Loop until no tasks have been removed
+            loop do
                 tasks = plan.unneeded_tasks | plan.force_gc
                 local_tasks = plan.local_tasks & tasks
                 remote_tasks = tasks - local_tasks
@@ -1975,69 +1973,28 @@ module Roby
                 debug do
                     debug "#{local_tasks.size} tasks are unneeded in this plan"
                     local_tasks.each do |t|
-                        debug "  #{t} mission=#{plan.mission_task?(t)} permanent=#{plan.permanent_task?(t)}"
+                        debug "  #{t} mission=#{plan.mission_task?(t)} "\
+                              "permanent=#{plan.permanent_task?(t)}"
                     end
                     break
                 end
 
-                # Mark all root local_tasks as garbage.
-                roots = local_tasks.dup
-                plan.each_task_relation_graph do |g|
-                    next if !g.root_relation? || g.weak?
-
+                # Find the roots, that is the tasks we should be trying to
+                # stop. They are the tasks which have no running parents.
+                roots = local_tasks.dup - finishing
+                plan.default_useful_task_graphs.each do |g|
                     roots.delete_if do |t|
                         g.each_in_neighbour(t).any? { |p| !p.finished? }
                     end
+
                     break if roots.empty?
                 end
 
-                (roots.to_set - finishing).each do |local_task|
-                    if local_task.pending?
-                        info "GC: removing pending task #{local_task}"
+                new_finishing_tasks =
+                    roots.find_all { |local_task| garbage_collect_stop_task(local_task) }
+                finishing.merge(new_finishing_tasks)
 
-                        if plan.garbage_task(local_task)
-                            did_something = true
-                        end
-                    elsif local_task.failed_to_start?
-                        info "GC: removing task that failed to start #{local_task}"
-                        if plan.garbage_task(local_task)
-                            did_something = true
-                        end
-                    elsif local_task.starting?
-                        # wait for task to be started before killing it
-                        debug { "GC: #{local_task} is starting" }
-                    elsif local_task.finished?
-                        debug { "GC: #{local_task} is not running, removed" }
-                        if plan.garbage_task(local_task)
-                            did_something = true
-                        end
-                    elsif !local_task.finishing?
-                        if local_task.quarantined?
-                            warn "GC: #{local_task} is running but in quarantine"
-                        elsif local_task.event(:stop).controlable?
-                            debug { "GC: attempting to stop #{local_task}" }
-                            if !local_task.respond_to?(:stop!)
-                                warn "something fishy: #{local_task}/stop is controlable but there is no #stop! method, putting in quarantine"
-                                plan.quarantine_task(local_task)
-                            else
-                                finishing << local_task
-                            end
-                        else
-                            warn "GC: #{local_task} cannot be stopped, putting in quarantine"
-                            plan.quarantine_task(local_task)
-                        end
-                    elsif local_task.finishing?
-                        debug do
-                            debug "GC: waiting for #{local_task} to finish"
-                            local_task.history.each do |ev|
-                                debug "GC:   #{ev}"
-                            end
-                            break
-                        end
-                    else
-                        warn "GC: ignored #{local_task}"
-                    end
-                end
+                break unless roots.any?(&:finalized?)
             end
 
             finishing.each(&:stop!)
@@ -2047,6 +2004,51 @@ module Roby
             end
 
             !finishing.empty?
+        end
+
+        # @api private
+        #
+        # Handle a single root task in the {#garbage_collect} process
+        #
+        # @return [Boolean] true if the task should be stopped, false otherwise. Test
+        #   if the task has been removed from the plan using {PlanObject#finalized?}
+        def garbage_collect_stop_task(local_task)
+            if local_task.pending?
+                info "GC: removing pending task #{local_task}"
+                plan.garbage_task(local_task)
+            elsif local_task.failed_to_start?
+                info "GC: removing task that failed to start #{local_task}"
+                plan.garbage_task(local_task)
+            elsif local_task.starting?
+                # wait for task to be started before killing it
+                debug "GC: #{local_task} is starting"
+            elsif local_task.finished?
+                debug "GC: #{local_task} is not running, removed"
+                plan.garbage_task(local_task)
+            elsif local_task.finishing?
+                debug do
+                    debug "GC: waiting for #{local_task} to finish"
+                    local_task.history.each do |ev|
+                        debug "GC:   #{ev}"
+                    end
+                    break
+                end
+            elsif local_task.quarantined?
+                warn "GC: #{local_task} is running but in quarantine"
+            elsif local_task.event(:stop).controlable?
+                debug { "GC: attempting to stop #{local_task}" }
+                if !local_task.respond_to?(:stop!)
+                    warn "something fishy: #{local_task}/stop is controlable but "\
+                         "there is no #stop! method, putting in quarantine"
+                    plan.quarantine_task(local_task)
+                else
+                    return true
+                end
+            else
+                warn "GC: #{local_task} cannot be stopped, putting in quarantine"
+                plan.quarantine_task(local_task)
+            end
+            false
         end
 
         # Do not sleep or call Thread#pass if there is less that
