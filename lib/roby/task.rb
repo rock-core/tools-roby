@@ -539,19 +539,40 @@ module Roby
             super
         end
 
-        # @!method quarantined?
-        #
         # Whether this task has been quarantined
-        attr_predicate :quarantined?
+        def quarantined?
+            @quarantined
+        end
+
+        # The reason why the task is in quarantine
+        #
+        # If the quarantine was caused by an exception, this will return the
+        # original exception
+        #
+        # @return [Exception,nil]
+        attr_reader :quarantine_reason
 
         # Mark the task as quarantined
         #
-        # Once set it cannot be unset
-        def quarantined!
+        # Quarantined tasks are essentially tasks that are present in the plan, but
+        # cannot be reused because they are known to misbehave *and* themselves can't
+        # be killed. The prime example is a task the system tried to stop but for
+        # which the stop process failed.
+        #
+        # Once set it cannot be unset. The engine will generate a {QuarantinedTaskError}
+        # error as long as there are tasks that depend on the task, to make sure that
+        # anything that depend on it either stops using it, or is killed itself.
+        #
+        # @param [Exception,nil] reason if the quarantine was caused by an exception,
+        #   pass it.there. It will be stored in {#quarantine_reason} and will be
+        #   made available in the {Quarantine} error
+        def quarantined!(reason: nil)
             return if quarantined?
 
             @quarantined = true
-            plan&.handle_quarantined_task(self)
+            @quarantine_reason = reason
+
+            plan.register_quarantined_task(self)
         end
 
         def failed_to_start?
@@ -1561,7 +1582,9 @@ module Roby
                     # In this case, we can't "just" stop the task. We have
                     # to inject +error+ in the exception handling and kill
                     # everything that depends on it.
-                    add_error(TaskEmergencyTermination.new(self, error, false))
+                    execution_engine.add_error(
+                        TaskEmergencyTermination.new(self, error, false)
+                    )
                 end
             else
                 if execution_engine.display_exceptions?
@@ -1574,8 +1597,7 @@ module Roby
                     Roby.log_exception_with_backtrace(error, execution_engine, :fatal)
                 end
 
-                plan.quarantine_task(self)
-                add_error(TaskEmergencyTermination.new(self, error, true))
+                plan.quarantine_task(self, reason: exception.exception)
             end
         end
         private :internal_error_handler

@@ -318,7 +318,7 @@ module Roby
 
                 it "does not emit internal_error_event twice" do
                     task_m = Task.new_submodel
-                    task_m.event(:stop) { |context| }
+                    task_m.event(:stop) { |_context| }
                     plan.add(@task = task = task_m.new)
                     error_matcher =
                         CodeError
@@ -341,11 +341,7 @@ module Roby
                         )
                     end.to do
                         have_handled_error_matching error_matcher
-                        have_error_matching(
-                            TaskEmergencyTermination
-                            .match.with_origin(task)
-                            .with_original_exception(error_matcher)
-                        )
+                        quarantine task
                     end
                     assert task.quarantined?
                 end
@@ -2640,9 +2636,10 @@ class TC_Task < Minitest::Test
                 task.start!
                 task.stop!
             end.to do
-                have_error_matching Roby::TaskEmergencyTermination
                 quarantine task
             end
+            assert_kind_of CommandFailed, task.quarantine_reason
+            assert_kind_of ArgumentError, task.quarantine_reason.original_exception
         end
     ensure
         if task

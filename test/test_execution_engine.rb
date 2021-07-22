@@ -413,6 +413,14 @@ module Roby
             end
 
             describe "handling of the quarantine" do
+                after do
+                    execute do
+                        plan.quarantined_tasks.each do |t|
+                            t.stop_event.emit if t.running?
+                        end
+                    end
+                end
+
                 it "does not attempt to terminate a running quarantined task" do
                     plan.add(task = Tasks::Simple.new)
                     execute { task.start! }
@@ -456,8 +464,10 @@ module Roby
                     log = capture_log(execution_engine, :warn) do
                         execute { execution_engine.garbage_collect }
                     end
-                    assert_equal ["GC: #{uninterruptible_task} cannot be stopped, putting in quarantine"],
-                                 log
+                    assert_equal(
+                        ["GC: #{uninterruptible_task} cannot be stopped, "\
+                         "putting in quarantine"], log
+                    )
 
                     assert uninterruptible_task.quarantined?
                     execute { uninterruptible_task.stop_event.emit }
@@ -465,7 +475,8 @@ module Roby
 
                 # This worked around a Heisenbug a long time ago ... need to make
                 # sure that it still happens
-                it "quarantines a task whose stop event is controllable but for which #stop! is not defined" do
+                it "quarantines a task whose stop event is controllable but for "\
+                   "which #stop! is not defined" do
                     plan.add(task = Tasks::Simple.new)
                     execute { task.start_event.emit }
                     flexmock(task).should_receive(:respond_to?).with(:stop!).and_return(false)
@@ -475,10 +486,74 @@ module Roby
                         execute { execution_engine.garbage_collect }
                     end
 
-                    assert_equal ["something fishy: #{task}/stop is controlable but there is no #stop! method, putting in quarantine"],
-                                 warn_log
+                    assert_equal(
+                        ["something fishy: #{task}/stop is controlable but there "\
+                         "is no #stop! method, putting in quarantine"], warn_log
+                    )
                     assert task.quarantined?
                     execute { task.stop_event.emit }
+                end
+
+                it "generates a QuarantinedTaskError error for mission tasks" do
+                    plan.add_mission_task(task = Tasks::Simple.new)
+                    execute { task.start_event.emit }
+                    expect_execution { task.quarantined! }
+                        .to do
+                            have_error_matching QuarantinedTaskError.match.with_origin(task)
+                        end
+                end
+
+                it "generates a QuarantinedTaskError error for permanent tasks" do
+                    plan.add_permanent_task(task = Tasks::Simple.new)
+                    execute { task.start_event.emit }
+                    expect_execution { task.quarantined! }
+                        .to do
+                            have_error_matching QuarantinedTaskError.match.with_origin(task)
+                        end
+                end
+
+                it "generates a QuarantinedTaskError error for tasks that are in use" do
+                    plan.add(parent_task = Tasks::Simple.new)
+                    parent_task.depends_on(task = Tasks::Simple.new)
+                    execute do
+                        parent_task.start_event.emit
+                        task.start_event.emit
+                    end
+                    expect_execution { task.quarantined! }
+                        .to do
+                            have_error_matching(
+                                QuarantinedTaskError.match.with_origin(task)
+                            )
+                        end
+
+                    execute { parent_task.stop_event.emit }
+                end
+
+                it "does not generate a QuarantinedTaskError error for parents tasks "\
+                   "that are themselves in quarantine" do
+                    plan.add(parent_task = Tasks::Simple.new)
+                    parent_task.depends_on(task = Tasks::Simple.new)
+                    execute do
+                        parent_task.start_event.emit
+                        task.start_event.emit
+                    end
+
+                    execute do
+                        parent_task.quarantined!
+                        task.quarantined!
+                    end
+
+                    execute do
+                        parent_task.stop_event.emit
+                        task.stop_event.emit
+                    end
+                end
+
+                it "does not generate a QuarantinedTaskError error "\
+                   "for a standalone task" do
+                    plan.add(task = Tasks::Simple.new)
+                    execute { task.start_event.emit }
+                    execute { task.quarantined! }
                 end
             end
         end
