@@ -22,7 +22,9 @@ module Roby
 
         # @deprecated use {#execution_engine} instead
         def engine
-            Roby.warn_deprecated "Plan#engine is deprecated, use #execution_engine instead"
+            Roby.warn_deprecated(
+                "Plan#engine is deprecated, use #execution_engine instead"
+            )
             execution_engine
         end
 
@@ -107,14 +109,15 @@ module Roby
 
             until handlers.empty?
                 table, handler = handlers.shift
-                if handler
-                    begin
-                        handler.activate(error, table.arguments)
-                        return
-                    rescue Exception => e
-                        Robot.warn "ignored exception handler #{handler} because of exception"
-                        Roby.log_exception_with_backtrace(e, Robot, :warn)
-                    end
+                next unless handler
+
+                begin
+                    handler.activate(error, table.arguments)
+                    return
+                rescue Exception => e
+                    Robot.warn "ignored exception handler #{handler} "\
+                                "because of exception"
+                    Roby.log_exception_with_backtrace(e, Robot, :warn)
                 end
             end
 
@@ -132,9 +135,15 @@ module Roby
 
                 tasks.each do |t|
                     if mission_task?(t)
-                        add_error(MissionFailedError.new(t, execution_exception.exception), propagate_through: [])
+                        add_error(
+                            MissionFailedError.new(t, execution_exception.exception),
+                            propagate_through: []
+                        )
                     elsif permanent_task?(t)
-                        add_error(PermanentTaskError.new(t, execution_exception.exception), propagate_through: [])
+                        add_error(
+                            PermanentTaskError.new(t, execution_exception.exception),
+                            propagate_through: []
+                        )
                     end
                 end
             end
@@ -178,16 +187,21 @@ module Roby
         #   relations.first
         def adding_edge(parent, child, relations, info)
             if !parent.read_write? || !child.read_write?
-                raise OwnershipError, "cannot remove a relation between two objects we don't own"
+                raise OwnershipError,
+                      "cannot remove a relation between two objects we don't own"
             elsif parent.garbage?
-                raise ReusingGarbage, "attempting to reuse #{parent} which is marked as garbage"
+                raise ReusingGarbage,
+                      "attempting to reuse #{parent} which is marked as garbage"
             elsif child.garbage?
-                raise ReusingGarbage, "attempting to reuse #{child} which is marked as garbage"
+                raise ReusingGarbage,
+                      "attempting to reuse #{child} which is marked as garbage"
             end
 
             if last_dag = relations.find_all(&:dag?).last
                 if child.relation_graph_for(last_dag).reachable?(child, parent)
-                    raise Relations::CycleFoundError, "adding an edge from #{parent} to #{child} would create a cycle in #{last_dag}"
+                    raise Relations::CycleFoundError,
+                          "adding an edge from #{parent} to #{child} would create "\
+                          "a cycle in #{last_dag}"
                 end
             end
 
@@ -200,10 +214,10 @@ module Roby
 
             for trsc in transactions
                 next unless trsc.proxying?
+                next unless (parent_proxy = trsc[parent, create: false])
+                next unless (child_proxy = trsc[child, create: false])
 
-                if (parent_proxy = trsc[parent, create: false]) && (child_proxy = trsc[child, create: false])
-                    trsc.adding_plan_relation(parent_proxy, child_proxy, relations, info)
-                end
+                trsc.adding_plan_relation(parent_proxy, child_proxy, relations, info)
             end
         end
 
@@ -271,7 +285,8 @@ module Roby
         #   is being removed
         def removing_edge(parent, child, relations)
             unless parent.read_write? || child.child.read_write?
-                raise OwnershipError, "cannot remove a relation between two objects we don't own"
+                raise OwnershipError,
+                      "cannot remove a relation between two objects we don't own"
             end
 
             relations.each do |rel|
@@ -283,10 +298,10 @@ module Roby
 
             for trsc in transactions
                 next unless trsc.proxying?
+                next unless (parent_proxy = trsc[parent, create: false])
+                next unless (child_proxy = trsc[child, create: false])
 
-                if (parent_proxy = trsc[parent, create: false]) && (child_proxy = trsc[child, create: false])
-                    trsc.removing_plan_relation(parent_proxy, child_proxy, relations)
-                end
+                trsc.removing_plan_relation(parent_proxy, child_proxy, relations)
             end
         end
 
@@ -369,9 +384,11 @@ module Roby
         def merge_transaction(transaction, merged_graphs, added, removed, updated)
             added.each do |_, parent, child, _|
                 if parent.garbage?
-                    raise ReusingGarbage, "attempting to reuse #{parent} which is marked as garbage"
+                    raise ReusingGarbage,
+                          "attempting to reuse #{parent} which is marked as garbage"
                 elsif child.garbage?
-                    raise ReusingGarbage, "attempting to reuse #{child} which is marked as garbage"
+                    raise ReusingGarbage,
+                          "attempting to reuse #{child} which is marked as garbage"
                 end
             end
 
@@ -522,7 +539,9 @@ module Roby
         # Actually remove a task from the plan
         def remove_task(object, timestamp = nil)
             if object.respond_to?(:running?) && object.running? && object.self_owned?
-                raise ArgumentError, "attempting to remove #{object}, which is a running task, from an executable plan"
+                raise ArgumentError,
+                      "attempting to remove #{object}, which is a running task, "\
+                      "from an executable plan"
             end
 
             super

@@ -343,16 +343,18 @@ module Roby
         # @return [String,nil] the base of the app, or nil if the current
         #   directory is not within an app
         def self.guess_app_dir
-            if test_dir = ENV["ROBY_APP_DIR"]
+            if (test_dir = ENV["ROBY_APP_DIR"])
                 unless Application.is_app_dir?(test_dir)
-                    raise InvalidRobyAppDirEnv, "the ROBY_APP_DIR envvar is set to #{test_dir}, but this is not a valid Roby application path"
+                    raise InvalidRobyAppDirEnv,
+                          "the ROBY_APP_DIR envvar is set to #{test_dir}, but this "\
+                          "is not a valid Roby application path"
                 end
 
                 return test_dir
             end
 
-            path = Pathname.new(Dir.pwd).find_matching_parent do |test_dir|
-                Application.is_app_dir?(test_dir.to_s)
+            path = Pathname.new(Dir.pwd).find_matching_parent do |candidate|
+                Application.is_app_dir?(candidate.to_s)
             end
             path&.to_s
         end
@@ -370,9 +372,7 @@ module Roby
         def guess_app_dir
             return if @app_dir
 
-            if app_dir = self.class.guess_app_dir
-                @app_dir = app_dir
-            end
+            @app_dir = self.class.guess_app_dir
         end
 
         # Call to require this roby application to be in a Roby application
@@ -807,7 +807,7 @@ module Roby
 
             update_load_path
 
-            if initfile = find_file("config", "init.rb", order: :specific_first)
+            if (initfile = find_file("config", "init.rb", order: :specific_first))
                 Application.info "loading init file #{initfile}"
                 Kernel.require initfile
             end
@@ -871,7 +871,7 @@ module Roby
                     # 2.3 but on 2.5 you have to rescue.
                     begin
                         FileUtils.rmdir(dir)
-                    rescue Errno::ENOTEMPTY
+                    rescue Errno::ENOTEMPTY # rubocop:disable Lint/SuppressedException
                     end
                     created_log_base_dirs.delete(dir)
                 end
@@ -916,9 +916,9 @@ module Roby
                     end
                 end
             end
-        rescue Exception
+        rescue Exception # rubocop:disable Lint/RescueException
             begin cleanup
-            rescue Exception => e
+            rescue Exception => e # rubocop:disable Lint/RescueException
                 Roby.warn "failed to cleanup after #setup raised"
                 Roby.log_exception_with_backtrace(e, Roby, :warn)
             end
@@ -988,7 +988,7 @@ module Roby
 
                 # Start a log server if needed, and poll the log directory for new
                 # data sources
-                if log_server_options = (log.has_key?("server") ? log["server"] : {})
+                if (log_server_options = (log.has_key?("server") ? log["server"] : {}))
                     unless log_server_options.kind_of?(Hash)
                         log_server_options = {}
                     end
@@ -1158,7 +1158,7 @@ module Roby
         end
 
         # Yields each plugin object that respond to +method+
-        def each_responding_plugin(method, on_available = false)
+        def each_responding_plugin(method, _on_available = false)
             each_plugin do |mod|
                 yield(mod) if mod.respond_to?(method)
             end
@@ -1204,7 +1204,7 @@ module Roby
             register_plugins(force: true)
             names.map do |name|
                 name = name.to_s
-                unless plugin = plugin_definition(name)
+                unless (plugin = plugin_definition(name))
                     raise ArgumentError,
                           "#{name} is not a known plugin (available plugins: "\
                           "#{available_plugins.map { |n, *_| n }.join(', ')})"
@@ -1222,7 +1222,7 @@ module Roby
                         $LOAD_PATH.unshift dir
                         init.call
                         mod.reset(self) if mod.respond_to?(:reset)
-                    rescue Exception => e
+                    rescue Exception => e # rubocop:disable Lint/RescueException
                         Roby.fatal "cannot load plugin #{name}: #{e.full_message}"
                         exit(1)
                     ensure
@@ -1282,7 +1282,7 @@ module Roby
             maybe_relative_dir =
                 if @log_base_dir ||= log["dir"]
                     @log_base_dir
-                elsif global_base_dir = ENV["ROBY_BASE_LOG_DIR"]
+                elsif (global_base_dir = ENV["ROBY_BASE_LOG_DIR"])
                     File.join(global_base_dir, app_name)
                 else
                     "logs"
@@ -1319,9 +1319,9 @@ module Roby
                 # Create all paths necessary, but check for possible concurrency
                 # issues with other Roby-based tools creating a log dir with the
                 # same name
-                failed = new_dirs.reverse.any? do |dir|
+                failed = new_dirs.reverse.any? do |path_element|
                     begin
-                        FileUtils.mkdir(dir)
+                        FileUtils.mkdir(path_element)
                         false
                     rescue Errno::EEXIST
                         true
@@ -1430,7 +1430,7 @@ module Roby
         def log_read_metadata
             dir = begin
                       log_current_dir
-                  rescue ArgumentError
+                  rescue ArgumentError # rubocop:disable Lint/SuppressedException
                   end
 
             if dir && File.exist?(File.join(dir, "info.yml"))
@@ -1602,7 +1602,7 @@ module Roby
         def make_path_relative(path)
             if !File.exist?(path)
                 path
-            elsif root_path = find_base_path_for(path)
+            elsif (root_path = find_base_path_for(path))
                 Pathname.new(path).relative_path_from(root_path).to_s
             else
                 path
@@ -1621,7 +1621,7 @@ module Roby
             yield
         rescue Interrupt
             raise
-        rescue ::Exception => e
+        rescue ::Exception => e # rubocop:disable Lint/RescueException
             register_exception(e, message)
             if ignore_all_load_errors?
                 Robot.warn message
@@ -1687,7 +1687,8 @@ module Roby
                 "models", prefix_name,
                 path: search_path,
                 all: true,
-                order: :specific_last)
+                order: :specific_last
+            )
 
             dirs.each do |dir|
                 all_files = Set.new
@@ -1742,9 +1743,11 @@ module Roby
         # (e.g. models/tasks.rb)
         def load_default_models
             ["tasks.rb", "actions.rb"].each do |root_type|
-                if path = find_file("models", root_type, path: [app_dir], order: :specific_first)
-                    require path
-                end
+                path = find_file(
+                    "models", root_type, path: [app_dir], order: :specific_first
+                )
+
+                require path if path
             end
             call_plugins(:load_default_models, self)
         end
@@ -1865,10 +1868,13 @@ module Roby
         #
         # Sets relevant configuration values from a configuration hash
         def apply_config(config)
-            if host_port = config["interface"]
+            if (host_port = config["interface"])
                 apply_config_interface(host_port)
-            elsif host_port = config.fetch("droby", {})["host"]
-                Roby.warn_deprecated 'the droby.host configuration parameter in config/app.yml is deprecated, use "interface" at the toplevel instead'
+            elsif (host_port = config.fetch("droby", {})["host"])
+                Roby.warn_deprecated(
+                    "the droby.host configuration parameter in config/app.yml "\
+                    "is deprecated, use 'interface' at the toplevel instead"
+                )
                 apply_config_interface(host_port)
             end
         end
@@ -1968,7 +1974,8 @@ module Roby
             end
 
             @shell_interface = Interface::TCPServer.new(
-                self, host: shell_interface_host, port: shell_interface_port)
+                self, host: shell_interface_host, port: shell_interface_port
+            )
             shell_interface.abort_on_exception = shell_abort_on_exception?
             if shell_interface_port != Interface::DEFAULT_PORT
                 Robot.info "shell interface started on port #{shell_interface_port}"
@@ -2006,7 +2013,8 @@ module Roby
 
             @rest_interface = Interface::REST::Server.new(
                 self, host: rest_interface_host, port: rest_interface_port,
-                      api: composite_api)
+                      api: composite_api
+            )
             @rest_interface.start
 
             if rest_interface_port != Interface::DEFAULT_REST_PORT
@@ -2054,7 +2062,7 @@ module Roby
 
         def join
             @thread.join
-        rescue Exception
+        rescue Exception # rubocop:disable Lint/RescueException
             if @thread.alive? && execution_engine.running?
                 if execution_engine.forced_exit?
                     raise
@@ -2153,12 +2161,16 @@ module Roby
 
             # Allocate a TCP server to get an ephemeral port, and pass it to
             # roby-display
-            sampling_period = DRoby::Logfile::Server::DEFAULT_SAMPLING_PERIOD
-            sampling_period = Float(options["sampling_period"] || sampling_period)
+            sampling_period = Float(options["sampling_period"] ||
+                                    DRoby::Logfile::Server::DEFAULT_SAMPLING_PERIOD)
 
             tcp_server = TCPServer.new(Integer(options["port"] || 0))
-            server_flags = ["--fd=#{tcp_server.fileno}", "--sampling=#{sampling_period}", logfile]
-            redirect_flags = Hash[tcp_server => tcp_server]
+            server_flags = [
+                "--fd=#{tcp_server.fileno}",
+                "--sampling=#{sampling_period}",
+                logfile
+            ]
+            redirect_flags = { tcp_server => tcp_server }
             if options["debug"]
                 server_flags << "--debug"
             elsif options["silent"]
@@ -2168,7 +2180,8 @@ module Roby
             @log_server_port = tcp_server.local_address.ip_port
             @log_server_pid = Kernel.spawn(
                 Gem.ruby, File.join(Roby::BIN_DIR, "roby-display"),
-                "server", *server_flags, redirect_flags)
+                "server", *server_flags, redirect_flags
+            )
         ensure
             tcp_server&.close
         end
@@ -2582,7 +2595,9 @@ module Roby
         # @return [nil,String]
         def find_base_path_for(path)
             if @find_base_path_rx_paths != search_path
-                @find_base_path_rx = search_path.map { |app_dir| [Pathname.new(app_dir), app_dir, %r{(^|/)#{app_dir}(/|$)}] }
+                @find_base_path_rx =
+                    search_path
+                    .map { |app_dir| [Pathname.new(app_dir), app_dir, %r{(^|/)#{app_dir}(/|$)}] }
                     .sort_by { |_, app_dir, _| app_dir.size }
                     .reverse
                 @find_base_path_rx_paths = search_path.dup
@@ -2788,14 +2803,14 @@ module Roby
         def find_action_from_name(name)
             candidates = []
             planners.each do |planner_model|
-                if m = planner_model.find_action_by_name(name)
+                if (m = planner_model.find_action_by_name(name))
                     candidates << [planner_model, m]
                 end
             end
             candidates = candidates.uniq
             return candidates.first if candidates.size <= 1
 
-            candidates_s = candidates.map { |pl, m| pl.to_s }.sort.join(", ")
+            candidates_s = candidates.map { |pl, _| pl.to_s }.sort.join(", ")
             raise ActionResolutionError,
                   "more than one action interface provide the #{name} "\
                   "action: #{candidates_s}"
@@ -2837,9 +2852,9 @@ module Roby
         # @return task, planning_task
         def prepare_action(name, mission: false, **arguments)
             if name.kind_of?(Class)
-                planner_model, m = action_from_model(name)
+                _, m = action_from_model(name)
             else
-                planner_model, m = action_from_name(name)
+                _, m = action_from_name(name)
             end
 
             if mission

@@ -119,7 +119,8 @@ module Roby
                 @failed_task = failed_generator.task
             end
             if !@failed_task && !@failed_generator
-                raise ArgumentError, "cannot deduce a task and/or a generator from #{failure_point}"
+                raise ArgumentError,
+                      "cannot deduce a task and/or a generator from #{failure_point}"
             end
 
             failed_event&.protect_all_sources
@@ -208,6 +209,7 @@ module Roby
             end
         end
     end
+
     # Raised when an error occurs on a task while we were terminating it
     class TaskEmergencyTermination < LocalizedError
         attr_reader :reason
@@ -225,7 +227,8 @@ module Roby
         end
 
         def pretty_print(pp)
-            pp.text "The following task is being terminated because of an internal error"
+            pp.text "The following task is being terminated because of "\
+                    "an internal error"
             pp.breakable
             if quarantined?
                 pp.text "It has been put under quarantine"
@@ -277,8 +280,8 @@ module Roby
             original_exception
         end
 
-        # Create a CodeError object from the given original exception object, and
-        # with the given failure point
+        # Create a CodeError object from the given original exception object,
+        # and with the given failure point
         def initialize(error, *args)
             if error && !error.kind_of?(Exception)
                 raise TypeError, "#{error} should be an exception"
@@ -332,7 +335,8 @@ module Roby
         def initialize(*args, &block)
             super
             unless failed_generator
-                raise ArgumentError, "creating an EmissionFailed error without a generator"
+                raise ArgumentError,
+                      "creating an EmissionFailed error without a generator"
             end
         end
 
@@ -457,7 +461,8 @@ module Roby
             elsif failed_event
                 failed_event.pretty_print(pp)
             else
-                explanation = :success.to_unbound_task_predicate.explain_static(failed_task)
+                explanation =
+                    :success.to_unbound_task_predicate.explain_static(failed_task)
                 explanation.pretty_print(pp)
             end
         end
