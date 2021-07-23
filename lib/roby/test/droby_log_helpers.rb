@@ -36,6 +36,7 @@ module Roby
                 logfile = DRoby::Logfile::Writer.new(io)
                 @__event_logger = DRoby::EventLogger.new(logfile)
                 @__cycle_start = Time.now
+                @__cycle_index = 0
 
                 return @__event_logger unless block_given?
 
@@ -79,7 +80,8 @@ module Roby
                 @__event_logger.flush_cycle(
                     :cycle_end, t,
                     [{ start: [@__cycle_start.tv_sec, @__cycle_start.tv_usec],
-                       end: (t - @__cycle_start) }]
+                       end: (t - @__cycle_start),
+                       cycle_index: (@__cycle_index += 1) }]
                 )
 
                 @__cycle_start = t
