@@ -5,6 +5,15 @@ require "roby/test/self"
 module Roby
     module Test
         describe ExecutionExpectations do
+            describe "#execute" do
+                it "handles a non-executable plan" do
+                    plan = Plan.new
+                    plan.add(task = Roby::Task.new)
+                    execute(plan: plan) { plan.remove_task(task) }
+                    refute plan.has_task?(task)
+                end
+            end
+
             describe "#expect_execution" do
                 it "executes the first block in propagation context" do
                     plan.add(task = Roby::Tasks::Simple.new)

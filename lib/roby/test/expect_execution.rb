@@ -130,6 +130,11 @@ module Roby
 
             # Execute a block within the event propagation context
             def execute(plan: self.plan, garbage_collect: false)
+                unless plan.respond_to?(:execution_engine)
+                    # not an executable plan, just yield
+                    return yield
+                end
+
                 result = nil
                 expect_execution(plan: plan) { result = yield }.garbage_collect(garbage_collect).to_run
                 result

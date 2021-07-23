@@ -102,7 +102,7 @@ module Roby
                         end
                     end
 
-                    plan.clear
+                    execute { plan.clear }
                     if (engine = plan.execution_engine)
                         engine.clear
                         engine.emitted_events.clear
