@@ -440,7 +440,10 @@ module Roby
             finished = []
             propagation_info = PropagationInfo.new
             loop do
-                framework_errors = gather_framework_errors("#join_all_waiting_work", raise_caught_exceptions: false) do
+                framework_errors = gather_framework_errors(
+                    "#join_all_waiting_work",
+                    raise_caught_exceptions: false
+                ) do
                     next_steps = nil
                     event_errors = gather_errors do
                         next_steps = gather_propagation do
@@ -453,7 +456,9 @@ module Roby
                         end
                     end
 
-                    this_propagation = propagate_events_and_errors(next_steps, event_errors, garbage_collect_pass: false)
+                    this_propagation = propagate_events_and_errors(
+                        next_steps, event_errors, garbage_collect_pass: false
+                    )
                     propagation_info.merge(this_propagation)
                 end
                 propagation_info.add_framework_errors(framework_errors)
@@ -670,9 +675,10 @@ module Roby
             end
         end
 
-        def process_pending_application_exceptions(application_errors = clear_application_exceptions,
-            raise_framework_errors: Roby.app.abort_on_application_exception?)
-
+        def process_pending_application_exceptions(
+            application_errors = clear_application_exceptions,
+            raise_framework_errors: Roby.app.abort_on_application_exception?
+        )
             # We don't aggregate exceptions, so report them all and raise one
             if display_exceptions?
                 application_errors.each do |error, source|
