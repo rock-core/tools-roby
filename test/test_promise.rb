@@ -313,6 +313,18 @@ module Roby
             end
         end
 
+        describe "#has_error_handler?" do
+            it "returns false if there are no error handlers" do
+                p = execution_engine.promise { raise "TEST" }
+                refute p.has_error_handler?
+            end
+            it "returns true if there is an error handler" do
+                p = execution_engine.promise { raise "TEST" }
+                p.on_error {}
+                assert p.has_error_handler?
+            end
+        end
+
         describe "#value" do
             it "raises if the promise is not finished" do
                 p = execution_engine.promise {}

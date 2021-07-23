@@ -657,6 +657,9 @@ module Roby
                 else
                     compute_returned_objects([@return_objects]).first
                 end
+            rescue ExecutionEngine::JoinAllWaitingWorkTimeout => e
+                raise UnexpectedErrors.new([e]),
+                      "some asynchronous work did not finish"
             end
 
             # Process the value returned by the `.to { }` block to convert it to

@@ -127,6 +127,22 @@ module Roby
                 refute execution_engine.waiting_work.include?(p)
             end
 
+            it "adds a promise error as a framework error if there are error handlers, "\
+               "but themselves raised" do
+                e = ArgumentError.new("e")
+                f = ArgumentError.new("f")
+                p = execution_engine.promise { raise e }
+                p.on_error { raise f }
+                p.execute
+                flexmock(execution_engine).should_receive(:add_framework_error)
+                    .with(e, String).once
+                flexmock(execution_engine).should_receive(:add_framework_error)
+                    .with(f, String).once
+                execution_engine.join_all_waiting_work
+
+                refute_includes execution_engine.waiting_work, p
+            end
+
             it "does not add a handled promise error as a framework error" do
                 e = ArgumentError.new
                 p = execution_engine.promise { raise e }

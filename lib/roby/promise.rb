@@ -46,6 +46,7 @@ module Roby
             @error_pipeline = []
             @promise = Concurrent::Promise.new(executor: executor, &method(:run_pipeline))
             @current_element = Concurrent::AtomicReference.new
+            @error_handling_failure = nil
             self.then(&block) if block
         end
 
@@ -81,9 +82,14 @@ module Roby
             execution_engine.log_timepoint_group description.to_s do
                 begin
                     run_pipeline_elements(pipeline, state)
-                rescue Exception => e
-                    run_pipeline_elements(error_pipeline, e, propagate_state: false)
-                    raise Failure.new(e)
+                rescue ::Exception => error # rubocop:disable Naming/RescuedExceptionsVariableName
+                    begin
+                        run_pipeline_elements(error_pipeline, error,
+                                              propagate_state: false)
+                    rescue ::Exception => error_handling_failure # rubocop:disable Naming/RescuedExceptionsVariableName
+                        @error_handling_failure = error_handling_failure
+                    end
+                    raise Failure.new(error)
                 end
             end
         ensure
@@ -191,6 +197,21 @@ module Roby
         def has_error_handler?
             !error_pipeline.empty?
         end
+
+        # Whether the promise's failure was successfully handled by error handlers
+        #
+        # This makes only sense when {#rejected?} returns true
+        #
+        # This will return true if (1) there are error handlers and (2)
+        # executing the handlers did not raise errors
+        def handled_error?
+            has_error_handler? && !@error_handling_failure
+        end
+
+        # The exception raised by the error handlers when during processing
+        #
+        # @return [Exception,nil]
+        attr_reader :error_handling_failure
 
         # Queue a block at the beginning of the pipeline
         def before(description: "#{self.description}.before", in_engine: true, &block)
