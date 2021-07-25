@@ -790,6 +790,26 @@ module Roby
                         expect_execution { task.quarantined! }.to { quarantine(task) }
                     end
                 end
+
+                describe "#ignore_errors_from" do
+                    it "passes if the predicate matches" do
+                        plan.add(task = Roby::Task.new)
+                        expect_execution { task.start! }
+                            .to { ignore_errors_from emit(task.start_event) }
+                    end
+
+                    it "does not require the predicate to match" do
+                        plan.add(task = Roby::Task.new)
+                        expect_execution.to { ignore_errors_from emit(task.start_event) }
+                    end
+
+                    it "ignores errors related to the predicate" do
+                        plan.add_mission_task(task = Roby::Task.new)
+                        expect_execution { task.quarantined! }.to do
+                            ignore_errors_from quarantine(task)
+                        end
+                    end
+                end
             end
 
             describe "#execute" do

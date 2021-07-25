@@ -33,14 +33,13 @@ module Roby
             #
             # @return [nil]
             def not_emit(*generators, backtrace: caller(1))
-                generators.each do |generator|
+                generators.map do |generator|
                     if generator.kind_of?(EventGenerator)
                         add_expectation(NotEmitGenerator.new(generator, backtrace))
                     else
                         add_expectation(NotEmitGeneratorModel.new(generator, backtrace))
                     end
                 end
-                nil
             end
 
             # Expect that an event is emitted after the expect_execution block
@@ -170,9 +169,11 @@ module Roby
             # @param [Task] task
             # @return [nil]
             def have_running(task, backtrace: caller(1)) # rubocop:disable Naming/PredicateName
-                emit(task.start_event, backtrace: backtrace) unless task.running?
-                not_emit task.stop_event
-                nil
+                unless task.running?
+                    start_emitted = emit(task.start_event, backtrace: backtrace)
+                end
+
+                [start_emitted, not_emit(task.stop_event)].compact
             end
 
             # Expect that the given task finishes
@@ -180,9 +181,11 @@ module Roby
             # @param [Task] task
             # @return [Event] the task's stop event
             def finish(task, backtrace: caller(1))
-                emit task.start_event, backtrace: backtrace unless task.running?
-                emit task.stop_event, backtrace: backtrace
-                nil
+                unless task.running?
+                    start_emitted = emit(task.start_event, backtrace: backtrace)
+                end
+
+                [start_emitted, emit(task.stop_event, backtrace: backtrace)].compact
             end
 
             # Expect that plan objects (task or event) are finalized
@@ -190,10 +193,9 @@ module Roby
             # @param [Array<PlanObject>] plan_objects
             # @return [nil]
             def finalize(*plan_objects, backtrace: caller(1))
-                plan_objects.each do |plan_object|
+                plan_objects.map do |plan_object|
                     add_expectation(Finalize.new(plan_object, backtrace))
                 end
-                nil
             end
 
             # Expect that plan objects (task or event) are not finalized
@@ -201,10 +203,9 @@ module Roby
             # @param [Array<PlanObject>] plan_objects
             # @return [nil]
             def not_finalize(*plan_objects, backtrace: caller(1))
-                plan_objects.each do |plan_object|
+                plan_objects.map do |plan_object|
                     add_expectation(NotFinalize.new(plan_object, backtrace))
                 end
-                nil
             end
 
             # Expect that the given task emits its internal_error event
@@ -212,8 +213,8 @@ module Roby
             # @param [Task] task
             # @return [Event] the emitted internal error event
             def have_internal_error(task, original_exception) # rubocop:disable Naming/PredicateName
-                have_handled_error_matching original_exception.match.with_origin(task)
-                emit task.internal_error_event
+                [have_handled_error_matching(original_exception.match.with_origin(task)),
+                 emit(task.internal_error_event)]
             end
 
             # Expect that the given task is put in quarantine
@@ -222,7 +223,6 @@ module Roby
             # @return [nil]
             def quarantine(task, backtrace: caller(1))
                 add_expectation(Quarantine.new(task, backtrace))
-                nil
             end
 
             # Expect that the given promise finishes
@@ -231,7 +231,6 @@ module Roby
             # @return [nil]
             def finish_promise(promise, backtrace: caller(1))
                 add_expectation(PromiseFinishes.new(promise, backtrace))
-                nil
             end
 
             # Expect that an error is raised and not caught
@@ -280,6 +279,19 @@ module Roby
             # exception class to match.
             def have_framework_error_matching(error, backtrace: caller(1)) # rubocop:disable Naming/PredicateName
                 add_expectation(HaveFrameworkError.new(error, backtrace))
+            end
+
+            # Given another predicate, ignore all errors related to this predicate but
+            # do not expect the predicate itself to be fullfilled.
+            #
+            # @example ignore all errors originating from this event emission
+            #    ignore_errors_from emit(task.stop_event)
+            def ignore_errors_from(expectations, backtrace: caller(1))
+                expectations = Array(expectations)
+                expectations.each do |e|
+                    @expectations.delete(e)
+                end
+                add_expectation(IgnoreErrorsFrom.new(expectations, backtrace))
             end
 
             # @!endgroup Expectations
@@ -761,6 +773,23 @@ module Roby
                 # @see filter_result_with
                 def filter_result(result)
                     @result_filters.inject(result) { |o, b| b.call(o) }
+                end
+            end
+
+            # Expectation wrapper that takes an expectation and ignores all
+            # errors that are related to it
+            class IgnoreErrorsFrom < Expectation
+                def initialize(expectations, backtrace)
+                    super(backtrace)
+                    @expectations = Array(expectations)
+                end
+
+                def relates_to_error?(error)
+                    @expectations.any? { |e| e.relates_to_error?(error) }
+                end
+
+                def filter_result(_result)
+                    nil
                 end
             end
 
