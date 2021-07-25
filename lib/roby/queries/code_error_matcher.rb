@@ -38,9 +38,9 @@ module Roby
             def to_s
                 description = super
                 if ruby_exception_class
-                    description.concat(".with_ruby_exception(#{ruby_exception_class})")
+                    description + ".with_ruby_exception(#{ruby_exception_class})"
                 else
-                    description.concat(".without_ruby_exception")
+                    description + ".without_ruby_exception"
                 end
             end
 
