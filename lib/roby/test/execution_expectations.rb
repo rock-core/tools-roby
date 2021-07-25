@@ -374,6 +374,14 @@ module Roby
                     @errors = errors
                 end
 
+                def each_execution_exception
+                    return enum_for(__method__) unless block_given?
+
+                    @errors.each do |e|
+                        yield(e) if e.kind_of?(ExecutionException)
+                    end
+                end
+
                 def each_original_exception
                     return enum_for(__method__) unless block_given?
 
