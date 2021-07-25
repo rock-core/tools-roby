@@ -1005,6 +1005,13 @@ module Roby
                     @task.quarantined?
                 end
 
+                def relates_to_error?(execution_exception)
+                    return unless execution_exception.originates_from?(@task)
+
+                    Roby.flatten_exception(execution_exception.exception)
+                        .any? { |e| e.kind_of?(QuarantinedTaskError) }
+                end
+
                 def to_s
                     "#{@task} should be quarantined"
                 end

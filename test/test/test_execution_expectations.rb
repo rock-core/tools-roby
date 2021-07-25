@@ -771,6 +771,25 @@ module Roby
                         end
                     end
                 end
+
+                describe "#quarantine" do
+                    it "matches if the task is quarantined" do
+                        plan.add(task = Roby::Task.new)
+                        expect_execution { task.quarantined! }.to { quarantine(task) }
+                    end
+
+                    it "fails if the task is not quarantined" do
+                        plan.add(task = Roby::Task.new)
+                        assert_raises(ExecutionExpectations::Unmet) do
+                            expect_execution.timeout(0.1).to { quarantine(task) }
+                        end
+                    end
+
+                    it "ignores the QuarantinedTaskError" do
+                        plan.add_mission_task(task = Roby::Task.new)
+                        expect_execution { task.quarantined! }.to { quarantine(task) }
+                    end
+                end
             end
 
             describe "#execute" do
