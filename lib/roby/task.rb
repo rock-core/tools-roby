@@ -340,9 +340,11 @@ module Roby
         #   task that is either finished, or failed to start
         def promise(description: "#{self}.promise", executor: promise_executor, &block)
             if failed_to_start?
-                raise PromiseInFinishedTask, "attempting to create a promise on #{self} that has failed to start"
+                raise PromiseInFinishedTask,
+                      "attempting to create a promise on #{self} that has failed to start"
             elsif finished?
-                raise PromiseInFinishedTask, "attempting to create a promise on #{self} that is finished"
+                raise PromiseInFinishedTask,
+                      "attempting to create a promise on #{self} that is finished"
             end
 
             super
@@ -457,10 +459,13 @@ module Roby
         def executable=(flag)
             return if flag == @executable
             return unless self_owned?
+
             if flag && !pending?
-                raise ModelViolation, "cannot set the executable flag of #{self} since it is not pending"
+                raise ModelViolation,
+                      "cannot set the executable flag of #{self} since it is not pending"
             elsif !flag && running?
-                raise ModelViolation, "cannot unset the executable flag of #{self} since it is running"
+                raise ModelViolation,
+                      "cannot unset the executable flag of #{self} since it is running"
             end
 
             super
@@ -531,7 +536,8 @@ module Roby
 
         # True if this task can be reused by some other parts in the plan
         def reusable?
-            plan && @reusable && !quarantined? && !garbage? && !failed_to_start? && !finished? && !finishing?
+            plan && @reusable && !quarantined? && !garbage? && !failed_to_start? &&
+                !finished? && !finishing?
         end
 
         def garbage!
@@ -559,7 +565,9 @@ module Roby
             if failed_to_start?
                 return
             elsif !pending? && !starting?
-                raise Roby::InternalError, "#{self} is neither pending nor starting, cannot mark as failed_to_start!"
+                raise Roby::InternalError,
+                      "#{self} is neither pending nor starting, "\
+                      "cannot mark as failed_to_start!"
             end
 
             @failed_to_start = true
@@ -622,7 +630,8 @@ module Roby
                     end
                 end
             else
-                modified_plan = clear_events_external_relations(remove_strong: remove_strong)
+                modified_plan =
+                    clear_events_external_relations(remove_strong: remove_strong)
             end
             super(remove_strong: remove_strong) || modified_plan
         end
@@ -794,18 +803,23 @@ module Roby
         # @return [TaskEventGenerator,nil]
         # @raise [ArgumentError] if the event does not exist
         def event(event_model)
-            if event = find_event(event_model)
-                event
-            else
-                raise ArgumentError, "cannot find #{event_model} in the set of bound events in #{self}. Known events are #{bound_events}."
+            unless (event = find_event(event_model))
+                raise ArgumentError,
+                      "cannot find #{event_model} in the set of bound events in "\
+                      "#{self}. Known events are #{bound_events}."
             end
+
+            event
         end
 
         # @!group Deprecated Event API
 
         # @deprecated use {TaskEventGenerator#emit} instead (e.g. task.start_event.emit)
         def emit(event_model, *context)
-            Roby.warn_deprecated "Roby::Task#emit(event_name) is deprecated, use EventGenerator#emit (e.g. task.start_event.emit or task.event(:start).emit)"
+            Roby.warn_deprecated(
+                "Roby::Task#emit(event_name) is deprecated, use EventGenerator#emit "\
+                "(e.g. task.start_event.emit or task.event(:start).emit)"
+            )
             event(event_model).emit(*context)
             self
         end
@@ -813,26 +827,37 @@ module Roby
         # @deprecated use {TaskEventGenerator#on} on the event object, e.g.
         #   task.start_event.on { |event| ... }
         def on(event_model, options = {}, &user_handler)
-            Roby.warn_deprecated "Task#on is deprecated, use EventGenerator#on instead (e.g. #{event_model}_event.signals other_event)"
+            Roby.warn_deprecated(
+                "Task#on is deprecated, use EventGenerator#on instead "\
+                "(e.g. #{event_model}_event.signals other_event)"
+            )
             event(event_model).on(options, &user_handler)
             self
         end
 
-        # @deprecated use {TaskEventGenerator#signal} instead (e.g. task.start_event.signal other_task.stop_event)
+        # @deprecated use {TaskEventGenerator#signal} instead (e.g.
+        # task.start_event.signal other_task.stop_event)
         def signals(event_model, to, *to_task_events)
-            Roby.warn_deprecated "Task#signals is deprecated, use EventGenerator#signal instead (e.g. #{event_model}_event.signals other_event)"
+            Roby.warn_deprecated(
+                "Task#signals is deprecated, use EventGenerator#signal instead "\
+                "(e.g. #{event_model}_event.signals other_event)"
+            )
 
             generator = event(event_model)
             if Hash === to_task_events.last
                 delay = to_task_events.pop
             end
-            to_events = case to
-                        when Task
-                            to_task_events.map { |ev_model| to.event(ev_model) }
-                        when EventGenerator then [to]
-                        else
-                            raise ArgumentError, "expected Task or EventGenerator, got #{to}(#{to.class}: #{to.class.ancestors})"
-                        end
+            to_events =
+                case to
+                when Task
+                    to_task_events.map { |ev_model| to.event(ev_model) }
+                when EventGenerator
+                    [to]
+                else
+                    raise ArgumentError,
+                          "expected Task or EventGenerator, got #{to}(#{to.class}: "\
+                          "#{to.class.ancestors})"
+                end
 
             to_events.each do |event|
                 generator.signals event, delay
@@ -840,21 +865,29 @@ module Roby
             self
         end
 
-        # @deprecated use {TaskEventGenerator#forward_to} instead (e.g.  task.start_event.forward_to other_task.stop_event)
+        # @deprecated use {TaskEventGenerator#forward_to} instead (e.g.
+        # task.start_event.forward_to other_task.stop_event)
         def forward_to(event_model, to, *to_task_events)
-            Roby.warn_deprecated "Task#forward_to is deprecated, use EventGenerator#forward_to instead (e.g. #{event_model}_event.forward_to other_event)"
+            Roby.warn_deprecated(
+                "Task#forward_to is deprecated, use EventGenerator#forward_to "\
+                "instead (e.g. #{event_model}_event.forward_to other_event)"
+            )
 
             generator = event(event_model)
             if Hash === to_task_events.last
                 delay = to_task_events.pop
             end
-            to_events = case to
-                        when Task
-                            to_task_events.map { |ev| to.event(ev) }
-                        when EventGenerator then [to]
-                        else
-                            raise ArgumentError, "expected Task or EventGenerator, got #{to}(#{to.class}: #{to.class.ancestors})"
-                        end
+            to_events =
+                case to
+                when Task
+                    to_task_events.map { |ev| to.event(ev) }
+                when EventGenerator
+                    [to]
+                else
+                    raise ArgumentError,
+                          "expected Task or EventGenerator, got #{to}(#{to.class}: "\
+                          "#{to.class.ancestors})"
+                end
 
             to_events.each do |ev|
                 generator.forward_to ev, delay
@@ -900,16 +933,21 @@ module Roby
         end
 
         def to_s # :nodoc:
-            s = "#{name}<id:#{droby_id.id}>(#{arguments})"
+            s = "#{name}<id:#{droby_id.id}>(#{arguments})".dup
             id = owners.map do |owner|
                 next if plan && (owner == plan.local_owner)
 
                 sibling = remote_siblings[owner]
-                "#{sibling ? Object.address_from_id(sibling.ref).to_s(16) : 'nil'}@#{owner.remote_name}"
+                sibling_address =
+                    if sibling
+                        Object.address_from_id(sibling.ref).to_s(16)
+                    else
+                        "nil"
+                    end
+
+                "#{sibling_address}@#{owner.remote_name}"
             end
-            unless id.empty?
-                s << "[" << id.join(",") << "]"
-            end
+            s << "[" << id.join(",") << "]" unless id.empty?
             s
         end
 
@@ -1063,10 +1101,13 @@ module Roby
         # @return [void]
         def execute(options = {}, &block)
             default_on_replace = abstract? ? :copy : :drop
-            options = InstanceHandler.validate_options(options, on_replace: default_on_replace)
+            options = InstanceHandler.validate_options(
+                options, on_replace: default_on_replace
+            )
 
             check_arity(block, 1)
-            @execute_handlers << InstanceHandler.new(block, (options[:on_replace] == :copy))
+            @execute_handlers <<
+                InstanceHandler.new(block, (options[:on_replace] == :copy))
             ensure_poll_handler_called
         end
 
@@ -1079,10 +1120,13 @@ module Roby
         # @return [Object] an ID that can be used in {#remove_poll_handler}
         def poll(options = {}, &block)
             default_on_replace = abstract? ? :copy : :drop
-            options = InstanceHandler.validate_options(options, on_replace: default_on_replace)
+            options = InstanceHandler.validate_options(
+                options, on_replace: default_on_replace
+            )
 
             check_arity(block, 1)
-            @poll_handlers << (handler = InstanceHandler.new(block, (options[:on_replace] == :copy)))
+            handler = InstanceHandler.new(block, (options[:on_replace] == :copy))
+            @poll_handlers << handler
             ensure_poll_handler_called
             Roby.disposable { @poll_handlers.delete(handler) }
         end
@@ -1100,9 +1144,12 @@ module Roby
         # Helper for {#execute} and {#poll} that ensures that the {#do_poll} is
         # called by the execution engine
         def ensure_poll_handler_called
-            if !transaction_proxy? && running?
-                @poll_handler_id ||= execution_engine.add_propagation_handler(description: "poll block for #{self}", type: :external_events, &method(:do_poll))
-            end
+            return if transaction_proxy? || !running?
+
+            @poll_handler_id ||= execution_engine.add_propagation_handler(
+                description: "poll block for #{self}",
+                type: :external_events, &method(:do_poll)
+            )
         end
 
         # @api private
@@ -1149,9 +1196,13 @@ module Roby
             # Register poll:
             #  - single class poll_handler add be class method Task#poll
             #  - additional instance poll_handler added by instance method poll
-            #  - polling as defined in state of the state_machine, i.e. substates of running
+            #  - polling as defined in state of the state_machine, i.e.
+            #    substates of running
             if respond_to?(:poll_handler) || !poll_handlers.empty? || state_machine
-                @poll_handler_id = engine.add_propagation_handler(description: "poll block of #{self}", type: :external_events, &method(:do_poll))
+                @poll_handler_id = engine.add_propagation_handler(
+                    description: "poll block of #{self}",
+                    type: :external_events, &method(:do_poll)
+                )
             end
         end
 
@@ -1271,7 +1322,9 @@ module Roby
         # instance
         def add_child_object(child, type, info)
             unless read_write? && child.read_write?
-                raise OwnershipError, "cannot add a relation between tasks we don't own.  #{self} by #{owners.to_a} and #{child} is owned by #{child.owners.to_a}"
+                raise OwnershipError,
+                      "cannot add a relation between tasks we don't own. #{self} by "\
+                      "#{owners.to_a} and #{child} is owned by #{child.owners.to_a}"
             end
 
             super
@@ -1364,15 +1417,21 @@ module Roby
 
                 event_pairs.each do |event, object_event|
                     event.each_in_neighbour_merged(rel, intrusive: false) do |_, parent|
-                        if parent.respond_to?(:task) && !transaction_stack.include?(parent.task)
-                            edges_candidates <<
-                                [plan[parent.task], [g, parent, event, parent, object_event]]
+                        if parent.respond_to?(:task) &&
+                           !transaction_stack.include?(parent.task)
+                            edges_candidates << [
+                                plan[parent.task],
+                                [g, parent, event, parent, object_event]
+                            ]
                         end
                     end
                     event.each_out_neighbour_merged(rel, intrusive: false) do |_, child|
-                        if child.respond_to?(:task) && !transaction_stack.include?(child.task)
-                            edges_candidates <<
-                                [plan[child.task], [g, event, child, object_event, child]]
+                        if child.respond_to?(:task) &&
+                           !transaction_stack.include?(child.task)
+                            edges_candidates << [
+                                plan[child.task],
+                                [g, event, child, object_event, child]
+                            ]
                         end
                     end
                 end
@@ -1407,7 +1466,8 @@ module Roby
         end
 
         def compute_task_replacement_operation(object, filter)
-            edges, edges_candidates, = compute_replacement_candidates(object, filter, true)
+            edges, edges_candidates, =
+                compute_replacement_candidates(object, filter, true)
             edges_candidates.each do |reference_task, op|
                 if filter.excluded_task?(reference_task)
                     next
@@ -1431,7 +1491,8 @@ module Roby
                     next
                 elsif parent_tasks.include?(reference_task)
                     edges << op
-                elsif plan.in_useful_subplan?(self, reference_task) || plan.in_useful_subplan?(object, reference_task)
+                elsif plan.in_useful_subplan?(self, reference_task) ||
+                      plan.in_useful_subplan?(object, reference_task)
                     subplan_tasks << reference_task
                 else
                     edges << op
@@ -1516,26 +1577,24 @@ module Roby
             self
         end
 
-        # Register a hook that is called when this task is finalized (removed from its plan)
+        # Register a hook that is called when this task is finalized (removed
+        # from its plan)
         #
         # @macro InstanceHandlerOptions
         def when_finalized(options = {}, &block)
             default = abstract? ? :copy : :drop
-            options, remaining = InstanceHandler.filter_options options, on_replace: default
+            options, remaining =
+                InstanceHandler.filter_options options, on_replace: default
             super(options.merge(remaining), &block)
         end
 
         def internal_error_handler(exception)
-            unless exception.originates_from?(self)
-                return pass_exception
-            end
+            return pass_exception unless exception.originates_from?(self)
 
             gen = exception.generator
             error = exception.exception
             if (gen == start_event) && !gen.emitted?
-                unless failed_to_start?
-                    failed_to_start!(error)
-                end
+                failed_to_start!(error) unless failed_to_start?
             elsif !running?
                 pass_exception
             elsif (!gen || !gen.terminal?) && !internal_error_event.emitted?
@@ -1552,7 +1611,9 @@ module Roby
                     # interface, as we can't emergency stop it. Quarantine it
                     # and inject it in the normal exception propagation
                     # mechanisms.
-                    execution_engine.fatal "putting #{self} in quarantine: #{self} failed to emit"
+                    execution_engine.fatal(
+                        "#{self} failed to stop, putting in quarantine"
+                    )
                     execution_engine.fatal "the error is:"
                     Roby.log_exception_with_backtrace(error, execution_engine, :fatal)
                 end

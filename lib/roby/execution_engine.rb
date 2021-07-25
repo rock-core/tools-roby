@@ -634,7 +634,9 @@ module Roby
                 @propagation_exceptions << [plan_exception, propagate_through]
             else
                 Roby.log_exception_with_backtrace(e, self, :fatal)
-                raise NotPropagationContext, "#add_error called outside an error-gathering context (#add_error)"
+                raise NotPropagationContext,
+                      "#add_error called outside an error-gathering "\
+                      "context (#add_error)"
             end
         end
 
@@ -1472,12 +1474,14 @@ module Roby
             # are fatal), and in the second case we call #check_structure
             # again to errors that are remaining after the call to the exception
             # handlers
-            events_errors, free_events_errors, events_handled = propagate_exceptions(events_errors)
+            events_errors, free_events_errors, events_handled =
+                propagate_exceptions(events_errors)
             _, structure_handled = propagate_exceptions(structure_errors)
             log_timepoint "exception_propagation"
 
             # Get the remaining problems in the plan structure, and act on it
-            structure_errors, structure_inhibited = remove_inhibited_exceptions(plan.check_structure)
+            structure_errors, structure_inhibited =
+                remove_inhibited_exceptions(plan.check_structure)
 
             # Partition them by fatal/nonfatal
             fatal_errors, nonfatal_errors = [], []
@@ -1488,12 +1492,17 @@ module Roby
                     nonfatal_errors << [e, involved_tasks]
                 end
             end
-            kill_tasks = compute_kill_tasks_for_unhandled_fatal_errors(fatal_errors).to_set
+            kill_tasks =
+                compute_kill_tasks_for_unhandled_fatal_errors(fatal_errors).to_set
             handled_errors = structure_handled + events_handled
 
-            debug "#{fatal_errors.size} fatal errors found and #{free_events_errors.size} errors involving free events"
+            debug "#{fatal_errors.size} fatal errors found and "\
+                  "#{free_events_errors.size} errors involving free events"
             debug "the fatal errors involve #{kill_tasks.size} non-finalized tasks"
-            PropagationInfo.new(Set.new, Set.new, kill_tasks, fatal_errors, nonfatal_errors, free_events_errors, handled_errors, structure_inhibited)
+            PropagationInfo.new(
+                Set.new, Set.new, kill_tasks, fatal_errors, nonfatal_errors,
+                free_events_errors, handled_errors, structure_inhibited
+            )
         end
 
         # Whether this EE has asynchronous waiting work waiting to be processed
@@ -1907,7 +1916,8 @@ module Roby
         end
 
         def unmark_finished_missions_and_permanent_tasks
-            to_unmark = plan.task_index.by_predicate[:finished?] | plan.task_index.by_predicate[:failed?]
+            to_unmark = plan.task_index.by_predicate[:finished?] |
+                        plan.task_index.by_predicate[:failed?]
 
             finished_missions = (plan.mission_tasks & to_unmark)
             # Remove all missions that are finished

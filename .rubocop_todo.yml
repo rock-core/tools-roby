@@ -76,7 +76,6 @@ Layout/LineLength:
     - 'lib/roby/event_generator.rb'
     - 'lib/roby/event_structure/temporal_constraints.rb'
     - 'lib/roby/exceptions.rb'
-    - 'lib/roby/executable_plan.rb'
     - 'lib/roby/execution_engine.rb'
     - 'lib/roby/filter_generator.rb'
     - 'lib/roby/gui/chronicle_widget.rb'
@@ -124,18 +123,15 @@ Layout/LineLength:
     - 'lib/roby/schedulers/state.rb'
     - 'lib/roby/schedulers/temporal.rb'
     - 'lib/roby/singletons.rb'
-    - 'lib/roby/standard_errors.rb'
     - 'lib/roby/state/events.rb'
     - 'lib/roby/state/goal_model.rb'
     - 'lib/roby/state/open_struct.rb'
     - 'lib/roby/state/pos.rb'
     - 'lib/roby/state/task.rb'
-    - 'lib/roby/task.rb'
     - 'lib/roby/task_arguments.rb'
     - 'lib/roby/task_event.rb'
     - 'lib/roby/task_structure/dependency.rb'
     - 'lib/roby/task_structure/error_handling.rb'
-    - 'lib/roby/task_structure/executed_by.rb'
     - 'lib/roby/task_structure/planned_by.rb'
     - 'lib/roby/tasks/external_process.rb'
     - 'lib/roby/tasks/virtual.rb'
@@ -207,7 +203,6 @@ Layout/LineLength:
     - 'test/task_structure/test_conflicts.rb'
     - 'test/task_structure/test_dependency.rb'
     - 'test/task_structure/test_error_handling.rb'
-    - 'test/task_structure/test_executed_by.rb'
     - 'test/task_structure/test_planned_by.rb'
     - 'test/tasks/test_external_process.rb'
     - 'test/tasks/test_thread_task.rb'
@@ -224,7 +219,6 @@ Layout/LineLength:
     - 'test/test_execution_engine.rb'
     - 'test/test_execution_exception.rb'
     - 'test/test_or_generator.rb'
-    - 'test/test_plan.rb'
     - 'test/test_plan_object.rb'
     - 'test/test_promise.rb'
     - 'test/test_robot.rb'
@@ -241,7 +235,6 @@ Layout/LineLength:
 Layout/MultilineMethodCallBraceLayout:
   Exclude:
     - 'lib/roby/actions/models/coordination_action.rb'
-    - 'lib/roby/app.rb'
     - 'lib/roby/app/scripts/autotest.rb'
     - 'lib/roby/cli/main.rb'
     - 'lib/roby/coordination/base.rb'
@@ -262,7 +255,6 @@ Layout/MultilineMethodCallBraceLayout:
     - 'lib/roby/relations/space.rb'
     - 'lib/roby/task.rb'
     - 'lib/roby/task_structure/dependency.rb'
-    - 'lib/roby/task_structure/executed_by.rb'
     - 'lib/roby/test/assertions.rb'
     - 'lib/roby/transaction/event_generator_proxy.rb'
     - 'lib/roby/yard.rb'
@@ -289,7 +281,6 @@ Layout/MultilineMethodCallIndentation:
     - 'doc/guide/ext/previous_next.rb'
     - 'lib/roby/actions/interface.rb'
     - 'lib/roby/actions/models/coordination_action.rb'
-    - 'lib/roby/app.rb'
     - 'lib/roby/app/scripts/shell.rb'
     - 'lib/roby/cli/log.rb'
     - 'lib/roby/coordination/models/capture.rb'
@@ -347,7 +338,6 @@ Layout/MultilineMethodCallIndentation:
     - 'test/state/test_state_space.rb'
     - 'test/state/test_task.rb'
     - 'test/task_structure/test_dependency.rb'
-    - 'test/task_structure/test_executed_by.rb'
     - 'test/task_structure/test_planned_by.rb'
     - 'test/tasks/test_thread_task.rb'
     - 'test/test/test_execution_expectations.rb'
@@ -382,7 +372,6 @@ Layout/ParameterAlignment:
 Lint/AssignmentInCondition:
   Exclude:
     - 'lib/roby/actions/task.rb'
-    - 'lib/roby/app.rb'
     - 'lib/roby/app/autotest_console_reporter.rb'
     - 'lib/roby/app/debug.rb'
     - 'lib/roby/app/scripts/autotest.rb'
@@ -437,7 +426,6 @@ Lint/AssignmentInCondition:
     - 'lib/roby/state/state_model.rb'
     - 'lib/roby/task.rb'
     - 'lib/roby/task_structure/dependency.rb'
-    - 'lib/roby/task_structure/executed_by.rb'
     - 'lib/roby/task_structure/planned_by.rb'
     - 'lib/roby/tasks/external_process.rb'
     - 'lib/roby/tasks/sequence.rb'
@@ -459,7 +447,6 @@ Lint/ParenthesesAsGroupedExpression:
 Lint/RescueException:
   Exclude:
     - 'bin/roby-display'
-    - 'lib/roby/app.rb'
     - 'lib/roby/app/scripts/shell.rb'
     - 'lib/roby/coordination/action_state_machine.rb'
     - 'lib/roby/droby/logfile/client.rb'
@@ -496,7 +483,6 @@ Lint/RescueException:
 # Offense count: 39
 Lint/ShadowingOuterLocalVariable:
   Exclude:
-    - 'lib/roby/app.rb'
     - 'lib/roby/app/scripts/autotest.rb'
     - 'lib/roby/app/scripts/shell.rb'
     - 'lib/roby/app/scripts/test.rb'
@@ -526,7 +512,6 @@ Lint/ShadowingOuterLocalVariable:
 # Configuration parameters: AllowComments.
 Lint/SuppressedException:
   Exclude:
-    - 'lib/roby/app.rb'
     - 'lib/roby/app/scripts/distributed.rb'
     - 'lib/roby/coordination/task_base.rb'
     - 'lib/roby/coordination/task_state_machine.rb'
@@ -596,7 +581,6 @@ Lint/UnusedBlockArgument:
     - 'test/interface/test_interface.rb'
     - 'test/relations/test_space.rb'
     - 'test/task_structure/test_dependency.rb'
-    - 'test/task_structure/test_executed_by.rb'
     - 'test/tasks/test_external_process.rb'
     - 'test/tasks/test_virtual.rb'
     - 'test/test_app.rb'
@@ -613,7 +597,6 @@ Lint/UnusedMethodArgument:
   Exclude:
     - 'lib/roby/actions/action.rb'
     - 'lib/roby/and_generator.rb'
-    - 'lib/roby/app.rb'
     - 'lib/roby/app/cucumber/controller.rb'
     - 'lib/roby/cli/gen/helpers.rb'
     - 'lib/roby/coordination/actions.rb'
@@ -683,7 +666,6 @@ Lint/UnusedMethodArgument:
 Lint/UselessAssignment:
   Exclude:
     - 'benchmark/transactions.rb'
-    - 'lib/roby/app.rb'
     - 'lib/roby/app/autotest_console_reporter.rb'
     - 'lib/roby/app/scripts.rb'
     - 'lib/roby/app/scripts/autotest.rb'
@@ -740,7 +722,6 @@ Lint/UselessAssignment:
     - 'test/state/test_state_space.rb'
     - 'test/task_structure/test_dependency.rb'
     - 'test/task_structure/test_error_handling.rb'
-    - 'test/task_structure/test_executed_by.rb'
     - 'test/tasks/test_external_process.rb'
     - 'test/tasks/test_virtual.rb'
     - 'test/test/test_assertions.rb'
@@ -866,7 +847,6 @@ Metrics/AbcSize:
     - 'lib/roby/task_structure/conflicts.rb'
     - 'lib/roby/task_structure/dependency.rb'
     - 'lib/roby/task_structure/error_handling.rb'
-    - 'lib/roby/task_structure/executed_by.rb'
     - 'lib/roby/tasks/external_process.rb'
     - 'lib/roby/test/assertions.rb'
     - 'lib/roby/test/common.rb'
@@ -912,7 +892,6 @@ Metrics/AbcSize:
     - 'test/state/test_state_space.rb'
     - 'test/state/test_task.rb'
     - 'test/task_structure/test_dependency.rb'
-    - 'test/task_structure/test_executed_by.rb'
     - 'test/tasks/test_external_process.rb'
     - 'test/tasks/test_thread_task.rb'
     - 'test/test_event_constraints.rb'
@@ -1017,7 +996,6 @@ Metrics/BlockLength:
     - 'test/task_structure/test_conflicts.rb'
     - 'test/task_structure/test_dependency.rb'
     - 'test/task_structure/test_error_handling.rb'
-    - 'test/task_structure/test_executed_by.rb'
     - 'test/task_structure/test_planned_by.rb'
     - 'test/tasks/test_external_process.rb'
     - 'test/tasks/test_thread_task.rb'
@@ -1406,7 +1384,6 @@ Naming/MethodParameterName:
     - 'lib/roby/task_arguments.rb'
     - 'lib/roby/task_event_generator.rb'
     - 'lib/roby/task_structure/dependency.rb'
-    - 'lib/roby/task_structure/executed_by.rb'
     - 'lib/roby/tasks/virtual.rb'
     - 'lib/roby/test/assertions.rb'
     - 'lib/roby/test/event_reporter.rb'
@@ -1689,7 +1666,6 @@ Style/Documentation:
     - 'lib/roby/task_structure/conflicts.rb'
     - 'lib/roby/task_structure/dependency.rb'
     - 'lib/roby/task_structure/error_handling.rb'
-    - 'lib/roby/task_structure/executed_by.rb'
     - 'lib/roby/task_structure/planned_by.rb'
     - 'lib/roby/tasks/group.rb'
     - 'lib/roby/tasks/parallel.rb'
@@ -1758,7 +1734,6 @@ Style/For:
     - 'lib/roby/task_event.rb'
     - 'lib/roby/task_structure/conflicts.rb'
     - 'lib/roby/task_structure/dependency.rb'
-    - 'lib/roby/task_structure/executed_by.rb'
 
 # Offense count: 29
 # Configuration parameters: EnforcedStyle.
@@ -1853,7 +1828,6 @@ Style/GuardClause:
     - 'lib/roby/task_event_generator.rb'
     - 'lib/roby/task_structure/conflicts.rb'
     - 'lib/roby/task_structure/dependency.rb'
-    - 'lib/roby/task_structure/executed_by.rb'
     - 'lib/roby/task_structure/planned_by.rb'
     - 'lib/roby/tasks/external_process.rb'
     - 'lib/roby/tasks/thread.rb'
@@ -1968,7 +1942,6 @@ Style/IfUnlessModifier:
     - 'lib/roby/task_structure/conflicts.rb'
     - 'lib/roby/task_structure/dependency.rb'
     - 'lib/roby/task_structure/error_handling.rb'
-    - 'lib/roby/task_structure/executed_by.rb'
     - 'lib/roby/task_structure/planned_by.rb'
     - 'lib/roby/tasks/external_process.rb'
     - 'lib/roby/tasks/group.rb'

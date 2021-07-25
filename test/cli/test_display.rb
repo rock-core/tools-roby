@@ -187,11 +187,12 @@ module Roby
                 end
                 it "resolves the port by contacting the Roby instance" do
                     app.setup_shell_interface
-                    app.start_log_server(logfile_path, "silent" => true)
+                    app.start_log_server(logfile_path, { "silent" => true })
                     resolve_thread = Thread.new { cli.resolve_remote_host }
                     capture_subprocess_io do
                         while resolve_thread.alive?
                             app.shell_interface.process_pending_requests
+                            sleep 0.01
                         end
                     end
                     assert_roby_app_can_connect_to_log_server
