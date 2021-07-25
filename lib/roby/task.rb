@@ -545,16 +545,40 @@ module Roby
             super
         end
 
-        # @!method quarantined?
-        #
         # Whether this task has been quarantined
-        attr_predicate :quarantined?
+        def quarantined?
+            @quarantined
+        end
+
+        # The reason why the task is in quarantine
+        #
+        # If the quarantine was caused by an exception, this will return the
+        # original exception
+        #
+        # @return [Exception,nil]
+        attr_reader :quarantine_reason
 
         # Mark the task as quarantined
         #
-        # Once set it cannot be unset
-        def quarantined!
+        # Quarantined tasks are essentially tasks that are present in the plan, but
+        # cannot be reused because they are known to misbehave *and* themselves can't
+        # be killed. The prime example is a task the system tried to stop but for
+        # which the stop process failed.
+        #
+        # Once set it cannot be unset. The engine will generate a {QuarantinedTaskError}
+        # error as long as there are tasks that depend on the task, to make sure that
+        # anything that depend on it either stops using it, or is killed itself.
+        #
+        # @param [Exception,nil] reason if the quarantine was caused by an exception,
+        #   pass it.there. It will be stored in {#quarantine_reason} and will be
+        #   made available in the {Quarantine} error
+        def quarantined!(reason: nil)
+            return if quarantined?
+
             @quarantined = true
+            @quarantine_reason = reason
+
+            plan.register_quarantined_task(self)
         end
 
         def failed_to_start?
@@ -596,24 +620,38 @@ module Roby
                     graph = plan.event_relation_graph_for(rel)
                     next if !remove_strong && graph.strong?
 
-                    to_remove = []
-                    graph.each_in_neighbour(event) do |neighbour|
-                        unless task_events.include?(neighbour)
-                            to_remove << neighbour << event
-                        end
+                    parents = graph.each_in_neighbour(event).find_all do |neighbour|
+                        !task_events.include?(neighbour)
                     end
-                    graph.each_out_neighbour(event) do |neighbour|
-                        unless task_events.include?(neighbour)
-                            to_remove << event << neighbour
-                        end
+                    children = graph.each_out_neighbour(event).find_all do |neighbour|
+                        !task_events.include?(neighbour)
                     end
-                    to_remove.each_slice(2) do |from, to|
-                        graph.remove_edge(from, to)
+
+                    unless remove_strong
+                        parents = filter_events_from_strongly_related_tasks(parents)
+                        children = filter_events_from_strongly_related_tasks(children)
                     end
-                    removed ||= !to_remove.empty?
+
+                    parents.each { |from| graph.remove_edge(from, event) }
+                    children.each { |to| graph.remove_edge(event, to) }
+                    removed ||= !parents.empty? || !children.empty?
                 end
             end
             removed
+        end
+
+        def filter_events_from_strongly_related_tasks(events)
+            return events if events.empty?
+
+            strong_graphs = plan.each_relation_graph.find_all(&:strong?)
+            events.find_all do |ev|
+                next(true) unless ev.respond_to?(:task)
+
+                task = ev.task
+                strong_graphs.none? do |g|
+                    g.has_edge?(self, task) || g.has_edge?(task, ev)
+                end
+            end
         end
 
         # Remove all relations in which +self+ or its event are involved
@@ -1603,7 +1641,9 @@ module Roby
                     # In this case, we can't "just" stop the task. We have
                     # to inject +error+ in the exception handling and kill
                     # everything that depends on it.
-                    add_error(TaskEmergencyTermination.new(self, error, false))
+                    execution_engine.add_error(
+                        TaskEmergencyTermination.new(self, error, false)
+                    )
                 end
             else
                 if execution_engine.display_exceptions?
@@ -1618,8 +1658,7 @@ module Roby
                     Roby.log_exception_with_backtrace(error, execution_engine, :fatal)
                 end
 
-                plan.quarantine_task(self)
-                add_error(TaskEmergencyTermination.new(self, error, true))
+                plan.quarantine_task(self, reason: exception.exception)
             end
         end
         private :internal_error_handler

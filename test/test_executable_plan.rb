@@ -239,13 +239,19 @@ module Roby
                 assert_logs_event(:quarantined_task, plan.droby_id, task)
                 plan.quarantine_task(task)
             end
+            it "adds the task to the quarantined task set" do
+                plan.quarantine_task(task)
+                assert_includes plan.quarantined_tasks, task
+            end
             it "marks the task as quarantined" do
                 plan.quarantine_task(task)
                 assert task.quarantined?
             end
-            it "removes all non-strong task relations and all external event relations" do
-                task.should_receive(:clear_relations).with(remove_internal: false, remove_strong: false).once
-                plan.quarantine_task(task)
+            it "is symmetric with Task#quarantined!" do
+                assert_logs_event(:quarantined_task, plan.droby_id, task)
+                task.quarantined!
+                assert_includes plan.quarantined_tasks, task
+                assert task.quarantined?
             end
         end
 
@@ -330,6 +336,28 @@ module Roby
                         end
                     end
                 end
+            end
+        end
+
+        describe "#remove_task" do
+            it "removes the task" do # just make sure we actually call super ...
+                plan.add(task = Roby::Task.new)
+                execute { plan.remove_task(task) }
+                refute plan.has_task?(task)
+            end
+
+            it "removes the task from the force_gc set" do
+                plan.add(task = Roby::Task.new)
+                execute { plan.execution_engine.garbage_collect([task]) }
+                refute plan.has_task?(task)
+                refute plan.force_gc.include?(task)
+            end
+
+            it "removes the task from the quarantined set" do
+                plan.add(task = Roby::Task.new)
+                task.quarantined!
+                execute { plan.remove_task(task) }
+                refute plan.quarantined_tasks.include?(task)
             end
         end
 

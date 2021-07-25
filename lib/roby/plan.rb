@@ -1285,10 +1285,6 @@ module Roby
             task_index.self_owned
         end
 
-        def quarantined_tasks
-            tasks.find_all(&:quarantined?)
-        end
-
         def remote_tasks
             if (local_tasks = task_index.self_owned)
                 tasks - local_tasks

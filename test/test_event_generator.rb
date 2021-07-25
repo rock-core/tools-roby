@@ -1362,18 +1362,27 @@ module Roby
                 @context = flexmock
                 plan.add(source)
                 flexmock(execution_engine)
-                execution_engine.should_receive(:queue_forward).once
-                    .with([], source, [context], nil).pass_thru
             end
             it "queues the target emission when the source emits" do
                 target = EventGenerator.new
                 source.forward_to target
+                execution_engine.should_receive(:queue_forward).once
+                    .with([], source, [context], nil).pass_thru
                 execution_engine.should_receive(:queue_forward).once
                     .with(->(sources) { sources == [source.last] }, target, [context], nil)
                     .pass_thru
                 event = expect_execution { source.emit(context) }
                     .to { emit target }
                 assert_equal source.last.context, event.context
+            end
+            it "returns true in forwarded_to?" do
+                target = EventGenerator.new
+                source.forward_to target
+                assert source.forwarded_to?(target)
+            end
+            it "returns true in forwarded_to? for unrelated events" do
+                target = EventGenerator.new
+                refute source.forwarded_to?(target)
             end
         end
 

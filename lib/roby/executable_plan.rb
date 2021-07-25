@@ -50,6 +50,7 @@ module Roby
             super(graph_observer: self, event_logger: event_logger)
 
             @execution_engine = ExecutionEngine.new(self)
+            @quarantined_tasks = Set.new
             @force_gc = Set.new
             @exception_handlers = []
             on_exception LocalizedError do |plan, error|
@@ -57,22 +58,22 @@ module Roby
             end
         end
 
+        # Set of running tasks that are in quarantine
+        #
+        # @return [Set<Task>]
+        attr_reader :quarantined_tasks
+
+        # (see Task#quarantined!)
+        def quarantine_task(task, reason: nil)
+            task.quarantined!(reason: reason)
+        end
+
         # @api private
         #
-        # Put the given task in quarantine. In practice, it means that all the
-        # event relations of that task's events are removed, as well as its
-        # children. Then, the task is marked as quarantined with
-        # {Task#quarantined?} and the engine will not attempt to garbage-collect
-        # it anymore
-        #
-        # This is used as a last resort, when the task cannot be stopped/GCed by
-        # normal means.
-        def quarantine_task(task)
+        # Helper to {#quaratine_task}
+        def register_quarantined_task(task)
             log(:quarantined_task, droby_id, task)
-
-            task.quarantined!
-            task.clear_relations(remove_internal: false, remove_strong: false)
-            self
+            @quarantined_tasks << task
         end
 
         # Check that this is an executable plan
@@ -147,6 +148,40 @@ module Roby
                     end
                 end
             end
+        end
+
+        def check_structure
+            super.merge(check_quarantined_tasks_in_use)
+        end
+
+        # @api private
+        #
+        # Look for quarantined tasks that are still in use
+        def check_quarantined_tasks_in_use
+            @quarantined_tasks.each_with_object({}) do |task, result|
+                if quarantined_task_in_use?(task)
+                    error = QuarantinedTaskError.new(task)
+                    result[error.to_execution_exception] = nil
+                end
+            end
+        end
+
+        # Check whether the given quarantined task is in use
+        #
+        # It is used to determine whether a {QuarantinedTaskError} should be
+        # generated
+        #
+        # @param [Task] task a quarantined task
+        def quarantined_task_in_use?(task)
+            return true if mission_task?(task) || permanent_task?(task)
+
+            default_useful_task_graphs.each do |g|
+                g.each_in_neighbour(task) do |parent_t|
+                    return true unless parent_t.finished? || parent_t.quarantined?
+                end
+            end
+
+            false
         end
 
         # Calls the given block in the execution thread of this plan's engine.
@@ -545,13 +580,16 @@ module Roby
             end
 
             super
+
             @force_gc.delete(object)
+            @quarantined_tasks.delete(object)
         end
 
         # Clear the plan
         def clear
             super
             @force_gc.clear
+            @quarantined_tasks.clear
         end
 
         # Replace +task+ with a fresh copy of itself and start it.

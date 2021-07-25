@@ -500,6 +500,12 @@ module Roby
             self
         end
 
+        # Tests whether self is forwarded to the given generator
+        def forwarded_to?(generator)
+            plan.event_relation_graph_for(EventStructure::Forwarding)
+                .has_edge?(self, generator)
+        end
+
         # Returns an event which is emitted +seconds+ seconds after this one
         def delay(seconds)
             if seconds == 0 then self

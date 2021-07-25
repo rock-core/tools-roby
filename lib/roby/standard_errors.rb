@@ -244,6 +244,30 @@ module Roby
         end
     end
 
+    # Raised when an error occurs on a task while we were terminating it
+    class QuarantinedTaskError < LocalizedError
+        attr_reader :reason
+
+        def initialize(task)
+            super(task)
+
+            @reason = task.quarantine_reason
+            report_exceptions_from(reason)
+        end
+
+        def pretty_print(pp)
+            pp.text "The following task has been put in quarantine"
+            pp.breakable
+
+            super
+            pp.breakable
+
+            unless original_exceptions.include?(reason)
+                reason.pretty_print(pp)
+            end
+        end
+    end
+
     # Raised when an operation is attempted while the ownership does not allow
     # it.
     class OwnershipError < RuntimeError; end

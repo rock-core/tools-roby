@@ -318,7 +318,7 @@ module Roby
 
                 it "does not emit internal_error_event twice" do
                     task_m = Task.new_submodel
-                    task_m.event(:stop) { |context| }
+                    task_m.event(:stop) { |_context| }
                     plan.add(@task = task = task_m.new)
                     error_matcher =
                         CodeError
@@ -341,11 +341,7 @@ module Roby
                         )
                     end.to do
                         have_handled_error_matching error_matcher
-                        have_error_matching(
-                            TaskEmergencyTermination
-                            .match.with_origin(task)
-                            .with_original_exception(error_matcher)
-                        )
+                        quarantine task
                     end
                     assert task.quarantined?
                 end
@@ -1205,6 +1201,16 @@ module Roby
                     assert strong_graph.has_edge?(task.start_event, ev)
                     assert strong_graph.has_edge?(ev, task.stop_event)
                 end
+                it "keeps event relations between the tasks that are strongly related" do
+                    agent_m = Roby::Task.new_submodel { event :ready }
+                    task.executed_by(agent = agent_m.new)
+                    task.start_event.forward_to agent.start_event
+                    agent.stop_event.forward_to task.stop_event
+                    refute task.clear_relations(remove_internal: false, remove_strong: false)
+
+                    assert task.start_event.forwarded_to?(agent.start_event)
+                    assert agent.stop_event.forwarded_to?(task.stop_event)
+                end
                 it "removes strong relations with remove_strong: true" do
                     strong_graph.add_edge(task.start_event, ev, nil)
                     strong_graph.add_edge(ev, task.stop_event, nil)
@@ -1213,6 +1219,7 @@ module Roby
                     refute strong_graph.has_edge?(ev, task.stop_event)
                 end
             end
+
             describe "remove_internal: true" do
                 it "clears both internal and external relations involving the task's events" do
                     plan.add(ev = Roby::EventGenerator.new)
@@ -2629,9 +2636,10 @@ class TC_Task < Minitest::Test
                 task.start!
                 task.stop!
             end.to do
-                have_error_matching Roby::TaskEmergencyTermination
                 quarantine task
             end
+            assert_kind_of CommandFailed, task.quarantine_reason
+            assert_kind_of ArgumentError, task.quarantine_reason.original_exception
         end
     ensure
         if task
