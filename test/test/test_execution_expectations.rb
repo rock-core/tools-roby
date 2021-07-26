@@ -233,6 +233,91 @@ module Roby
                 end
             end
 
+            describe "#unexpected_error?" do
+                before do
+                    @predicate = flexmock(ExecutionExpectations::Expectation.new([]))
+                    @harness = ExecutionExpectations.new(self, plan)
+                    @harness.add_expectation @predicate
+
+                    @exception = Exception.new
+                    @localized_error = CodeError.new(@exception, Roby::Task.new)
+                    @execution_exception = ExecutionException.new(@localized_error)
+                end
+
+                describe "from an ExecutionException" do
+                    it "returns true if none of the predicates match" do
+                        @predicate.should_receive(:relates_to_error?)
+                        assert @harness.unexpected_error?(@execution_exception)
+                    end
+
+                    it "tests against the execution exception error" do
+                        @predicate.should_receive(:relates_to_error?)
+                                .with(@execution_exception).once.and_return(true)
+                        @predicate.should_receive(:relates_to_error?)
+                        refute @harness.unexpected_error?(@execution_exception)
+                    end
+
+                    it "tests against the original error" do
+                        @predicate.should_receive(:relates_to_error?)
+                                .with(@localized_error).once.and_return(true)
+                        @predicate.should_receive(:relates_to_error?)
+                        refute @harness.unexpected_error?(@execution_exception)
+                    end
+
+                    it "tests against the original error's own original errors" do
+                        @predicate.should_receive(:relates_to_error?)
+                                .with(@exception).once.and_return(true)
+                        @predicate.should_receive(:relates_to_error?)
+                        refute @harness.unexpected_error?(@execution_exception)
+                    end
+                end
+
+                describe "from a Roby::ExceptionBase" do
+                    it "returns true if none of the predicates match" do
+                        @predicate.should_receive(:relates_to_error?)
+                        assert @harness.unexpected_error?(@localized_error)
+                    end
+
+                    it "tests against the error itself" do
+                        @predicate.should_receive(:relates_to_error?)
+                                .with(@localized_error).once.and_return(true)
+                        @predicate.should_receive(:relates_to_error?)
+                        refute @harness.unexpected_error?(@localized_error)
+                    end
+
+                    it "tests against the original error" do
+                        @predicate.should_receive(:relates_to_error?)
+                                .with(@exception).once.and_return(true)
+                        @predicate.should_receive(:relates_to_error?)
+                        refute @harness.unexpected_error?(@localized_error)
+                    end
+
+                    it "tests against the original error's own original errors" do
+                        level2_e = Exception.new
+                        flexmock(@exception)
+                            .should_receive(:each_original_exception).explicitly
+                            .and_yield(level2_e)
+                        @predicate.should_receive(:relates_to_error?)
+                                .with(level2_e).once.and_return(true)
+                        @predicate.should_receive(:relates_to_error?)
+                        refute @harness.unexpected_error?(@localized_error)
+                    end
+                end
+
+                describe "from a plain exceptin" do
+                    it "returns true if none of the predicates match" do
+                        @predicate.should_receive(:relates_to_error?)
+                        assert @harness.unexpected_error?(@exception)
+                    end
+
+                    it "tests against the error itself" do
+                        @predicate.should_receive(:relates_to_error?)
+                                .with(@exception).once.and_return(true)
+                        refute @harness.unexpected_error?(@exception)
+                    end
+                end
+            end
+
             describe "standard expectations" do
                 it "implements a generic result filtering" do
                     expectation_class = Class.new(ExecutionExpectations::Expectation) do

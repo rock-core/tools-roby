@@ -690,14 +690,8 @@ module Roby
                         ev.generator.symbol == :internal_error
                     next unless is_internal_error
 
-                    exceptions_context =
-                        ev.context.find_all { |obj| obj.kind_of?(Exception) }
-                    exceptions_context.none? do |exception|
-                        @expectations.any? do |expectation|
-                            expectation.relates_to_error?(
-                                ExecutionException.new(exception)
-                            )
-                        end
+                    ev.context.any? do |obj|
+                        unexpected_error?(obj) if obj.kind_of?(Exception)
                     end
                 end
 
@@ -707,17 +701,18 @@ module Roby
                 raise UnexpectedErrors.new(unexpected_errors)
             end
 
+            # Checks whether the given error is unexpected, given the predicates
+            #
+            # It filters out errors that are related to certain predicates, as
+            # tested with the {Expectation#relates_to_error?} test
+            #
+            # @param [ExecutionException,Exception] error
             def unexpected_error?(error)
-                @expectations.each do |expectation|
-                    return false if expectation.relates_to_error?(error)
-
-                    next unless error.respond_to?(:original_exceptions)
-
-                    error.original_exceptions.each do |orig_e|
-                        return false if expectation.relates_to_error?(orig_e)
-                    end
+                all_errors = Roby.flatten_exception(error)
+                has_related_predicate = @expectations.any? do |expectation|
+                    all_errors.any? { |orig_e| expectation.relates_to_error?(orig_e) }
                 end
-                true
+                !has_related_predicate
             end
 
             def find_all_unmet_expectations(all_propagation_info)
@@ -995,12 +990,12 @@ module Roby
                 end
 
                 def relates_to_error?(error)
-                    return unless error.kind_of?(ExecutionException)
-
-                    @matched_execution_exceptions.include?(error) ||
-                        @matched_exceptions.include?(error.exception) ||
-                        Roby.flatten_exception(error.exception)
-                            .any? { |e| @matched_exceptions.include?(e) }
+                    case error
+                    when ExecutionException
+                        @matched_execution_exceptions.include?(error)
+                    else
+                        @matched_exceptions.include?(error)
+                    end
                 end
 
                 def return_object
@@ -1038,11 +1033,6 @@ module Roby
                         QuarantinedTaskError
                             .match
                             .to_execution_exception_matcher
-                    @induced_error_matcher =
-                        LocalizedError
-                            .match
-                            .with_original_exception(@related_error_matcher)
-                            .to_execution_exception_matcher
                 end
 
                 def update_match(_propagation_info)
@@ -1050,8 +1040,7 @@ module Roby
                 end
 
                 def relates_to_error?(error)
-                    @related_error_matcher === error ||
-                        @induced_error_matcher === error
+                    @related_error_matcher === error
                 end
 
                 def to_s
