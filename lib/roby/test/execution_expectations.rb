@@ -397,7 +397,7 @@ module Roby
                 def each_original_exception
                     return enum_for(__method__) unless block_given?
 
-                    @errors.each do |_, e|
+                    @errors.each do |e|
                         yield(e) if e.kind_of?(Exception)
                     end
                 end
@@ -994,10 +994,12 @@ module Roby
                     !@matched_exceptions.empty?
                 end
 
-                def relates_to_error?(execution_exception)
-                    @matched_execution_exceptions.include?(execution_exception) ||
-                        @matched_exceptions.include?(execution_exception.exception) ||
-                        Roby.flatten_exception(execution_exception.exception)
+                def relates_to_error?(error)
+                    return unless error.kind_of?(ExecutionException)
+
+                    @matched_execution_exceptions.include?(error) ||
+                        @matched_exceptions.include?(error.exception) ||
+                        Roby.flatten_exception(error.exception)
                             .any? { |e| @matched_exceptions.include?(e) }
                 end
 
@@ -1031,17 +1033,25 @@ module Roby
                 def initialize(task, backtrace)
                     super(backtrace)
                     @task = task
+
+                    @related_error_matcher =
+                        QuarantinedTaskError
+                            .match
+                            .to_execution_exception_matcher
+                    @induced_error_matcher =
+                        LocalizedError
+                            .match
+                            .with_original_exception(@related_error_matcher)
+                            .to_execution_exception_matcher
                 end
 
                 def update_match(_propagation_info)
                     @task.quarantined?
                 end
 
-                def relates_to_error?(execution_exception)
-                    return unless execution_exception.originates_from?(@task)
-
-                    Roby.flatten_exception(execution_exception.exception)
-                        .any? { |e| e.kind_of?(QuarantinedTaskError) }
+                def relates_to_error?(error)
+                    @related_error_matcher === error ||
+                        @induced_error_matcher === error
                 end
 
                 def to_s
