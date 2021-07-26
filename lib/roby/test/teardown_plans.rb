@@ -2,6 +2,11 @@
 
 module Roby
     module Test
+        # Implementation of the teardown procedure
+        #
+        # The main method {#teardown_registered_plans} is used by tests on teardown
+        # to attempt to clean up running tasks, and handle corner cases (i.e. tasks
+        # that do not want to be stopped) as best as possible
         module TeardownPlans
             attr_reader :registered_plans
 
@@ -32,40 +37,61 @@ module Roby
             class TeardownFailedError < RuntimeError
             end
 
-            def teardown_registered_plans(teardown_poll: default_teardown_poll,
-                                          teardown_fail: 5)
+            # Clear all plans registered with {#registered_plans}
+            #
+            # It first attempts an orderly shutdown, then goes to try to
+            # force-stop all the tasks that can and will finally clear the data
+            # structure without caring for running tasks (something that's bad
+            # in principle, but is usually fine during unit tests)
+            #
+            # @param [Float] teardown_poll polling period in seconds
+            # @param [Float] teardown_warn warn that something is wrong (holding
+            #   up cleanup) after this many seconds
+            # @param [Float] teardown_fail stop trying to stop tasks and clear the
+            #   data structure after this many seconds from the start
+            #
+            # For instance, the default of teardown_force=10 and teardown_fail=20
+            # will try an orderly stop for 10 seconds and a forced stop for 10s.
+            def teardown_registered_plans(
+                teardown_poll: default_teardown_poll,
+                teardown_warn: 5, teardown_fail: 20
+            )
                 old_gc_roby_logger_level = Roby.logger.level
                 return if registered_plans.all?(&:empty?)
 
+                success = teardown_killall(teardown_warn, teardown_force, teardown_poll)
+
+                registered_plans.each do |plan|
+                    teardown_clear(plan)
+                end
+
+                raise TeardownFailedError, "failed to tear down plan" unless success
+            ensure
+                Roby.logger.level = old_gc_roby_logger_level
+            end
+
+            # @api private
+            #
+            # Try to cleanly kill all running tasks in the registered plans
+            #
+            # @return [Boolean] true if successful, false otherwise
+            def teardown_killall(
+                teardown_warn, teardown_fail, teardown_poll
+            )
                 plans = registered_plans.map do |p|
                     [p, p.execution_engine, Set.new, Set.new] if p.executable?
                 end.compact
 
-                counter = 0
-                teardown_fail_counter = teardown_fail / teardown_poll
-                until plans.empty?
+                start_time = Time.now
+                warn_deadline = start_time + teardown_warn
+                fail_deadline = start_time + teardown_fail
+                until plans.empty? || (Time.now > fail_deadline)
                     plans = plans.map do |plan, engine, last_tasks, last_quarantine|
                         plan_quarantine = plan.quarantined_tasks
-                        if counter > teardown_fail_counter
-                            Roby.warn "more than #{counter} iterations while trying "\
-                                      "to shut down #{plan} after #{self.class.name}#"\
-                                      "#{name}, quarantine=#{plan_quarantine.size} "\
-                                      "tasks, tasks=#{plan.tasks.size} tasks"
-                            if last_tasks != plan.tasks
-                                Roby.warn "Known tasks:"
-                                plan.tasks.each do |t|
-                                    Roby.warn "  #{t} running=#{t.running?} "\
-                                              "finishing=#{t.finishing?}"
-                                end
-                                last_tasks = plan.tasks.dup
-                            end
-                            if last_quarantine != plan_quarantine
-                                Roby.warn "Quarantined tasks:"
-                                plan_quarantine.each do |t|
-                                    Roby.warn "  #{t}"
-                                end
-                                last_quarantine = plan_quarantine.dup
-                            end
+                        if Time.now > warn_deadline
+                            teardown_warn(start_time, plan, last_tasks, last_quarantine)
+                            last_tasks = plan.tasks.dup
+                            last_quarantine = plan_quarantine.dup
                         end
                         engine.killall
 
@@ -76,50 +102,75 @@ module Roby
                             [plan, engine, last_tasks, last_quarantine]
                         end
                     end.compact
-                    if counter > teardown_fail_counter
-                        break
-                    end
 
-                    counter += 1
                     sleep teardown_poll
                 end
+                # NOTE: this is NOT plan.empty?. We stop processing plans that
+                # are made of quarantined tasks and their dependencies
+                registered_plans.all? { |p| !p.executable? || p.empty? }
+            end
 
-                registered_plans.each do |plan|
-                    plan.clear if plan.tasks.all?(&:pending?)
+            def teardown_warn(start_time, plan, last_tasks, last_quarantine)
+                if last_tasks != plan.tasks || last_quarantine != plan.quarantined_tasks
+                    duration = Integer(Time.now - start_time)
+                    Roby.warn "trying to shut down #{plan} for #{duration}s after "\
+                              "#{self.class.name}##{name}, "\
+                              "quarantine=#{plan.quarantined_tasks.size} tasks, "\
+                              "tasks=#{plan.tasks.size} tasks"
+                end
 
-                    unless plan.empty?
-                        Roby.warn(
-                            "failed to teardown: #{plan} has #{plan.tasks.size} "\
-                            "tasks and #{plan.free_events.size} events, "\
-                            "#{plan.quarantined_tasks.size} of which are "\
-                            "in quarantine"
-                        )
-
-                        unless plan.execution_engine
-                            Roby.warn "this is most likely because this plan "\
-                                      "does not have an execution engine. Either "\
-                                      "add one or clear the plan in the tests"
-                        end
-                    end
-
-                    execute { plan.clear }
-                    if (engine = plan.execution_engine)
-                        engine.clear
-                        engine.emitted_events.clear
-                    end
-
-                    unless plan.transactions.empty?
-                        Roby.warn "  #{plan.transactions.size} transactions left "\
-                                  "attached to the plan"
-                        plan.transactions.each(&:discard_transaction)
+                if last_tasks != plan.tasks
+                    Roby.warn "Known tasks:"
+                    plan.tasks.each do |t|
+                        Roby.warn "  #{t} running=#{t.running?} finishing=#{t.finishing?}"
                     end
                 end
 
-                if counter > teardown_fail_counter
-                    raise TeardownFailedError, "failed to tear down plan"
+                plan_quarantine = plan.quarantined_tasks
+                if last_quarantine != plan_quarantine
+                    Roby.warn "Quarantined tasks:"
+                    plan_quarantine.each do |t|
+                        Roby.warn "  #{t}"
+                    end
                 end
-            ensure
-                Roby.logger.level = old_gc_roby_logger_level
+
+                nil
+            end
+
+            # @api private
+            #
+            # Try to cleanly kill all running tasks in the registered plans
+            #
+            # @return [Boolean] true if successful, false otherwise
+            def teardown_clear(plan)
+                if plan.tasks.any? { |t| t.starting? || t.running? }
+                    Roby.warn(
+                        "failed to teardown: #{plan} has #{plan.tasks.size} "\
+                        "tasks and #{plan.free_events.size} events, "\
+                        "#{plan.quarantined_tasks.size} of which are in quarantine"
+                    )
+
+                    unless plan.execution_engine
+                        Roby.warn "this is most likely because this plan "\
+                                  "does not have an execution engine. Either "\
+                                  "add one or clear the plan in the tests"
+                    end
+                end
+
+                execute(plan: plan) { plan.clear }
+
+                if (engine = plan.execution_engine)
+                    engine.clear
+                    engine.emitted_events.clear
+                end
+
+                unless plan.transactions.empty?
+                    Roby.warn "  #{plan.transactions.size} transactions left "\
+                                "attached to the plan"
+                    plan.transactions.each(&:discard_transaction)
+                end
+
+                nil
             end
         end
     end
