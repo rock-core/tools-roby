@@ -47,6 +47,8 @@ module Roby
             # @param [Float] teardown_poll polling period in seconds
             # @param [Float] teardown_warn warn that something is wrong (holding
             #   up cleanup) after this many seconds
+            # @param [Float] teardown_force try to force-kill tasks after this many
+            #   seconds from the start
             # @param [Float] teardown_fail stop trying to stop tasks and clear the
             #   data structure after this many seconds from the start
             #
@@ -54,12 +56,19 @@ module Roby
             # will try an orderly stop for 10 seconds and a forced stop for 10s.
             def teardown_registered_plans(
                 teardown_poll: default_teardown_poll,
-                teardown_warn: 5, teardown_fail: 20
+                teardown_warn: 5, teardown_fail: 20, teardown_force: teardown_fail / 2
             )
                 old_gc_roby_logger_level = Roby.logger.level
                 return if registered_plans.all?(&:empty?)
 
                 success = teardown_killall(teardown_warn, teardown_force, teardown_poll)
+
+                unless success
+                    Roby.warn "clean teardown failed, trying to force-kill all tasks"
+                    teardown_forced_killall(
+                        teardown_warn, (teardown_fail - teardown_force), teardown_poll
+                    )
+                end
 
                 registered_plans.each do |plan|
                     teardown_clear(plan)
@@ -82,13 +91,13 @@ module Roby
                     [p, p.execution_engine, Set.new, Set.new] if p.executable?
                 end.compact
 
-                start_time = Time.now
-                warn_deadline = start_time + teardown_warn
-                fail_deadline = start_time + teardown_fail
-                until plans.empty? || (Time.now > fail_deadline)
+                start_time = now = Time.now
+                warn_deadline = now + teardown_warn
+                fail_deadline = now + teardown_fail
+                until plans.empty? || (now > fail_deadline)
                     plans = plans.map do |plan, engine, last_tasks, last_quarantine|
                         plan_quarantine = plan.quarantined_tasks
-                        if Time.now > warn_deadline
+                        if now > warn_deadline
                             teardown_warn(start_time, plan, last_tasks, last_quarantine)
                             last_tasks = plan.tasks.dup
                             last_quarantine = plan_quarantine.dup
@@ -102,12 +111,45 @@ module Roby
                             [plan, engine, last_tasks, last_quarantine]
                         end
                     end.compact
-
                     sleep teardown_poll
+
+                    now = Time.now
                 end
                 # NOTE: this is NOT plan.empty?. We stop processing plans that
                 # are made of quarantined tasks and their dependencies
                 registered_plans.all? { |p| !p.executable? || p.empty? }
+            end
+
+            # @api private
+            #
+            # Force-kill all that can be
+            #
+            # This clears all dependency relations between tasks to let the garbage
+            # collector get them unordered, and force-kills the execution agents
+            def teardown_forced_killall(
+                teardown_warn_counter, teardown_fail_counter, teardown_poll
+            )
+                registered_plans.each do |plan|
+                    execution_agent_g =
+                        plan.task_relation_graph_for(TaskStructure::ExecutionAgent)
+                    to_stop = execution_agent_g.each_edge.find_all do |_, child, _|
+                        child.running? && !child.stop_event.pending? &&
+                            child.stop_event.controlable?
+                    end
+
+                    execute(plan: plan) do
+                        plan.each_task do |t|
+                            t.clear_relations(
+                                remove_internal: false, remove_strong: false
+                            )
+                        end
+                        to_stop.each { |_, child, _| child.stop! }
+                    end
+                end
+
+                teardown_killall(
+                    teardown_warn_counter, teardown_fail_counter, teardown_poll
+                )
             end
 
             def teardown_warn(start_time, plan, last_tasks, last_quarantine)
