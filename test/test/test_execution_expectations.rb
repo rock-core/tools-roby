@@ -663,6 +663,43 @@ module Roby
 
                         assert_equal "10", expectation.to_s
                     end
+                    it "validates when the event is emitted" do
+                        plan.add(generator = EventGenerator.new)
+                        expect_execution { generator.emit }
+                            .to { maintain(at_least_until: generator) { true } }
+                    end
+                    it "fails if the event is not emitted within the given timeout" do
+                        plan.add(generator = EventGenerator.new)
+                        assert_raises(ExecutionExpectations::Unmet) do
+                            expect_execution
+                                .timeout(0.2)
+                                .to { maintain(at_least_until: generator) { true } }
+                        end
+                    end
+                    it "fails if the block evaluates to false" do
+                        plan.add(generator = EventGenerator.new)
+                        assert_raises(ExecutionExpectations::Unmet) do
+                            expect_execution
+                                .to { maintain(at_least_until: generator) { false } }
+                        end
+                    end
+                    it "fails if at_least_during and at_least_until are used together" do
+                        plan.add(generator = EventGenerator.new)
+                        assert_raises(ArgumentError) do
+                            expect_execution.to do
+                                maintain(at_least_until: generator,
+                                         at_least_during: 1) { true }
+                            end
+                        end
+                    end
+                    it "fails if the generator becomes unreachable" do
+                        plan.add(generator = EventGenerator.new)
+                        assert_raises(ExecutionExpectations::Unmet) do
+                            expect_execution { generator.unreachable! }
+                                .timeout(0)
+                                .to { maintain(at_least_until: generator) { true } }
+                        end
+                    end
                 end
 
                 describe "#achieve" do
