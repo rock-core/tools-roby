@@ -1201,12 +1201,28 @@ module Roby
                     assert strong_graph.has_edge?(task.start_event, ev)
                     assert strong_graph.has_edge?(ev, task.stop_event)
                 end
-                it "keeps event relations between the tasks that are strongly related" do
+                it "keeps event relations between the tasks that are strongly "\
+                   "related when called on the parent" do
                     agent_m = Roby::Task.new_submodel { event :ready }
                     task.executed_by(agent = agent_m.new)
                     task.start_event.forward_to agent.start_event
                     agent.stop_event.forward_to task.stop_event
-                    refute task.clear_relations(remove_internal: false, remove_strong: false)
+                    refute task.clear_relations(
+                        remove_internal: false, remove_strong: false
+                    )
+
+                    assert task.start_event.forwarded_to?(agent.start_event)
+                    assert agent.stop_event.forwarded_to?(task.stop_event)
+                end
+                it "keeps event relations between the tasks that are strongly "\
+                   "related when called on the child" do
+                    agent_m = Roby::Task.new_submodel { event :ready }
+                    task.executed_by(agent = agent_m.new)
+                    task.start_event.forward_to agent.start_event
+                    agent.stop_event.forward_to task.stop_event
+                    refute agent.clear_relations(
+                        remove_internal: false, remove_strong: false
+                    )
 
                     assert task.start_event.forwarded_to?(agent.start_event)
                     assert agent.stop_event.forwarded_to?(task.stop_event)
@@ -1214,9 +1230,43 @@ module Roby
                 it "removes strong relations with remove_strong: true" do
                     strong_graph.add_edge(task.start_event, ev, nil)
                     strong_graph.add_edge(ev, task.stop_event, nil)
-                    assert task.clear_relations(remove_internal: false, remove_strong: true)
+                    assert task.clear_relations(
+                        remove_internal: false, remove_strong: true
+                    )
                     refute strong_graph.has_edge?(task.start_event, ev)
                     refute strong_graph.has_edge?(ev, task.stop_event)
+                end
+            end
+
+            describe "remove_internal: true" do
+                it "clears both internal and external relations involving the task's events" do
+                    plan.add(ev = Roby::EventGenerator.new)
+                    task.start_event.forward_to ev
+                    ev.signals task.stop_event
+                    assert task.clear_relations(remove_internal: true)
+                    refute task.start_event.child_object?(ev, Roby::EventStructure::Forwarding)
+                    refute task.stop_event.parent_object?(ev, Roby::EventStructure::Signal)
+                    refute task.failed_event.child_object?(task.stop_event, Roby::EventStructure::Forwarding)
+                end
+                it "keeps strong relations with remove_strong: false" do
+                    task.clear_relations(remove_internal: true) # Get a blank task
+                    strong_graph.add_edge(task.start_event, ev, nil)
+                    strong_graph.add_edge(ev, task.stop_event, nil)
+                    strong_graph.add_edge(task.start_event, task.stop_event, nil)
+                    refute task.clear_relations(remove_internal: false, remove_strong: false)
+                    assert strong_graph.has_edge?(task.start_event, ev)
+                    assert strong_graph.has_edge?(ev, task.stop_event)
+                    assert strong_graph.has_edge?(task.start_event, task.stop_event)
+                end
+                it "removes strong relations with remove_strong: true" do
+                    task.clear_relations(remove_internal: true) # Get a blank task
+                    strong_graph.add_edge(task.start_event, ev, nil)
+                    strong_graph.add_edge(ev, task.stop_event, nil)
+                    strong_graph.add_edge(task.start_event, task.stop_event, nil)
+                    assert task.clear_relations(remove_internal: true, remove_strong: true)
+                    refute strong_graph.has_edge?(task.start_event, ev)
+                    refute strong_graph.has_edge?(ev, task.stop_event)
+                    refute strong_graph.has_edge?(task.start_event, task.stop_event)
                 end
             end
 

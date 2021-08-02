@@ -534,8 +534,13 @@ module Roby
 
     def self.flatten_exception(e)
         result = [e].to_set
-        if e.respond_to?(:original_exceptions)
-            e.original_exceptions.each do |orig_e|
+
+        if e.kind_of?(ExecutionException)
+            result.merge(flatten_exception(e.exception))
+        end
+
+        if e.respond_to?(:each_original_exception)
+            e.each_original_exception do |orig_e|
                 result.merge(flatten_exception(orig_e))
             end
         end

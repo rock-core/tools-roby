@@ -649,7 +649,7 @@ module Roby
 
                 task = ev.task
                 strong_graphs.none? do |g|
-                    g.has_edge?(self, task) || g.has_edge?(task, ev)
+                    g.has_edge?(self, task) || g.has_edge?(task, self)
                 end
             end
         end

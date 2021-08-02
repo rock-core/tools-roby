@@ -5,6 +5,15 @@ require "roby/test/self"
 module Roby
     module Test
         describe ExecutionExpectations do
+            describe "#execute" do
+                it "handles a non-executable plan" do
+                    plan = Plan.new
+                    plan.add(task = Roby::Task.new)
+                    execute(plan: plan) { plan.remove_task(task) }
+                    refute plan.has_task?(task)
+                end
+            end
+
             describe "#expect_execution" do
                 it "executes the first block in propagation context" do
                     plan.add(task = Roby::Tasks::Simple.new)
@@ -224,6 +233,91 @@ module Roby
                 end
             end
 
+            describe "#unexpected_error?" do
+                before do
+                    @predicate = flexmock(ExecutionExpectations::Expectation.new([]))
+                    @harness = ExecutionExpectations.new(self, plan)
+                    @harness.add_expectation @predicate
+
+                    @exception = Exception.new
+                    @localized_error = CodeError.new(@exception, Roby::Task.new)
+                    @execution_exception = ExecutionException.new(@localized_error)
+                end
+
+                describe "from an ExecutionException" do
+                    it "returns true if none of the predicates match" do
+                        @predicate.should_receive(:relates_to_error?)
+                        assert @harness.unexpected_error?(@execution_exception)
+                    end
+
+                    it "tests against the execution exception error" do
+                        @predicate.should_receive(:relates_to_error?)
+                                .with(@execution_exception).once.and_return(true)
+                        @predicate.should_receive(:relates_to_error?)
+                        refute @harness.unexpected_error?(@execution_exception)
+                    end
+
+                    it "tests against the original error" do
+                        @predicate.should_receive(:relates_to_error?)
+                                .with(@localized_error).once.and_return(true)
+                        @predicate.should_receive(:relates_to_error?)
+                        refute @harness.unexpected_error?(@execution_exception)
+                    end
+
+                    it "tests against the original error's own original errors" do
+                        @predicate.should_receive(:relates_to_error?)
+                                .with(@exception).once.and_return(true)
+                        @predicate.should_receive(:relates_to_error?)
+                        refute @harness.unexpected_error?(@execution_exception)
+                    end
+                end
+
+                describe "from a Roby::ExceptionBase" do
+                    it "returns true if none of the predicates match" do
+                        @predicate.should_receive(:relates_to_error?)
+                        assert @harness.unexpected_error?(@localized_error)
+                    end
+
+                    it "tests against the error itself" do
+                        @predicate.should_receive(:relates_to_error?)
+                                .with(@localized_error).once.and_return(true)
+                        @predicate.should_receive(:relates_to_error?)
+                        refute @harness.unexpected_error?(@localized_error)
+                    end
+
+                    it "tests against the original error" do
+                        @predicate.should_receive(:relates_to_error?)
+                                .with(@exception).once.and_return(true)
+                        @predicate.should_receive(:relates_to_error?)
+                        refute @harness.unexpected_error?(@localized_error)
+                    end
+
+                    it "tests against the original error's own original errors" do
+                        level2_e = Exception.new
+                        flexmock(@exception)
+                            .should_receive(:each_original_exception).explicitly
+                            .and_yield(level2_e)
+                        @predicate.should_receive(:relates_to_error?)
+                                .with(level2_e).once.and_return(true)
+                        @predicate.should_receive(:relates_to_error?)
+                        refute @harness.unexpected_error?(@localized_error)
+                    end
+                end
+
+                describe "from a plain exceptin" do
+                    it "returns true if none of the predicates match" do
+                        @predicate.should_receive(:relates_to_error?)
+                        assert @harness.unexpected_error?(@exception)
+                    end
+
+                    it "tests against the error itself" do
+                        @predicate.should_receive(:relates_to_error?)
+                                .with(@exception).once.and_return(true)
+                        refute @harness.unexpected_error?(@exception)
+                    end
+                end
+            end
+
             describe "standard expectations" do
                 it "implements a generic result filtering" do
                     expectation_class = Class.new(ExecutionExpectations::Expectation) do
@@ -296,6 +390,13 @@ module Roby
                             end
                         end.to { emit generator }
                     end
+                    it "ignores non-LocalizedError exceptions" do
+                        plan.add(generator = EventGenerator.new)
+                        assert_predicate_ignores_framework_error(
+                            execute: proc { generator.emit },
+                            predicates: proc { emit generator }
+                        )
+                    end
                 end
                 describe "#emit a task event query" do
                     attr_reader :task_m
@@ -342,6 +443,13 @@ module Roby
                             end
                             task.start!
                         end.to { emit find_tasks(task_m).start_event }
+                    end
+                    it "ignores non-LocalizedError exceptions" do
+                        plan.add(task = task_m.new)
+                        assert_predicate_ignores_framework_error(
+                            execute: proc { task.start! },
+                            predicates: proc { emit find_tasks(task_m).start_event }
+                        )
                     end
                 end
 
@@ -420,10 +528,23 @@ module Roby
                         expect_execution { execution_engine.add_error(CodeError.new(ArgumentError.new, task)) }
                             .to { have_error_matching CodeError.match.with_origin(task) }
                     end
+                    it "ignores non-LocalizedError exceptions" do
+                        plan.add(task = Roby::Task.new)
+                        assert_predicate_ignores_framework_error(
+                            execute: (
+                                proc do
+                                    execution_engine.add_error(
+                                        LocalizedError.new(task.start_event)
+                                    )
+                                end
+                            ),
+                            predicates: proc { have_error_matching LocalizedError }
+                        )
+                    end
                 end
 
                 describe "#have_handled_error_matching" do
-                    attr_reader :matcher
+                    attr_reader :matcher, :error_m
                     before do
                         @error_m = Class.new(LocalizedError)
                         @task_m = Roby::Task.new_submodel
@@ -477,21 +598,38 @@ module Roby
                         expect_execution { execution_engine.add_error(CodeError.new(ArgumentError.new, task)) }
                             .to { have_error_matching CodeError.match.with_origin(task) }
                     end
+                    it "ignores non-LocalizedError exceptions" do
+                        error_m = @error_m
+                        plan.add(task = Roby::Task.new)
+                        assert_predicate_ignores_framework_error(
+                            execute: (
+                                proc do
+                                    execution_engine.add_error(
+                                        error_m.new(task.start_event)
+                                    )
+                                end
+                            ),
+                            predicates: proc { have_handled_error_matching error_m }
+                        )
+                    end
                 end
 
                 describe "#have_internal_error" do
-                    attr_reader :error_m
+                    attr_reader :error_m, :task_m
+
                     before do
                         @task_m = Task.new_submodel
                         @task_m.terminates
                         @error_m = Class.new(ArgumentError)
                     end
+
                     describe "when the task does raise an internal error" do
                         attr_reader :task
+
                         before do
                             error_m = @error_m
-                            @task_m.poll { raise error_m }
-                            plan.add(@task = @task_m.new)
+                            task_m.poll { raise error_m }
+                            plan.add(@task = task_m.new)
                         end
                         it "matches the exception" do
                             expect_execution { task.start! }
@@ -523,6 +661,15 @@ module Roby
                             expect_execution { task.internal_error_event.emit }.timeout(0)
                                 .to { have_internal_error task, error_m }
                         end
+                    end
+                    it "ignores non-LocalizedError exceptions" do
+                        error_m = @error_m
+                        task_m.poll { raise error_m }
+                        plan.add(task = task_m.new)
+                        assert_predicate_ignores_framework_error(
+                            execute: proc { task.start! },
+                            predicates: proc { have_internal_error task, error_m }
+                        )
                     end
                 end
 
@@ -580,6 +727,12 @@ module Roby
                             task.failed_to_start!(original_e)
                         end.to { fail_to_start task }
                     end
+                    it "ignores non-LocalizedError exceptions" do
+                        assert_predicate_ignores_framework_error(
+                            execute: proc { task.failed_to_start!(Exception.new) },
+                            predicates: proc { fail_to_start task }
+                        )
+                    end
                 end
 
                 describe "#have_framework_error_matching" do
@@ -620,10 +773,20 @@ module Roby
                         assert promise.complete?
                     end
                     it "is successful even if the promise fails" do
-                        promise = execution_engine.promise.then {}.on_success {}.then { raise ArgumentError }.on_error {}
+                        promise =
+                            execution_engine
+                            .promise.then {}.on_success {}
+                            .then { raise ArgumentError }.on_error {}
                         expect_execution { promise.execute }
                             .to { finish_promise promise }
                         assert promise.complete?
+                    end
+                    it "ignores non-LocalizedError exceptions" do
+                        promise = execution_engine.promise.then {}.on_success {}.then {}
+                        assert_predicate_ignores_framework_error(
+                            execute: proc { promise.execute },
+                            predicates: proc { finish_promise promise }
+                        )
                     end
                 end
 
@@ -662,6 +825,11 @@ module Roby
                         end
 
                         assert_equal "10", expectation.to_s
+                    end
+                    it "ignores non-LocalizedError exceptions" do
+                        assert_predicate_ignores_framework_error(
+                            predicates: proc { maintain(at_least_during: 0.2) { true } }
+                        )
                     end
                 end
 
@@ -707,6 +875,11 @@ module Roby
 
                         assert_equal "10", expectation.to_s
                     end
+                    it "ignores non-LocalizedError exceptions" do
+                        assert_predicate_ignores_framework_error(
+                            predicates: proc { achieve { true } }
+                        )
+                    end
                 end
 
                 describe "#not_finalize" do
@@ -721,6 +894,12 @@ module Roby
                                 .timeout(0).to { not_finalize plan_object }
                         end
                     end
+                    it "ignores non-LocalizedError exceptions" do
+                        plan.add(plan_object = Roby::Task.new)
+                        assert_predicate_ignores_framework_error(
+                            predicates: proc { not_finalize plan_object }
+                        )
+                    end
                 end
                 describe "#finalize" do
                     it "succeeds if the object is removed from the plan" do
@@ -733,6 +912,13 @@ module Roby
                         assert_raises(ExecutionExpectations::Unmet) do
                             expect_execution.timeout(0).to { finalize plan_object }
                         end
+                    end
+                    it "ignores non-LocalizedError exceptions" do
+                        plan.add(plan_object = Roby::Task.new)
+                        assert_predicate_ignores_framework_error(
+                            execute: proc { plan.remove_task(plan_object) },
+                            predicates: proc { finalize plan_object }
+                        )
                     end
                 end
 
@@ -748,6 +934,12 @@ module Roby
                             expect_execution { generator.unreachable! }
                                 .to { not_become_unreachable generator }
                         end
+                    end
+                    it "ignores non-LocalizedError exceptions" do
+                        plan.add(generator = Roby::EventGenerator.new)
+                        assert_predicate_ignores_framework_error(
+                            predicates: proc { not_become_unreachable generator }
+                        )
                     end
                 end
                 describe "become_unreachable" do
@@ -770,6 +962,13 @@ module Roby
                                 .to { become_unreachable generator }
                         end
                     end
+                    it "ignores non-LocalizedError exceptions" do
+                        plan.add(generator = Roby::EventGenerator.new)
+                        assert_predicate_ignores_framework_error(
+                            execute: proc { generator.unreachable! },
+                            predicates: proc { become_unreachable generator }
+                        )
+                    end
                 end
 
                 describe "#quarantine" do
@@ -777,17 +976,22 @@ module Roby
                         plan.add(task = Roby::Task.new)
                         expect_execution { task.quarantined! }.to { quarantine(task) }
                     end
-
                     it "fails if the task is not quarantined" do
                         plan.add(task = Roby::Task.new)
                         assert_raises(ExecutionExpectations::Unmet) do
                             expect_execution.timeout(0.1).to { quarantine(task) }
                         end
                     end
-
                     it "ignores the QuarantinedTaskError" do
                         plan.add_mission_task(task = Roby::Task.new)
                         expect_execution { task.quarantined! }.to { quarantine(task) }
+                    end
+                    it "ignores non-LocalizedError exceptions" do
+                        plan.add(task = Roby::Task.new)
+                        assert_predicate_ignores_framework_error(
+                            execute: proc { task.quarantined! },
+                            predicates: proc { quarantine(task) }
+                        )
                     end
                 end
 
@@ -884,6 +1088,13 @@ module Roby
                         expect_execution.timeout(0).to { start task }
                     end
                 end
+                it "ignores non-LocalizedError exceptions" do
+                    plan.add(task = Roby::Task.new)
+                    assert_predicate_ignores_framework_error(
+                        execute: proc { task.start! },
+                        predicates: proc { start task }
+                    )
+                end
             end
 
             describe "#have_running" do
@@ -928,6 +1139,29 @@ module Roby
                             .to { have_running task }
                     end
                 end
+                it "ignores non-LocalizedError exceptions" do
+                    plan.add(task = Roby::Task.new)
+                    assert_predicate_ignores_framework_error(
+                        execute: proc { task.start! },
+                        predicates: proc { have_running task }
+                    )
+                end
+            end
+
+            def assert_predicate_ignores_framework_error(
+                execute: proc {}, predicates: proc {}
+            )
+                e = Exception.new
+                unexpected_e =
+                    assert_raises(ExecutionExpectations::UnexpectedErrors) do
+                        expect_execution do
+                            execution_engine.add_framework_error(e, "")
+                            instance_eval(&execute)
+                        end.to do
+                            instance_eval(&predicates)
+                        end
+                    end
+                assert_equal [e], unexpected_e.each_original_exception.to_a
             end
         end
     end

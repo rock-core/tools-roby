@@ -424,6 +424,11 @@ module Roby
                 !parent
             end
 
+            # True if this relation has no subset graph
+            def leaf_relation?
+                subsets.empty?
+            end
+
             # Returns true if +relation+ is included in this relation (i.e. it is
             # either the same relation or one of its children)
             #
