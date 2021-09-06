@@ -26,6 +26,10 @@ module Roby
                     new(event_io, **options)
                 end
 
+                def tell
+                    @event_io.tell
+                end
+
                 def close
                     event_io.close
                 end

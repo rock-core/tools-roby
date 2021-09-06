@@ -278,6 +278,7 @@ module Roby
 
             desc "repair", "attempt to repair a broken log file"
             def repair(file)
+                require "fileutils"
                 require "roby/droby/logfile/reader"
                 logfile = Roby::DRoby::Logfile::Reader.open(file)
                 last_cycle = nil
