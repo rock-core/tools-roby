@@ -8,6 +8,8 @@ module Roby
         class NotMatcher < MatcherBase
             # Create a new TaskMatcher which matches if and only if +op+ does not
             def initialize(op)
+                super()
+
                 @op = op
             end
 

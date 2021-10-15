@@ -6,6 +6,7 @@ module Roby
     module Models
         describe Arguments do
             attr_reader :model
+
             before do
                 @model = Class.new do
                     extend Arguments

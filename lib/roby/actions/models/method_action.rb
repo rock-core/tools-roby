@@ -10,6 +10,8 @@ module Roby
                 class InvalidReturnedType < RuntimeError
                     def initialize(action_interface_model, method_name,
                         returned_task, expected_type)
+                        super()
+
                         @action_interface_model = action_interface_model
                         @method_name = method_name
                         @returned_task = returned_task

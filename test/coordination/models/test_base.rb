@@ -7,6 +7,7 @@ module Roby
         module Models
             describe Base do
                 attr_reader :base_m
+
                 before do
                     @base_m = Class.new
                     base_m.extend Models::Base

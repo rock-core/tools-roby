@@ -4,10 +4,7 @@ module Roby
     module DRoby
         module V5
             class DRobyModel
-                attr_reader :name
-                attr_reader :remote_siblings
-                attr_reader :supermodel
-                attr_reader :provided_models
+                attr_reader :name, :remote_siblings, :supermodel, :provided_models
 
                 def initialize(name, remote_siblings, supermodel, provided_models)
                     @name, @remote_siblings, @supermodel, @provided_models =

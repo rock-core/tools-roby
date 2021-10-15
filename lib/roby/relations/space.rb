@@ -77,7 +77,7 @@ module Roby
                     g = rel.new(observer: observer)
                     graphs[g] = graphs[rel] = g
                 end
-                relations.each do |rel|
+                relations.each do |rel| # rubocop:disable Style/CombinableLoops
                     rel.subsets.each do |subset_rel|
                         graphs[rel].superset_of(graphs[subset_rel])
                     end
@@ -108,12 +108,10 @@ module Roby
             end
 
             # Yields the relations that are defined on this space
-            def each_relation
+            def each_relation(&block)
                 return enum_for(__method__) unless block_given?
 
-                relations.each do |rel|
-                    yield(rel)
-                end
+                relations.each(&block)
             end
 
             # Yields the root relations that are defined on this space. A relation

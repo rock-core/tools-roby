@@ -52,8 +52,8 @@ module Roby
             # A visitor that counts the in/out degree of vertices contained in a
             # subgraph
             class SubgraphDegreeCounter < RGL::DFSVisitor
-                attr_reader :out_degree
-                attr_reader :in_degree
+                attr_reader :out_degree, :in_degree
+
                 def initialize(graph)
                     @out_degree = Hash.new(0)
                     @in_degree = Hash.new(0)
@@ -97,9 +97,7 @@ module Roby
             end
 
             def follow_edge?(u, v)
-                if u == origin
-                    return unless origin_neighbours.include?(v)
-                end
+                return if u == origin && !origin_neighbours.include?(v)
 
                 degree = in_degree[v]
                 if degree == 1
@@ -110,9 +108,7 @@ module Roby
             end
 
             def handle_forward_edge(u, v)
-                if u == origin
-                    return unless origin_neighbours.include?(v)
-                end
+                return if u == origin && !origin_neighbours.include?(v)
 
                 obj = vertex_to_object.fetch(u)
                 if obj

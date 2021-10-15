@@ -24,8 +24,8 @@ module Ui
             createIndex(TASK_ROOT_INDEX, 0, -1)
         end
 
-        attr_reader :relations
-        attr_reader :display
+        attr_reader :relations, :display
+
         def initialize(display)
             super()
 
@@ -189,6 +189,7 @@ module Ui
     class LayoutMethodModel < Qt::AbstractListModel
         METHODS = ["Auto", "dot [rankdir=LR]", "dot [rankdir=TB]", "circo", "neato [overlap=false]", "neato [overlap=false,mode=hier]", "twopi", "fdp"].freeze
         attr_reader :display, :combo
+
         def initialize(display, combo)
             super()
             @display, @combo = display, combo
@@ -224,12 +225,7 @@ module Ui
     end
 
     class RelationsConfig
-        attr_reader :current_color
-        attr_reader :relation_color
-        attr_reader :relation_item
-        attr_reader :model
-        attr_reader :delegate
-        attr_reader :display
+        attr_reader :current_color, :relation_color, :relation_item, :model, :delegate, :display
 
         def initialize(widget, display)
             super()
@@ -276,11 +272,12 @@ module Ui
                 display.hidden_labels = hidden_labels.split(",")
                 delayed_update
             end
-            if display.display_policy == :explicit
+            case display.display_policy
+            when :explicit
                 displayExplicit.checked = true
-            elsif display.display_policy == :emitters
+            when :emitters
                 displayEmitters.checked = true
-            elsif display.display_policy == :emitters_and_parents
+            when :emitters_and_parents
                 displayEmittersAndParents.checked = true
             end
 

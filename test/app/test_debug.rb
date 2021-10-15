@@ -7,6 +7,7 @@ module Roby
     module App
         describe Debug do
             attr_reader :debug
+
             before do
                 @app = Application.new
                 @app.log_dir = make_tmpdir

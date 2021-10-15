@@ -4,6 +4,7 @@ require "roby/test/self"
 
 describe Roby::TaskArguments do
     attr_reader :task_m, :task
+
     before do
         @task_m = Roby::Task.new_submodel { argument :arg }
         @task = task_m.new
@@ -457,6 +458,7 @@ module Roby
     describe DelayedArgumentFromObject do
         describe "#evaluate_delayed_argument" do
             attr_reader :task, :arg
+
             before do
                 @task_m = Task.new_submodel { argument(:arg) }
                 @task = @task_m.new

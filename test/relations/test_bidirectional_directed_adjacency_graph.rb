@@ -198,6 +198,7 @@ module Roby
 
             describe "#difference" do
                 attr_reader :a, :b, :v_a, :v_b, :mapping
+
                 before do
                     @v_a = (1..3).map { Object.new }
                     @v_b = (1..3).map { Object.new }
@@ -299,6 +300,7 @@ module Roby
 
             describe "#replace" do
                 attr_reader :new, :old
+
                 before do
                     @new = create_graph
                     @old = create_graph(1, 2, 1, 3, 3, 4)
@@ -316,6 +318,7 @@ module Roby
 
             describe "#add_edge" do
                 attr_reader :graph, :parent, :child
+
                 before do
                     @graph = create_graph
                     @parent = Object.new
@@ -347,6 +350,7 @@ module Roby
 
             describe "#remove_vertex" do
                 attr_reader :graph, :obj
+
                 before do
                     @graph = create_graph
                     @obj   = Object.new
@@ -450,6 +454,7 @@ module Roby
 
             describe "#merge" do
                 attr_reader :receiver, :argument
+
                 before do
                     @receiver = create_graph(1, 2, 2, 3, 2, 4)
                     @argument = create_graph(0, 2, 2, 3, 2, 5, 6, 7)

@@ -7,6 +7,7 @@ module Roby
             # variable
             class TaskFromVariable < TaskWithDependencies
                 attr_reader :variable_name
+
                 def initialize(variable_name, task_model)
                     @variable_name = variable_name
                     super(task_model)

@@ -9,6 +9,7 @@ module Roby
         include PlanCommonBehavior
 
         attr_reader :plan
+
         before do
             @plan = Plan.new
         end
@@ -241,6 +242,7 @@ module Roby
 
         describe "#add_trigger" do
             attr_reader :task_m, :task, :recorder
+
             before do
                 @task_m = Roby::Task.new_submodel
                 @task   = task_m.new
@@ -300,6 +302,7 @@ module Roby
 
         describe "#remove_trigger" do
             attr_reader :task_m, :task, :recorder
+
             before do
                 @task_m = Roby::Task.new_submodel
                 @task   = task_m.new
@@ -317,6 +320,7 @@ module Roby
 
         describe "#compute_subplan_replacement" do
             attr_reader :graph
+
             before do
                 @graph = Roby::Relations::Graph.new
             end
@@ -531,6 +535,7 @@ module Roby
 
         describe "#same_plan?" do
             attr_reader :plan, :copy
+
             before do
                 @plan = Plan.new
                 @copy = Plan.new

@@ -16,6 +16,7 @@ module Roby
 
                 describe "#use_library" do
                     attr_reader :library
+
                     before do
                         @library = Actions::Library.new_submodel do
                             describe "test"

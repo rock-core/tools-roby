@@ -6,9 +6,7 @@ module Roby
     module DRoby
         module Timepoints
             class Analysis
-                attr_reader :roots
-                attr_reader :thread_names
-                attr_reader :current_groups
+                attr_reader :roots, :thread_names, :current_groups
 
                 def initialize
                     @thread_names = {}
@@ -59,10 +57,7 @@ module Roby
             end
 
             class Point
-                attr_reader :group
-                attr_reader :name
-                attr_reader :time
-                attr_reader :duration
+                attr_reader :group, :name, :time, :duration
 
                 def initialize(time, name, duration, group)
                     @time = time
@@ -89,8 +84,7 @@ module Roby
             end
 
             class Aggregate
-                attr_reader :current_time
-                attr_reader :timepoints
+                attr_reader :current_time, :timepoints
 
                 def initialize
                     @timepoints = []
@@ -162,8 +156,7 @@ module Roby
             end
 
             class Root < Aggregate
-                attr_reader :name
-                attr_reader :level
+                attr_reader :name, :level
 
                 def initialize(name = "root")
                     super()
@@ -174,11 +167,7 @@ module Roby
             end
 
             class Group < Aggregate
-                attr_reader :name
-                attr_reader :level
-                attr_reader :group
-
-                attr_reader :start_time
+                attr_reader :name, :level, :group, :start_time
 
                 def initialize(time, name, group)
                     super()

@@ -6,6 +6,7 @@ module Roby::Pos
     class Vector3D
         # The vector coordinates
         attr_accessor :x, :y, :z
+
         # Initializes a 3D vector
         def initialize(x = 0, y = 0, z = 0)
             @x, @y, @z = x, y, z

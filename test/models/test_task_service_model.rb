@@ -6,6 +6,7 @@ module Roby
     module Models
         describe TaskServiceModel do
             attr_reader :tag
+
             before do
                 @tag = TaskService.new_submodel
             end

@@ -342,11 +342,13 @@ module Roby
             end
 
             def self.format_propagation_info(propagation_info, indent: 0)
-                PP.pp(propagation_info, "".dup).split("\n").join("\n" + " " * indent)
+                PP.pp(propagation_info, "".dup).split("\n").join("\n#{' ' * indent}")
             end
 
             class Unmet < Minitest::Assertion
                 def initialize(expectations_with_explanations, propagation_info)
+                    super()
+
                     @expectations = expectations_with_explanations
                     @propagation_info = propagation_info
                 end
@@ -383,6 +385,8 @@ module Roby
 
             class UnexpectedErrors < Minitest::Assertion
                 def initialize(errors)
+                    super()
+
                     @errors = errors
                 end
 
@@ -423,7 +427,7 @@ module Roby
                         e = e.exception if e.kind_of?(ExecutionException)
                         if e.backtrace && !e.backtrace.empty?
                             formatted_execution_exception +=
-                                "\n    " + e.backtrace.join("\n    ")
+                                "\n    #{e.backtrace.join('\n    ')}"
                         end
 
                         sub_exceptions = Roby.flatten_exception(e)
@@ -434,14 +438,14 @@ module Roby
                                             Roby.format_exception(sub_e).join("\n    ")
                                 backtrace = Roby.format_backtrace(sub_e)
                                 unless backtrace.empty?
-                                    formatted += "    " + backtrace.join("\n    ")
+                                    formatted += "    #{backtrace.join('\n    ')}"
                                 end
                                 formatted
                             end.join("\n  ")
 
                         unless formatted_sub_exceptions.empty?
                             formatted_execution_exception +=
-                                "\n  " + formatted_sub_exceptions
+                                "\n  #{formatted_sub_exceptions}"
                         end
                         formatted_execution_exception
                     end.join("\n")
@@ -1090,7 +1094,7 @@ module Roby
                 def initialize(task, reason, backtrace)
                     super(backtrace)
                     @task = task
-                    return unless reason&.respond_to?(:to_execution_exception_matcher)
+                    return unless reason.respond_to?(:to_execution_exception_matcher)
 
                     @reason = reason.to_execution_exception_matcher
                     @related_error_match = make_related_error_matcher(reason)

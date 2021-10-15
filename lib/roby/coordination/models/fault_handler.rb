@@ -79,6 +79,8 @@ module Roby
                     attr_reader :replacement_task
 
                     def initialize(replacement_task)
+                        super()
+
                         @replacement_task = replacement_task
                     end
 
@@ -166,14 +168,13 @@ module Roby
                 end
 
                 def find_response_locations(origin)
-                    if response_location == :origin
-                        return [origin].to_set
-                    end
+                    return [origin].to_set if response_location == :origin
 
                     predicate =
-                        if response_location == :missions
+                        case response_location
+                        when :missions
                             proc { |t| t.mission? && t.running? }
-                        elsif response_location == :actions
+                        when :actions
                             proc { |t| t.running? && t.planning_task && t.planning_task.kind_of?(Roby::Actions::Task) }
                         end
 
@@ -213,10 +214,14 @@ module Roby
                         #
                         # In addition, if origin == task, we need to handle the
                         # error events as well
-                        task.add_error_handler response_task,
-                                               [task.stop_event.to_execution_exception_matcher, execution_exception_matcher].to_set
+                        task.add_error_handler(
+                            response_task,
+                            [task.stop_event.to_execution_exception_matcher,
+                             execution_exception_matcher].to_set
+                        )
                     end
-                    locations.each do |task|
+
+                    locations.each do |task| # rubocop:disable Style/CombinableLoops
                         # This should not be needed. However, the current GC
                         # implementation in ExecutionEngine does not stop at
                         # finished tasks, and therefore would not GC the

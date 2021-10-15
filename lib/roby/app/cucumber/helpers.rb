@@ -184,7 +184,7 @@ module Roby
                     else
                         reference.each do |key|
                             is_numeric = Float(arg_value) rescue nil
-                            nest unless (expectation = expected[key])
+                            next unless (expectation = expected[key])
 
                             msg = if is_numeric
                                       "but it got no unit"
@@ -283,7 +283,7 @@ module Roby
             #
             # @return [(Numeric,String),nil]
             def self.try_numerical_value_with_unit(string)
-                m = /^(-?\.\d+|-?\d+(?:\.\d+)?)([^\d\.]\w*)$/.match(string)
+                m = /^(-?\.\d+|-?\d+(?:\.\d+)?)([^\d.]\w*)$/.match(string)
                 [Float(m[1]), m[2]] if m
             end
 
@@ -294,19 +294,20 @@ module Roby
             #
             # @raise InvalidUnit if the unit parameter is unknown
             def self.apply_unit(value, unit)
-                if unit == "deg"
+                case unit
+                when "deg"
                     value * Math::PI / 180
-                elsif unit == "m"
+                when "m"
                     value
-                elsif unit == "h"
+                when "h"
                     value * 3600
-                elsif unit == "min"
+                when "min"
                     value * 60
-                elsif unit == "s"
+                when "s"
                     value
                 else
                     raise InvalidUnit,
-                          'unknown unit #{unit}, known units are deg, m (meters), '\
+                          "unknown unit #{unit}, known units are deg, m (meters), "\
                           "h (hour), min (minute) and s (seconds)"
                 end
             end

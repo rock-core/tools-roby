@@ -170,10 +170,8 @@ module Roby
 
                 result = nil
                 history.each_value do |cycle_time, snapshot, item|
-                    if cycle_time < time
-                        if !result || result[0] < cycle_time
-                            result = [cycle_time, snapshot]
-                        end
+                    if (cycle_time < time) && (!result || result[0] < cycle_time)
+                        result = [cycle_time, snapshot]
                     end
                 end
                 if result
@@ -319,10 +317,8 @@ module Roby
                         disconnect
                         emit warn("Disconnected: #{e.message}")
                         puts e.message
-                        puts "  " + e.backtrace.join("\n  ")
-                        if hostname
-                            connect(hostname, options)
-                        end
+                        puts "  #{e.backtrace.join("\n  ")}"
+                        connect(hostname, options) if hostname
                     end
                 end
                 timer.start(Integer(options[:update_period] * 1000))

@@ -4,6 +4,7 @@ require "roby/test/self"
 
 describe Robot do
     attr_reader :interface_m
+
     before do
         @interface_m = Roby::Actions::Interface.new_submodel do
             describe "test_action"

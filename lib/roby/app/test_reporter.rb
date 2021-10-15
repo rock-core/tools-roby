@@ -11,10 +11,7 @@ module Roby
         # accounts for load errors (exceptions that happen outside of minitest
         # itself) and is using DRoby's marshalling for exceptions
         class TestReporter
-            attr_reader :pid
-            attr_reader :slave_name
-            attr_reader :server
-            attr_reader :manager
+            attr_reader :pid, :slave_name, :server, :manager
 
             # Whether some failures were reported
             attr_predicate :has_failures?

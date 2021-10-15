@@ -57,6 +57,8 @@ module Roby
 
             # Initializes an empty TaskMatcher object
             def initialize(instance = nil)
+                super()
+
                 @instance               = instance
                 @model                  = []
                 @predicates             = []

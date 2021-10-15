@@ -7,6 +7,7 @@ module Roby
         module Async
             describe JobMonitor do
                 attr_reader :job_monitor
+
                 before do
                     @job_monitor = JobMonitor.new(flexmock, 1)
                 end

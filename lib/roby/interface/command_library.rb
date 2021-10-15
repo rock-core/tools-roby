@@ -42,6 +42,7 @@ module Roby
 
             # @return [Roby::Application] the application
             attr_reader :app
+
             # @return [Roby::Plan] the {#app}'s plan
             def plan
                 app.plan

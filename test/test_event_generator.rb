@@ -607,6 +607,7 @@ module Roby
     describe EventGenerator do
         describe "context propagation" do
             attr_reader :mock
+
             before do
                 @mock = flexmock
             end
@@ -648,6 +649,7 @@ module Roby
 
                 describe "from signals" do
                     attr_reader :source, :generator
+
                     before do
                         plan.add(@source = EventGenerator.new)
                         @generator = EventGenerator.new { |context| mock.called(context) }
@@ -684,6 +686,7 @@ module Roby
 
             describe "passed to emission" do
                 attr_reader :generator
+
                 before do
                     plan.add(@generator = EventGenerator.new)
                 end
@@ -702,6 +705,7 @@ module Roby
 
                 describe "from forwarding" do
                     attr_reader :source
+
                     before do
                         plan.add(@source = EventGenerator.new)
                         source.forward_to generator
@@ -845,6 +849,7 @@ module Roby
 
         describe "#check_call_validity" do
             attr_reader :generator
+
             before do
                 plan.add(@generator = EventGenerator.new(true))
                 flexmock(execution_engine)
@@ -901,6 +906,7 @@ module Roby
 
         describe "#call_without_propagation" do
             attr_reader :generator, :command_hook
+
             before do
                 @command_hook = flexmock
                 command_hook.should_receive(:call).by_default
@@ -1005,6 +1011,7 @@ module Roby
 
         describe "#check_emission_validity" do
             attr_reader :generator
+
             before do
                 plan.add(@generator = Roby::EventGenerator.new(true))
                 flexmock(execution_engine)
@@ -1044,6 +1051,7 @@ module Roby
 
         describe "#emit_without_propagation" do
             attr_reader :generator
+
             before do
                 plan.add(@generator = Roby::EventGenerator.new(true))
                 flexmock(generator)
@@ -1183,6 +1191,7 @@ module Roby
 
         describe "#emit_failed" do
             attr_reader :generator
+
             before do
                 plan.add(@generator = EventGenerator.new)
             end
@@ -1230,6 +1239,7 @@ module Roby
 
         describe "#achieve_with" do
             attr_reader :master, :slave
+
             before do
                 @slave  = EventGenerator.new
                 @master = EventGenerator.new do
@@ -1295,6 +1305,7 @@ module Roby
 
         describe "#call" do
             attr_reader :generator
+
             before do
                 plan.add(@generator = EventGenerator.new(true))
                 flexmock(generator)
@@ -1325,6 +1336,7 @@ module Roby
 
         describe "#emit" do
             attr_reader :generator
+
             before do
                 plan.add(@generator = EventGenerator.new)
                 flexmock(generator)
@@ -1357,6 +1369,7 @@ module Roby
 
         describe "#forward_to" do
             attr_reader :source, :target, :context
+
             before do
                 @source = EventGenerator.new
                 @context = flexmock
@@ -1388,6 +1401,7 @@ module Roby
 
         describe "#signals" do
             attr_reader :source, :target
+
             before do
                 @source = EventGenerator.new
                 plan.add(source)
@@ -1423,6 +1437,7 @@ module Roby
 
         describe "#filter" do
             attr_reader :source, :mock
+
             before do
                 @mock = flexmock
                 plan.add(@source = EventGenerator.new)
@@ -1471,6 +1486,7 @@ module Roby
 
         describe "preconditions" do
             attr_reader :generator
+
             before do
                 plan.add(@generator = EventGenerator.new(true))
             end
@@ -1521,6 +1537,7 @@ module Roby
 
         describe "#on" do
             attr_reader :generator
+
             before do
                 plan.add(@generator = EventGenerator.new)
             end
@@ -1544,6 +1561,7 @@ module Roby
 
         describe "#replace_by" do
             attr_reader :generator, :new, :mock
+
             before do
                 plan.add(@generator = EventGenerator.new)
                 plan.add(@new = EventGenerator.new)

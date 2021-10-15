@@ -205,6 +205,7 @@ module Roby
             end
 
             attr_reader :displayed_state
+
             def update_graphics(display, graphics_item)
                 new_state = GUI.task_state_at(self, display.current_time)
                 finalized = (finalization_time && finalization_time <= display.current_time)
@@ -293,6 +294,7 @@ module Roby
             include RelationsCanvasTask
 
             attr_writer :real_object
+
             def flags
                 real_object.flags
             end
@@ -356,8 +358,8 @@ module Roby
         Roby::Plan.include RelationsCanvasPlan
 
         class Qt::GraphicsScene
-            attr_reader :default_arrow_pen
-            attr_reader :default_arrow_brush
+            attr_reader :default_arrow_pen, :default_arrow_brush
+
             def add_arrow(size, pen = nil, brush = nil)
                 @default_arrow_pen   ||= Qt::Pen.new(ARROW_COLOR)
                 @default_arrow_brush ||= Qt::Brush.new(ARROW_COLOR)
@@ -465,7 +467,7 @@ module Roby
             # A [object, object, relation] => GraphicsItem mapping of arrows
             attr_reader :last_arrows
 
-            attr_reader :free_arrows
+            attr_reader :free_arrows, :current_color, :relation_colors, :relation_pens, :relation_brushes, :display_policy, :current_time
 
             # A DRbObject => GraphicsItem mapping
             attr_reader :graphics
@@ -670,7 +672,7 @@ module Roby
             attr_accessor :keep_signals
 
             COLORS = %w{black #800000 #008000 #000080 #C05800 #6633FF #CDBE70 #CD8162 #A2B5CD}.freeze
-            attr_reader :current_color
+
             # returns the next color in COLORS, cycles if at the end of the array
             def allocate_color
                 @current_color = (current_color + 1) % COLORS.size
@@ -729,9 +731,6 @@ module Roby
                 end
             end
 
-            attr_reader :relation_colors
-            attr_reader :relation_pens
-            attr_reader :relation_brushes
             def relation_color(relation)
                 unless relation_colors.has_key?(relation)
                     update_relation_color(relation, allocate_color)
@@ -783,7 +782,7 @@ module Roby
             end
 
             DISPLAY_POLICIES = %i[explicit emitters emitters_and_parents].freeze
-            attr_reader :display_policy
+
             def display_policy=(policy)
                 unless DISPLAY_POLICIES.include?(policy)
                     raise ArgumentError,
@@ -898,10 +897,10 @@ module Roby
                     end
                 end
 
-                if display_policy == :explicit
+                case display_policy
+                when :explicit
                     visible_objects.merge(selected_objects)
-
-                elsif display_policy == :emitters || display_policy == :emitters_and_parents
+                when :emitters, :emitters_and_parents
                     # Make sure that the event's tasks are added to
                     # visible_objects as well
                     visible_objects.dup.each do |obj|
@@ -948,8 +947,6 @@ module Roby
                 object.visible = true
                 object
             end
-
-            attr_reader :current_time
 
             # Update the display with new data that has come from the data
             # stream.
@@ -1041,7 +1038,7 @@ module Roby
                     end
                 end
 
-                plans.each do |p|
+                plans.each do |p| # rubocop:disable Style/CombinableLoops
                     p.propagated_events.each do |_, sources, to, _|
                         sources.each do |from|
                             RelationsCanvasEventGenerator.priorities[from] ||= (event_priority += 1)

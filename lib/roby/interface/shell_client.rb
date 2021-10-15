@@ -167,7 +167,7 @@ module Roby
                     msg[0] = Roby.color(msg[0], :red)
                 end
                 puts msg.join("\n")
-                puts "  " + e.backtrace.join("\n  ")
+                puts "  #{e.backtrace.join('\n  ')}"
                 nil
             end
 
@@ -188,10 +188,16 @@ module Roby
             end
 
             def format_exception(kind, error, *args)
-                color = if kind == ExecutionEngine::EXCEPTION_FATAL then [:red]
-                        elsif kind == ExecutionEngine::EXCEPTION_NONFATAL then [:magenta]
-                        else []
-                        end
+                color =
+                    case kind
+                    when ExecutionEngine::EXCEPTION_FATAL
+                        [:red]
+                    when ExecutionEngine::EXCEPTION_NONFATAL
+                        [:magenta]
+                    else
+                        []
+                    end
+
                 if error
                     msg = Roby.format_exception(error.exception)
                     if msg[0]

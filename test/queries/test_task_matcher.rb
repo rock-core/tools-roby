@@ -199,6 +199,7 @@ module Roby
 
             describe "the _event accessor" do
                 attr_reader :task_m
+
                 before do
                     @task_m = Roby::Tasks::Simple.new_submodel do
                         event :extra

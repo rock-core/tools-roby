@@ -660,8 +660,9 @@ module Roby
                 end
             end
             proxy_tasks.each do |obj, proxy|
-                if (tr = trigger_matches.delete(proxy))
-                    trigger_matches[obj] = tr unless tr === obj # already triggered
+                # Add to matches if it matches and has not triggered yet
+                if (tr = trigger_matches.delete(proxy)) && !(tr === obj)
+                    trigger_matches[obj] = tr
                 end
             end
             trigger_matches

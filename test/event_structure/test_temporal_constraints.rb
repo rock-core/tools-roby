@@ -312,6 +312,7 @@ module Roby
 
             describe SchedulingConstraints do
                 attr_reader :constraints, :task_a, :event_a, :task_b, :event_b
+
                 before do
                     @constraints = plan.event_relation_graph_for(SchedulingConstraints)
                     plan.add(@task_a = Roby::Task.new)
@@ -413,6 +414,7 @@ module Roby
             describe "TemporalConstraints" do
                 describe "#should_emit_after?" do
                     attr_reader :receiver, :argument
+
                     before do
                         plan.add(@receiver = EventGenerator.new)
                         plan.add(@argument = EventGenerator.new)

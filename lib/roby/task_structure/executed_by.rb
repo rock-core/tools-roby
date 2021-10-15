@@ -203,6 +203,7 @@ module Roby
         # Exception raised when trying to start a task whose execution agent is not ready
         class ExecutionAgentNotReady < Roby::CommandFailed
             attr_reader :execution_agent
+
             def initialize(task)
                 super(nil, task.start_event)
                 @execution_agent = task.execution_agent

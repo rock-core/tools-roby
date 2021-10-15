@@ -66,6 +66,7 @@ module Roby
 
         # If this specific exception has been marked has handled
         attr_accessor :handled
+
         # If this exception has been marked as handled
         def handled?
             handled
@@ -192,9 +193,10 @@ module Roby
         # Returns true if the exception has been handled, false otherwise
         def handle_exception(exception_object)
             each_exception_handler do |matcher, handler|
-                if exception_object.exception.kind_of?(FailedExceptionHandler)
+                if exception_object.exception.kind_of?(FailedExceptionHandler) &&
+                   exception_object.exception.handler == handler
                     # Do not handle a failed exception handler by itself
-                    next if exception_object.exception.handler == handler
+                    next
                 end
 
                 if matcher === exception_object
@@ -434,6 +436,7 @@ module Roby
 
     class BacktraceFormatter
         attr_reader :backtrace
+
         def initialize(exception, backtrace = exception.backtrace)
             @exception = exception
             @backtrace = backtrace

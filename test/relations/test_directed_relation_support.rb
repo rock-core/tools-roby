@@ -6,6 +6,7 @@ module Roby
     module Relations
         describe DirectedRelationSupport do
             attr_reader :vertex_m, :graph
+
             before do
                 @graph_m = graph_m = Graph.new_submodel
                 @graph   = graph   = graph_m.new

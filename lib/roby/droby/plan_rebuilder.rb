@@ -230,12 +230,13 @@ module Roby
 
             def task_status_change(time, task, status)
                 task = local_object(task)
-                if status == :normal
+                case status
+                when :normal
                     plan.unmark_mission_task(task)
                     plan.unmark_permanent_task(task)
-                elsif status == :permanent
+                when :permanent
                     plan.add_permanent_task(task)
-                elsif status == :mission
+                when :mission
                     plan.add_mission_task(task)
                 end
                 task
@@ -243,9 +244,10 @@ module Roby
 
             def event_status_change(time, event, status)
                 event = local_object(event)
-                if status == :normal
+                case status
+                when :normal
                     plan.unmark_permanent_event(event)
-                elsif status == :permanent
+                when :permanent
                     plan.add_permanent_event(event)
                 end
                 event

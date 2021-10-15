@@ -7,6 +7,7 @@ module Roby
     module Coordination
         describe ActionScript do
             attr_reader :task_model, :root_task, :script_task, :script_model
+
             before do
                 @task_model = Class.new(Tasks::Simple) do
                     event :intermediate
@@ -20,6 +21,7 @@ module Roby
 
             describe "#wait" do
                 attr_reader :action_task
+
                 before do
                     script_model.start script_task
                     script_model.wait script_task.intermediate_event

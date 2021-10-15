@@ -7,6 +7,7 @@ module Roby
     module TaskStructure
         describe Conflicts do
             attr_reader :task_m_1, :task_m_2
+
             before do
                 @task_m_1 = Tasks::Simple.new_submodel
                 @task_m_2 = Tasks::Simple.new_submodel
@@ -30,6 +31,7 @@ module Roby
 
             describe "runtime handling" do
                 attr_reader :task_1, :task_2
+
                 before do
                     task_m_1.conflicts_with task_m_2
                     plan.add(@task_1 = task_m_1.new)

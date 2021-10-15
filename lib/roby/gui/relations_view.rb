@@ -13,10 +13,7 @@ module Roby
         # Plan display that shows a snapshot of the event/task structure, as
         # well as the events emitted within the last cycle
         class RelationsView < Qt::Widget
-            attr_reader :ui
-            attr_reader :view
-            attr_reader :scheduler_view
-            attr_reader :history_widget
+            attr_reader :ui, :view, :scheduler_view, :history_widget
 
             # In remote connections, this is he period between checking if
             # there is data on the socket, in seconds
@@ -42,8 +39,8 @@ module Roby
             # Slot used to make the widget update its title when e.g. the
             # underlying history widget changed its source
             def updateWindowTitle
-                if parent_title = history_widget.window_title
-                    self.window_title = history_widget.window_title + ": Relations"
+                if (parent_title = history_widget.window_title)
+                    self.window_title = "#{history_widget.window_title}: Relations"
                 else
                     self.window_title = "roby-display: Relations"
                 end
@@ -81,9 +78,7 @@ class Ui::RelationsView
 
     # The underlying RelationsCanvas object
     attr_reader :display
-    attr_reader :prefixActions
-    attr_reader :verticalLayout
-    attr_reader :graphics
+    attr_reader :prefixActions, :verticalLayout, :graphics
 
     # Module used to extend the relation view GraphicsView object, to add
     # double-click and context-menu events
@@ -107,12 +102,7 @@ class Ui::RelationsView
 
         def contextMenuEvent(event)
             item = itemAt(event.pos)
-            if item
-                unless obj = display.object_of(item)
-                    return super(event)
-                end
-            end
-
+            return super(event) if item && !(obj = display.object_of(item))
             return unless obj.kind_of?(Roby::Task)
 
             menu = Qt::Menu.new
@@ -223,7 +213,8 @@ class Ui::RelationsView
         graphics.display = display
 
         @actionShowAll.connect(SIGNAL(:triggered)) do
-            display.graphics.keys.each do |obj|
+            # NOTE: do not use each_key here as set_visibility modifies graphics
+            display.graphics.keys.each do |obj| # rubocop:disable Style/HashEachMethods
                 if obj.kind_of?(Roby::Task::DRoby) ||
                    (obj.kind_of?(Roby::EventGenerator::DRoby) && !obj.respond_to?(:task))
                     display.set_visibility(obj, true)

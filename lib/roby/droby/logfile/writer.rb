@@ -11,8 +11,7 @@ module Roby
                 # The current log format version
                 FORMAT_VERSION = 5
 
-                attr_reader :event_io
-                attr_reader :buffer_io
+                attr_reader :event_io, :buffer_io
 
                 def initialize(event_io, **options)
                     @event_io = event_io

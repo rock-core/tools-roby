@@ -11,6 +11,7 @@ module Roby
             attr_reader :interface
             # @return [String] a string that allows the user to identify the client
             attr_reader :client_id
+
             # @return [Boolean] whether the messages should be
             #   forwarded to our clients
             attr_predicate :notifications_enabled?, true

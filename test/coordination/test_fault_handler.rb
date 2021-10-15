@@ -5,6 +5,7 @@ require "roby/tasks/simple"
 
 describe Roby::Coordination::Models::FaultHandler do
     attr_reader :m0, :m1, :m2, :t0, :t1, :t2, :handler
+
     before do
         @m0, @m1, @m2, @t0, @t1, @t2 = prepare_plan add: 6, model: Roby::Tasks::Simple
         m0.depends_on m1

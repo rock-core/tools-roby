@@ -6,6 +6,7 @@ module Roby
     module Queries
         describe Index do
             attr_reader :index, :task_m
+
             before do
                 @index = Index.new
                 @task_m = Task.new_submodel

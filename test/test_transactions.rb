@@ -10,8 +10,8 @@ class TC_TransactionAsPlan < Minitest::Test
     include Roby::PlanCommonBehavior
     include Roby::SelfTest
 
-    attr_reader :real_plan
-    attr_reader :plan
+    attr_reader :real_plan, :plan
+
     def engine
         (real_plan || plan).engine
     end
@@ -1410,6 +1410,7 @@ class TC_RecursiveTransaction < Minitest::Test
     include TC_TransactionBehaviour
 
     attr_reader :real_plan
+
     def engine
         (real_plan || plan).engine
     end

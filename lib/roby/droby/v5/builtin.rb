@@ -35,8 +35,7 @@ module Roby
                     end
 
                     class DRoby < Exception # rubocop:disable Lint/InheritException
-                        attr_reader :exception_class
-                        attr_reader :formatted_message
+                        attr_reader :exception_class, :formatted_message
 
                         def initialize(exception_class, formatted_message, message = nil)
                             @exception_class, @formatted_message =

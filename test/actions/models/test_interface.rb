@@ -7,6 +7,7 @@ module Roby
         module Models
             describe Interface do
                 attr_reader :interface_m
+
                 before do
                     @interface_m = Actions::Interface.new_submodel
                 end
@@ -66,6 +67,7 @@ module Roby
 
                     describe "argument handling" do
                         attr_reader :action_m
+
                         before do
                             @action_m = interface_m.describe("an action")
                         end
@@ -145,6 +147,7 @@ module Roby
 
                 describe "#find_action_by_name" do
                     attr_reader :description
+
                     before do
                         interface_m.describe "an_action"
                         interface_m.send(:define_method, :an_action) {}

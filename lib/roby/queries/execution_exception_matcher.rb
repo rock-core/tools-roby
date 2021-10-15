@@ -136,7 +136,7 @@ module Roby
 
             # @return [Boolean] true if the given execution exception object
             #   matches self, false otherwise
-            def ===(exception)
+            def ===(exception) # rubocop:disable Metrics/PerceivedComplexity
                 return false unless exception.respond_to?(:to_execution_exception)
 
                 exception = exception.to_execution_exception

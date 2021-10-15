@@ -7,11 +7,7 @@ module Roby
         # GUI dialog that allows to display plans step-by-step instead of
         # cycle-by-cycle
         class Stepping < Qt::Dialog
-            attr_reader :ui
-
-            attr_reader :plan
-            attr_reader :logfile
-            attr_reader :plan_rebuilder
+            attr_reader :ui, :plan, :logfile, :plan_rebuilder
 
             # Create a step-by-step replay starting at the beginning of a cycle
             # in the log stream

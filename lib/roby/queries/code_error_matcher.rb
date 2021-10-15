@@ -8,6 +8,7 @@ module Roby
         # properties on the Ruby exception that has been thrown
         class CodeErrorMatcher < LocalizedErrorMatcher
             attr_reader :ruby_exception_class
+
             def initialize
                 super
                 @ruby_exception_class = ::Exception
@@ -38,14 +39,14 @@ module Roby
             def to_s
                 description = super
                 if ruby_exception_class
-                    description + ".with_ruby_exception(#{ruby_exception_class})"
+                    "#{description}.with_ruby_exception(#{ruby_exception_class})"
                 else
-                    description + ".without_ruby_exception"
+                    "#{description}.without_ruby_exception"
                 end
             end
 
             def describe_failed_match(exception)
-                if description = super
+                if (description = super)
                     description
                 elsif !(ruby_exception_class === exception.error)
                     if ruby_exception_class

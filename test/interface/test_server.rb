@@ -146,6 +146,7 @@ module Roby
 
             describe "remote calls" do
                 attr_reader :interface, :server, :client_channel
+
                 before do
                     @interface = Interface.new(Roby::Application.new)
                     interface.app.execution_engine.display_exceptions = false
@@ -266,6 +267,7 @@ module Roby
 
             describe "error handling" do
                 attr_reader :interface, :server, :server_io, :error_m
+
                 before do
                     @interface = Interface.new(Roby::Application.new)
                     interface.app.execution_engine.display_exceptions = false

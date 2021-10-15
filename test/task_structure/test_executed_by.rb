@@ -4,19 +4,19 @@ require "roby/test/self"
 
 module Roby
     module TaskStructure
-        describe ExecutionAgent do
-            class BaseExecutionAgent < Tasks::Simple
-                event :ready
-            end
-            class ExecutionAgentModel < Tasks::Simple
-                event :ready
-                forward start: :ready
-            end
-            class SecondExecutionModel < Tasks::Simple
-                event :ready
-                forward start: :ready
-            end
+        class BaseExecutionAgent < Tasks::Simple
+            event :ready
+        end
+        class ExecutionAgentModel < Tasks::Simple
+            event :ready
+            forward start: :ready
+        end
+        class SecondExecutionModel < Tasks::Simple
+            event :ready
+            forward start: :ready
+        end
 
+        describe ExecutionAgent do
             before do
                 @agent_m = Roby::Tasks::Simple.new_submodel do
                     event :ready

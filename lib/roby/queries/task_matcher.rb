@@ -411,7 +411,7 @@ module Roby
             end
 
             # True if +task+ matches all the criteria defined on this object.
-            def ===(task) # rubocop:disable Metrics/CyclomaticComplexity
+            def ===(task) # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
                 return unless task.kind_of?(Roby::Task)
                 return unless task.arguments.slice(*arguments.keys) == arguments
                 return unless super

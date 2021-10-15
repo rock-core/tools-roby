@@ -40,7 +40,7 @@ module Roby
     # listed in NOT_OVERRIDABLE
     #
     class OpenStruct
-        attr_reader :model
+        attr_reader :model, :attach_as, :__parent_struct, :__parent_name
 
         # +attach_to+ and +attach_name+
         # are used so that
@@ -137,8 +137,6 @@ module Roby
             marshalled_members.compact!
             Marshal.dump([marshalled_members, @aliases])
         end
-
-        attr_reader :attach_as, :__parent_struct, :__parent_name
 
         # Create a model structure and associate it with this openstruct
         def new_model
@@ -301,7 +299,7 @@ module Roby
             if name
                 name = name.to_s
                 child = @members.delete(name) || @pending.delete(name)
-                child.detached! if child&.respond_to?(:detached!)
+                child.detached! if child.respond_to?(:detached!)
 
                 # We don't detach aliases
                 if !child && !@aliases.delete(name)
@@ -547,8 +545,7 @@ module Roby
             end
 
             if name =~ /^(\w+)=$/
-                ret = set($1, *args)
-                ret
+                set($1, *args)
 
             elsif name =~ /^(\w+)\?$/
                 # Test

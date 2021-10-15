@@ -70,6 +70,7 @@ module Roby
 
                 class SetArgumentCommand < ActionConnector
                     attr_reader :argument_name
+
                     def initialize(connector, action, argument_name, getter: nil)
                         super(connector, action, getter: nil)
                         @argument_name = argument_name.to_sym
@@ -104,8 +105,7 @@ module Roby
                     end
                 end
 
-                attr_reader :interface
-                attr_reader :widget
+                attr_reader :interface, :widget
 
                 def initialize(interface, widget)
                     @interface = interface
@@ -163,7 +163,7 @@ module Roby
                 end
 
                 def respond_to_missing?(m, include_private = false)
-                    (m =~ /!$/) || widget.respond_to?(m)
+                    (m =~ /!$/) || widget.respond_to?(m) || super
                 end
 
                 def method_missing(m, *args, &block)

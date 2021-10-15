@@ -7,6 +7,7 @@ module Roby
             describe CoordinationAction do
                 describe "droby marshalling" do
                     attr_reader :interface_m, :action_m, :machine_m
+
                     before do
                         @interface_m = Actions::Interface.new_submodel(name: "Actions")
                         task_m = Roby::Task.new_submodel(name: "RootTask")

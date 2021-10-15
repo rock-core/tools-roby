@@ -79,8 +79,8 @@ module Roby
         # Exception raised when an event gets emitted outside its specified
         # temporal constraints
         class TemporalConstraintViolation < LocalizedError
-            attr_reader :parent_generator
-            attr_reader :allowed_intervals
+            attr_reader :parent_generator, :allowed_intervals
+
             def initialize(event, parent_generator, allowed_intervals)
                 super(event)
                 @parent_generator = parent_generator
@@ -101,10 +101,7 @@ module Roby
         # Exception raised when an event gets emitted outside its specified
         # temporal constraints
         class OccurenceConstraintViolation < LocalizedError
-            attr_reader :parent_generator
-            attr_reader :count
-            attr_reader :allowed_interval
-            attr_reader :since
+            attr_reader :parent_generator, :count, :allowed_interval, :since
 
             def initialize(event, parent_generator, count, allowed_interval, since)
                 super(event)
@@ -268,10 +265,10 @@ module Roby
             end
 
             def add_edge(from, to, info)
-                if super
-                    if from.respond_to?(:task) && to.respond_to?(:task)
-                        add_edge_in_task_graph(from.task, to.task)
-                    end
+                return unless super
+
+                if from.respond_to?(:task) && to.respond_to?(:task)
+                    add_edge_in_task_graph(from.task, to.task)
                 end
             end
 
@@ -357,7 +354,7 @@ module Roby
                 def has_scheduling_constraints?
                     return true if has_temporal_constraints?
 
-                    each_backward_scheduling_constraint do |parent|
+                    each_backward_scheduling_constraint do |parent| # rubocop:disable Lint/UnreachableLoop
                         return true
                     end
                     false
@@ -453,7 +450,7 @@ module Roby
                 # True if this event is constrained by the TemporalConstraints
                 # relation in any way
                 def has_temporal_constraints?
-                    each_backward_temporal_constraint do |parent|
+                    each_backward_temporal_constraint do |parent| # rubocop:disable Lint/UnreachableLoop
                         return true
                     end
                     false
@@ -463,9 +460,7 @@ module Roby
                 # constraint the given time fails to meet
                 def find_failed_temporal_constraint(time)
                     each_backward_temporal_constraint do |parent|
-                        if block_given?
-                            next unless yield(parent)
-                        end
+                        next if block_given? && !yield(parent)
 
                         disjoint_set = parent[self, TemporalConstraints]
                         next if disjoint_set.intervals.empty?
@@ -540,9 +535,7 @@ module Roby
                         base_time = base_event.time
                     end
                     each_backward_temporal_constraint do |parent|
-                        if block_given?
-                            next unless yield(parent)
-                        end
+                        next if block_given? && !yield(parent)
 
                         constraints = parent[self, TemporalConstraints]
                         counts = { false => parent.history.size }

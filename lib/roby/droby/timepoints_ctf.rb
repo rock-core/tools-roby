@@ -6,15 +6,7 @@ module Roby
     module DRoby
         module Timepoints
             class CTF
-                attr_reader :uuid
-                attr_reader :clock_base
-                attr_reader :name_to_addr_mapping
-
-                attr_reader :packet_timestamp_begin
-                attr_reader :packet_timestamp_end
-                attr_reader :packet_contents
-
-                attr_reader :thread_ids
+                attr_reader :uuid, :clock_base, :name_to_addr_mapping, :packet_timestamp_begin, :packet_timestamp_end, :packet_contents, :thread_ids
 
                 def initialize(clock_base: 0)
                     @uuid = SecureRandom.random_bytes(16).unpack("C*")

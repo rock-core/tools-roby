@@ -12,6 +12,7 @@ module Roby
             # @return [TaskMatcher] the task matcher that describes this event's
             #   task
             attr_reader :task_matcher
+
             # @return [Boolean] if true, self will match the specified generator
             #   as well as any other generator that is forwarded to it. If false
             #   (the default) only the specified generator will match

@@ -11,9 +11,11 @@ module Roby
         # some synthetic tests
         describe "Event logging" do
             attr_reader :logfile, :event_logger, :local_plan, :plan_rebuilder, :rebuilt_plan
+
             before do
                 @logfile = Class.new do
                     attr_reader :cycles
+
                     def initialize
                         @cycles = []
                     end
@@ -436,6 +438,7 @@ module Roby
 
                 describe "handling of event propagation" do
                     attr_reader :source, :target, :r_source, :r_target
+
                     before do
                         local_plan.add(@source = EventGenerator.new)
                         local_plan.add(@target = EventGenerator.new(true))

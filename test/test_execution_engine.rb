@@ -576,6 +576,7 @@ module Roby
 
         describe "#add_error" do
             attr_reader :task_m, :root, :child, :localized_error_m, :recorder, :other_root, :child, :child_e
+
             before do
                 @task_m = Roby::Task.new_submodel { argument :name, default: nil }
                 plan.add(@root = @task_m.new(name: "root"))
@@ -589,8 +590,8 @@ module Roby
                 @child_e = localized_error_m.new(child).to_execution_exception
             end
 
-            def assert_raises_error_with_trace(*trace)
-                expect_execution { yield }.to do
+            def assert_raises_error_with_trace(*trace, &block)
+                expect_execution(&block).to do
                     have_error_matching localized_error_m.match
                         .with_origin(child)
                         .to_execution_exception_matcher
@@ -626,6 +627,7 @@ module Roby
 
         describe "#gather_framework_errors" do
             attr_reader :error_m
+
             before do
                 @error_m = Class.new(RuntimeError)
             end
@@ -705,6 +707,7 @@ module Roby
 
         describe "#gather_errors" do
             attr_reader :error
+
             before do
                 plan.add(task = Task.new)
                 @error = Class.new(LocalizedError).new(task).to_execution_exception
@@ -745,6 +748,7 @@ module Roby
 
         describe "#propagate_exception_in_plan" do
             attr_reader :task_m, :root, :child, :localized_error_m, :recorder
+
             before do
                 @task_m = Roby::Task.new_submodel { argument :name, default: nil }
                 plan.add(@root = @task_m.new(name: "root"))
@@ -754,10 +758,9 @@ module Roby
             end
 
             def match_exception(*edges, handled: nil)
-                matcher = localized_error_m.to_execution_exception_matcher
+                localized_error_m.to_execution_exception_matcher
                     .with_trace(*edges)
                     .handled(handled)
-                matcher
             end
 
             it "propagates a given exception up in the dependency graph and yields the exception and the task at each step, finishing by the plan" do
@@ -1039,6 +1042,7 @@ module Roby
 
         describe "#remove_inhibited_exceptions" do
             attr_reader :task_m, :root, :child, :localized_error_m, :recorder
+
             before do
                 @task_m = Roby::Task.new_submodel { argument :name, default: nil }
                 plan.add(@root = @task_m.new(name: "root"))
@@ -1085,6 +1089,7 @@ module Roby
 
         describe "#propagate_exceptions" do
             attr_reader :task_m, :root, :child, :localized_error_m, :recorder
+
             before do
                 @task_m = Roby::Task.new_submodel { argument :name, default: nil }
                 plan.add(@root = @task_m.new(name: "root"))
@@ -1194,9 +1199,11 @@ module Roby
 
         describe "the error propagation" do
             attr_reader :task_m, :root, :localized_error_m
+
             before do
                 @task_m = Task.new_submodel do
                     attr_accessor :hold_stop
+
                     event(:stop) do |_|
                         unless hold_stop
                             stop_event.emit
@@ -1219,10 +1226,9 @@ module Roby
             end
 
             def match_exception(*edges, handled: nil)
-                matcher = localized_error_m.to_execution_exception_matcher
+                localized_error_m.to_execution_exception_matcher
                     .with_trace(*edges)
                     .handled(handled)
-                matcher
             end
 
             it "reports handled structure exceptions" do
@@ -1466,6 +1472,7 @@ module Roby
 
             describe "the error handling relation" do
                 attr_reader :task_m, :localized_error_m, :repair_task, :root, :root_e
+
                 before do
                     @task_m = Task.new_submodel
                     task_m.terminates
@@ -1513,6 +1520,7 @@ module Roby
 
             describe "free events errors" do
                 attr_reader :event, :localized_error_m
+
                 before do
                     plan.add(@event = EventGenerator.new)
                     @localized_error_m = Class.new(LocalizedError)
@@ -1927,6 +1935,7 @@ module Roby
 
     describe "#at_cycle_end" do
         attr_reader :error_m
+
         before do
             @error_m = Class.new(RuntimeError)
         end
@@ -1952,10 +1961,8 @@ module Roby
     end
 
     describe "propagation handlers" do
-        def add_propagation_handler(**options)
-            @handler_ids << execution_engine.add_propagation_handler(**options) do |plan|
-                yield(plan)
-            end
+        def add_propagation_handler(**options, &block)
+            @handler_ids << execution_engine.add_propagation_handler(**options, &block)
         end
 
         def remove_propagation_handlers
@@ -1965,6 +1972,7 @@ module Roby
         end
 
         attr_reader :recorder
+
         before do
             @recorder = flexmock
             @handler_ids = []
@@ -2107,6 +2115,7 @@ module Roby
 
         describe "error handling" do
             attr_reader :exception_m
+
             before do
                 @exception_m = Class.new(RuntimeError)
             end

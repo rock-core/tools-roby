@@ -129,6 +129,7 @@ module Roby
 
                 describe "#each_job" do
                     attr_reader :client, :first_job, :second_job
+
                     before do
                         @client = open_client
                         while_polling_server do
@@ -402,6 +403,7 @@ module Roby
 
             describe "#poll" do
                 attr_reader :client
+
                 before do
                     @client = open_client
                 end
@@ -508,6 +510,7 @@ module Roby
             describe "#async_call" do
                 attr_reader :watch
                 attr_reader :async_calls_count
+
                 before do
                     @watch = flexmock("watch")
                     @async_calls_count = 0

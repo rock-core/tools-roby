@@ -69,6 +69,7 @@ module Roby
     class PlanningFailedError < LocalizedError
         # The planning task
         attr_reader :planning_task
+
         # The planned task
         def planned_task
             failed_task

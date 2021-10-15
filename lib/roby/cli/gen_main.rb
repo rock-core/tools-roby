@@ -14,7 +14,7 @@ module Roby
 
             no_commands do
                 def template(template_path, *args, **kw)
-                    super(template_path + ".erb", *args, **kw)
+                    super("#{template_path}.erb", *args, **kw)
                 rescue Thor::Error
                     super(template_path, *args, **kw)
                 end
@@ -73,7 +73,7 @@ module Roby
                 )
 
                 template File.join("actions", "class.rb"),
-                         File.join("models", "actions", *file_name) + ".rb",
+                         "#{File.join('models', 'actions', *file_name)}.rb",
                          context: Gen.make_context("class_name" => class_name)
 
                 context = Gen.make_context(
@@ -97,7 +97,7 @@ module Roby
                 )
 
                 template File.join("class", "class.rb"),
-                         File.join("lib", Roby.app.app_name, *file_name) + ".rb",
+                         "#{File.join('lib', Roby.app.app_name, *file_name)}.rb",
                          context: Gen.make_context("class_name" => class_name)
 
                 context = Gen.make_context(
@@ -120,7 +120,7 @@ module Roby
                 )
 
                 template File.join("module", "module.rb"),
-                         File.join("lib", Roby.app.app_name, *file_name) + ".rb",
+                         "#{File.join('lib', Roby.app.app_name, *file_name)}.rb",
                          context: Gen.make_context("module_name" => class_name)
                 context = Gen.make_context(
                     "module_name" => class_name,
@@ -145,7 +145,7 @@ module Roby
                 )
 
                 template File.join("task", "class.rb"),
-                         File.join("models", "tasks", *file_name) + ".rb",
+                         "#{File.join('models', 'tasks', *file_name)}.rb",
                          context: Gen.make_context("class_name" => class_name)
                 template File.join("task", "test.rb"),
                          File.join("test", "tasks", *file_name[0..-2],
@@ -169,7 +169,7 @@ module Roby
                 )
 
                 template File.join("task_srv", "class.rb"),
-                         File.join("models", "services", *file_name) + ".rb",
+                         "#{File.join('models', 'services', *file_name)}.rb",
                          context: Gen.make_context("class_name" => class_name)
             end
         end

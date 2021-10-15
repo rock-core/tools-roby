@@ -719,6 +719,7 @@ module Roby
         #
         # @return [Integer]
         attr_accessor :shell_interface_port
+
         # Whether an unexpected (non-comm-related) failure in the shell should
         # cause an abort
         #
@@ -1530,7 +1531,7 @@ module Roby
             date_tag ||= Time.now.strftime("%Y%m%d-%H%M")
             basename =
                 if !basename.empty?
-                    date_tag + "-" + basename
+                    "#{date_tag}-#{basename}"
                 else
                     date_tag
                 end
@@ -1805,10 +1806,8 @@ module Roby
             unless app_module::Actions.const_defined_here?(:Main)
                 app_module::Actions.const_set(:Main, Class.new(Roby::Actions::Interface))
             end
-            if backward_compatible_naming?
-                unless Object.const_defined_here?(:Main)
-                    Object.const_set(:Main, app_module::Actions::Main)
-                end
+            if backward_compatible_naming? && !Object.const_defined_here?(:Main)
+                Object.const_set(:Main, app_module::Actions::Main)
             end
         end
 
@@ -2713,9 +2712,7 @@ module Roby
             end
 
             yield(root_model)
-            root_model.each_submodel do |m|
-                yield(m)
-            end
+            root_model.each_submodel(&block)
         end
 
         # Whether this model should be cleared in {#clear_models}
@@ -2944,6 +2941,7 @@ module Roby
         # Internal representation of the app's lifecycle hooks
         class LifecycleHook
             attr_reader :block
+
             attr_predicate :user?
             def initialize(block, user: false)
                 @block = block
@@ -3052,9 +3050,7 @@ module Roby
             Find.find(dir) do |path|
                 # Skip the robot-specific bits that don't apply on the
                 # selected robot
-                if File.directory?(path)
-                    Find.prune unless autodiscover_tests_in?(path)
-                end
+                Find.prune if File.directory?(path) && !autodiscover_tests_in?(path)
 
                 if File.file?(path) && /^test_.*\.rb$/.match?(File.basename(path))
                     yield(path)

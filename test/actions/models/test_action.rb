@@ -5,6 +5,7 @@ require "roby/test/self"
 describe Roby::Actions::Models::Action do
     describe "#plan_pattern" do
         attr_reader :action_m
+
         before do
             task_m = Roby::Task.new_submodel
             interface_m = Roby::Actions::Interface.new_submodel do
@@ -54,6 +55,7 @@ describe Roby::Actions::Models::Action do
 
     describe "#update" do
         attr_reader :action_m, :updated_m
+
         before do
             interface_m = Roby::Actions::Interface.new_submodel
             @action_m   = Roby::Actions::Models::Action.new(interface_m)
@@ -110,6 +112,7 @@ describe Roby::Actions::Models::Action do
     end
     describe "#validate_can_overload" do
         attr_reader :action_m, :updated_m
+
         before do
             interface_m = Roby::Actions::Interface.new_submodel
             @action_m   = Roby::Actions::Models::Action.new(interface_m)
@@ -138,6 +141,7 @@ describe Roby::Actions::Models::Action do
 
     describe "#has_arg?" do
         attr_reader :action_m
+
         before do
             interface_m = Roby::Actions::Interface.new_submodel
             @action_m   = Roby::Actions::Models::Action.new(interface_m)

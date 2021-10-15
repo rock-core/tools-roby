@@ -38,20 +38,20 @@ module Roby
         # Note that the heavy-lifting is done in {ExecutionExpectations}. This
         # is really only the sugar-coating above the test harness itself.
         module ExpectExecution
+            SETUP_METHODS = %i[
+                timeout
+                wait_until_timeout
+                join_all_waiting_work
+                scheduler
+                garbage_collect
+                validate_unexpected_errors
+                display_exceptions
+                poll
+            ].freeze
+
             # The context object that allows the expect_execution { }.to { }
             # syntax
             Context = Struct.new :test, :expectations, :block do
-                SETUP_METHODS = %i[
-                    timeout
-                    wait_until_timeout
-                    join_all_waiting_work
-                    scheduler
-                    garbage_collect
-                    validate_unexpected_errors
-                    display_exceptions
-                    poll
-                ].freeze
-
                 def respond_to_missing?(m, include_private)
                     SETUP_METHODS.include?(m)
                 end

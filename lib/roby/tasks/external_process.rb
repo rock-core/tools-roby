@@ -48,14 +48,12 @@ module Roby
             # running
             attr_reader :pid
 
-            def initialize(arguments = {})
-                if arg = arguments[:command_line]
-                    arguments[:command_line] = [arg] unless arg.kind_of?(Array)
-                end
+            def initialize(command_line: [], **arguments)
+                command_line = Array(command_line)
                 @pid = nil
                 @buffer = nil
                 @redirection = {}
-                super(arguments)
+                super(command_line: command_line, **arguments)
             end
 
             # Called to announce that this task has been killed. +result+ is the

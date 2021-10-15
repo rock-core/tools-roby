@@ -6,6 +6,7 @@ module Roby
     module Coordination
         describe ActionStateMachine do
             attr_reader :task_m, :action_m, :description
+
             before do
                 task_m = @task_m = Roby::Task.new_submodel(name: "TaskModel") do
                     terminates

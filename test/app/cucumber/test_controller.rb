@@ -9,6 +9,7 @@ module Roby
         module Cucumber
             describe Controller do
                 attr_reader :controller, :roby_app_dir, :roby_log_dir
+
                 before do
                     @controller = Controller.new
                     @roby_app_dir = make_tmpdir

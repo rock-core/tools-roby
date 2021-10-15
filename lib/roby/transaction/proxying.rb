@@ -70,6 +70,7 @@ module Roby
             def self.create_forwarder_module(methods)
                 Module.new do
                     attr_accessor :__getobj__
+
                     def transaction_proxy?
                         true
                     end

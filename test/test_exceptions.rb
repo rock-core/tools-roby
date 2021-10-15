@@ -56,6 +56,7 @@ describe Roby do
         let :stub_m do
             Class.new(Roby::ExceptionBase) do
                 attr_reader :text
+
                 def initialize(text)
                     super([])
                     @text = text

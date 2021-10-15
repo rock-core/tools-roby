@@ -308,22 +308,22 @@ module Roby
             end
 
             # @deprecated use #expect_execution { ... }.to { quarantine task }
-            def assert_task_quarantined(task, timeout: 5)
+            def assert_task_quarantined(task, timeout: 5, &block)
                 Roby.warn_deprecated "#{__method__} is deprecated, use "\
                                      "#expect_execution { ... }.to { quarantine task } "\
                                      "instead"
-                expect_execution { yield }
+                expect_execution(&block)
                     .timeout(timeout)
                     .to { quarantine task }
             end
 
             # @deprecated use #expect_execution { ... }
             #                 .to { become_unreachable generator }
-            def assert_event_becomes_unreachable(generator, timeout: 5)
+            def assert_event_becomes_unreachable(generator, timeout: 5, &block)
                 Roby.warn_deprecated "#{__method__} is deprecated, use "\
                                      "#expect_execution { ... }.to "\
                                      "{ become_unreachable generator } instead"
-                expect_execution { yield }
+                expect_execution(&block)
                     .timeout(timeout)
                     .to { become_unreachable generator }
             end
@@ -493,7 +493,7 @@ module Roby
             def assert_nonfatal_exception(matcher,
                                           failure_point: Task,
                                           original_exception: nil,
-                                          tasks: [])
+                                          tasks: [], &block)
                 Roby.warn_deprecated "#{__method__} is deprecated, use "\
                                      "#expect_execution { ... }.to "\
                                      "{ have_error_matching ... } instead"
@@ -502,7 +502,7 @@ module Roby
                     original_exception: original_exception,
                     failure_point: failure_point
                 )
-                expect_execution { yield }
+                expect_execution
                     .to { have_error_matching matcher }
             end
 
@@ -514,13 +514,11 @@ module Roby
             end
 
             # @deprecated
-            def assert_free_event_exception_warning
+            def assert_free_event_exception_warning(&block)
                 Roby.warn_deprecated "#{__method__} is deprecated, and has no "\
                                      "replacements. It is not needed when using "\
                                      "the expect_execution harness"
-                messages = capture_log(execution_engine, :warn) do
-                    yield
-                end
+                messages = capture_log(execution_engine, :warn, &block)
                 assert_equal ["1 free event exceptions"], messages
             end
 
@@ -541,7 +539,7 @@ module Roby
             #                 .to { have_error_matching ... } instead
             def assert_adds_error(matcher,
                                   original_exception: nil,
-                                  failure_point: PlanObject)
+                                  failure_point: PlanObject, &block)
                 Roby.warn_deprecated "#{__method__} is deprecated, use "\
                                      "#expect_execution { ... }.to "\
                                      "{ have_error_matching ... } instead"
@@ -551,17 +549,17 @@ module Roby
                     original_exception: original_exception,
                     failure_point: failure_point
                 )
-                expect_execution { yield }
+                expect_execution(&block)
                     .to { have_error_matching matcher }
             end
 
             # @deprecated use #expect_execution { ... }
             #                 .to { have_framework_error_matching ... } instead
-            def assert_adds_framework_error(matcher)
+            def assert_adds_framework_error(matcher, &block)
                 Roby.warn_deprecated "#{__method__} is deprecated, use "\
                                      "#expect_execution { ... }.to "\
                                      "{ have_framework_error_matching ... } instead"
-                expect_execution { yield }
+                expect_execution(&block)
                     .to { have_framework_error_matching matcher }
             end
 
@@ -572,12 +570,11 @@ module Roby
             FlexmockExceptionMatcher = Struct.new :matcher do
                 def ===(exception)
                     return true if matcher === exception
+                    return false unless self.class.describe?
 
-                    if self.class.describe?
-                        if (description = matcher.describe_failed_match(exception))
-                            Roby.warn "expected exception to match #{matcher}, "\
-                                      "but #{description}"
-                        end
+                    if (description = matcher.describe_failed_match(exception))
+                        Roby.warn "expected exception to match #{matcher}, "\
+                                  "but #{description}"
                     end
                     false
                 end

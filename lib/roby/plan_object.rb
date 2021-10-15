@@ -58,6 +58,7 @@ module Roby
         class InstanceHandler
             # The poll Proc object
             attr_reader :block
+
             ## :method:copy_on_replace?
             #
             # If true, this poll handler gets copied to the new task when the
@@ -506,7 +507,8 @@ module Roby
                 end
             end
 
-            changes.each_slice(3) do |rel, parents, children|
+            # See comment above about keeping the two loops separate
+            changes.each_slice(3) do |rel, parents, children| # rubocop:disable Style/CombinableLoops
                 parents.each_slice(2) do |parent, info|
                     parent.add_child_object(object, rel, info)
                 end

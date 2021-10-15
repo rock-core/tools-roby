@@ -27,7 +27,7 @@ def minitest_set_options(test_task, name)
         if minitest_options.empty?
             ""
         else
-            "\"" + minitest_options.join("\" \"") + "\""
+            "\"#{minitest_options.join('" "')}\""
         end
     test_task.options = "#{TESTOPTS} #{minitest_args} -- --simplecov-name=#{name}"
 end
@@ -97,7 +97,7 @@ task :uic do
 
     failed = false
     UIFILES.each do |file|
-        file = "lib/roby/" + file
+        file = "lib/roby/#{file}"
         unless system(rbuic, "-o", file.gsub(/\.ui$/, "_ui.rb"), file)
             STDERR.puts "Failed to generate #{file}"
             failed = true

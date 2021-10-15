@@ -5,8 +5,7 @@ require "state_machine/machine"
 module Roby
     # Helper to get a more roby-like feeling to the state machine definitions
     class StateMachineDefinitionContext
-        attr_reader :task_model
-        attr_reader :state_machine
+        attr_reader :task_model, :state_machine
 
         def initialize(task_model, state_machine)
             @task_model = task_model

@@ -8,6 +8,8 @@ module Roby
             attr_reader :original_error
 
             def initialize(original_error)
+                super()
+
                 @original_error = original_error
             end
 
