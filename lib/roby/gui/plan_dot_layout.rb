@@ -377,7 +377,7 @@ module Roby
                             task.to_dot_events(display, self)
                         end
                         all_tasks.merge(p_tasks)
-                        p.propagated_events.each do |_, sources, to, _|
+                        p.propagated_events.each do |_, _, sources, to, _|
                             sources.each do |from|
                                 if from.respond_to?(:task) && to.respond_to?(:task) && from.task == to.task
                                     from_id, to_id = from.dot_id, to.dot_id
@@ -422,7 +422,7 @@ module Roby
                     # Take the signalling into account for the layout. At this stage,
                     # task events are represented by their tasks
                     display.plans.each do |p|
-                        p.propagated_events.each do |_, sources, to, _|
+                        p.propagated_events.each do |_, _, sources, to, _|
                             to_id =
                                 if to.respond_to?(:task) then to.task.dot_id
                                 else to.dot_id

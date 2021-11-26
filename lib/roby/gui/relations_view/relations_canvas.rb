@@ -260,13 +260,13 @@ module Roby
                 task.model.all_forwardings.each do |source_name, targets|
                     source = task.event(source_name)
                     targets.each do |target_name|
-                        plan.propagated_events << [true, [source.new([], 0)], task.event(target_name)]
+                        plan.propagated_events << [Time.at(0), true, [source.new([], 0)], task.event(target_name)]
                     end
                 end
                 task.model.all_signals.each do |source_name, targets|
                     source = task.event(source_name)
                     targets.each do |target_name|
-                        plan.propagated_events << [false, [source.new([], 0)], task.event(target_name)]
+                        plan.propagated_events << [Time.at(0), false, [source.new([], 0)], task.event(target_name)]
                     end
                 end
                 display.update
@@ -887,10 +887,10 @@ module Roby
                     if display_plan_bounding_boxes?
                         visible_objects << p
                     end
-                    p.emitted_events.each do |event|
+                    p.emitted_events.each do |_, event|
                         visible_objects << event.generator
                     end
-                    p.propagated_events.each do |_, sources, to, _|
+                    p.propagated_events.each do |_, _, sources, to, _|
                         sources.each do |src|
                             visible_objects << src.generator
                         end
@@ -1016,17 +1016,17 @@ module Roby
                 plans.each do |p|
                     flags = Hash.new(0)
 
-                    p.called_generators.each_with_index do |generator, priority|
+                    p.called_generators.each_with_index do |time, generator, priority|
                         flags[generator] |= EVENT_CALLED
                     end
                     base_priority = p.called_generators.size
 
-                    p.emitted_events.each_with_index do |event, priority|
+                    p.emitted_events.each_with_index do |(_, event), priority|
                         generator = event.generator
                         flags[generator] |= EVENT_EMITTED
                     end
 
-                    p.failed_emissions.each do |generator, reason|
+                    p.failed_emissions.each do |time, generator, reason|
                         flags[generator] = FAILED_EMISSION
                     end
 
@@ -1042,7 +1042,7 @@ module Roby
                 end
 
                 plans.each do |p|
-                    p.propagated_events.each do |_, sources, to, _|
+                    p.propagated_events.each do |_, _, sources, to, _|
                         sources.each do |from|
                             RelationsCanvasEventGenerator.priorities[from] ||= (event_priority += 1)
                             RelationsCanvasEventGenerator.priorities[to] ||= (event_priority += 1)
@@ -1082,7 +1082,7 @@ module Roby
                 # Display the signals
                 signal_arrow_idx = -1
                 plans.each do |p|
-                    p.propagated_events.each_with_index do |(flag, sources, to), signal_arrow_idx|
+                    p.propagated_events.each_with_index do |(_, flag, sources, to), signal_arrow_idx|
                         relation =
                             if flag
                                 Roby::EventStructure::Forwarding
