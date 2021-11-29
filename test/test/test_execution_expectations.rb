@@ -1013,6 +1013,17 @@ module Roby
                             ignore_errors_from quarantine(task)
                         end
                     end
+
+                    it "calls update_match on the underlying predicates "\
+                       "and ignores the result" do
+                        plan.add_mission_task(task = Roby::Task.new)
+                        expect_execution { task.quarantined! }.to do
+                            matcher = quarantine(task)
+                            flexmock(matcher).should_receive(:update_match).at_least.once
+                                             .and_return(true)
+                            ignore_errors_from matcher
+                        end
+                    end
                 end
             end
 

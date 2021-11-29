@@ -782,8 +782,17 @@ module Roby
                     @expectations = Array(expectations)
                 end
 
+                def update_match(propagation_info)
+                    # Call the underlying #update_match as some matchers cache
+                    # information there
+                    @expectations.each { |e| e.update_match(propagation_info) }
+                    true
+                end
+
                 def relates_to_error?(error)
-                    @expectations.any? { |e| e.relates_to_error?(error) }
+                    @expectations.any? do |e|
+                        e.relates_to_error?(error)
+                    end
                 end
 
                 def filter_result(_result)
