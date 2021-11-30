@@ -38,20 +38,22 @@ module Roby
             def to_s
                 description = super
                 if ruby_exception_class
-                    description.concat(".with_ruby_exception(#{ruby_exception_class})")
+                    "#{description}.with_ruby_exception(#{ruby_exception_class})"
                 else
-                    description.concat(".without_ruby_exception")
+                    "#{description}.without_ruby_exception"
                 end
             end
 
             def describe_failed_match(exception)
-                if description = super
+                if (description = super)
                     description
                 elsif !(ruby_exception_class === exception.error)
                     if ruby_exception_class
-                        "the underlying exception #{exception.error} does not match the expected #{ruby_exception_class}"
+                        "the underlying exception #{exception.error} does not "\
+                        "match the expected #{ruby_exception_class}"
                     else
-                        "there is an underlying exception (#{exception.error}) but the matcher expected none"
+                        "there is an underlying exception (#{exception.error}) "\
+                        "but the matcher expected none"
                     end
                 end
             end
