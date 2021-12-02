@@ -50,7 +50,9 @@ module Roby
                     reason
                 end
                 assert task.failed_to_start?
-                assert_equal reason, task.failure_reason
+                assert_kind_of FailedToStart, task.failure_reason
+                assert_equal task, task.failure_reason.failed_task
+                assert_equal reason, task.failure_reason.reason
             end
 
             it "lets the control object decide what to do with executed tasks if the "\
@@ -75,7 +77,9 @@ module Roby
                 end
                 execute { execution_agent.stop! }
                 assert task.failed_to_start?
-                assert_equal execution_agent.failed_event.last, task.failure_reason
+                assert_kind_of FailedToStart, task.failure_reason
+                assert_equal task, task.failure_reason.failed_task
+                assert_equal execution_agent.failed_event.last, task.failure_reason.reason
             end
 
             it "lets the control object decide what to do with pending executed tasks "\

@@ -596,13 +596,25 @@ module Roby
 
             @failed_to_start = true
             @failed_to_start_time = time
-            @failure_reason = reason
+            @failure_reason =
+                if reason.kind_of?(LocalizedError) && reason.failed_task == self
+                    reason
+                else
+                    FailedToStart.new(self, reason, time)
+                end
+
             @pending = false
             @starting = false
             @failed   = true
             plan.task_index.set_state(self, :failed?)
         end
 
+        # Declares that this task has failed to start
+        #
+        # @param [Object] reason the failure reason. Can either be an exception
+        #   or an event
+        #
+        # {#failure_reason} will be set to {FailedToStart} with the given reason
         def failed_to_start!(reason, time = Time.now)
             mark_failed_to_start(reason, time)
             each_event do |ev|

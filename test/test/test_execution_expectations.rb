@@ -397,6 +397,30 @@ module Roby
                             predicates: proc { emit generator }
                         )
                     end
+                    it "handles a toplevel task error caused by the event" do
+                        execution_agent_m = Tasks::Simple.new_submodel do
+                            event :ready
+                        end
+                        task_m = Task.new_submodel do
+                            event :start do |context|
+                            end
+                        end
+                        plan.add_mission_task(task = task_m.new)
+                        plan.add(agent = execution_agent_m.new)
+                        task.executed_by agent
+
+                        execute do
+                            agent.start!
+                            agent.ready_event.emit
+                            task.start!
+                        end
+
+                        expect_execution { agent.stop! }
+                            .to do
+                                fail_to_start task
+                                emit agent.stop_event
+                            end
+                    end
                 end
                 describe "#emit a task event query" do
                     attr_reader :task_m
