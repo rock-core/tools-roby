@@ -130,19 +130,19 @@ module Roby
                     line_format  = "%5.3f %5.3f       #{' ' * indent}  %s"
 
                     result = []
-                    result << format(start_format, start_time - base_time, start_time - last_time, "#{name}:start")
+                    result << Kernel.format(start_format, start_time - base_time, start_time - last_time, "#{name}:start")
 
                     last_time = timepoints.inject(last_time) do |last, tp|
                         if tp.respond_to?(:format)
                             result.concat(tp.format(last_time: last, indent: indent + 2, base_time: base_time, absolute_times: absolute_times))
                             tp.end_time
                         else
-                            result << format(line_format, tp.time - base_time, tp.time - last, tp.name)
+                            result << Kernel.format(line_format, tp.time - base_time, tp.time - last, tp.name)
                             tp.time
                         end
                     end
 
-                    result << format(end_format, end_time - base_time, end_time - last_time, duration, "#{name}:end")
+                    result << Kernel.format(end_format, end_time - base_time, end_time - last_time, duration, "#{name}:end")
                     result
                 end
 
