@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "fileutils"
 require "find"
 require "facets/string/camelcase"
 require "roby/support"
