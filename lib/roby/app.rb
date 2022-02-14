@@ -1,17 +1,19 @@
 # frozen_string_literal: true
 
-require "find"
 require "facets/string/camelcase"
-require "roby/support"
-require "roby/robot"
+require "fileutils"
+require "find"
+require "singleton"
+require "yaml"
+
+require "roby/app/base"
 require "roby/app/robot_names"
 require "roby/interface"
-require "singleton"
+require "roby/robot"
+require "roby/support"
 require "utilrb/hash/recursive_merge"
 require "utilrb/module/attr_predicate"
-require "yaml"
 require "utilrb/pathname/find_matching_parent"
-require "roby/app/base"
 
 module Roby
     # Regular expression that matches backtrace paths that are within the
