@@ -9,6 +9,7 @@
       Sylvain Joyeux/sylvain.joyeux@m4x.org
   </copyright>
   <license>CeCILL-B (BSD-like)</license>
+  <version>3.1.0</version>
 
   <depend package="utilrb" />
   <depend package="facets" />
