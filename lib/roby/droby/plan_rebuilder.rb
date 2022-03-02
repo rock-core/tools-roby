@@ -303,7 +303,7 @@ module Roby
             def task_failed_to_start(time, task, reason)
                 task   = local_object(task)
                 reason = local_object(reason)
-                task.plan.failed_to_start << [task, reason]
+                task.plan.failed_to_start << [time, task, reason]
                 task.mark_failed_to_start(reason, time)
                 announce_event_propagation_update
                 [task, reason]
@@ -318,7 +318,7 @@ module Roby
                 if generator.respond_to?(:task)
                     generator.task.fired_event(event)
                 end
-                generator.plan.emitted_events << event
+                generator.plan.emitted_events << [time, event]
                 announce_event_propagation_update
                 event
             end
@@ -326,7 +326,7 @@ module Roby
             def generator_emit_failed(time, generator, error)
                 generator = local_object(generator)
                 error = local_object(error)
-                generator.plan.failed_emissions << [generator, error]
+                generator.plan.failed_emissions << [time, generator, error]
                 announce_event_propagation_update
                 [generator, error]
             end
@@ -334,7 +334,7 @@ module Roby
             def generator_propagate_events(time, is_forwarding, events, generator)
                 events    = local_object(events)
                 generator = local_object(generator)
-                generator.plan.propagated_events << [is_forwarding, events, generator]
+                generator.plan.propagated_events << [time, is_forwarding, events, generator]
                 announce_event_propagation_update
                 [events, generator]
             end
@@ -351,7 +351,7 @@ module Roby
                 involved_objects = local_object(involved_objects)
                 plan = local_object(plan_id)
                 plan.propagated_exceptions <<
-                    [mode, error, involved_objects]
+                    [time, mode, error, involved_objects]
                 [plan, error, involved_objects]
             end
 
