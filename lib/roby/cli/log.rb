@@ -323,11 +323,15 @@ module Roby
                 end
             end
 
-            desc "display", "start roby-display to visualize the log file's contents"
+            desc "display FILE",
+                 "start roby-display to visualize the log file's contents"
+            option :index_path,
+                   type: :string, default: nil,
+                   desc: "explicitly give the path to the log file's index file"
             def display(file = nil)
                 file = handle_file_argument(file)
                 require "roby/cli/display"
-                Display.new.file(file)
+                Display.new.file(file, index_path: options[:index_path])
             end
         end
     end
