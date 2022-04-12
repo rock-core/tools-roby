@@ -20,14 +20,13 @@ module Roby
             # purposes, they only get removed from the plan at the next cycle.
             attr_reader :garbaged_events
             # The set of generators that have been called since the last call to
-            # #clear_integrated
+            # {#clear_integrated}
             #
             # @return [Array<EventGenerator>]
             attr_reader :called_generators
-            # The set of events emitted since the last call to
-            # #clear_integrated
+            # The set of events emitted since the last call to {#clear_integrated}
             #
-            # @return [Array<Event>]
+            # @return [Array<[Time, Event]>]
             attr_reader :emitted_events
             # The set of event propagations that have been recorded since the
             # last call to # #clear_integrated

@@ -251,11 +251,11 @@ module Roby
                 display = RelationsCanvas.new([plan])
                 display.display_plan_bounding_boxes = false
                 display.layout_options.merge!(options.slice(:scale_x, :scale_y))
-                task.each_event do |ev|
-                    if ev.controlable?
-                        plan.called_generators << ev
+                task.each_event do |generator|
+                    if generator.controlable?
+                        plan.called_generators << generator
                     end
-                    plan.emitted_events << ev.new([], 0)
+                    plan.emitted_events << [Time.now, generator.new([], 0)]
                 end
                 task.model.all_forwardings.each do |source_name, targets|
                     source = task.event(source_name)
@@ -1016,12 +1016,12 @@ module Roby
                 plans.each do |p|
                     flags = Hash.new(0)
 
-                    p.called_generators.each_with_index do |time, generator, priority|
+                    p.called_generators.each do |generator|
                         flags[generator] |= EVENT_CALLED
                     end
                     base_priority = p.called_generators.size
 
-                    p.emitted_events.each_with_index do |(_, event), priority|
+                    p.emitted_events.each do |_, event|
                         generator = event.generator
                         flags[generator] |= EVENT_EMITTED
                     end
