@@ -185,6 +185,8 @@ module Roby
 
                             begin
                                 written = socket.write_nonblock(buffer)
+                            rescue Interrupt
+                                raise
                             rescue Errno::EAGAIN
                                 Server.debug "cannot send: send buffer full"
                                 chunks.unshift(buffer)
