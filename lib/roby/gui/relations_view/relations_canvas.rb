@@ -1016,12 +1016,12 @@ module Roby
                 plans.each do |p|
                     flags = Hash.new(0)
 
-                    p.called_generators.each_with_index do |generator, priority|
+                    p.called_generators.each do |generator|
                         flags[generator] |= EVENT_CALLED
                     end
                     base_priority = p.called_generators.size
 
-                    p.emitted_events.each_with_index do |(_, event), priority|
+                    p.emitted_events.each do |_, event|
                         generator = event.generator
                         flags[generator] |= EVENT_EMITTED
                     end
