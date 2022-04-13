@@ -8,6 +8,10 @@ require "roby/cli/gen_main"
 module Roby
     module CLI
         class Main < Thor
+            def self.exit_on_failure?
+                true
+            end
+
             desc "add_robot ROBOT_NAME", "Deprecated, use 'gen robot' instead",
                  hide: true # backward-compatibility only
             def add_robot(robot_name)

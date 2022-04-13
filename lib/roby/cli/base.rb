@@ -13,6 +13,10 @@ module Roby
             class_option "log", desc: "configure the loggers",
                                 type: :array, default: []
 
+            def self.exit_on_failure?
+                true
+            end
+
             no_commands do # rubocop:disable Metrics/BlockLength
                 def app
                     Roby.app
