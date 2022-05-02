@@ -473,7 +473,7 @@ module Roby
             # Whether the execution will run until the timeout if the
             # expectations have not been met yet.
             #
-            # The default is 5s
+            # The default is true
             #
             # @param [Boolean] wait
             dsl_attribute :wait_until_timeout
