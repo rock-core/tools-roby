@@ -830,7 +830,7 @@ module Roby
                         .emitted_events
                         .find_all { |ev| ev.generator == @generator }
 
-                    @emitted_events.empty? if Time.now > @deadline
+                    @emitted_events.empty? if Time.now >= @deadline
                 end
 
                 def unachievable?(_propagation_info)
