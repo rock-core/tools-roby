@@ -498,7 +498,7 @@ module Roby
                         plan.add(generator = EventGenerator.new)
                         count = 0
                         expect_execution
-                            .poll { count += 1; generator.emit if count > 2 }
+                            .poll { count += 1; generator.emit if count == 2 }
                             .to { not_emit generator }
                     end
                     it "may be told given a timespan with the within argument" do
@@ -506,7 +506,7 @@ module Roby
                         count = 0
                         assert_raises(ExecutionExpectations::Unmet) do
                             expect_execution
-                                .poll { count += 1; generator.emit if count > 2 }
+                                .poll { count += 1; generator.emit if count == 3 }
                                 .to { not_emit generator, within: 0.1 }
                         end
                     end
