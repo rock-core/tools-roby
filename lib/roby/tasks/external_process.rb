@@ -273,6 +273,27 @@ module Roby
                 @out_pipe&.close
                 @err_pipe&.close
             end
+
+            # Create an ExternalProcess task that can be interrupted with the
+            # given signal
+            def self.interruptible_with_signal(signal: "INT", **arguments)
+                InterruptibleWithSignal.new(signal: signal, **arguments)
+            end
+
+            # A subclass of {ExternalProcess} that terminates its underlying
+            # process with a signal (default is INT)
+            #
+            # You usually don't create this directly, but use
+            # {ExternalProcess.interruptible_with_signal}
+            class InterruptibleWithSignal < ExternalProcess
+                argument :signal, default: "INT"
+
+                event :failed, terminal: true do |_|
+                    kill(signal)
+                end
+
+                interruptible
+            end
         end
     end
 end

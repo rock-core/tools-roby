@@ -1,0 +1,17 @@
+#! /usr/bin/env ruby
+# frozen_string_literal: true
+
+STDOUT.sync = true
+
+trap("INT") do
+    STDOUT.puts "INT"
+    exit 1
+end
+
+trap("USR1") do
+    STDOUT.puts "USR1"
+    exit 1
+end
+
+STDOUT.puts "READY"
+STDIN.readline
