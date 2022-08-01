@@ -110,7 +110,7 @@ module Roby
                 # This must be called by methods that are themselves called during
                 # parsing
                 #
-                # @param [String] suffix that should be added to all the names
+                # @param [Array<String>] suffixes that should be added to all the names
                 def parse_names(suffixes)
                     definition_context = binding.callers.find { |b| b.frame_type == :block }
                     return unless definition_context

@@ -75,7 +75,7 @@ module Roby
 
             # Stop profiling
             #
-            # This does not save the results, call {#save} for this
+            # This does not save the results, call {#stackprof_save} for this
             def stackprof_stop
                 StackProf.stop
                 if @cycle_counter_handler
@@ -88,8 +88,7 @@ module Roby
 
             # @api private
             #
-            # The filename that is used by default in {#save}. It is relative to
-            # {#path}
+            # The filename that is used by default in {#stackprof_save}.
             #
             # It is a time tag (down to the milliseconds) followed by the
             # sampling mode and a .dump extension
@@ -99,7 +98,7 @@ module Roby
                 File.join(path, "#{prefix}-#{time}.dump")
             end
 
-            # Save the current profiling results into the path given to {#start}
+            # Save the current profiling results into the path given to {#stackprof_start}
             #
             # @param [String]
             def stackprof_save(path: default_path("stackprof-%s"))

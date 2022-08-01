@@ -44,11 +44,6 @@ module Roby
     #
     # The main method is {#process_events}. When executing a Roby application,
     # it is called periodically by {#event_loop}.
-    #
-    # In addition, there is a special "synchronous" propagation mode that is
-    # used by {EventGenerator#call} and {EventGenerator#emit}. This mode is used
-    # when the event code is not executed within an engine, but from an
-    # imperative script, as in unit tests.
     class ExecutionEngine
         extend Logger::Hierarchy
         include Logger::Hierarchy
@@ -143,7 +138,7 @@ module Roby
 
         # A thread pool on which async work should be executed
         #
-        # @see {#promise}
+        # @see #promise
         # @return [Concurrent::CachedThreadPool]
         attr_reader :thread_pool
 
@@ -623,11 +618,10 @@ module Roby
         # Register a LocalizedError for future propagation
         #
         # This method must be called in a error-gathering context (i.e.
-        # {#gather_error}.
+        # {#gather_errors}).
         #
         # @param [#to_execution_exception] e the exception
-        # @raise [NotPropagationContext] raised if called outside
-        #   {#gather_error}
+        # @raise [NotPropagationContext] raised if called outside {#gather_errors}
         def add_error(e, propagate_through: nil)
             plan_exception = e.to_execution_exception
             if @propagation_exceptions
@@ -2110,11 +2104,11 @@ module Roby
 
         # A list of threaded objects waiting for the control thread
         #
-        # Objects registered here will be notified them by calling {#fail} when
+        # Objects registered here will be notified them by calling #fail on them when
         # it quits. In addition, {#join_all_waiting_work} will wait for all
         # pending jobs to finish.
         #
-        # Note that all {Concurrent::Obligation} subclasses fit the bill
+        # Note that all Concurrent::Obligation subclasses fit the bill
         #
         # @return [Array<#fail,#complete?>]
         attr_reader :waiting_work

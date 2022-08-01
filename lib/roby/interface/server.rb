@@ -96,7 +96,7 @@ module Roby
                 result
             end
 
-            # Whether the remote side already called {#handshake?}
+            # Whether the remote side already called {#handshake}
             def performed_handshake?
                 @performed_handshake
             end

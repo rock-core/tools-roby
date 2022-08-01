@@ -34,7 +34,7 @@ module Roby
     #   "plain arguments"
     #
     # In addition, Roby provides a mechanism to fine-tune the way delayed
-    # arguments are merged. The {#semantic_merge} call delegates the merge
+    # arguments are merged. The {#semantic_merge!} call delegates the merge
     # to the delayed arguments, allowing for instance two default argument
     # to be merged if they have the same value.
     class TaskArguments
@@ -199,7 +199,7 @@ module Roby
             end
         end
 
-        # Return the set of arguments that won't be merged by {#semantic_merge}
+        # Return the set of arguments that won't be merged by {#semantic_merge!}
         #
         # @param [TaskArguments] other_args
         # @return [{Symbol => [Object, Object]}] the arguments that
@@ -242,10 +242,10 @@ module Roby
             end
         end
 
-        # Checks whether self can be merged with other_args through{#semantic_merge}
+        # Checks whether self can be merged with other_args through {#semantic_merge!}
         #
         # @param [TaskArguments] other_args
-        # @see semantic_merge semantic_merge_blockers
+        # @see semantic_merge! semantic_merge_blockers
         def can_semantic_merge?(other_args)
             semantic_merge_blockers(other_args).empty?
         end
@@ -305,7 +305,7 @@ module Roby
 
         # Updates the given argument, regardless of whether it is allowed or not
         #
-        # @see {#writable?}
+        # @see #writable?
         # @param [Symbol] key the argument name
         # @param [Object] value the new argument value
         # @return [Object]
