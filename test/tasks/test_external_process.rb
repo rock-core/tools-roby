@@ -297,39 +297,48 @@ module Roby
 
                 after do
                     if @task.running?
-                        Process.kill("KILL", @task.pid)
-                        Process.waitpid(@task.pid)
+                        expect_execution { task.stop! }.to { emit task.stop_event }
                     end
                 end
 
                 def prepare_task(**options)
+                    @out_file = File.join(@working_directory, "out")
+                    FileUtils.touch @out_file
                     @task = task = Roby::Tasks::ExternalProcess.interruptible_with_signal(
-                        command_line: [@mockup], **options
+                        command_line: [@mockup, @out_file], **options
                     )
                     plan.add(@task)
-                    @out_file = File.join(@working_directory, "interruptible")
-                    task.redirect_output(stdout: @out_file)
                     expect_execution { task.start! }.to { emit task.start_event }
-                    loop do
-                        break if File.read(@out_file) =~ /READY/
 
-                        sleep 0.01
-                    end
+                    assert_outfile_contents_eventually_match(/READY/)
                     task
                 end
 
                 it "creates a process that gets interrupted with SIGINT by default" do
                     task = prepare_task
                     expect_execution { task.stop! }.to { emit task.stop_event }
-                    assert_match(/INT/, File.read(@out_file))
-                    refute_match(/USR1/, File.read(@out_file))
+                    contents = assert_outfile_contents_eventually_match(/INT/)
+                    refute_match(/USR1/, contents)
                 end
 
                 it "allows changing the signal" do
                     task = prepare_task(signal: "USR1")
                     expect_execution { task.stop! }.to { emit task.stop_event }
-                    refute_match(/INT/, File.read(@out_file))
-                    assert_match(/USR1/, File.read(@out_file))
+                    contents = assert_outfile_contents_eventually_match(/USR1/)
+                    refute_match(/INT/, contents)
+                end
+
+                def assert_outfile_contents_eventually_match(regexp)
+                    deadline = Time.now + 5
+                    while Time.now < deadline
+                        if File.read(@out_file) =~ regexp
+                            assert(true) # statistics !
+                            return
+                        end
+
+                        sleep 0.01
+                    end
+                    assert_match regexp, File.read(@out_file)
                 end
             end
         end

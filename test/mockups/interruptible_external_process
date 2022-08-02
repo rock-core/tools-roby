@@ -1,17 +1,20 @@
 #! /usr/bin/env ruby
 # frozen_string_literal: true
 
-STDOUT.sync = true
+io = File.open(ARGV.first, "w")
 
 trap("INT") do
-    STDOUT.puts "INT"
+    io.puts "INT"
+    io.close
     exit 1
 end
 
 trap("USR1") do
-    STDOUT.puts "USR1"
+    io.puts "USR1"
+    io.close
     exit 1
 end
 
-STDOUT.puts "READY"
+io.puts "READY"
+io.flush
 STDIN.readline
