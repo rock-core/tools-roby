@@ -10,6 +10,8 @@ module Roby
         module TeardownPlans
             attr_reader :registered_plans
 
+            include ExpectExecution
+
             def initialize(name)
                 super
                 @default_teardown_poll = 0.01

@@ -86,10 +86,6 @@ module Roby
             plan.execution_engine if plan&.executable?
         end
 
-        def execute(&block)
-            execution_engine.execute(&block)
-        end
-
         # Clear the plan and return it
         def new_plan
             plan.clear
