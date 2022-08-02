@@ -7,7 +7,7 @@ module Roby
         # This class rebuilds a plan structure from events saved by
         # {EventLogger}
         #
-        # The data has to be fed cycle-by-cycle to the {#process_cycle} method
+        # The data has to be fed cycle-by-cycle to the {#process_one_cycle} method
         class PlanRebuilder
             # The object that does ID-to-object mapping
             attr_reader :object_manager

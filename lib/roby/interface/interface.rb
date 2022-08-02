@@ -293,8 +293,8 @@ module Roby
             end
 
             # (see Application#remove_ui_event_listener)
-            def remove_ui_event_listener(block)
-                app.remove_ui_event_listener(block)
+            def remove_ui_event_listener(listener)
+                app.remove_ui_event_listener(listener)
             end
 
             # (see Application#on_notification)

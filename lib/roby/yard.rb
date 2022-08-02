@@ -88,7 +88,9 @@ module Roby
 
                 service_module = YARD::CodeObjects::ModuleObject.new(namespace, name)
                 register(service_module)
-                parse_block(statement.last.last, namespace: service_module)
+                if statement.last.last
+                    parse_block(statement.last.last, namespace: service_module)
+                end
                 service_module.dynamic = true # rubocop:disable Lint/UselessSetterCall
             end
         end
@@ -140,7 +142,7 @@ module Roby
                 register(accessor)
                 register_group(accessor, "Task Events")
                 accessor.docstring.add_tag(
-                    *YARD::Docstring.parser.create_tag("return", "[EventGenerator]"))
+                    *YARD::Docstring.parser.create_tag("return", "[EventGenerator<#{name.camelcase(true)}>]"))
 
                 happened = YARD::CodeObjects::MethodObject.new(namespace, "#{name}?")
                 register(happened)
@@ -159,9 +161,10 @@ module Roby
                     event_class = YARD::CodeObjects::ClassObject.new(
                         namespace, name.camelcase(true).to_s
                     )
+                    event_class.superclass = "Roby::Models::TaskEvent"
                     register(event_class)
                     event_class.docstring.replace(
-                        YARD::Docstring.new("Event class used to represent the events emitted by #{namespace}##{name}_event\n\n") +
+                        YARD::Docstring.new("Event class used to represent the events emitted by {#{namespace}##{name}_event}\n\n") +
                         event_class.docstring)
                 end
             end

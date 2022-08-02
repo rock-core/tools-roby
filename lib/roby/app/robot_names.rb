@@ -111,7 +111,7 @@ module Roby
             #
             # @param [String] name a robot name or alias
             # @return [(String,String)]
-            # @raises ArgumentError if the given robot name does not exist
+            # @raise ArgumentError if the given robot name does not exist
             def resolve(name, type = nil)
                 robot_name = aliases[name] || name || default_robot_name
                 if !robot_name
