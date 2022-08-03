@@ -1,0 +1,25 @@
+#! /usr/bin/env ruby
+# frozen_string_literal: true
+
+io = File.open(ARGV.first, "w")
+io.sync
+
+queue = Queue.new
+
+trap("INT") do
+    queue.push "INT"
+end
+
+trap("USR1") do
+    queue.push "USR1"
+end
+
+io.puts "READY"
+io.flush
+loop do
+    io.puts queue.pop(true)
+    io.close
+    exit 0
+rescue ThreadError
+    sleep 0.01
+end
