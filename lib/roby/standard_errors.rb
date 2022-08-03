@@ -426,6 +426,26 @@ module Roby
         end
     end
 
+    # Representation of a task's failure to start
+    class FailedToStart < LocalizedError
+        attr_reader :time
+        attr_reader :reason
+
+        def initialize(failed_task, reason, time)
+            super(failed_task)
+
+            report_exceptions_from(reason)
+            @time = time
+            @reason = reason
+        end
+
+        def pretty_print(pp)
+            pp.text "#{self} failed to start at #{Roby.format_time(time)} because of"
+            pp.breakable
+            @reason.pretty_print(pp)
+        end
+    end
+
     # Exception raised when the event loop aborts because of an unhandled
     # exception
     class Aborting < ExceptionBase

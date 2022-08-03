@@ -422,9 +422,9 @@ module Roby
                         .to { fail_to_start task }
 
                     process_logged_events
-                    assert_equal r_task, rebuilt_plan.failed_to_start[0][0]
-                    assert_kind_of EmissionFailed, rebuilt_plan.failed_to_start[0][1]
-                    assert_kind_of ArgumentError, rebuilt_plan.failed_to_start[0][1].original_exceptions[0]
+                    assert_equal r_task, rebuilt_plan.failed_to_start[0][1]
+                    assert_kind_of EmissionFailed, rebuilt_plan.failed_to_start[0][2]
+                    assert_kind_of ArgumentError, rebuilt_plan.failed_to_start[0][2].original_exceptions[0]
                 end
 
                 it "propagates event emission" do
@@ -453,7 +453,7 @@ module Roby
                         process_logged_events
 
                         assert(
-                            rebuilt_plan.propagated_events.find do |is_forward, events, generator|
+                            rebuilt_plan.propagated_events.find do |_, is_forward, events, generator|
                                 !is_forward &&
                                     generator == r_target &&
                                     events.size == 1 &&
@@ -470,7 +470,7 @@ module Roby
 
                         assert(
                             rebuilt_plan
-                            .propagated_events.any? do |is_forward, events, generator|
+                            .propagated_events.any? do |_, is_forward, events, generator|
                                 !is_forward &&
                                     generator == r_target &&
                                     events.size == 1 &&
@@ -486,7 +486,7 @@ module Roby
                         process_logged_events
 
                         assert(
-                            rebuilt_plan.propagated_events.any? do |is_forward, events, generator|
+                            rebuilt_plan.propagated_events.any? do |_, is_forward, events, generator|
                                 is_forward &&
                                     generator == r_target &&
                                     events.size == 1 &&
@@ -502,7 +502,7 @@ module Roby
                         process_logged_events
 
                         assert(
-                            rebuilt_plan.propagated_events.any? do |is_forward, events, generator|
+                            rebuilt_plan.propagated_events.any? do |_, is_forward, events, generator|
                                 is_forward &&
                                     generator == r_target &&
                                     events.size == 1 &&

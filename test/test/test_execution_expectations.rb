@@ -397,7 +397,32 @@ module Roby
                             predicates: proc { emit generator }
                         )
                     end
+                    it "handles a toplevel task error caused by the event" do
+                        execution_agent_m = Tasks::Simple.new_submodel do
+                            event :ready
+                        end
+                        task_m = Task.new_submodel do
+                            event :start do |context|
+                            end
+                        end
+                        plan.add_mission_task(task = task_m.new)
+                        plan.add(agent = execution_agent_m.new)
+                        task.executed_by agent
+
+                        execute do
+                            agent.start!
+                            agent.ready_event.emit
+                            task.start!
+                        end
+
+                        expect_execution { agent.stop! }
+                            .to do
+                                fail_to_start task
+                                emit agent.stop_event
+                            end
+                    end
                 end
+
                 describe "#emit a task event query" do
                     attr_reader :task_m
 
@@ -451,6 +476,81 @@ module Roby
                             execute: proc { task.start! },
                             predicates: proc { emit find_tasks(task_m).start_event }
                         )
+                    end
+                end
+
+                describe "#not_emit a generator instance" do
+                    it "validates when the event is not emitted" do
+                        plan.add(generator = EventGenerator.new)
+                        expect_execution.to { not_emit generator }
+                    end
+                    it "fails if the event is emitted within the first cycle" do
+                        plan.add(generator = EventGenerator.new)
+                        e = assert_raises(ExecutionExpectations::Unmet) do
+                            expect_execution { generator.emit }
+                                .to { not_emit generator }
+                        end
+                        assert e.message.start_with?(
+                            "1 unmet expectations\n#{generator} "\
+                            "should not be emitted, but it was:"
+                        )
+                    end
+                    it "passes by default after the first cycle" do
+                        plan.add(generator = EventGenerator.new)
+                        count = 0
+                        expect_execution
+                            .poll { count += 1; generator.emit if count == 2 }
+                            .to { not_emit generator }
+                    end
+                    it "may be told given a timespan with the within argument" do
+                        plan.add(generator = EventGenerator.new)
+                        count = 0
+                        assert_raises(ExecutionExpectations::Unmet) do
+                            expect_execution
+                                .poll { count += 1; generator.emit if count == 3 }
+                                .to { not_emit generator, within: 0.1 }
+                        end
+                    end
+                end
+
+                describe "#not_emit a task event query" do
+                    attr_reader :task_m
+                    before do
+                        @task_m = Roby::Tasks::Simple.new_submodel
+                    end
+                    it "validates when the event is not emitted" do
+                        plan.add(task_m.new)
+                        expect_execution.to { not_emit find_tasks(task_m).start_event }
+                    end
+                    it "fails if a matching event is emitted within the first cycle" do
+                        plan.add(task = task_m.new)
+                        query = plan.find_tasks(task_m).start_event
+                        e = assert_raises(ExecutionExpectations::Unmet) do
+                            expect_execution { task.start! }
+                                .to { not_emit query }
+                        end
+                        assert e.message.start_with?(
+                            "1 unmet expectations\nno events matching #{query} should "\
+                            "be emitted, but one was:"
+                        ), e.message
+                    end
+                    it "does not fail by default if it is emitted in the 2nd cycle" do
+                        plan.add(task = task_m.new)
+                        count = 0
+                        expect_execution
+                            .poll { count += 1; task.start! if count > 2 }
+                            .to { not_emit find_tasks(task_m).start_event }
+                    end
+                    it "allows to specify a time to wait with the within option" do
+                        plan.add(task = task_m.new)
+                        count = 0
+                        assert_raises(ExecutionExpectations::Unmet) do
+                            expect_execution
+                                .poll { count += 1; task.start! if count > 2 }
+                                .to do
+                                    not_emit find_tasks(task_m).start_event, within: 0.1
+                                end
+                        end
                     end
                 end
 
@@ -1015,6 +1115,17 @@ module Roby
                         plan.add_mission_task(task = Roby::Task.new)
                         expect_execution { task.quarantined! }.to do
                             ignore_errors_from quarantine(task)
+                        end
+                    end
+
+                    it "calls update_match on the underlying predicates "\
+                       "and ignores the result" do
+                        plan.add_mission_task(task = Roby::Task.new)
+                        expect_execution { task.quarantined! }.to do
+                            matcher = quarantine(task)
+                            flexmock(matcher).should_receive(:update_match).at_least.once
+                                             .and_return(true)
+                            ignore_errors_from matcher
                         end
                     end
                 end

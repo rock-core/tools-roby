@@ -338,10 +338,8 @@ module Roby
             # Add information to the chronicle for the next display update
             #
             # @param [Array<Roby::Task>] tasks the set of tasks to display
-            # @param [Hash<Roby::Task,Roby::Task>] mapping from a placeholder
+            # @param [Hash<Roby::Task,Roby::Task>] job_info from a placeholder
             #   task and the job task it represents
-            # @param [Roby::Schedulers::State] scheduler information to be displayed
-            #   on the chronicle
             def add_tasks_info(tasks, job_info)
                 tasks.each do |t|
                     if base_time && t.addition_time < base_time

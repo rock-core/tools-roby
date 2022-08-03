@@ -46,7 +46,7 @@ module Roby
 
                 # @api private
                 #
-                # Used in {Base#rebind} to update the internal relationships
+                # Used in {Actions#rebind} to update the internal relationships
                 # between coordination tasks
                 def map_tasks(mapping); end
 

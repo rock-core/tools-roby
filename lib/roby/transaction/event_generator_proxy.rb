@@ -27,7 +27,7 @@ module Roby
                     real_object.handlers.each do |h|
                         if h.copy_on_replace?
                             event ||= yield
-                            event.on(h.as_options, &h.block)
+                            event.on(**h.as_options, &h.block)
                         end
                     end
                     real_object.unreachable_handlers.each do |cancel, h|

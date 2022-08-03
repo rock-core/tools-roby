@@ -84,6 +84,7 @@ module Roby
                         # Incoming connections
                         if readable_sockets && !readable_sockets.empty?
                             socket = server.accept
+                            @pending_data[socket] = []
                             socket.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, true)
                             socket.fcntl(Fcntl::FD_CLOEXEC, 1)
 
@@ -184,6 +185,8 @@ module Roby
 
                             begin
                                 written = socket.write_nonblock(buffer)
+                            rescue Interrupt
+                                raise
                             rescue Errno::EAGAIN
                                 Server.debug "cannot send: send buffer full"
                                 chunks.unshift(buffer)

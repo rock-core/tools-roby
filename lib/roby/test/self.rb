@@ -59,6 +59,7 @@ module Roby
 
                 @plan    = ExecutablePlan.new(event_logger: EventReporter.new(STDOUT))
                 @control = DecisionControl.new
+                Roby.app.reset_plan(@plan)
 
                 super
 
@@ -97,6 +98,23 @@ module Roby
                 end
             end
 
+            # Create a temporary directory
+            #
+            # The directory is removed on test teardown. Unlike {#make_tmpdir},
+            # this returns a Pathname. Prefer this method over {#make_tmpdir}
+            #
+            # @return [Pathname]
+            def make_tmppath
+                @temp_dirs << (dir = Dir.mktmpdir)
+                Pathname.new(dir)
+            end
+
+            # Create a temporary directory
+            #
+            # The directory is removed on test teardown. Unlike {#make_tmppath},
+            # this returns a string. Prefer {#make_tmppath}
+            #
+            # @return [String]
             def make_tmpdir
                 @temp_dirs << (dir = Dir.mktmpdir)
                 dir

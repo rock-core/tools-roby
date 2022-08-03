@@ -5,7 +5,7 @@ module Roby
         module V5
             # Dumps a class and its ancestry
             #
-            # Use {ClassDumper} to add the corresponding standard {#droby_dump}
+            # Use {ClassDumper} to add the corresponding standard droby_dump method
             class DRobyClass
                 # The class name
                 attr_reader :name

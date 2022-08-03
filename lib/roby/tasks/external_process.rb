@@ -5,10 +5,19 @@ require "fcntl"
 module Roby
     module Tasks
         # This task class can be used to monitor the execution of an external
-        # process. Among the useful features, it can redirect standard output and
+        # process.
+        #
+        # Importantly, the task by default is not interruptible, because there
+        # is no good common way to gracefully terminate an external program.  To
+        # use the common way to stop the task with a signal, use
+        # {.interruptible_with_signal} instead of {.new} to create a task instance, which
+        # will set it up by default for you
+        #
+        # Among the useful features, it can redirect standard output and
         # error output to files.
         #
         # The events will act as follows:
+        #
         # * the start command starts the process per se. The event is emitted once
         #   the process has been spawned with success
         # * the signaled event is emitted when the process dies because of a signal.
@@ -17,11 +26,6 @@ module Roby
         #   status. The event's context is the Process::Status object.
         # * the success event is emitted when the process exits with a zero status
         # * the stop event is emitted when the process exits, regardless of how
-        #
-        # The task by default is not interruptible, because there is no good
-        # common way to gracefully terminate an external program. To e.g. use
-        # signals, one would need to explicitely make the :stop command send a
-        # signal to {#pid} and let ExternalProcess' signal handling do the rest.
         class ExternalProcess < Roby::Task
             ##
             # :attr_reader:
@@ -39,7 +43,7 @@ module Roby
 
             # Event emitted if the process died because of a signal
             #
-            # @param [Process::Status] the process status
+            # It carries the process signal as Process::Status
             event :signaled
 
             forward :signaled => :failed
@@ -48,8 +52,9 @@ module Roby
             # running
             attr_reader :pid
 
-            def initialize(command_line: [], **arguments)
-                command_line = Array(command_line)
+            def initialize(command_line: nil, **arguments)
+                command_line = Array(command_line) if command_line
+
                 @pid = nil
                 @buffer = nil
                 @redirection = {}

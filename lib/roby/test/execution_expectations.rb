@@ -32,12 +32,18 @@ module Roby
             # cannot test for the non-existence of a delayed emission
             #
             # @return [nil]
-            def not_emit(*generators, backtrace: caller(1))
+            def not_emit(*generators, within: 0, backtrace: caller(1))
                 generators.map do |generator|
                     if generator.kind_of?(EventGenerator)
-                        add_expectation(NotEmitGenerator.new(generator, backtrace))
+                        add_expectation(
+                            NotEmitGenerator.new(generator, backtrace, within: within)
+                        )
                     else
-                        add_expectation(NotEmitGeneratorModel.new(generator, backtrace))
+                        add_expectation(
+                            NotEmitGeneratorModel.new(
+                                generator, backtrace, within: within
+                            )
+                        )
                     end
                 end
             end
@@ -471,7 +477,7 @@ module Roby
             # Whether the execution will run until the timeout if the
             # expectations have not been met yet.
             #
-            # The default is 5s
+            # The default is true
             #
             # @param [Boolean] wait
             dsl_attribute :wait_until_timeout
@@ -786,8 +792,17 @@ module Roby
                     @expectations = Array(expectations)
                 end
 
+                def update_match(propagation_info)
+                    # Call the underlying #update_match as some matchers cache
+                    # information there
+                    @expectations.each { |e| e.update_match(propagation_info) }
+                    true
+                end
+
                 def relates_to_error?(error)
-                    @expectations.any? { |e| e.relates_to_error?(error) }
+                    @expectations.any? do |e|
+                        e.relates_to_error?(error)
+                    end
                 end
 
                 def filter_result(_result)
@@ -796,14 +811,17 @@ module Roby
             end
 
             class NotEmitGenerator < Expectation
-                def initialize(generator, backtrace)
+                def initialize(generator, backtrace, within: 0.5)
                     super(backtrace)
                     @generator = generator
+                    @emitted_events = []
                     @related_error_matcher =
                         Queries::LocalizedErrorMatcher
                         .new
                         .with_origin(@generator)
                         .to_execution_exception_matcher
+
+                    @deadline = Time.now + within
                 end
 
                 def to_s
@@ -811,11 +829,12 @@ module Roby
                 end
 
                 def update_match(propagation_info)
-                    @emitted_events =
+                    @emitted_events +=
                         propagation_info
                         .emitted_events
                         .find_all { |ev| ev.generator == @generator }
-                    @emitted_events.empty?
+
+                    @emitted_events.empty? if Time.now >= @deadline
                 end
 
                 def unachievable?(_propagation_info)
@@ -829,17 +848,23 @@ module Roby
                 def relates_to_error?(error)
                     @related_error_matcher === error
                 end
+
+                def format_unachievable_explanation(pp, explanation)
+                    pp.text "but it was: "
+                    explanation.pretty_print(pp)
+                end
             end
 
             class NotEmitGeneratorModel < Expectation
                 attr_reader :generator_model
 
-                def initialize(event_query, backtrace)
+                def initialize(event_query, backtrace, within: 0.5)
                     super(backtrace)
                     @event_query = event_query
                     @generators = []
                     @related_error_matchers = []
                     @emitted_events = []
+                    @deadline = Time.now + within
                 end
 
                 def to_s
@@ -847,7 +872,7 @@ module Roby
                 end
 
                 def update_match(propagation_info)
-                    @emitted_events =
+                    @emitted_events +=
                         propagation_info
                         .emitted_events
                         .find_all do |ev|
@@ -860,7 +885,8 @@ module Roby
                                 .with_origin(ev.generator)
                                 .to_execution_exception_matcher
                         end
-                    @emitted_events.empty?
+
+                    @emitted_events.empty? if Time.now > @deadline
                 end
 
                 def unachievable?(_propagation_info)
@@ -873,6 +899,11 @@ module Roby
 
                 def relates_to_error?(error)
                     @related_error_matchers.any? { |match| match === error }
+                end
+
+                def format_unachievable_explanation(pp, explanation)
+                    pp.text "but one was: "
+                    explanation.pretty_print(pp)
                 end
             end
 

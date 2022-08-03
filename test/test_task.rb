@@ -1419,8 +1419,16 @@ module Roby
                     task.mark_failed_to_start(flexmock, t = Time.now)
                     assert_equal t, task.failed_to_start_time
                 end
-                it "sets the failure reason" do
+                it "sets the failure reason to FailedToStart "\
+                   "if it is not localized on the task already" do
                     task.mark_failed_to_start(reason = flexmock, Time.now)
+                    assert_kind_of FailedToStart, task.failure_reason
+                    assert_equal reason, task.failure_reason.reason
+                end
+                it "sets the failure reason to the given reason "\
+                   "if it is already localized on the task" do
+                    reason = LocalizedError.new(task)
+                    task.mark_failed_to_start(reason, Time.now)
                     assert_equal reason, task.failure_reason
                 end
                 it "sets the task as failed in the index" do
@@ -1459,7 +1467,7 @@ module Roby
                     assert_raises(InternalError) do
                         task.mark_failed_to_start(flexmock, Time.now)
                     end
-                    assert !task.failed_to_start?
+                    refute task.failed_to_start?
                 end
             end
         end
@@ -1575,6 +1583,30 @@ module Roby
                 execute { task.start! }
                 execute { task.stop_event.emit }
                 assert_equal :finished, task.current_state
+            end
+        end
+
+        describe "#failed_to_start!" do
+            before do
+                plan.add(@task = Roby::Test::Tasks::Simple.new)
+                execute { @task.failed_to_start!("test") }
+            end
+
+            it "marks the task as failed to start" do
+                assert @task.failed_to_start?
+            end
+            it "marks the task as failed" do
+                assert @task.failed?
+                assert_equal [@task], plan.find_tasks.failed.to_a
+            end
+            it "resets the pending flag" do
+                refute @task.pending?
+                assert_equal [], plan.find_tasks.pending.to_a
+            end
+
+            it "sets failure_reason to FailedToStart" do
+                assert_kind_of FailedToStart, @task.failure_reason
+                assert_equal "test", @task.failure_reason.reason
             end
         end
     end
@@ -2585,19 +2617,6 @@ class TC_Task < Minitest::Test
 
         assert(task.running?)
         assert(new.running?)
-    end
-
-    def test_failed_to_start
-        plan.add(task = Roby::Test::Tasks::Simple.new)
-        execute { task.failed_to_start!("test") }
-        assert task.failed_to_start?
-        assert_equal "test", task.failure_reason
-        assert task.failed?
-        assert !task.pending?
-        assert !task.running?
-        assert_equal [], plan.find_tasks.pending.to_a
-        assert_equal [], plan.find_tasks.running.to_a
-        assert_equal [task], plan.find_tasks.failed.to_a
     end
 
     def test_cannot_call_event_on_task_that_failed_to_start

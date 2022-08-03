@@ -822,7 +822,7 @@ module Roby
                 #
                 # This is usually used to under-constraint the model instances
                 #
-                # @param [Array<Models::Task,TaskService>] the list of models
+                # @param [Array<Models::Task,TaskService>] models the list of models
                 def fullfilled_model=(models)
                     if !models.respond_to?(:to_ary)
                         raise ArgumentError, "expected an array, got #{models}"

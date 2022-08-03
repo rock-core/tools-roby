@@ -5,8 +5,6 @@ require "roby/interface/async"
 require "roby/interface/tcp"
 require_relative "client_server_test_helpers"
 
-Concurrent.disable_at_exit_handlers!
-
 module Roby
     module Interface
         module Async

@@ -17,8 +17,8 @@ module Roby
 
                 # The object used to communicate with the Roby instance
                 #
-                # It is set only after {#roby_wait} was called (or after a
-                # {#roby_start} whose wait parameter was set to true)
+                # It is set only after {#roby_connect} was called (or after a
+                # {#roby_start} whose connect parameter was set to true)
                 #
                 # @return [Roby::Interface::Client,nil]
                 attr_reader :roby_interface
@@ -76,11 +76,11 @@ module Roby
                 #
                 # @param [String] robot_name the name of the robot configuration
                 # @param [String] robot_type the type of the robot configuration
-                # @param [Boolean] wait whether the method should wait for a
-                #   successful connection to the Roby application
                 # @param [Boolean] controller whether the configuration's controller
                 #   blocks should be executed
                 # @param [Hash] state initial values for the state
+                # @option [Boolean] wait whether the method should wait for a
+                #   successful connection to the Roby application
                 #
                 # @raise InvalidState if a controller is already running
                 def roby_start(

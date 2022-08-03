@@ -141,7 +141,7 @@ module Roby
             #   it has already been emitted.
             def wait(event, options = {})
                 event, model_event = resolve_event(event)
-                model.wait(model_event, options)
+                model.wait(model_event, **options)
                 event
             end
 

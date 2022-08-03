@@ -4,7 +4,7 @@ module Roby
     module Queries
         # Maintains a set of tasks as classified sets, speeding up query operations.
         #
-        # @see {Roby::Plan#task_index} {Roby::Queries::Query}
+        # @see Roby::Plan#task_index Roby::Queries::Query
         class Index
             # A model => Set map of the tasks for each model
             attr_reader :by_model
