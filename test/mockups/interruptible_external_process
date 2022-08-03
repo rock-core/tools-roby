@@ -2,19 +2,24 @@
 # frozen_string_literal: true
 
 io = File.open(ARGV.first, "w")
+io.sync
+
+queue = Queue.new
 
 trap("INT") do
-    io.puts "INT"
-    io.close
-    exit 1
+    queue.push "INT"
 end
 
 trap("USR1") do
-    io.puts "USR1"
-    io.close
-    exit 1
+    queue.push "USR1"
 end
 
 io.puts "READY"
 io.flush
-STDIN.readline
+loop do
+    io.puts queue.pop(true)
+    io.close
+    exit 0
+rescue ThreadError
+    sleep 0.01
+end
