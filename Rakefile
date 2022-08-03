@@ -5,6 +5,8 @@ require "rake/testtask"
 require "yard"
 require "yard/rake/yardoc_task"
 
+ENV.delete("ROBY_PLUGIN_PATH")
+
 task :default
 
 TESTOPTS = ENV.delete("TESTOPTS") || ""

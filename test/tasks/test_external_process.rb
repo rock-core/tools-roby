@@ -8,7 +8,8 @@ module Roby
         describe ExternalProcess do
             MOCKUP = File.expand_path(
                 File.join("..", "mockups", "external_process"),
-                File.dirname(__FILE__))
+                File.dirname(__FILE__)
+            ).freeze
 
             class MockupTask < Roby::Tasks::ExternalProcess
                 event :stop do |context|
@@ -229,7 +230,7 @@ module Roby
 
                 pipe_task_m = ExternalProcess.new_submodel do
                     attr_reader :received_data
-                    def initialize(args = {})
+                    def initialize(**)
                         super
                         @received_data = Hash[stderr: String.new, stdout: String.new]
                     end
@@ -282,6 +283,66 @@ module Roby
                     end
                     expected = `#{MOCKUP} --common 2>&1`
                     assert_equal expected, output
+                end
+            end
+
+            describe ".interruptible_with_signal" do
+                before do
+                    @mockup = File.expand_path(
+                        File.join("..", "mockups", "interruptible_external_process"),
+                        File.dirname(__FILE__)
+                    ).freeze
+                    @working_directory = make_tmpdir
+                end
+
+                after do
+                    if @task.running?
+                        task = @task
+                        Process.kill("KILL", task.pid)
+                        expect_execution.to { emit task.stop_event }
+                    end
+                end
+
+                def prepare_task(**options)
+                    @out_file = File.join(@working_directory, "out")
+                    FileUtils.touch @out_file
+                    @task = task = Roby::Tasks::ExternalProcess.interruptible_with_signal(
+                        command_line: [@mockup, @out_file], **options
+                    )
+                    plan.add(@task)
+                    expect_execution { task.start! }.to { emit task.start_event }
+
+                    assert_outfile_contents_eventually_match(@task, /READY/)
+                    task
+                end
+
+                it "creates a process that gets interrupted with SIGINT by default" do
+                    task = prepare_task
+                    expect_execution { task.stop! }.to { emit task.stop_event }
+                    contents = assert_outfile_contents_eventually_match(@task, /INT/)
+                    refute_match(/USR1/, contents)
+                end
+
+                it "allows changing the signal" do
+                    task = prepare_task(signal: "USR1")
+                    expect_execution { task.stop! }.to { emit task.stop_event }
+                    contents = assert_outfile_contents_eventually_match(@task, /USR1/)
+                    refute_match(/INT/, contents)
+                end
+
+                def assert_outfile_contents_eventually_match(task, regexp)
+                    deadline = Time.now + 5
+                    while Time.now < deadline
+                        if File.read(@out_file) =~ regexp
+                            assert(true) # statistics !
+                            return
+                        end
+
+                        execute_one_cycle
+                        assert task.running?, "task stopped unexpectedly"
+                        sleep 0.01
+                    end
+                    assert_match regexp, File.read(@out_file)
                 end
             end
         end

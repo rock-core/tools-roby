@@ -75,19 +75,21 @@ module Roby
                 end
             end
 
-            ##
-            # If set to a string, the process' standard output will be redirected to
-            # the given file. The following replacement is done:
-            # * '%p' is replaced by the process PID
+            # @overload redirect_output(common)
+            # @overload redirect_output(stdout: nil, stderr: nil)
+            #   Redirect either stdout and stderr. The redirection target can either be
+            #   a string, which is interpreted as a path, or one of :pipe and :close.
             #
-            # The last form (with nil argument) removes any redirection. A specific
-            # redirection can also be disabled using the hash form:
-            #   redirect_output stdout: nil
+            #   If redirecting to a string, %p is replaced by the process actual
+            #   PID. Both can be redirected to the same output file
             #
-            # :call-seq:
-            #   redirect_output "file"
-            #   redirect_output stdout: "file-out", stderr: "another-file"
-            #   redirect_output nil
+            #   The special value :pipe shall be used to make the task read the
+            #   process output and call {#stdout_received} (resp.
+            #   {#stderr_received}) with it. :close will make the task close
+            #   this output
+            #
+            #   Pass `nil` to not redirect this particular output. Calling the method
+            #   with a single argument applies this redirection to both outputs.
             #
             def redirect_output(common = nil, stdout: nil, stderr: nil)
                 if @pid
@@ -272,6 +274,27 @@ module Roby
                 read_pipes
                 @out_pipe&.close
                 @err_pipe&.close
+            end
+
+            # Create an ExternalProcess task that can be interrupted with the
+            # given signal
+            def self.interruptible_with_signal(signal: "INT", **arguments)
+                InterruptibleWithSignal.new(signal: signal, **arguments)
+            end
+
+            # A subclass of {ExternalProcess} that terminates its underlying
+            # process with a signal (default is INT)
+            #
+            # You usually don't create this directly, but use
+            # {ExternalProcess.interruptible_with_signal}
+            class InterruptibleWithSignal < ExternalProcess
+                argument :signal, default: "INT"
+
+                event :failed, terminal: true do |_|
+                    kill(signal)
+                end
+
+                interruptible
             end
         end
     end
