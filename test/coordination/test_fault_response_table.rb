@@ -111,6 +111,7 @@ describe Roby::Coordination::FaultResponseTable do
     describe "the fault response" do
         attr_reader :error_m, :response_task_m, :table_m, :fault_handler_m
         attr_reader :root_task
+
         before do
             @error_m = Class.new(Roby::LocalizedError)
             @response_task_m = response_task_m = Roby::Task.new_submodel do

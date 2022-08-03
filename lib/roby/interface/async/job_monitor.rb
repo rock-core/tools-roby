@@ -124,10 +124,9 @@ module Roby
                 # Triggers {#on_exception} and {#on_planning_failed} hooks
                 def notify_exception(kind, exception)
                     if exception.exception.kind_of?(PlanningFailedError)
-                        if job_id = exception.exception.planning_task.arguments[:job_id]
-                            if job_id == self.job_id
-                                run_hook :on_planning_failed, kind, exception
-                            end
+                        job_id = exception.exception.planning_task.arguments[:job_id]
+                        if job_id && (job_id == self.job_id)
+                            run_hook :on_planning_failed, kind, exception
                         end
                     end
                     run_hook :on_exception, kind, exception

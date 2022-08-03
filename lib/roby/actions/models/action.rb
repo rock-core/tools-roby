@@ -28,6 +28,7 @@ module Roby
                 #
                 # @return [Array<Argument>]
                 attr_reader :arguments
+
                 # If true, the method is flagged as advanced. I.e., it won't be
                 # listed by default in the shell when the 'actions' command is
                 # called

@@ -3,8 +3,7 @@
 module Roby
     module Queries
         class LocalQueryResult
-            attr_reader :plan
-            attr_reader :initial_set
+            attr_reader :plan, :initial_set
             attr_accessor :result_set
 
             def initialize(plan, initial_set, result_set)

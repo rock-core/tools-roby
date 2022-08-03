@@ -5,8 +5,7 @@ module Roby
         module V5
             module BidirectionalGraphDumper
                 class DRoby
-                    attr_reader :vertices
-                    attr_reader :edges
+                    attr_reader :vertices, :edges
 
                     def initialize(vertices, edges)
                         @vertices = vertices
@@ -82,8 +81,7 @@ module Roby
             # Exception class used on the unmarshalling of LocalizedError for exception
             # classes that do not have their own marshalling
             class UntypedLocalizedError < LocalizedError
-                attr_accessor :formatted_message
-                attr_accessor :exception_class
+                attr_accessor :formatted_message, :exception_class
 
                 def initialize(failure_point, fatal: nil)
                     super(failure_point)
@@ -123,6 +121,7 @@ module Roby
                 class DRoby
                     attr_reader :model, :failure_point, :fatal, :message, :backtrace,
                                 :original_exceptions, :formatted_message
+
                     def initialize(model, failure_point, fatal, message, backtrace,
                                    original_exceptions, formatted_message = [])
                         @model, @failure_point, @fatal, @message, @backtrace,
@@ -152,9 +151,8 @@ module Roby
                 end
 
                 class DRoby
-                    attr_reader :planned_task
-                    attr_reader :planning_task
-                    attr_reader :failure_reason
+                    attr_reader :planned_task, :planning_task, :failure_reason
+
                     def initialize(planned_task, planning_task, failure_reason)
                         @planned_task  = planned_task
                         @planning_task = planning_task
@@ -178,9 +176,7 @@ module Roby
                 end
 
                 class DRoby
-                    attr_reader :trace
-                    attr_reader :exception
-                    attr_reader :handled
+                    attr_reader :trace, :exception, :handled
 
                     def initialize(trace, exception, handled)
                         @trace, @exception, @handled = trace, exception, handled
@@ -222,8 +218,7 @@ module Roby
                     end
 
                     class DRoby < DRobyModel
-                        attr_reader :events
-                        attr_reader :arguments
+                        attr_reader :events, :arguments
 
                         def initialize(name, remote_siblings, arguments, supermodel, provided_models, events)
                             super(name, remote_siblings, supermodel, provided_models)
@@ -276,6 +271,7 @@ module Roby
                     attr_reader :remote_siblings
                     # The set of owners for that object.
                     attr_reader :owners
+
                     # Create a DistributedObject::DRoby object with the given information
                     def initialize(remote_siblings, owners)
                         @remote_siblings, @owners = remote_siblings, owners
@@ -374,10 +370,7 @@ module Roby
                 end
 
                 class DRoby
-                    attr_reader :propagation_id
-                    attr_reader :time
-                    attr_reader :generator
-                    attr_reader :context
+                    attr_reader :propagation_id, :time, :generator, :context
 
                     def initialize(propagation_id, time, generator, context)
                         @propagation_id, @time, @generator, @context = propagation_id, time, generator, context
@@ -479,6 +472,7 @@ module Roby
             module TaskArgumentsDumper
                 class DRoby
                     attr_reader :values
+
                     def initialize(values)
                         @values = values
                     end
@@ -598,17 +592,7 @@ module Roby
                 end
 
                 class DRoby
-                    attr_reader :plan_class
-                    attr_reader :droby_id
-                    attr_reader :groups
-                    attr_reader :tasks
-                    attr_reader :task_events
-                    attr_reader :free_events
-                    attr_reader :mission_tasks
-                    attr_reader :permanent_tasks
-                    attr_reader :permanent_events
-                    attr_reader :task_relation_graphs
-                    attr_reader :event_relation_graphs
+                    attr_reader :plan_class, :droby_id, :groups, :tasks, :task_events, :free_events, :mission_tasks, :permanent_tasks, :permanent_events, :task_relation_graphs, :event_relation_graphs
 
                     def initialize(plan_class, droby_id,
                                    tasks, task_events, free_events,
@@ -801,6 +785,7 @@ module Roby
                     # be sent to our peers.
                     class DRoby
                         attr_reader :ops
+
                         def initialize(ops)
                             @ops = ops
                         end
@@ -842,6 +827,7 @@ module Roby
                     # be sent to our peers.
                     class DRoby
                         attr_reader :ops
+
                         def initialize(ops)
                             @ops = ops
                         end
@@ -863,6 +849,7 @@ module Roby
                     # be sent to our peers.
                     class DRoby
                         attr_reader :exception_matcher, :involved_tasks_matchers
+
                         def initialize(exception_matchers, involved_tasks_matchers)
                             @exception_matcher = exception_matcher
                             @involved_tasks_matchers = involved_tasks_matchers
@@ -892,6 +879,7 @@ module Roby
                     # be sent to our peers.
                     class DRoby
                         attr_reader :model, :failure_point_matcher
+
                         def initialize(model, failure_point_matcher)
                             @model = model
                             @failure_point_matcher = failure_point_matcher
@@ -920,13 +908,7 @@ module Roby
                     class DRoby
                         # The exact match class that has been marshalled using this object
                         attr_reader :model
-                        attr_reader :predicates
-                        attr_reader :neg_predicates
-                        attr_reader :indexed_predicates
-                        attr_reader :indexed_neg_predicates
-                        attr_reader :parents
-                        attr_reader :children
-                        attr_reader :owners
+                        attr_reader :predicates, :neg_predicates, :indexed_predicates, :indexed_neg_predicates, :parents, :children, :owners
 
                         def initialize(model, predicates, neg_predicates, indexed_predicates, indexed_neg_predicates, owners, parents, children)
                             @model = model
@@ -1001,9 +983,9 @@ module Roby
                     # An intermediate representation of Query objects suitable to be sent
                     # to our peers.
                     class DRoby < TaskMatcherDumper::DRoby
-                        attr_accessor :plan_id
-                        attr_accessor :scope
+                        attr_accessor :plan_id, :scope
                         attr_reader :plan_predicates, :neg_plan_predicates
+
                         def initialize(*args)
                             super
                             @plan_predicates, @neg_plan_predicates = Set.new, Set.new

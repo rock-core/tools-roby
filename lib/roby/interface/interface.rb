@@ -260,9 +260,10 @@ module Roby
                 end
 
                 job_notifications = self.job_notifications.find_all do |event, job_id, *|
-                    if event == JOB_FINALIZED
+                    case event
+                    when JOB_FINALIZED
                         true
-                    elsif event == JOB_DROPPED
+                    when JOB_DROPPED
                         !final_tracked_jobs.include?(job_id)
                     else
                         tracked_jobs.include?(job_id)
@@ -452,10 +453,9 @@ module Roby
                 end
                 planning_task.success_event.on do |ev|
                     job_task = planning_task.planned_task
-                    if job_task == service.task
-                        if job_task.pending? || job_task.starting?
-                            job_notify(JOB_READY, job_id, job_name)
-                        end
+                    if job_task == service.task &&
+                       (job_task.pending? || job_task.starting?)
+                        job_notify(JOB_READY, job_id, job_name)
                     end
                 end
                 planning_task.stop_event.on do |ev|

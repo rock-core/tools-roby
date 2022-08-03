@@ -7,6 +7,7 @@ module Roby
             # @return [#read_nonblock,#write] the channel that allows us to
             #   communicate to clients
             attr_reader :io
+
             # @return [Boolean] true if the local process is the client or the
             #   server
             attr_predicate :client?

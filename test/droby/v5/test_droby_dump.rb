@@ -197,6 +197,7 @@ module Roby
 
                     describe TaskDumper do
                         attr_reader :task_m
+
                         before do
                             @task_m = Roby::Task.new_submodel
                             task_m.terminates
@@ -501,8 +502,8 @@ module Roby
                     end
                 end
 
-                module Actions
-                    describe ActionDumper do
+                describe Actions do
+                    describe Actions::ActionDumper do
                         it "resolves the action arguments and model" do
                             task_m = Roby::Task.new_submodel
                             interface_m = Roby::Actions::Interface.new_submodel(name: "Test") do
@@ -522,8 +523,8 @@ module Roby
                         end
                     end
 
-                    module Models
-                        describe ActionDumper do
+                    describe Actions::Models do
+                        describe Actions::Models::ActionDumper do
                             it "resolves them on existing interface models" do
                                 task_m = Roby::Task.new_submodel
                                 interface_m = Roby::Actions::Interface.new_submodel(name: "Test") do
@@ -556,14 +557,14 @@ module Roby
                     end
                 end
 
-                module Queries
-                    describe AndMatcherDumper do
+                describe Queries do
+                    describe Queries::AndMatcherDumper do
                         it "is droby-marshallable" do
                             q0, q1 = flexmock, flexmock
                             and_q  = Roby::Queries::AndMatcher.new(q0, q1)
                             flexmock(marshaller).should_receive(:dump).with(and_q).pass_thru
                             flexmock(marshaller).should_receive(:dump).with([q0, q1]).and_return(42).once
-                            flexmock(demarshaller).should_receive(:local_object).with(AndMatcherDumper::DRoby).pass_thru
+                            flexmock(demarshaller).should_receive(:local_object).with(Queries::AndMatcherDumper::DRoby).pass_thru
                             flexmock(demarshaller).should_receive(:local_object).with(42).and_return([q0, q1]).once
                             q = transfer(and_q)
                             assert_kind_of Roby::Queries::AndMatcher, q
@@ -571,13 +572,13 @@ module Roby
                         end
                     end
 
-                    describe OrMatcherDumper do
+                    describe Queries::OrMatcherDumper do
                         it "is droby-marshallable" do
                             q0, q1 = flexmock, flexmock
                             or_q = Roby::Queries::OrMatcher.new(q0, q1)
                             flexmock(marshaller).should_receive(:dump).with(or_q).pass_thru
                             flexmock(marshaller).should_receive(:dump).with([q0, q1]).and_return(42).once
-                            flexmock(demarshaller).should_receive(:local_object).with(OrMatcherDumper::DRoby).pass_thru
+                            flexmock(demarshaller).should_receive(:local_object).with(Queries::OrMatcherDumper::DRoby).pass_thru
                             flexmock(demarshaller).should_receive(:local_object).with(42).and_return([q0, q1]).once
                             q = transfer(or_q)
                             assert_kind_of Roby::Queries::OrMatcher, q
@@ -585,12 +586,12 @@ module Roby
                         end
                     end
 
-                    describe NotMatcherDumper do
+                    describe Queries::NotMatcherDumper do
                         it "is droby-marshallable" do
                             not_q = Roby::Queries::NotMatcher.new(q = flexmock)
                             flexmock(marshaller).should_receive(:dump).with(not_q).pass_thru
                             flexmock(marshaller).should_receive(:dump).with(q).and_return(42).once
-                            flexmock(demarshaller).should_receive(:local_object).with(NotMatcherDumper::DRoby).pass_thru
+                            flexmock(demarshaller).should_receive(:local_object).with(Queries::NotMatcherDumper::DRoby).pass_thru
                             flexmock(demarshaller).should_receive(:local_object).with(42)
                                 .and_return(q).once
                             unmarshalled = transfer(not_q)
@@ -599,7 +600,7 @@ module Roby
                         end
                     end
 
-                    describe PlanObjectMatcherDumper do
+                    describe Queries::PlanObjectMatcherDumper do
                         let(:matcher) { Roby::Queries::PlanObjectMatcher.new }
 
                         it "demarshals as PlanObjectMatcher" do
@@ -631,6 +632,7 @@ module Roby
 
                         describe "relation matching" do
                             attr_reader :task_m, :r_task_m, :r_dependency
+
                             before do
                                 @task_m = Task.new_submodel
                                 marshaller_object_manager.register_object(task_m)
@@ -667,7 +669,7 @@ module Roby
                         end
                     end
 
-                    describe TaskMatcherDumper do
+                    describe Queries::TaskMatcherDumper do
                         let(:matcher) { Roby::Queries::TaskMatcher.new }
 
                         it "marshals the argument specifications" do
@@ -680,7 +682,7 @@ module Roby
                         end
                     end
 
-                    describe QueryDumper do
+                    describe Queries::QueryDumper do
                         it "maps the plan" do
                             query = local_plan.find_tasks
                             query = transfer(query)

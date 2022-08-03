@@ -64,6 +64,7 @@ module Roby
 
                 describe "#update" do
                     attr_reader :provided_m, :local, :droby_model
+
                     before do
                         @provided_m = Module.new { extend Identifiable }
                         @droby_model = DRobyModel.new("", {}, Class.new, [marshalled_m = flexmock])

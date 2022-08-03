@@ -6,6 +6,7 @@ require "roby/tasks/simple"
 describe Roby::Queries::LocalizedErrorMatcher do
     describe "#===" do
         attr_reader :task_model, :task
+
         before do
             @task_model = Roby::Task.new_submodel
             plan.add(@task = task_model.new)

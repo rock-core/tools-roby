@@ -350,6 +350,7 @@ module Roby
 
         describe "event validation" do
             attr_reader :task
+
             before do
                 model = Tasks::Simple.new_submodel do
                     event(:inter, command: true)
@@ -429,6 +430,7 @@ module Roby
 
         describe "model-level event handlers" do
             attr_reader :task_m
+
             before do
                 @task_m = Tasks::Simple.new_submodel
             end
@@ -498,6 +500,7 @@ module Roby
                 it "does parallel-assignment of arguments given to it at initialization" do
                     task_m = Class.new(self.task_m) do
                         attr_reader :parallel_assignment
+
                         def assign_arguments(**args)
                             @parallel_assignment = args
                             super
@@ -521,6 +524,7 @@ module Roby
 
         describe "#last_event" do
             attr_reader :task
+
             before do
                 plan.add(@task = Roby::Tasks::Simple.new)
             end
@@ -698,6 +702,7 @@ module Roby
 
             describe "on_replace: :copy" do
                 attr_reader :task, :replacement
+
                 before do
                     plan.add(@task = Roby::Tasks::Simple.new(id: 1))
                     @replacement = Roby::Tasks::Simple.new(id: 1)
@@ -877,6 +882,7 @@ module Roby
 
         describe "polling" do
             attr_reader :task_m
+
             before do
                 @task_m = Tasks::Simple.new_submodel
             end
@@ -1171,6 +1177,7 @@ module Roby
 
         describe "#clear_relations" do
             attr_reader :task, :strong_graph, :ev
+
             before do
                 strong_relation_m = Relations::Graph.new_submodel(strong: true)
                 EventStructure.add_relation(strong_relation_m)
@@ -1314,6 +1321,7 @@ module Roby
 
         describe "#reusable?" do
             attr_reader :task
+
             before do
                 task_m = Roby::Task.new_submodel do
                     event(:start) { |context| start_event.emit }
@@ -1431,6 +1439,7 @@ module Roby
 
             describe "pending tasks" do
                 attr_reader :task
+
                 before do
                     plan.add(@task = Tasks::Simple.new)
                 end
@@ -1439,6 +1448,7 @@ module Roby
 
             describe "starting tasks" do
                 attr_reader :task
+
                 before do
                     task_m = Roby::Task.new_submodel do
                         terminates
@@ -1464,6 +1474,7 @@ module Roby
 
         describe "#handle_exception" do
             attr_reader :task_m, :localized_error_m, :recorder
+
             before do
                 @task_m = Roby::Task.new_submodel
                 @localized_error_m = Class.new(LocalizedError)
@@ -1513,6 +1524,7 @@ module Roby
 
         describe "#promise" do
             attr_reader :task
+
             before do
                 plan.add(@task = Roby::Tasks::Simple.new)
             end

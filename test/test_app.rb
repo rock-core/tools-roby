@@ -340,6 +340,7 @@ module Roby
 
         describe "#start_log_server" do
             attr_reader :logfile_path
+
             before do
                 @logfile_path, writer = roby_app_create_logfile
                 writer.close
@@ -631,6 +632,7 @@ module Roby
 
         describe ".common_optparse_setup" do
             attr_reader :parser
+
             before do
                 @parser = OptionParser.new
                 Application.common_optparse_setup(parser)
@@ -664,6 +666,7 @@ module Roby
             end
             describe "discovery through the 'current' symlink" do
                 attr_reader :log_dir, :current_path
+
                 before do
                     app.log_base_dir = make_tmpdir
                     @log_dir = make_tmpdir

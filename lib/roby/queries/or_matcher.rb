@@ -7,6 +7,8 @@ module Roby
         class OrMatcher < MatcherBase
             # Create a new OrMatcher object combining the given predicates.
             def initialize(*ops)
+                super()
+
                 @ops = ops
             end
 

@@ -78,8 +78,7 @@ module Roby
         # Note that it is not an exception as a failed conflict is usually
         # handled by calling #failed_to_start! on the newly started task
         class ConflictError
-            attr_reader :starting_task
-            attr_reader :running_tasks
+            attr_reader :starting_task, :running_tasks
 
             def initialize(starting_task, running_tasks)
                 @starting_task, @running_tasks = starting_task, running_tasks

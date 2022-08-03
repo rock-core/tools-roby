@@ -11,6 +11,8 @@ module Roby
             attr_reader :plan
 
             def initialize(plan)
+                super()
+
                 @plan = plan
             end
 

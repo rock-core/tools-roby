@@ -4,6 +4,7 @@ require "roby/test/self"
 
 class TC_TransactionsProxy < Minitest::Test
     attr_reader :transaction
+
     def setup
         super
         @transaction = Roby::Transaction.new(plan)

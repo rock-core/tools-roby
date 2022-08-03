@@ -73,7 +73,7 @@ end
 
 module Enumerable
     def empty?
-        each { return false }
+        each { return false } # rubocop:disable Lint/UnreachableLoop
         true
     end
 end
@@ -100,9 +100,10 @@ end
 
 module Roby
     def self.format_time(time, format = "hms")
-        if format == "sec"
+        case format
+        when "sec"
             time.to_f.to_s
-        elsif format == "hms"
+        when "hms"
             time.strftime("%H:%M:%S.%3N")
         else
             time.strftime(format)
@@ -160,8 +161,7 @@ module Roby
     extend logger_m
 
     class << self
-        attr_accessor :enable_deprecation_warnings
-        attr_accessor :deprecation_warnings_are_errors
+        attr_accessor :enable_deprecation_warnings, :deprecation_warnings_are_errors
     end
     @enable_deprecation_warnings = true
     @deprecation_warnings_are_errors = (ENV["ROBY_ALL_DEPRECATIONS_ARE_ERRORS"] == "1")

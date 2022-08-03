@@ -38,8 +38,7 @@ module Roby
     # to the delayed arguments, allowing for instance two default argument
     # to be merged if they have the same value.
     class TaskArguments
-        attr_reader :task
-        attr_reader :values
+        attr_reader :task, :values
 
         def initialize(task)
             @task   = task
@@ -629,7 +628,7 @@ module Roby
 
         def ==(other)
             other.kind_of?(DelayedArgumentFromObject) &&
-                @object.object_id == other.instance_variable_get(:@object).object_id &&
+                @object.equal?(other.instance_variable_get(:@object)) &&
                 @methods == other.instance_variable_get(:@methods)
         end
 

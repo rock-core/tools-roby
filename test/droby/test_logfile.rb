@@ -9,6 +9,7 @@ module Roby
     module DRoby
         describe Logfile do
             attr_reader :tmpdir
+
             before do
                 @tmpdir = Dir.mktmpdir
                 @path = File.join(tmpdir, "test-events.log")
@@ -376,7 +377,7 @@ module Roby
 
                     before do
                         @log_path = droby_create_event_log("test.log") {}
-                        @index_path = @log_path + ".idx"
+                        @index_path = "#{@log_path}.idx"
                     end
                     it "returns true if the file exists and is valid" do
                         Logfile::Index.rebuild_file(@log_path, @index_path)

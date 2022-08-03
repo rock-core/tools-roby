@@ -8,6 +8,7 @@ module Roby
         # properties on the Ruby exception that has been thrown
         class CodeErrorMatcher < LocalizedErrorMatcher
             attr_reader :ruby_exception_class
+
             def initialize
                 super
                 @ruby_exception_class = ::Exception

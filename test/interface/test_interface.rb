@@ -96,6 +96,7 @@ describe Roby::Interface::Interface do
 
     describe "job state tracking" do
         attr_reader :job_task, :task, :recorder, :job_listener
+
         before do
             plan.add(@job_task = job_task_m.new(job_id: 10))
             plan.add_mission_task(@task = Roby::Tasks::Simple.new)
@@ -305,19 +306,18 @@ describe Roby::Interface::Interface do
             end
 
             it "supports the workflow of Actions::Task" do
+                ret_m = Roby::Task.new_submodel
                 interface_m = Roby::Actions::Interface.new_submodel do
-                    class Ret < Roby::Task
-                    end
                     describe("test method")
-                        .returns(Ret)
+                        .returns(ret_m)
                     def test_method
                         self.class.other_planning_method
                     end
 
                     describe("test method")
-                        .returns(Ret)
-                    def other_planning_method
-                        Ret.new(id: 20)
+                        .returns(ret_m)
+                    define_method(:other_planning_method) do
+                        ret_m.new(id: 20)
                     end
                 end
                 plan.add_mission_task(action_task = interface_m.test_method
@@ -485,6 +485,7 @@ describe Roby::Interface::Interface do
 
     describe "exception notifications" do
         attr_reader :parent_task, :child_task, :recorder, :exception_listener
+
         before do
             plan.add(@parent_task = Roby::Tasks::Simple.new)
             plan.add(@child_task = Roby::Tasks::Simple.new)
@@ -549,6 +550,7 @@ describe Roby::Interface::Interface do
 
     describe "#kill_job" do
         attr_reader :task
+
         before do
             plan.add(job_task = job_task_m.new(job_id: 10))
             plan.add_mission_task(@task = Roby::Tasks::Simple.new)
@@ -573,6 +575,7 @@ describe Roby::Interface::Interface do
 
     describe "#drop_job" do
         attr_reader :task
+
         before do
             plan.add(@job_task = job_task_m.new(job_id: 10))
             plan.add_mission_task(@task = Roby::Tasks::Simple.new)

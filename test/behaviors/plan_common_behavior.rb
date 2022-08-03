@@ -12,19 +12,18 @@ module Roby
             else
                 assert_equal(plan, task.plan, "task was meant to be included in a plan but PlanObject#plan returns nil")
                 assert(plan.has_task?(task), "task was meant to be included in a plan but Plan#has_task? returned false")
-                if state == :permanent
-                    assert(plan.permanent_task?(task), "task was meant to be permanent but Plan#permanen_taskt? returned false")
-                else
-                    assert(!plan.permanent_task?(task), "task was not meant to be permanent but Plan#permanen_taskt? returned true")
-                end
 
-                if state == :mission
+                case state
+                when :mission
                     assert(plan.mission_task?(task), "task was meant to be a mission, but Plan#mission_task? returned false")
                     assert(task.mission?, "task was meant to be a mission, but Task#mission_task? returned false")
-                elsif state == :permanent
+                    assert(!plan.permanent_task?(task), "task was not meant to be permanent but Plan#permanen_taskt? returned true")
+                when :permanent
+                    assert(plan.permanent_task?(task), "task was meant to be permanent but Plan#permanen_taskt? returned false")
                     assert(!plan.mission_task?(task), "task was meant to be permanent but Plan#mission_task? returned true")
                     assert(!task.mission?, "task was meant to be permanent but Task#mission? returned true")
-                elsif state == :normal
+                when :normal
+                    assert(!plan.permanent_task?(task), "task was not meant to be permanent but Plan#permanen_taskt? returned true")
                     assert(!plan.mission_task?(task), "task was meant to be permanent but Plan#mission_task? returned true")
                     assert(!task.mission?, "task was meant to be permanent but Task#mission? returned true")
                 end

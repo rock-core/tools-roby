@@ -19,8 +19,7 @@ module Roby
     #
     class EventGenerator < PlanObject
         class << self
-            attr_reader :relation_spaces
-            attr_reader :all_relation_spaces
+            attr_reader :relation_spaces, :all_relation_spaces
         end
         @relation_spaces = []
         @all_relation_spaces = []
@@ -827,9 +826,10 @@ module Roby
             end
             if on_failure != :nothing
                 promise.on_error(description: "#{self}#emit_failed") do |reason|
-                    if on_failure == :fail
+                    case on_failure
+                    when :fail
                         emit_failed(reason)
-                    elsif on_failure == :emit
+                    when :emit
                         emit(*context)
                     end
                 end
@@ -840,6 +840,7 @@ module Roby
 
         # A [time, event] array of past event emitted by this object
         attr_reader :history
+
         # True if this event has been emitted once.
         attr_predicate :emitted?
         # True if this event has been emitted once.
@@ -862,8 +863,8 @@ module Roby
         end
 
         # Yields all precondition handlers defined for this generator
-        def each_precondition
-            @preconditions.each { |o| yield(o) }
+        def each_precondition(&block)
+            @preconditions.each(&block)
         end
 
         # Call this method in the #calling hook to cancel calling the event

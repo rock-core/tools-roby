@@ -193,6 +193,8 @@ module Roby
                 end
 
                 def initialize(task_name = "test", all_by_default: false)
+                    super()
+
                     @task_name = task_name
                     @app = Roby.app
                     @all_by_default = all_by_default

@@ -6,15 +6,11 @@ require "roby/tasks/external_process"
 module Roby
     module Tasks
         describe ExternalProcess do
-            MOCKUP = File.expand_path(
-                File.join("..", "mockups", "external_process"),
-                File.dirname(__FILE__)
-            ).freeze
-
-            class MockupTask < Roby::Tasks::ExternalProcess
-                event :stop do |context|
-                    FileUtils.touch "/tmp/external_process_mockup_stop"
-                end
+            def mock_command
+                File.expand_path(
+                    File.join("..", "mockups", "external_process"),
+                    File.dirname(__FILE__)
+                )
             end
 
             describe "#handle_redirection" do
@@ -169,18 +165,18 @@ module Roby
 
             describe "the execution workflow" do
                 it "passes on command-line arguments" do
-                    plan.add(task = Tasks::ExternalProcess.new(command_line: [MOCKUP, "--no-output"]))
+                    plan.add(task = Tasks::ExternalProcess.new(command_line: [mock_command, "--no-output"]))
                     expect_execution { task.start! }.to { emit task.success_event }
                 end
 
                 it "accepts a command line with a single command argument" do
-                    plan.add(task = Tasks::ExternalProcess.new(command_line: [MOCKUP]))
+                    plan.add(task = Tasks::ExternalProcess.new(command_line: [mock_command]))
                     task.redirect_output :close
                     expect_execution { task.start! }.to { emit task.success_event }
                 end
 
                 it "accepts a single command as string" do
-                    plan.add(task = Tasks::ExternalProcess.new(command_line: MOCKUP))
+                    plan.add(task = Tasks::ExternalProcess.new(command_line: mock_command))
                     task.redirect_output :close
                     expect_execution { task.start! }.to { emit task.success_event }
                 end
@@ -192,13 +188,13 @@ module Roby
                 end
 
                 it "emits failed with the program status object if the program fails" do
-                    plan.add(task = Tasks::ExternalProcess.new(command_line: [MOCKUP, "--error"]))
+                    plan.add(task = Tasks::ExternalProcess.new(command_line: [mock_command, "--error"]))
                     expect_execution { task.start! }.to { emit task.failed_event }
                     assert_equal 1, task.event(:failed).last.context.first.exitstatus
                 end
 
                 it "emits signaled with the program status if the program is terminated by a signal" do
-                    plan.add(task = Tasks::ExternalProcess.new(command_line: [MOCKUP, "--block"]))
+                    plan.add(task = Tasks::ExternalProcess.new(command_line: [mock_command, "--block"]))
                     expect_execution { task.start! }.to { emit task.start_event }
                     expect_execution { Process.kill("KILL", task.pid) }
                         .to { emit task.failed_event }
@@ -211,7 +207,7 @@ module Roby
 
             describe "redirection" do
                 def do_redirection(expected)
-                    plan.add(task = Tasks::ExternalProcess.new(command_line: [MOCKUP]))
+                    plan.add(task = Tasks::ExternalProcess.new(command_line: [mock_command]))
                     yield(task)
 
                     expect_execution { task.start! }.to { emit task.success_event }
@@ -223,13 +219,14 @@ module Roby
                 end
 
                 it "redirects stdout to file" do
-                    do_redirection `#{MOCKUP}` do |task|
+                    do_redirection `#{mock_command}` do |task|
                         task.redirect_output stdout: "mockup-%p.log"
                     end
                 end
 
                 pipe_task_m = ExternalProcess.new_submodel do
                     attr_reader :received_data
+
                     def initialize(**)
                         super
                         @received_data = Hash[stderr: String.new, stdout: String.new]
@@ -248,21 +245,21 @@ module Roby
                 end
 
                 it "redirects stdout to the task's handler" do
-                    plan.add(task = pipe_task_m.new(command_line: [MOCKUP]))
+                    plan.add(task = pipe_task_m.new(command_line: [mock_command]))
                     task.redirect_output(stdout: :pipe, stderr: :close)
                     expect_execution { task.start! }.to { emit task.success_event }
                     assert_equal Hash[stdout: "FIRST LINE\nSECOND LINE\n", stderr: ""], task.received_data
                 end
 
                 it "redirects stderr to the task's handler" do
-                    plan.add(task = pipe_task_m.new(command_line: [MOCKUP, "--stderr"]))
+                    plan.add(task = pipe_task_m.new(command_line: [mock_command, "--stderr"]))
                     task.redirect_output(stdout: :close, stderr: :pipe)
                     expect_execution { task.start! }.to { emit task.success_event }
                     assert_equal Hash[stdout: "", stderr: "FIRST LINE\nSECOND LINE\n"], task.received_data
                 end
 
                 it "redirects both to the task's handlers at the same time" do
-                    plan.add(task = pipe_task_m.new(command_line: [MOCKUP, "--common"]))
+                    plan.add(task = pipe_task_m.new(command_line: [mock_command, "--common"]))
                     task.redirect_output(stdout: :pipe, stderr: :pipe)
                     expect_execution { task.start! }.to { emit task.success_event }
                     assert_equal Hash[stdout: "O: FIRST LINE\nO: SECOND LINE\n", stderr: "E: FIRST LINE\nE: SECOND LINE\n"],
@@ -270,7 +267,7 @@ module Roby
                 end
 
                 it "redirects stderr to file" do
-                    do_redirection `#{MOCKUP}` do |task|
+                    do_redirection `#{mock_command}` do |task|
                         task.command_line << "--stderr"
                         task.redirect_output stderr: "mockup-%p.log"
                     end
@@ -281,7 +278,7 @@ module Roby
                         task.command_line << "--common"
                         task.redirect_output "mockup-%p.log"
                     end
-                    expected = `#{MOCKUP} --common 2>&1`
+                    expected = `#{mock_command} --common 2>&1`
                     assert_equal expected, output
                 end
             end

@@ -7,6 +7,7 @@ module Roby
         describe Graph do
             describe "#reachable?" do
                 attr_reader :graph
+
                 before do
                     graph_m = Graph.new_submodel
                     @graph = graph_m.new
@@ -34,6 +35,7 @@ module Roby
             describe "#copy_subgraph_to" do
                 attr_reader :old_graph, :new_graph
                 attr_reader :old_a, :old_b, :new_a, :new_b
+
                 before do
                     graph_m = Graph.new_submodel
                     @old_graph = graph_m.new
@@ -64,6 +66,7 @@ module Roby
             describe "#find_edge_difference" do
                 attr_reader :graph, :mapped_graph
                 attr_reader :a, :b, :mapped_a, :mapped_b
+
                 before do
                     graph_m = Graph.new_submodel
                     @graph = graph_m.new
@@ -114,6 +117,7 @@ module Roby
 
             describe "#try_updating_existing_edge_info" do
                 attr_reader :graph, :a, :b
+
                 before do
                     graph_m = Graph.new_submodel
                     @graph = graph_m.new
@@ -154,6 +158,7 @@ module Roby
             describe "#replace_vertex" do
                 attr_reader :graph
                 attr_reader :old, :new, :parent, :child
+
                 before do
                     graph_m = Graph.new_submodel
                     @graph = graph_m.new
@@ -207,6 +212,7 @@ module Roby
 
             describe "#remove_vertex" do
                 attr_reader :graph_m
+
                 before do
                     @graph_m = Graph.new_submodel
                 end
@@ -251,6 +257,7 @@ module Roby
                     Class.new do
                         include DirectedRelationSupport
                         attr_reader :relation_graphs
+
                         def initialize(relation_graphs = {})
                             @relation_graphs = relation_graphs
                         end
@@ -286,6 +293,7 @@ module Roby
 
                 describe "subgraph handling" do
                     attr_reader :graph_m, :graph, :superset_graph_m, :superset_graph
+
                     before do
                         @graph_m = Graph.new_submodel
                         @superset_graph_m = Graph.new_submodel
@@ -344,6 +352,7 @@ module Roby
 
             describe "the observer" do
                 attr_reader :graph, :parent, :grandparent, :observer, :a, :b
+
                 before do
                     @observer = flexmock
                     @graph = Graph.new_submodel.new(observer: observer)
@@ -406,6 +415,7 @@ module Roby
 
             describe "#subset?" do
                 attr_reader :graph, :parent, :parent_sibling, :grandparent
+
                 before do
                     graph_m = Graph.new_submodel
                     @graph = graph_m.new
@@ -465,6 +475,7 @@ module Roby
 
             describe "#has_edge_in_hierarchy?" do
                 attr_reader :graph, :parent
+
                 before do
                     graph_m = Graph.new_submodel
                     @graph = graph_m.new

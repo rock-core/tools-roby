@@ -7,6 +7,7 @@ module Roby::Tasks
         end
 
         attr_reader :children_success
+
         def initialize(arguments = {})
             super
 

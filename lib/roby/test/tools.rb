@@ -56,7 +56,7 @@ module Roby
                 samples
             end
 
-            Stat = Struct.new :total, :count, :mean, :stddev, :min, :max
+            Stat = Struct.new :total, :count, :mean, :stddev, :min, :max # rubocop:disable Lint/StructNewOverride
 
             # Computes mean and standard deviation about the samples in
             # +samples+ +spec+ describes what to compute:

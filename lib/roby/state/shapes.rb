@@ -2,6 +2,7 @@
 
 class Cylinder
     attr_accessor :radius, :height, :axis
+
     def initialize(radius, height, axis)
         @radius, @height, @axis = radius.to_f, height.to_f, axis.to_f
     end
@@ -25,6 +26,7 @@ end
 
 class Cube
     attr_accessor :length, :width, :height
+
     def initialize(length, width, height)
         @length, @width, @height = length.to_f, width.to_f, height.to_f
     end

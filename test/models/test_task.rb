@@ -65,6 +65,7 @@ module Roby
 
             describe "#event" do
                 attr_reader :task_m
+
                 before do
                     @task_m = Tasks::Simple.new_submodel
                 end
@@ -78,6 +79,7 @@ module Roby
 
             describe "#on_exception" do
                 attr_reader :task_m
+
                 before do
                     @task_m = Tasks::Simple.new_submodel
                 end
@@ -91,6 +93,7 @@ module Roby
 
             describe "#on" do
                 attr_reader :task_m
+
                 before do
                     @task_m = Tasks::Simple.new_submodel
                 end

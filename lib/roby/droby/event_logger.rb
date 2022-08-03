@@ -113,7 +113,8 @@ module Roby
             end
 
             def append_message(m, time, args)
-                if m == :merged_plan
+                case m
+                when :merged_plan
                     plan_id, merged_plan = *args
 
                     merged_plan.tasks.each do |t|
@@ -126,11 +127,11 @@ module Roby
                         object_manager.register_object(e)
                     end
                     args = [plan_id, merged_plan.droby_dump(marshal)]
-                elsif m == :finalized_task
+                when :finalized_task
                     task = args[1]
                     args = marshal.dump(args)
                     object_manager.deregister_object(task)
-                elsif m == :finalized_event
+                when :finalized_event
                     event = args[1]
                     args = marshal.dump(args)
                     object_manager.deregister_object(event)

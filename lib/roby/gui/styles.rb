@@ -17,10 +17,8 @@ module Roby
             finished: Qt::Color.new("#E2A8A8"),
             finalized: Qt::Color.new("#555555")
         }.freeze
-        TASK_BRUSHES =
-            TASK_BRUSH_COLORS
-            .each_with_object({}) { |(name, color), h| h[name] = Qt::Brush.new(color) }
-            .freeze
+        TASK_BRUSHES = TASK_BRUSH_COLORS.transform_values { |color| Qt::Brush.new(color) }
+                                        .freeze
 
         TASK_PEN_COLORS = {
             pending: Qt::Color.new("#6DF3FF"),
@@ -29,10 +27,8 @@ module Roby
             finished: Qt::Color.new("#E2A8A8"),
             finalized: Qt::Color.new("#555555")
         }.freeze
-        TASK_PENS =
-            TASK_PEN_COLORS
-            .each_with_object({}) { |(name, color), h| h[name] = Qt::Pen.new(color) }
-            .freeze
+        TASK_PENS = TASK_PEN_COLORS.transform_values { |color| Qt::Pen.new(color) }
+                                   .freeze
 
         TASK_NAME_COLOR = Qt::Color.new("black")
         TASK_NAME_PEN = Qt::Pen.new(TASK_NAME_COLOR)
@@ -74,13 +70,10 @@ module Roby
             (EVENT_CONTINGENT | FAILED_EMISSION) => %w[red red]
         }.freeze
 
-        EVENT_STYLES =
-            EVENT_COLORS
-            .each_with_object({}) do |(flags, colors), h|
-                h[flags] = [Qt::Brush.new(Qt::Color.new(colors[0])),
-                            Qt::Pen.new(Qt::Color.new(colors[1]))]
-            end
-            .freeze
+        EVENT_STYLES = EVENT_COLORS.transform_values do |colors|
+            [Qt::Brush.new(Qt::Color.new(colors[0])),
+             Qt::Pen.new(Qt::Color.new(colors[1]))]
+        end.freeze
 
         TIMELINE_RULER_LINE_LENGTH = 10
     end

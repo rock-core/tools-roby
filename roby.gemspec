@@ -10,6 +10,7 @@ Gem::Specification.new do |s|
     s.authors = ["Sylvain Joyeux"]
     s.email = "sylvain.joyeux@m4x.org"
     s.summary = "A plan-based control framework for autonomous systems"
+    s.required_ruby_version = "2.5.0"
     s.description = <<~DESCRIPTION
         The Roby plan manager is currently developped from within the Robot Construction
         Kit (http://rock-robotics.org). Have a look there. Additionally, the [Roby User

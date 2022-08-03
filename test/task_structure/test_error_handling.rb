@@ -7,6 +7,7 @@ module Roby
         describe ErrorHandling do
             describe "#handle_with" do
                 attr_reader :task_m, :repair_task, :localized_error_m
+
                 before do
                     @task_m = Task.new_submodel
                     plan.add(@repair_task = task_m.new)
@@ -64,6 +65,7 @@ module Roby
 
             describe "#find_all_matching_repair_tasks" do
                 attr_reader :task_m, :task, :localized_error_m
+
                 before do
                     @task_m = Task.new_submodel
                     task_m.terminates
@@ -93,6 +95,7 @@ module Roby
 
             describe "#can_repair_error?" do
                 attr_reader :task_m, :task, :repair_task, :localized_error_m
+
                 before do
                     @task_m = Task.new_submodel
                     task_m.terminates
@@ -133,6 +136,7 @@ module Roby
 
             describe "#repairs_error?" do
                 attr_reader :task_m, :task, :repair_task, :localized_error_m
+
                 before do
                     @task_m = Task.new_submodel
                     task_m.terminates

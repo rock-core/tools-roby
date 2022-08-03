@@ -162,11 +162,12 @@ module Roby
             slots "stop()"
 
             def updateWindowTitle
-                if parent_title = history_widget.window_title
-                    self.window_title = parent_title + ": Chronicle"
-                else
-                    self.window_title = "roby-display: Chronicle"
-                end
+                self.window_title =
+                    if (parent_title = history_widget.window_title)
+                        "#{parent_title}: Chronicle"
+                    else
+                        "roby-display: Chronicle"
+                    end
             end
             slots "updateWindowTitle()"
 

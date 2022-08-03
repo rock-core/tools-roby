@@ -31,7 +31,7 @@ module Roby
                     options, push_options = Kernel.filter_options options,
                                                                   external_objects: false, doc: true
                     if external_objects = options[:external_objects]
-                        file = external_objects % "roby_task" + ".svg"
+                        file = "#{external_objects % 'roby_task'}.svg"
                         File.open(file, "w") { |io| io.write(svg) }
                         svg = "<object data=\"#{file}\" type=\"image/svg+xml\"></object>"
                     end

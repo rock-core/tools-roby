@@ -3,7 +3,7 @@
 require "benchmark"
 
 def call_yield(enum)
-    enum.each { |v| yield(v) }
+    enum.each { |v| yield(v) } # rubocop:disable Style/ExplicitBlockArgument
 end
 
 def call_block(enum, &block)

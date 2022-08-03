@@ -12,6 +12,7 @@ class Vertex
     include Roby::Relations::DirectedRelationSupport
 
     attr_reader :relation_graphs
+
     def initialize(graph)
         @relation_graphs = Hash[graph => graph, graph.class => graph]
     end

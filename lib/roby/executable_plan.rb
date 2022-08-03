@@ -232,12 +232,11 @@ module Roby
                       "attempting to reuse #{child} which is marked as garbage"
             end
 
-            if last_dag = relations.find_all(&:dag?).last
-                if child.relation_graph_for(last_dag).reachable?(child, parent)
-                    raise Relations::CycleFoundError,
-                          "adding an edge from #{parent} to #{child} would create "\
-                          "a cycle in #{last_dag}"
-                end
+            last_dag = relations.find_all(&:dag?).last
+            if last_dag && child.relation_graph_for(last_dag).reachable?(child, parent)
+                raise Relations::CycleFoundError,
+                      "adding an edge from #{parent} to #{child} would create "\
+                      "a cycle in #{last_dag}"
             end
 
             relations.each do |rel|

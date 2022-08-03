@@ -450,6 +450,7 @@ module Roby
         # See documentation from UnboundTaskPredicate
         class UnboundTaskPredicate::Negate < UnboundTaskPredicate
             attr_reader :predicate
+
             def initialize(pred)
                 @predicate = pred
                 super()
@@ -493,6 +494,7 @@ module Roby
         # See documentation from UnboundPredicateSupport
         class UnboundTaskPredicate::Never < UnboundTaskPredicate
             attr_reader :predicate
+
             def initialize(pred)
                 unless pred.kind_of?(UnboundTaskPredicate::SingleEvent)
                     raise ArgumentError,
@@ -557,6 +559,7 @@ module Roby
         # explanations.
         class UnboundTaskPredicate::BinaryCommutativePredicate < UnboundTaskPredicate
             attr_reader :predicates
+
             def initialize(left, right)
                 @predicates = [left, right]
                 super()

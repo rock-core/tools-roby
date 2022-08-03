@@ -25,6 +25,7 @@ module Roby
 
             describe "structure check" do
                 attr_reader :task, :planner
+
                 before do
                     plan.add(@task = Roby::Task.new)
                     task.planned_by(@planner = Roby::Test::Tasks::Simple.new)

@@ -72,8 +72,7 @@ module Roby
 
                 # @!endgroup
 
-                attr_reader :host
-                attr_reader :port
+                attr_reader :host, :port
                 # @return [Roby::DRoby::Logfile::Client,nil] the object used to communicate
                 #   to the server, or nil if we have not managed to connect yet
                 attr_reader :client

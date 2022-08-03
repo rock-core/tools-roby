@@ -55,7 +55,10 @@ module Roby
                 # backing event has not yet happened
                 class Unbound < RuntimeError
                     attr_reader :capture
+
                     def initialize(capture)
+                        super()
+
                         @capture = capture
                     end
                 end

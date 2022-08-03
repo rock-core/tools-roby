@@ -15,8 +15,7 @@ module Roby
         class BidirectionalDirectedAdjacencyGraph
             include RGL::MutableGraph
 
-            attr_reader :forward_edges_with_info
-            attr_reader :backward_edges
+            attr_reader :forward_edges_with_info, :backward_edges
 
             # Shortcut for creating a DirectedAdjacencyGraph:
             #
@@ -82,7 +81,8 @@ module Roby
             def dedupe(source)
                 all_identical = (@forward_edges_with_info.size ==
                                  source.forward_edges_with_info.size)
-                @forward_edges_with_info.keys.each do |v|
+                # Use #keys.each instead of #each_key as we are modifying in-place
+                @forward_edges_with_info.keys.each do |v| # rubocop:disable Style/HashEachMethods
                     self_out_edges   = @forward_edges_with_info[v]
                     source_out_edges = source.forward_edges_with_info[v]
                     if self_out_edges.empty?
@@ -101,7 +101,8 @@ module Roby
                     return
                 end
 
-                @backward_edges.keys.each do |v|
+                # Use #keys.each instead of #each_key as we are modifying in-place
+                @backward_edges.keys.each do |v| # rubocop:disable Style/HashEachMethods
                     self_in_edges   = @backward_edges[v]
                     source_in_edges = source.backward_edges[v]
                     if self_in_edges.empty?

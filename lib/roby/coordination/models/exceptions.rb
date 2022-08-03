@@ -17,6 +17,8 @@ module Roby
                 attr_reader :states
 
                 def initialize(states)
+                    super()
+
                     @states = states
                 end
 

@@ -8,6 +8,7 @@ module Roby
     module GUI
         module GraphvizPlan
             attr_accessor :layout_level
+
             def all_events(display)
                 tasks.inject(free_events.dup) do |events, task|
                     if display.displayed?(task)
@@ -223,8 +224,9 @@ module Roby
 
                     positions[ev.dot_id] += task
                 end
+
                 # Apply the layout on the events
-                each_event do |ev|
+                each_event do |ev| # rubocop:disable Style/CombinableLoops
                     ev.apply_layout(bounding_rects, positions, display)
                 end
                 # And recalculate the bounding box
@@ -236,9 +238,8 @@ module Roby
                     bounding_rect |= graphics.map_rect_to_scene(graphics.bounding_rect)
                     bounding_rect |= graphics.text.map_rect_to_scene(graphics.text.bounding_rect)
                 end
-                unless graphics_item = display[self]
-                    raise "no graphics for #{self}" unless graphics_item = display[self]
-                end
+                raise "no graphics for #{self}" unless (graphics_item = display[self])
+
                 if bounding_rect.null? # no events, we need to take the bounding box from the fake task node
                     bounding_rect = Qt::RectF.new(
                         task.x - DEFAULT_TASK_WIDTH / 2,
@@ -267,7 +268,7 @@ module Roby
             # The set of IDs for the objects in the plan
             attribute(:object_ids) { {} }
 
-            attr_reader :dot_input
+            attr_reader :dot_input, :bounding_rects, :object_pos, :display, :plan
 
             # Add a string to the resulting Dot input file
             def <<(string)
@@ -406,7 +407,7 @@ module Roby
                         p = positions[ev.dot_id]
                         bb |= Qt::RectF.new(p, p)
                     end
-                    t.each_event do |ev|
+                    t.each_event do |ev| # rubocop:disable Style/CombinableLoops
                         next unless display.displayed?(ev)
 
                         event_positions[ev.dot_id] = positions[ev.dot_id] - bb.topLeft
@@ -448,7 +449,6 @@ module Roby
                 @plan = plan
             end
 
-            attr_reader :bounding_rects, :object_pos, :display, :plan
             def apply
                 plan.apply_layout(bounding_rects, object_pos, display)
             end

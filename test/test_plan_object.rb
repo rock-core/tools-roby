@@ -78,6 +78,7 @@ module Roby
     describe PlanObject do
         describe "#executable?" do
             attr_reader :plan_object
+
             before do
                 @plan_object = PlanObject.new
             end

@@ -7,6 +7,7 @@ module Roby
     module Queries
         describe TaskEventGeneratorMatcher do
             attr_reader :task_matcher, :task, :generator, :source_generator, :symbol_match
+
             before do
                 @task_matcher = flexmock
                 plan.add(@task = Roby::Task.new)

@@ -10,6 +10,7 @@ module Roby
         attr_reader :task
         # The event symbol (its name as a Symbol object)
         attr_reader :symbol
+
         # Changes the underlying model
         def override_model(model)
             @event_model = model
@@ -62,12 +63,10 @@ module Roby
         end
 
         def clear_pending
-            if @pending && symbol == :start
-                if !emitted? && !task.failed_to_start?
-                    plan.task_index.set_state(task, :pending?) if plan && !plan.template?
-                    task.pending = true
-                    task.starting = false
-                end
+            if @pending && symbol == :start && !emitted? && !task.failed_to_start?
+                plan.task_index.set_state(task, :pending?) if plan && !plan.template?
+                task.pending = true
+                task.starting = false
             end
 
             super
@@ -82,9 +81,10 @@ module Roby
         def fire(event)
             super
 
-            if symbol == :start
+            case symbol
+            when :start
                 task.do_poll(plan)
-            elsif symbol == :stop
+            when :stop
                 task.each_event do |ev|
                     ev.unreachable!(task.terminal_event)
                 end
@@ -107,14 +107,14 @@ module Roby
         end
 
         # See EventGenerator#each_handler
-        def each_handler # :nodoc:
-            task.model.each_handler(event_model.symbol) { |o| yield(o) } if self_owned?
+        def each_handler(&block) # :nodoc:
+            task.model.each_handler(event_model.symbol, &block) if self_owned?
             super
         end
 
         # See EventGenerator#each_precondition
-        def each_precondition # :nodoc:
-            task.model.each_precondition(event_model.symbol) { |o| yield(o) }
+        def each_precondition(&block) # :nodoc:
+            task.model.each_precondition(event_model.symbol, &block)
             super
         end
 
@@ -234,19 +234,15 @@ module Roby
 
         def emit_failed(error = nil, message = nil)
             exception = super
-            if symbol == :start
-                task.failed_to_start!(exception) unless task.failed_to_start?
-            end
+            task.failed_to_start!(exception) if symbol == :start && !task.failed_to_start?
             nil
         end
 
         # Checks that the event can be called. Raises various exception
         # when it is not the case.
         def check_call_validity
-            if (error = super)
-                unless error.kind_of?(UnreachableEvent)
-                    return refine_call_exception(error)
-                end
+            if (error = super) && !error.kind_of?(UnreachableEvent)
+                return refine_call_exception(error)
             end
 
             if task.failed_to_start?

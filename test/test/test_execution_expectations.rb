@@ -58,6 +58,7 @@ module Roby
 
             describe "#verify" do
                 attr_reader :expectations
+
                 before do
                     @expectations = ExecutionExpectations.new(self, plan)
                     flexmock(@expectations)
@@ -113,6 +114,7 @@ module Roby
 
                 describe "cycle_end" do
                     attr_reader :recorder
+
                     before do
                         @handler_ids = []
                         @recorder = flexmock
@@ -123,10 +125,8 @@ module Roby
                         end
                     end
 
-                    def at_cycle_end
-                        @handler_ids << execution_engine.at_cycle_end do
-                            yield
-                        end
+                    def at_cycle_end(&block)
+                        @handler_ids << execution_engine.at_cycle_end(&block)
                     end
 
                     it "executes cycle_end handlers" do
@@ -425,6 +425,7 @@ module Roby
 
                 describe "#emit a task event query" do
                     attr_reader :task_m
+
                     before do
                         @task_m = Roby::Tasks::Simple.new_submodel
                     end
@@ -645,6 +646,7 @@ module Roby
 
                 describe "#have_handled_error_matching" do
                     attr_reader :matcher, :error_m
+
                     before do
                         @error_m = Class.new(LocalizedError)
                         @task_m = Roby::Task.new_submodel
@@ -775,6 +777,7 @@ module Roby
 
                 describe "#fail_to_start" do
                     attr_reader :task, :error_m
+
                     before do
                         task_m = Task.new_submodel
                         task_m.terminates
@@ -837,6 +840,7 @@ module Roby
 
                 describe "#have_framework_error_matching" do
                     attr_reader :error_m
+
                     before do
                         @error_m = Class.new(RuntimeError)
                     end
@@ -1129,6 +1133,7 @@ module Roby
 
             describe "#execute" do
                 attr_reader :achieve_without_memory
+
                 before do
                     @achieve_without_memory = Class.new(ExecutionExpectations::Achieve) do
                         def update_match(all_propagation_info)
@@ -1166,6 +1171,7 @@ module Roby
 
             describe "#start" do
                 attr_reader :task
+
                 before do
                     plan.add(@task = Roby::Tasks::Simple.new)
                 end
@@ -1210,6 +1216,7 @@ module Roby
 
             describe "#have_running" do
                 attr_reader :task
+
                 before do
                     plan.add(@task = Roby::Tasks::Simple.new)
                 end

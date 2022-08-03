@@ -133,7 +133,10 @@ module Roby
         # concurrent-ruby promise.
         class Failure < RuntimeError
             attr_reader :actual_exception
+
             def initialize(error)
+                super()
+
                 @actual_exception = error
             end
         end

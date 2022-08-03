@@ -102,8 +102,8 @@ class TC_Dependency < Minitest::Test
         [p1, child]
     end
 
-    def assert_child_fails(child, reason, plan)
-        error = assert_raises(ChildFailedError) { yield }
+    def assert_child_fails(child, reason, plan, &block)
+        error = assert_raises(ChildFailedError, &block)
         assert_child_failed(child, error, reason.last, plan)
     end
 
@@ -807,6 +807,7 @@ module Roby
 
             describe "failure on pending relation" do
                 attr_reader :parent, :child, :decision_control
+
                 before do
                     @decision_control = flexmock
                     plan.execution_engine.control = @decision_control
@@ -856,6 +857,7 @@ module Roby
 
             describe "structure check" do
                 attr_reader :parent, :child_m
+
                 before do
                     plan.add(@parent = Tasks::Simple.new)
                     @child_m = Roby::Tasks::Simple.new_submodel do

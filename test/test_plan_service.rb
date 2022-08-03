@@ -6,6 +6,7 @@ module Roby
         let(:spy) { flexmock }
 
         attr_reader :t1, :t2, :service
+
         before do
             root, @t1, @t2 = prepare_plan add: 3, model: Tasks::Simple
             root.depends_on @t1, model: Tasks::Simple
@@ -69,6 +70,7 @@ module Roby
 
         describe "#on_plan_status_change" do
             attr_reader :task, :service
+
             before do
                 plan.add(@task = Roby::Task.new)
                 @service = Roby::PlanService.new(task)

@@ -5,10 +5,6 @@ module Roby
         module ModelViews
             # Handler class to display information about an action interface
             class ActionInterface < MetaRuby::GUI::HTML::Collection
-                def initialize(page)
-                    super
-                end
-
                 def compute_toplevel_links(model, options)
                     actions = model.each_action.map do |action|
                         arguments = action.arguments.map { |arg| ":#{arg.name}" }.join(", ")
@@ -37,17 +33,18 @@ module Roby
 
                 def self.html_defined_in(page, model, with_require: true, definition_location: nil, format: "<b>Defined in</b> %s")
                     path, lineno = *definition_location || find_definition_place(model)
-                    if path
-                        path = Pathname.new(path)
-                        path_link = page.link_to(path, "#{path}:#{lineno}", lineno: lineno)
-                        page.push(nil, "<p>#{format(format, path_link)}</p>")
-                        if with_require
-                            if req_base = $LOAD_PATH.find { |p| path.fnmatch?(File.join(p, "*")) }
-                                req = path.relative_path_from(Pathname.new(req_base))
-                                page.push(nil, "<code>require '#{req.sub_ext('')}'</code>")
-                            end
-                        end
-                    end
+                    return unless path
+
+                    path = Pathname.new(path)
+                    path_link = page.link_to(path, "#{path}:#{lineno}", lineno: lineno)
+                    page.push(nil, "<p>#{format(format, path_link)}</p>")
+                    return unless with_require
+
+                    req_base = $LOAD_PATH.find { |p| path.fnmatch?(File.join(p, "*")) }
+                    return unless req_base
+
+                    req = path.relative_path_from(Pathname.new(req_base))
+                    page.push(nil, "<code>require '#{req.sub_ext('')}'</code>")
                 end
             end
         end

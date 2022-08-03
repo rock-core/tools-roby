@@ -62,6 +62,7 @@ module Roby
                     end
                     describe "when connected" do
                         attr_reader :server, :interface
+
                         before do
                             @server = create_server
                             @interface = connect(server)
@@ -303,6 +304,7 @@ module Roby
 
                 describe "job progress" do
                     attr_reader :client, :server
+
                     before do
                         @server = create_server
                         @client = connect(server)
@@ -378,6 +380,7 @@ module Roby
 
                 describe "notifications" do
                     attr_reader :client, :server
+
                     before do
                         @server = create_server
                         @client = connect(server)

@@ -168,9 +168,7 @@ module Roby
             end
 
             def run(result) # :nodoc:
-                if self.class == TestCase
-                    return
-                end
+                return if instance_of?(TestCase)
 
                 self.class.apply_robot_setup do
                     yield if block_given?

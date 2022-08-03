@@ -68,10 +68,9 @@ module Roby
                 # @return [Boolean] true if the event is an event of self, and
                 #   false otherwise
                 def has_event?(event_name)
-                    if model&.respond_to?(:find_event)
-                        model.find_event(event_name.to_sym)
-                    else true
-                    end
+                    return true unless model.respond_to?(:find_event)
+
+                    model.find_event(event_name.to_sym)
                 end
 
                 # Returns an model-level coordination event that can be used to

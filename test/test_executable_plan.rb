@@ -13,6 +13,7 @@ module Roby
                 vertex_m = Class.new do
                     include Relations::DirectedRelationSupport
                     attr_reader :relation_graphs
+
                     def initialize(relation_graphs = {})
                         @relation_graphs = relation_graphs
                     end
@@ -230,6 +231,7 @@ module Roby
 
         describe "#quarantine_task" do
             attr_reader :task
+
             before do
                 plan.add(@task = Tasks::Simple.new)
                 flexmock(task)
@@ -257,6 +259,7 @@ module Roby
 
         describe "handling of garbage objects" do
             attr_reader :task, :garbage_task, :free_event, :garbage_free_event
+
             before do
                 plan.add(@task = Tasks::Simple.new)
                 plan.add(@garbage_task = Tasks::Simple.new)
@@ -363,6 +366,7 @@ module Roby
 
         describe "#garbage_task" do
             attr_reader :task
+
             before do
                 plan.add(@task = Tasks::Simple.new)
                 flexmock(plan)

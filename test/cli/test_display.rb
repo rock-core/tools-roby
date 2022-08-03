@@ -76,6 +76,7 @@ module Roby
                 include Test::RobyAppHelpers
 
                 attr_reader :logfile_path
+
                 before do
                     @logfile_path, writer = roby_app_create_logfile
                     writer.close
@@ -174,6 +175,7 @@ module Roby
                 include Test::RobyAppHelpers
 
                 attr_reader :logfile_path, :cli
+
                 before do
                     @logfile_path, writer = roby_app_create_logfile
                     writer.close

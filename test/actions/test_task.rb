@@ -7,6 +7,7 @@ class TC_Actions_Task < Minitest::Test
     class TaskModel < Roby::Task; end
 
     attr_reader :iface_m, :task
+
     def setup
         super
 

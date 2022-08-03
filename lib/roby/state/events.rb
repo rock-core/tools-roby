@@ -171,9 +171,7 @@ module Roby
 
     # Implementation of StateSpace#trigger_when
     class StateConditionEvent < StateEvent
-        attr_reader :state_space
-        attr_reader :variable_path
-        attr_reader :condition
+        attr_reader :state_space, :variable_path, :condition
 
         def initialize(state_space = nil, variable_path = [], condition = nil)
             @state_space, @variable_path, @condition =

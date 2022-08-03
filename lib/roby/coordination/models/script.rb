@@ -12,12 +12,13 @@ module Roby
 
                 # Script element that implements {Script#start}
                 class Start < Coordination::ScriptInstruction
-                    attr_reader :task
-                    attr_reader :dependency_options
+                    attr_reader :task, :dependency_options
 
                     attr_predicate :explicit_start?, true
 
                     def initialize(task, explicit_start: false, **dependency_options)
+                        super()
+
                         @explicit_start = explicit_start
                         @task = task
                         @dependency_options = dependency_options
@@ -63,6 +64,8 @@ module Roby
                     # @option options [Time] :after (nil) value for
                     #   {#time_barrier}
                     def initialize(event, after: nil)
+                        super()
+
                         @event = event
                         @done = false
                         @time_barrier = after
@@ -156,6 +159,8 @@ module Roby
                     attr_reader :event
 
                     def initialize(event)
+                        super()
+
                         @event = event
                     end
 
@@ -174,8 +179,7 @@ module Roby
                 end
 
                 class TimeoutStart
-                    attr_reader :seconds
-                    attr_reader :event
+                    attr_reader :seconds, :event
 
                     def initialize(seconds, options = {})
                         @seconds = seconds

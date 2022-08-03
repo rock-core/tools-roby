@@ -34,6 +34,7 @@ module Roby
             # Internal representation of the desired time scale. Don't use it
             # directly, but use #time_to_pixel or #pixel_to_time
             attr_reader :time_scale
+
             # Change the time scale and update the view
             def time_scale=(new_value)
                 @time_scale = new_value
@@ -116,6 +117,7 @@ module Roby
             # before the current displayed time: it shows the last active tasks
             # first)
             attr_reader :sort_mode
+
             # See #sort_mode
             def sort_mode=(mode)
                 unless %i[start_time last_event].include?(mode)
@@ -623,26 +625,8 @@ module Roby
             end
 
             class TaskLayout
-                attr_reader :base_time
-                attr_reader :time_to_pixel
-                attr_reader :fm
-
-                attr_reader :task
-                attr_reader :state
-
-                attr_reader :add_point
-                attr_reader :start_point
-                attr_reader :end_point
-                attr_reader :finalization_point
-
-                attr_reader :event_height
-                attr_reader :event_max_x
-                attr_reader :events
-                attr_accessor :messages
-
-                attr_accessor :title
-
-                attr_reader :base_height
+                attr_reader :base_time, :time_to_pixel, :fm, :task, :state, :add_point, :start_point, :end_point, :finalization_point, :event_height, :event_max_x, :events, :base_height
+                attr_accessor :messages, :title
 
                 def initialize(task, base_time, time_to_pixel, fm)
                     @task = task
@@ -872,9 +856,8 @@ module Roby
                         job_text << job_task.action_model.name.to_s
                     end
                     if job_task.action_arguments
-                        job_text << "(" + job_task.action_arguments.map do |k, v|
-                            "#{k} => #{v}"
-                        end.join(", ") + ")"
+                        arg_s = job_task.action_arguments.map { |k, v| "#{k}: #{v}" }
+                        job_text << "(#{arg_s.join(', ')})"
                     end
                     text = "#{job_text.join(' ')} / #{text}"
                 end

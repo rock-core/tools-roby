@@ -4,6 +4,7 @@ require "roby/test/self"
 
 describe Roby::Coordination::Models::ActionStateMachine do
     attr_reader :task_m, :action_m, :description
+
     before do
         task_m = @task_m = Roby::Task.new_submodel(name: "TaskModel") do
             terminates
@@ -115,6 +116,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
 
     describe "event forwarding" do
         attr_reader :state_machine, :start
+
         before do
             _, @state_machine = @action_m.action_state_machine "test" do
                 start = state(start_task)
@@ -269,6 +271,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
 
     describe "#rebind" do
         attr_reader :state_machine_action, :action_m, :new_action_m
+
         before do
             @state_machine_action, = @action_m.action_state_machine "test" do
                 start_task = state(self.start_task)

@@ -19,6 +19,8 @@ module Roby
         end
 
         def initialize(errors)
+            super()
+
             @errors = errors
         end
 
@@ -207,9 +209,8 @@ module Roby
         class PollBlockDefinition
             ON_ERROR = %i[raise ignore disable].freeze
 
-            attr_reader :description
-            attr_reader :handler
-            attr_reader :on_error
+            attr_reader :description, :handler, :on_error
+
             attr_predicate :late?, true
             attr_predicate :once?, true
             attr_predicate :disabled?, true
@@ -246,14 +247,16 @@ module Roby
                 handler.call(*args)
                 true
             rescue Exception => e
-                if on_error == :raise
+                case on_error
+                when :raise
                     engine.add_framework_error(e, description)
                     false
-                elsif on_error == :disable
-                    engine.warn "propagation handler #{description} disabled because of the following error"
+                when :disable
+                    engine.warn "propagation handler #{description} disabled "\
+                                "because of the following error"
                     Roby.log_exception_with_backtrace(e, engine, :warn)
                     false
-                elsif on_error == :ignore
+                when :ignore
                     engine.warn "ignored error from propagation handler #{description}"
                     Roby.log_exception_with_backtrace(e, engine, :warn)
                     true
@@ -331,9 +334,10 @@ module Roby
             #   the handler
             def add_propagation_handler(type: :external_events, description: "propagation handler", **poll_options, &block)
                 type, handler = create_propagation_handler(type: type, description: description, **poll_options, &block)
-                if type == :propagation
+                case type
+                when :propagation
                     propagation_handlers << handler
-                elsif type == :external_events
+                when :external_events
                     external_events_handlers << handler
                 end
                 handler
@@ -400,7 +404,10 @@ module Roby
 
         class JoinAllWaitingWorkTimeout < RuntimeError
             attr_reader :waiting_work
+
             def initialize(waiting_work)
+                super()
+
                 @waiting_work = waiting_work.dup
             end
 
@@ -435,7 +442,10 @@ module Roby
             finished = []
             propagation_info = PropagationInfo.new
             loop do
-                framework_errors = gather_framework_errors("#join_all_waiting_work", raise_caught_exceptions: false) do
+                framework_errors = gather_framework_errors(
+                    "#join_all_waiting_work",
+                    raise_caught_exceptions: false
+                ) do
                     next_steps = nil
                     event_errors = gather_errors do
                         next_steps = gather_propagation do
@@ -448,7 +458,9 @@ module Roby
                         end
                     end
 
-                    this_propagation = propagate_events_and_errors(next_steps, event_errors, garbage_collect_pass: false)
+                    this_propagation = propagate_events_and_errors(
+                        next_steps, event_errors, garbage_collect_pass: false
+                    )
                     propagation_info.merge(this_propagation)
                 end
                 propagation_info.add_framework_errors(framework_errors)
@@ -500,6 +512,7 @@ module Roby
         # The set of source events for the current propagation action. This is a
         # mix of EventGenerator and Event objects.
         attr_reader :propagation_sources
+
         # The set of events extracted from #sources
         def propagation_source_events
             result = Set.new
@@ -590,8 +603,10 @@ module Roby
         # The method returns the resulting hash. Use #in_propagation_context? to know if the
         # current engine is in a propagation context, and #add_event_propagation
         # to add a new entry to this set.
-        def gather_propagation(initial_set = {})
-            raise InternalError, "nested call to #gather_propagation" if in_propagation_context?
+        def gather_propagation(initial_set = {}, &block)
+            if in_propagation_context?
+                raise InternalError, "nested call to #gather_propagation"
+            end
 
             old_allow_propagation, @allow_propagation = @allow_propagation, true
 
@@ -603,9 +618,7 @@ module Roby
                 @propagation_sources = nil
                 @propagation_step_id = 0
 
-                propagation_context([]) do
-                    yield
-                end
+                propagation_context([], &block)
 
                 result, @propagation = @propagation, nil
                 result
@@ -664,9 +677,10 @@ module Roby
             end
         end
 
-        def process_pending_application_exceptions(application_errors = clear_application_exceptions,
-            raise_framework_errors: Roby.app.abort_on_application_exception?)
-
+        def process_pending_application_exceptions(
+            application_errors = clear_application_exceptions,
+            raise_framework_errors: Roby.app.abort_on_application_exception?
+        )
             # We don't aggregate exceptions, so report them all and raise one
             if display_exceptions?
                 application_errors.each do |error, source|
@@ -1186,11 +1200,9 @@ module Roby
 
         # Graph visitor that propagates exceptions in the dependency graph
         class ExceptionPropagationVisitor < Relations::ForkMergeVisitor
-            attr_reader :exception_handler
-            attr_reader :handled_exceptions
-            attr_reader :unhandled_exceptions
+            attr_reader :exception_handler, :handled_exceptions, :unhandled_exceptions
 
-            def initialize(graph, object, origin, origin_neighbours = graph.out_neighbours(origin), &exception_handler)
+            def initialize(graph, object, origin, origin_neighbours, exception_handler)
                 super(graph, object, origin, origin_neighbours)
                 @exception_handler = exception_handler
                 @handled_exceptions = []
@@ -1238,7 +1250,7 @@ module Roby
         # @return [Array<(ExecutionException,Array<Task>)>] the set of unhandled
         #   exceptions, as a mapping from an exception description to the set of
         #   tasks that are affected by it
-        def propagate_exception_in_plan(exceptions)
+        def propagate_exception_in_plan(exceptions, &handler)
             propagation_graph = dependency_graph.reverse
 
             # Propagate the exceptions in the hierarchy
@@ -1279,9 +1291,9 @@ module Roby
                     break
                 end
 
-                visitor = ExceptionPropagationVisitor.new(propagation_graph, exception, origin, parents) do |e, task|
-                    yield(e, task)
-                end
+                visitor = ExceptionPropagationVisitor.new(
+                    propagation_graph, exception, origin, parents, handler
+                )
                 visitor.visit
 
                 unhandled = visitor.unhandled_exceptions.inject { |a, b| a.merge(b) }
@@ -1436,6 +1448,7 @@ module Roby
         # control. For now, those errors cause the whole controller to shut
         # down.
         attr_reader :application_exceptions
+
         def clear_application_exceptions
             unless @application_exceptions
                 raise RecursivePropagationContext, "unbalanced call to #clear_application_exceptions"
@@ -1550,7 +1563,7 @@ module Roby
                            inhibited_errors = [],
                            framework_errors = [])
 
-                self.called_generators  = called_generators .to_set
+                self.called_generators  = called_generators.to_set
                 self.emitted_events     = emitted_events.to_set
                 self.kill_tasks         = kill_tasks.to_set
                 self.fatal_errors       = fatal_errors
@@ -1787,7 +1800,7 @@ module Roby
         # to Roby's error handling mechanisms), the method will raise
         # SynchronousEventProcessingMultipleErrors to wrap all the exceptions
         # into one.
-        def process_events_synchronous(seeds = {}, initial_errors = [], enable_scheduler: false, raise_errors: true)
+        def process_events_synchronous(seeds = {}, initial_errors = [], enable_scheduler: false, raise_errors: true, &block)
             Roby.warn_deprecated "#process_events_synchronous is deprecated, use the expect_execution harness instead"
 
             if @application_exceptions
@@ -1800,19 +1813,22 @@ module Roby
             # Save early for the benefit of the 'ensure' block
             current_scheduler_enabled = scheduler.enabled?
 
-            if (!seeds.empty? || !initial_errors.empty?) && block_given?
-                raise ArgumentError, "cannot provide both seeds/inital errors and a block"
-            elsif block_given?
-                seeds = gather_propagation do
-                    initial_errors = gather_errors do
-                        yield
+            if block_given?
+                if seeds.empty? && initial_errors.empty?
+                    seeds = gather_propagation do
+                        initial_errors = gather_errors(&block)
                     end
+                else
+                    raise ArgumentError,
+                          "cannot provide both seeds/inital errors and a block"
                 end
             end
 
             scheduler.enabled = enable_scheduler
 
-            propagation_info = propagate_events_and_errors(seeds, initial_errors, garbage_collect_pass: false)
+            propagation_info = propagate_events_and_errors(
+                seeds, initial_errors, garbage_collect_pass: false
+            )
             unless propagation_info.kill_tasks.empty?
                 gc_initial_errors = nil
                 gc_seeds = gather_propagation do
@@ -1820,7 +1836,9 @@ module Roby
                         garbage_collect(propagation_info.kill_tasks)
                     end
                 end
-                gc_errors = propagate_events_and_errors(gc_seeds, gc_initial_errors, garbage_collect_pass: false)
+                gc_errors = propagate_events_and_errors(
+                    gc_seeds, gc_initial_errors, garbage_collect_pass: false
+                )
                 propagation_info.merge(gc_errors)
             end
 
@@ -2162,6 +2180,7 @@ module Roby
 
         # The execution thread if there is one running
         attr_accessor :thread
+
         # True if an execution thread is running
         attr_predicate :running?, true
 
@@ -2512,7 +2531,7 @@ module Roby
         # Block until the given block is executed by the execution thread, at
         # the beginning of the event loop, in propagation context. If the block
         # raises, the exception is raised back in the calling thread.
-        def execute(catch: [], type: :external_events)
+        def execute(catch: [], type: :external_events, &block)
             raise ArgumentError, "a block is required" unless block_given?
             if inside_control?
                 return yield
@@ -2533,7 +2552,7 @@ module Roby
             once(sync: ivar, type: type) do
                 begin
                     if !catch.empty?
-                        result = capture_catch.call(*catch) { yield }
+                        result = capture_catch.call(*catch, &block)
                         ivar.set(result)
                     else
                         ivar.set([:ret, yield])
@@ -2717,8 +2736,8 @@ module Roby
     # wait for its completion like Roby.execute does
     #
     # See ExecutionEngine#once
-    def self.once
-        execution_engine.once { yield }
+    def self.once(&block)
+        execution_engine.once(&block)
     end
 
     # Make the main engine call +block+ during each propagation step.
@@ -2748,10 +2767,8 @@ module Roby
 
     # Execute the given block during the event propagation step of the main
     # engine. See ExecutionEngine#execute
-    def self.execute
-        execution_engine.execute do
-            yield
-        end
+    def self.execute(&block)
+        execution_engine.execute(&block)
     end
 
     # Blocks until the main engine has executed at least one cycle.

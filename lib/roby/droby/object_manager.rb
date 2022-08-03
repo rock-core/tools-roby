@@ -50,11 +50,11 @@ module Roby
             # @param [PeerID] peer_id the ID of our peer
             # @return [DRobyID,nil]
             def registered_sibling_on(local_object, peer_id)
-                if local_object.respond_to?(:droby_id)
-                    if siblings = siblings_by_local_object_id.fetch(local_object.droby_id, nil)
-                        siblings[peer_id]
-                    end
-                end
+                return unless local_object.respond_to?(:droby_id)
+
+                siblings =
+                    siblings_by_local_object_id.fetch(local_object.droby_id, nil)
+                siblings[peer_id] if siblings
             end
 
             # The ID this object is known for on the given peer
@@ -152,9 +152,8 @@ module Roby
                 end
 
                 if local_object.respond_to?(:name)
-                    if local_object == models_by_name[n = local_object.name]
-                        models_by_name.delete(n)
-                    end
+                    n = local_object.name
+                    models_by_name.delete(n) if local_object == models_by_name[n]
                 end
             end
 

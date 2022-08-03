@@ -151,20 +151,23 @@ module Roby
 
             super(model, attach_to, attach_name)
 
-            if model
-                # If we do have a model, verify that the assigned values match
-                # the model's type
-                global_filter do |name, value|
-                    if (field_model = model.get(name)) && (field_type = field_model.type)
-                        unless field_type === value
-                            raise ArgumentError,
-                                  "field #{name} is expected to have values of "\
-                                  "type #{field_type.name}, #{value} is of type "\
-                                  "#{value.class}"
-                        end
-                    end
-                    value
+            install_type_checking_filter(model) if model
+        end
+
+        def install_type_checking_filter(model)
+            # If we do have a model, verify that the assigned values match
+            # the model's type
+            global_filter do |name, value|
+                field_model = model.get(name)
+                field_type = field_model&.type
+
+                if field_type && !(field_type === value)
+                    raise ArgumentError,
+                          "field #{name} is expected to have values of "\
+                          "type #{field_type.name}, #{value} is of type "\
+                          "#{value.class}"
                 end
+                value
             end
         end
 
@@ -184,11 +187,9 @@ module Roby
 
         # Reimplemented from OpenStruct
         def method_missing(name, *args)
-            if name =~ /(.*)=$/
-                if data_source = data_sources.get($1)
-                    raise ArgumentError,
-                          "cannot explicitely set a field for which a data source exists"
-                end
+            if name =~ /(.*)=$/ && (data_source = data_sources.get($1))
+                raise ArgumentError,
+                      "cannot explicitely set a field for which a data source exists"
             end
             super
         end

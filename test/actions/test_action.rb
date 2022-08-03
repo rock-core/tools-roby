@@ -8,6 +8,7 @@ module Roby
         describe Action do
             describe "#has_missing_required_arg?" do
                 attr_reader :action_m
+
                 before do
                     @action_m = Interface.new_submodel
                 end

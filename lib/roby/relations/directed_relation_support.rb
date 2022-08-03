@@ -115,10 +115,8 @@ module Roby
             def clear_vertex(remove_strong: true)
                 for rel in sorted_relations
                     graph = relation_graphs[rel]
-                    if remove_strong || !graph.strong?
-                        if graph.remove_vertex(self)
-                            removed = true
-                        end
+                    if (remove_strong || !graph.strong?) && graph.remove_vertex(self)
+                        removed = true
                     end
                 end
                 removed

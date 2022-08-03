@@ -78,8 +78,7 @@ module Roby
                 # Intermediate Rack middleware used to inject the roby storage
                 # and interface objects that allow {Helpers} to function
                 class RackMiddleware
-                    attr_reader :interface
-                    attr_reader :storage
+                    attr_reader :interface, :storage
 
                     def initialize(api, interface, storage = {})
                         @api = api

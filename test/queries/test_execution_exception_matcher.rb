@@ -7,6 +7,7 @@ module Roby
         describe ExecutionExceptionMatcher do
             describe "#handled" do
                 attr_reader :localized_error_m, :matcher, :error
+
                 before do
                     @localized_error_m = Class.new(LocalizedError)
                     @matcher = localized_error_m.to_execution_exception_matcher

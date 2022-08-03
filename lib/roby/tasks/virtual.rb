@@ -14,6 +14,7 @@ module Roby
             attr_reader :actual_start_event
             # The success event
             attr_accessor :actual_success_event
+
             # Set the start event
             def actual_start_event=(ev)
                 unless ev.controlable?

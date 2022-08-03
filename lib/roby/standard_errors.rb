@@ -51,6 +51,8 @@ module Roby
         attr_accessor :original_exceptions
 
         def initialize(exceptions = [])
+            super()
+
             @original_exceptions = exceptions
         end
 
@@ -187,9 +189,7 @@ module Roby
             end
         end
 
-        attr_reader :plan
-
-        attr_reader :removed_at
+        attr_reader :plan, :removed_at
 
         def pretty_print(pp)
             pp.text "#{failed_generator.symbol} called but it is not executable on"
@@ -384,8 +384,7 @@ module Roby
 
     # Raised when an exception handler has raised.
     class FailedExceptionHandler < CodeError
-        attr_reader :handled_exception
-        attr_reader :handler
+        attr_reader :handled_exception, :handler
 
         def initialize(error, object, handled_exception, handler)
             super(error, object)
@@ -468,6 +467,8 @@ module Roby
 
         # Create a new InvalidReplace object
         def initialize(from, to)
+            super()
+
             @from, @to = from, to
         end
 
@@ -551,6 +552,8 @@ module Roby
         attr_reader :known_children
 
         def initialize(object, role, known_children)
+            super()
+
             @object, @role, @known_children = object, role, known_children
         end
 

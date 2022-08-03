@@ -123,9 +123,7 @@ module Roby
 
             def instanciate_state_transition(task, new_state)
                 remove_current_task
-                begin
-                    instanciate_state(new_state)
-                end
+                instanciate_state(new_state)
                 run_hook :on_transition, task, new_state
             end
         end

@@ -5,6 +5,7 @@ require "roby/test/self"
 module Roby
     describe Promise do
         attr_reader :recorder
+
         before do
             @recorder = flexmock
         end
@@ -134,6 +135,7 @@ module Roby
 
         describe "#before" do
             attr_reader :promise
+
             before do
                 @promise = execution_engine.promise
             end

@@ -73,14 +73,15 @@ module Roby
                             thread_id, thread_name, timepoint_name = *args
                             path = (current_context[thread_id] ||= [thread_name])
 
-                            if m == :timepoint
+                            case m
+                            when :timepoint
                                 puts "#{Roby.format_time(Time.at(sec, usec))} "\
                                      "#{path.join('/')}/#{timepoint_name}"
-                            elsif m == :timepoint_group_start
+                            when :timepoint_group_start
                                 puts "#{Roby.format_time(Time.at(sec, usec))} "\
                                      "#{path.join('/')}/#{timepoint_name} {"
                                 path.push timepoint_name
-                            elsif m == :timepoint_group_end
+                            when :timepoint_group_end
                                 path.pop
                                 puts "#{Roby.format_time(Time.at(sec, usec))} "\
                                      "#{path.join('/')}/#{timepoint_name} }"
@@ -98,11 +99,12 @@ module Roby
                 end
                 while data = stream.load_one_cycle
                     data.each_slice(4) do |m, sec, usec, args|
-                        if m == :timepoint
+                        case m
+                        when :timepoint
                             analyzer.add Time.at(sec, usec), *args
-                        elsif m == :timepoint_group_start
+                        when :timepoint_group_start
                             analyzer.group_start Time.at(sec, usec), *args
-                        elsif m == :timepoint_group_end
+                        when :timepoint_group_end
                             analyzer.group_end Time.at(sec, usec), *args
                         end
                     end

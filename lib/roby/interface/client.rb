@@ -126,31 +126,30 @@ module Roby
             #
             # @return [Boolean] whether the message was a cycle_end message
             def process_packet(m, *args)
-                if m == :cycle_end
+                case m
+                when :cycle_end
                     @cycle_index, @cycle_start_time = *args
                     return true
-                end
-
-                if m == :bad_call
+                when :bad_call
                     if !pending_async_calls.empty?
                         process_pending_async_call(args.first, nil)
                     else
                         e = args.first
                         raise e, e.message, (e.backtrace + caller)
                     end
-                elsif m == :reply
+                when :reply
                     if !pending_async_calls.empty?
                         process_pending_async_call(nil, args.first)
                     else
                         yield args.first
                     end
-                elsif m == :job_progress
+                when :job_progress
                     queue_job_progress(*args)
-                elsif m == :notification
+                when :notification
                     queue_notification(*args)
-                elsif m == :ui_event
+                when :ui_event
                     queue_ui_event(*args)
-                elsif m == :exception
+                when :exception
                     queue_exception(*args)
                 else
                     raise ProtocolError,
@@ -410,7 +409,7 @@ module Roby
                 # @param [Object] context the underlying interface object
                 def initialize(context)
                     @context = context
-                    @calls = ::Array.new
+                    @calls = []
                 end
 
                 def empty?

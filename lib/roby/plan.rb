@@ -165,11 +165,11 @@ module Roby
         attr_reader :event_relation_graphs
 
         # Enumerate all graphs (event and tasks) that form this plan
-        def each_relation_graph
+        def each_relation_graph(&block)
             return enum_for(__method__) unless block_given?
 
-            each_task_relation_graph { |g| yield(g) }
-            each_event_relation_graph { |g| yield(g) }
+            each_task_relation_graph(&block)
+            each_event_relation_graph(&block)
         end
 
         # Enumerate the graph objects that contain this plan's event relation
@@ -1317,6 +1317,7 @@ module Roby
 
         class UsefulFreeEventVisitor < RGL::DFSVisitor
             attr_reader :useful_free_events, :task_events, :stack
+
             def initialize(graph, task_events, permanent_events)
                 super(graph)
                 @task_events = task_events
@@ -1485,10 +1486,10 @@ module Roby
         # Iterates on all tasks
         #
         # @yieldparam [Task] task
-        def each_task
+        def each_task(&block)
             return enum_for(__method__) unless block_given?
 
-            @tasks.each { |t| yield(t) }
+            @tasks.each(&block)
         end
 
         # Returns +object+ if object is a plan object from this plan, or if
@@ -1772,9 +1773,7 @@ module Roby
         def format_exception_set(result, new)
             [*new].each do |error, tasks|
                 roby_exception = error.to_execution_exception
-                unless tasks
-                    tasks = [error.parent] if error.kind_of?(RelationFailedError)
-                end
+                tasks = [error.parent] if !tasks && error.kind_of?(RelationFailedError)
                 result[roby_exception] = tasks
             end
             result
@@ -1807,10 +1806,10 @@ module Roby
         # This is mainly useful for static tests, and for transactions
         #
         # Do *not* use it on executed plans.
-        def static_garbage_collect(protected_roots: Set.new)
+        def static_garbage_collect(protected_roots: Set.new, &block)
             unneeded = unneeded_tasks(additional_useful_roots: protected_roots)
-            if block_given?
-                unneeded.each { |t| yield(t) }
+            if block
+                unneeded.each(&block)
             else
                 unneeded.each { |t| remove_task(t) }
             end

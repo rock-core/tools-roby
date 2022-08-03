@@ -22,13 +22,11 @@ module Roby
 end
 
 After do |scenario|
-    if kind_of?(Roby::App::Cucumber::World)
-        if roby_controller.roby_running?
-            if !roby_controller.roby_connected? # failed to connect, kill forcefully
-                roby_controller.roby_kill
-            else
-                roby_controller.roby_stop
-            end
+    if kind_of?(Roby::App::Cucumber::World) && roby_controller.roby_running?
+        if roby_controller.roby_connected? # failed to connect, kill forcefully
+            roby_controller.roby_stop
+        else
+            roby_controller.roby_kill
         end
     end
 end

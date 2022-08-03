@@ -8,6 +8,7 @@ module Roby
             let(:support_class) do
                 Class.new do
                     attr_reader :relation_graphs
+
                     def initialize(graphs = {})
                         @relation_graphs = graphs
                     end

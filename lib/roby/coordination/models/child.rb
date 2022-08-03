@@ -9,11 +9,11 @@ module Roby
                 attr_reader :parent
                 # @return [String] the child's role, relative to its parent
                 attr_reader :role
-                # The child's model
-                attr_reader :model
 
                 def initialize(parent, role, model)
-                    @parent, @role, @model = parent, role, model
+                    super(model)
+
+                    @parent, @role = parent, role
                 end
 
                 def ==(other)

@@ -133,8 +133,9 @@ error = Roby.display_exception(STDERR) do
         end
 
         handler = Roby.plan.execution_engine.each_cycle(description: "roby run bootup") do
-            if wait_shell_connection
-                next if Roby.app.shell_interface.client_count(handshake: true) == 0
+            if wait_shell_connection &&
+               Roby.app.shell_interface.client_count(handshake: true) == 0
+                next
             end
 
             # Start the requested actions

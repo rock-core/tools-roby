@@ -12,6 +12,7 @@ module Roby
             # @return [Hash<String,String>] a set of aliases, i.e. short names
             #   for robots
             attr_reader :aliases
+
             # @return [Boolean] if true, Roby will generate an error if a
             #   non-declared robot is used. Otherwise, it will only issue a
             #   warning

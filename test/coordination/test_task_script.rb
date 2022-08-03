@@ -9,6 +9,7 @@ module Roby
         describe TaskScript do
             describe "#wait" do
                 attr_reader :root, :task_m, :event_source_task
+
                 before do
                     @task_m = Tasks::Simple.new_submodel do
                         event :test
@@ -217,6 +218,7 @@ module Roby
 
             describe "#poll_until" do
                 attr_reader :parent, :child, :parent_task_m, :child_task_m
+
                 before do
                     @child_task_m = Tasks::Simple.new_submodel { event :e }
                     @parent_task_m = Tasks::Simple.new_submodel do
@@ -306,6 +308,7 @@ module Roby
 
             describe "#timeout" do
                 attr_reader :task
+
                 before do
                     task_m = Roby::Tasks::Simple.new_submodel do
                         event :intermediate

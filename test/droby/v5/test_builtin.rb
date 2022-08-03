@@ -32,6 +32,7 @@ module Roby
 
                 describe Builtins::ClassDumper do
                     attr_reader :local_base_class, :remote_base_class, :parent, :child
+
                     before do
                         @local_base_class = Class.new do
                             extend Identifiable

@@ -8,8 +8,7 @@ module Roby
         relation :Dependency, child_name: :child, parent_name: :parent_task
 
         class Dependency < Relations::TaskRelationGraph
-            attr_reader :interesting_events
-            attr_reader :failing_tasks
+            attr_reader :interesting_events, :failing_tasks
 
             def initialize(observer: nil)
                 super(observer: observer)
@@ -942,9 +941,10 @@ module Roby
             parent.pretty_print(pp)
             pp.breakable
             pp.breakable
-            if mode == :failed_event
+            case mode
+            when :failed_event
                 pp.text "Child triggered the failure predicate '#{relation[:failure]}': "
-            elsif mode == :unreachable_success
+            when :unreachable_success
                 pp.text "success condition can no longer be reached '#{relation[:success]}': "
             end
             explanation.pretty_print(pp, context_task: child)

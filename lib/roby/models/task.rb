@@ -20,9 +20,7 @@ module Roby
 
             class Template < TemplatePlan
                 attr_reader :events_by_name
-                attr_accessor :success_events
-                attr_accessor :failure_events
-                attr_accessor :terminal_events
+                attr_accessor :success_events, :failure_events, :terminal_events
 
                 def initialize
                     super
@@ -172,10 +170,10 @@ module Roby
                 )
 
                 events.each_value do |ev|
-                    if ev.event_model.terminal?
-                        if !success_events.include?(ev) && !failure_events.include?(ev)
-                            terminal_events << ev
-                        end
+                    next unless ev.event_model.terminal?
+
+                    if !success_events.include?(ev) && !failure_events.include?(ev)
+                        terminal_events << ev
                     end
                 end
 

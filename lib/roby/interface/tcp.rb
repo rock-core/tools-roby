@@ -12,6 +12,7 @@ module Roby
             attr_reader :server
             # @return [Array<Client>] set of currently active clients
             attr_reader :clients
+
             # Whether the server handler should warn about disconnections
             attr_predicate :warn_about_disconnection?, true
             # Whether a non-comm-related failure will cause the whole Roby app

@@ -7,6 +7,7 @@ module Roby
         module Models
             describe MethodAction do
                 attr_reader :interface_m, :action_m
+
                 before do
                     @interface_m = Actions::Interface.new_submodel(name: "TestActions")
                     @action_m = MethodAction.new(interface_m)

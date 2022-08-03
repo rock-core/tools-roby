@@ -7,6 +7,8 @@ module Roby
         class AndMatcher < MatcherBase
             # Create a new AndMatcher object combining the given predicates.
             def initialize(*ops)
+                super()
+
                 @ops = ops
             end
 

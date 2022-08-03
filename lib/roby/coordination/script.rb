@@ -7,11 +7,11 @@ module Roby
             DeadInstruction = Models::Script::DeadInstruction
 
             class BlockExecute < ScriptInstruction
-                attr_reader :task
-
-                attr_reader :block
+                attr_reader :task, :block
 
                 def initialize(block)
+                    super()
+
                     @block = block
                 end
 
@@ -29,6 +29,7 @@ module Roby
             module Models
                 class PollUntil
                     attr_reader :event, :block
+
                     def initialize(event, block)
                         @event = event
                         @block = block
@@ -48,6 +49,8 @@ module Roby
                 attr_reader :root_task, :event, :block
 
                 def initialize(root_task, event, block)
+                    super()
+
                     @root_task = root_task
                     @event = event
                     @block = block
@@ -100,11 +103,12 @@ module Roby
             end
 
             class TimeoutStart < ScriptInstruction
-                attr_reader :model
-                attr_reader :event
+                attr_reader :model, :event
                 attr_accessor :timeout_stop
 
                 def initialize(model, event)
+                    super()
+
                     @model = model
                     @event = event
                 end
@@ -134,6 +138,8 @@ module Roby
                 attr_reader :timeout_start
 
                 def initialize(timeout_start)
+                    super()
+
                     @timeout_start = timeout_start
                     timeout_start.timeout_stop = self
                 end
@@ -144,9 +150,7 @@ module Roby
                 end
             end
 
-            attr_reader :current_instruction
-
-            attr_reader :instructions
+            attr_reader :current_instruction, :instructions
 
             def prepare
                 @instructions = []
@@ -178,9 +182,9 @@ module Roby
                 return if current_instruction && !current_instruction.disabled?
 
                 while (@current_instruction = instructions.shift)
-                    unless current_instruction.disabled?
-                        break unless current_instruction.execute(self)
-                    end
+                    next if current_instruction.disabled?
+
+                    break unless current_instruction.execute(self)
                 end
             rescue LocalizedError => e
                 raise e
