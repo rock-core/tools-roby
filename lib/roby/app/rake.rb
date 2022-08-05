@@ -173,6 +173,12 @@ module Roby
                 # @return [Array<String,(String,String)>]
                 attr_accessor :robot_names
 
+                # The hash with extra configuration to be inserted into Conf
+                # for the tests we are running
+                #
+                # @return [Hash<String, String>]
+                attr_accessor :config
+
                 # Patterns matching excluded test files
                 #
                 # It accepts any string that File.fnmatch? accepts
@@ -199,6 +205,7 @@ module Roby
                     @app = Roby.app
                     @all_by_default = all_by_default
                     @robot_names = discover_robot_names
+                    @config = {}
                     @excludes = []
                     @ui = false
 
@@ -294,6 +301,10 @@ module Roby
                     args += excludes.flat_map do |pattern|
                         ["--exclude", pattern]
                     end
+                    args += config.flat_map do |k, v|
+                        ["--set", "#{k}=#{v}"]
+                    end
+
                     args << "--ui" if ui?
                     args << "--"
                     if (minitest_opts = ENV["TESTOPTS"])
