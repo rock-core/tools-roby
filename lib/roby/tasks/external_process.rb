@@ -27,18 +27,15 @@ module Roby
         # * the success event is emitted when the process exits with a zero status
         # * the stop event is emitted when the process exits, regardless of how
         class ExternalProcess < Roby::Task
-            ##
-            # :attr_reader:
-            # This task argument is an array whose first element is the executable
-            # to start and the rest the arguments that need to be passed to it.
-            #
-            # It can also be set to a simple string, which is interpreted as the
-            # executable name with no arguments.
+            # @!attribute [rw] command_line
+            #   @return [Array,String] If an array, its first element is the
+            #   executable to start and the rest the arguments that need to be
+            #   passed to it. If a string, it is interpreted as the executable
+            #   name with no arguments.
             argument :command_line
 
-            ##
-            # :attr_reader:
-            # The working directory. If not set, the current directory is used.
+            # @!attribute [rw] working_directory
+            #   The working directory. If not set, the current directory is used.
             argument :working_directory, default: nil
 
             # @!attribute [rw] stub_in_roby_simulation_mode
@@ -76,7 +73,7 @@ module Roby
             # It carries the process signal as Process::Status
             event :signaled
 
-            forward :signaled => :failed
+            forward signaled: :failed
 
             # The PID of the child process, or nil if the child process is not
             # running
@@ -128,24 +125,26 @@ module Roby
             #   with a single argument applies this redirection to both outputs.
             #
             def redirect_output(common = nil, stdout: nil, stderr: nil)
-                if @pid
-                    raise "cannot change redirection after task start"
-                elsif common
-                    stdout = stderr = common
-                end
+                raise "cannot change redirection after task start" if @pid
 
-                @redirection = {}
-                if stdout
-                    @redirection[:stdout] =
-                        if %i[pipe close].include?(stdout) then stdout
-                        else stdout.to_str
-                        end
-                end
-                if stderr
-                    @redirection[:stderr] =
-                        if %i[pipe close].include?(stderr) then stderr
-                        else stderr.to_str
-                        end
+                stdout = stderr = common if common
+
+                @redirection = {
+                    stdout: normalize_redirection_mode(common || stdout),
+                    stderr: normalize_redirection_mode(common || stderr)
+                }
+            end
+
+            # @api private
+            #
+            # Normalize the redirection target argument of {#redirect_output}
+            def normalize_redirection_mode(mode)
+                return unless mode
+
+                if %i[pipe close].include?(mode)
+                    mode
+                else
+                    mode.to_str
                 end
             end
 
@@ -179,9 +178,10 @@ module Roby
             #
             # Setup redirections pre-spawn
             def handle_redirection
-                if !@redirection[:stdout] && !@redirection[:stderr]
-                    return [], {}
-                elsif (@redirection[:stdout] == @redirection[:stderr]) && !%i[pipe close].include?(@redirection[:stdout])
+                return [], {} if !@redirection[:stdout] && !@redirection[:stderr]
+
+                if (@redirection[:stdout] == @redirection[:stderr]) &&
+                   !%i[pipe close].include?(@redirection[:stdout])
                     io = open_redirection(working_directory)
                     return [[@redirection[:stdout], io]], Hash[out: io, err: io]
                 end
@@ -275,13 +275,9 @@ module Roby
                     buffer.concat(@read_buffer)
                 end
             rescue EOFError
-                if received
-                    [true, buffer.dup]
-                end
+                [true, buffer.dup] if received
             rescue IO::WaitReadable
-                if received
-                    [false, buffer.dup]
-                end
+                [false, buffer.dup] if received
             end
 
             # Method called when data is received on an intercepted stdout
@@ -297,22 +293,17 @@ module Roby
             def read_pipes
                 if @out_pipe
                     eos, data = read_pipe(@out_pipe, @out_buffer)
-                    if eos
-                        @out_pipe = nil
-                    end
-                    if data
-                        stdout_received(data)
-                    end
+                    @out_pipe = nil if eos
+                    stdout_received(data) if data
                 end
+
                 if @err_pipe
                     eos, data = read_pipe(@err_pipe, @err_buffer)
-                    if eos
-                        @err_pipe = nil
-                    end
-                    if data
-                        stderr_received(data)
-                    end
+                    @err_pipe = nil if eos
+                    stderr_received(data) if data
                 end
+
+                nil
             end
 
             poll do
@@ -322,9 +313,7 @@ module Roby
             def poll_live_process
                 read_pipes
                 pid, exit_status = ::Process.waitpid2(self.pid, ::Process::WNOHANG)
-                if pid
-                    dead!(exit_status)
-                end
+                dead!(exit_status) if pid
             end
 
             on :stop do |_|

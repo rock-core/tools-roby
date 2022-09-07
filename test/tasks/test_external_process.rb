@@ -156,7 +156,7 @@ module Roby
             end
 
             it "has a default-constructible initializer" do
-                Tasks::ExternalProcess.new
+                ExternalProcess.new
             end
 
             def run_task(task)
@@ -165,36 +165,36 @@ module Roby
 
             describe "the execution workflow" do
                 it "passes on command-line arguments" do
-                    plan.add(task = Tasks::ExternalProcess.new(command_line: [mock_command, "--no-output"]))
+                    plan.add(task = ExternalProcess.new(command_line: [mock_command, "--no-output"]))
                     expect_execution { task.start! }.to { emit task.success_event }
                 end
 
                 it "accepts a command line with a single command argument" do
-                    plan.add(task = Tasks::ExternalProcess.new(command_line: [mock_command]))
+                    plan.add(task = ExternalProcess.new(command_line: [mock_command]))
                     task.redirect_output :close
                     expect_execution { task.start! }.to { emit task.success_event }
                 end
 
                 it "accepts a single command as string" do
-                    plan.add(task = Tasks::ExternalProcess.new(command_line: mock_command))
+                    plan.add(task = ExternalProcess.new(command_line: mock_command))
                     task.redirect_output :close
                     expect_execution { task.start! }.to { emit task.success_event }
                 end
 
                 it "fails to start if the program does not exist" do
-                    plan.add(task = Tasks::ExternalProcess.new(command_line: ["does_not_exist", "--error"]))
+                    plan.add(task = ExternalProcess.new(command_line: ["does_not_exist", "--error"]))
                     expect_execution { task.start! }
                         .to { fail_to_start task, reason: CommandFailed.match.with_original_exception(Errno::ENOENT) }
                 end
 
                 it "emits failed with the program status object if the program fails" do
-                    plan.add(task = Tasks::ExternalProcess.new(command_line: [mock_command, "--error"]))
+                    plan.add(task = ExternalProcess.new(command_line: [mock_command, "--error"]))
                     expect_execution { task.start! }.to { emit task.failed_event }
                     assert_equal 1, task.event(:failed).last.context.first.exitstatus
                 end
 
                 it "emits signaled with the program status if the program is terminated by a signal" do
-                    plan.add(task = Tasks::ExternalProcess.new(command_line: [mock_command, "--block"]))
+                    plan.add(task = ExternalProcess.new(command_line: [mock_command, "--block"]))
                     expect_execution { task.start! }.to { emit task.start_event }
                     expect_execution { Process.kill("KILL", task.pid) }
                         .to { emit task.failed_event }
@@ -229,7 +229,9 @@ module Roby
 
             describe "redirection" do
                 def do_redirection(expected)
-                    plan.add(task = Tasks::ExternalProcess.new(command_line: [mock_command]))
+                    plan.add(task = ExternalProcess.new(
+                        command_line: [mock_command]
+                    ))
                     yield(task)
 
                     expect_execution { task.start! }.to { emit task.success_event }
@@ -327,7 +329,7 @@ module Roby
                 def prepare_task(**options)
                     @out_file = File.join(@working_directory, "out")
                     FileUtils.touch @out_file
-                    @task = task = Roby::Tasks::ExternalProcess.interruptible_with_signal(
+                    @task = task = ExternalProcess.interruptible_with_signal(
                         command_line: [@mockup, @out_file], **options
                     )
                     plan.add(@task)
