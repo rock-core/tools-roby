@@ -1422,6 +1422,59 @@ module Roby
             unhandled.empty?
         end
 
+        WaitingWork = Struct.new :sync, :registration_point do
+            def state
+                sync.state
+            end
+
+            def unscheduled?
+                if sync.respond_to?(:unscheduled?)
+                    sync.unscheduled?
+                else
+                    sync.pending?
+                end
+            end
+
+            def complete?
+                if sync.respond_to?(:complete?)
+                    sync.complete?
+                else
+                    sync.resolved?
+                end
+            end
+
+            def rejected?
+                if sync.respond_to?(:complete?)
+                    sync.rejected?
+                else
+                    sync.state == :resolved
+                end
+            end
+
+            def handled_error?
+                sync.respond_to?(:handled_error?) && sync.handled_error?
+            end
+
+            def error_handling_failure
+                sync.respond_to?(:error_handling_failure) && sync.error_handling_failure
+            end
+
+            def reason
+                sync.reason
+            end
+
+            def fail(*args)
+                sync.fail(*args)
+            end
+
+            def pretty_print(pp)
+                sync.pretty_print(pp)
+                pp.breakable
+                pp.text "Registered at "
+                registration_point.pretty_print(pp)
+            end
+        end
+
         # Schedules +block+ to be called at the beginning of the next execution
         # cycle, in propagation context.
         #
@@ -1430,9 +1483,15 @@ module Roby
         #   use of this parameter is to make sure that #fail is called if the
         #   execution engine quits
         # @param (see PropagationHandlerMethods#create_propagation_handler)
-        def once(sync: nil, description: "once block", type: :external_events, **options, &block)
-            waiting_work << sync if sync
-            once_blocks << create_propagation_handler(description: description, type: type, once: true, **options, &block)
+        def once(
+            sync: nil, description: "once block", type: :external_events,
+            **options, &block
+        )
+            waiting_work << WaitingWork.new(sync, caller) if sync
+            once_blocks << create_propagation_handler(
+                description: description, type: type, once: true,
+                **options, &block
+            )
         end
 
         # Schedules +block+ to be called once after +delay+ seconds passed, in
@@ -2258,7 +2317,7 @@ module Roby
                 # rubocop:disable Lint/HandleExceptions
                 begin
                     w.fail ExecutionQuitError
-                    Roby.warn "forcefully terminated #{w} on quit"
+                    Roby.warn "forcefully terminated #{w.sync} on quit"
                 rescue Concurrent::MultipleAssignmentError
                     # Race condition: something completed the promise while
                     # we were trying to make it fail
@@ -2588,33 +2647,40 @@ module Roby
             end
         end
 
-        # Stops the current thread until the given even is emitted. If the event
-        # becomes unreachable, an UnreachableEvent exception is raised.
+        # Stops the current thread until the given even is emitted.
+        #
+        # If the event becomes unreachable, an UnreachableEvent exception is
+        # raised. If the block raises, the exception is raised in the calling thread
+        # as well
         def wait_until(ev)
             if inside_control?
                 raise ThreadMismatch, "cannot use #wait_until in execution threads"
             end
 
-            ivar = Concurrent::IVar.new
+            sync = Concurrent::Promises.resolvable_future
             result = nil
-            once(sync: ivar) do
+            once(sync: sync.rescue {}) do
                 if ev.unreachable?
-                    ivar.fail(UnreachableEvent.new(ev, ev.unreachability_reason))
+                    sync.reject(UnreachableEvent.new(ev, ev.unreachability_reason))
                 else
                     ev.if_unreachable(cancel_at_emission: true) do |reason, event|
-                        ivar.fail(UnreachableEvent.new(event, reason)) unless ivar.complete?
+                        unless sync.resolved?
+                            sync.reject(UnreachableEvent.new(event, reason))
+                        end
                     end
+
                     ev.once do |ev|
-                        ivar.set(result) unless ivar.complete?
+                        sync.fulfill(result) unless sync.resolved?
                     end
+
                     begin
                         result = yield if block_given?
                     rescue Exception => e
-                        ivar.fail(e)
+                        sync.reject(e)
                     end
                 end
             end
-            ivar.value!
+            sync.value!
         end
 
         def shutdown
