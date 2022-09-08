@@ -235,7 +235,9 @@ module Roby
                     expect_execution { task.start! }.to { emit task.success_event }
 
                     assert File.exist?("mockup-#{task.pid}.log")
-                    File.read("mockup-#{task.pid}.log")
+                    contents = File.read("mockup-#{task.pid}.log")
+                    assert_equal expected, contents if expected
+                    contents
                 ensure
                     FileUtils.rm_f "mockup-#{task.pid}.log"
                 end
