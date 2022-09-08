@@ -17,3 +17,13 @@ Roby.app.backward_compatible_naming = false
 # FlatFish
 #
 # Roby.app.module_name = 'Override'
+
+# Whether Roby::Tasks::ExternalProcess should start the subprocess when executed
+# under `roby test` (false) or not (true)
+#
+# The default is false for backward compatibility reasons. We recommend setting it
+# to true, and overriding it in tests as needed by setting the specific task's
+# stub_in_roby_simulation_mode argument
+#
+# require "roby/tasks/external_process"
+# Roby::Tasks::ExternalProcess.stub_in_roby_simulation_mode = false
