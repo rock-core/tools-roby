@@ -300,12 +300,14 @@ module Roby
                     eos, data = read_pipe(@out_pipe, @out_buffer)
                     @out_pipe = nil if eos
                     stdout_received(data) if data
+                    @out_buffer.clear
                 end
 
                 if @err_pipe
                     eos, data = read_pipe(@err_pipe, @err_buffer)
                     @err_pipe = nil if eos
                     stderr_received(data) if data
+                    @err_buffer.clear
                 end
 
                 nil

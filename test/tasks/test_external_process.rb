@@ -171,20 +171,34 @@ module Roby
             end
 
             describe "the execution workflow" do
+                before do
+                    @working_directory = make_tmpdir
+                end
+
                 it "passes on command-line arguments" do
-                    plan.add(task = ExternalProcess.new(command_line: [mock_command, "--no-output"]))
+                    plan.add(task = ExternalProcess.new(
+                        command_line: [mock_command, "--no-output"]
+                    ))
+                    path = File.join(@working_directory, "out")
+                    task.redirect_output path
                     expect_execution { task.start! }.to { emit task.success_event }
+
+                    assert_equal "", File.read(path)
                 end
 
                 it "accepts a command line with a single command argument" do
-                    plan.add(task = ExternalProcess.new(command_line: [mock_command]))
+                    plan.add(task = ExternalProcess.new(
+                        command_line: [mock_command, "--no-output"]
+                    ))
                     task.redirect_output :close
                     expect_execution { task.start! }.to { emit task.success_event }
                 end
 
                 it "accepts a single command as string" do
-                    plan.add(task = ExternalProcess.new(command_line: mock_command))
-                    task.redirect_output :close
+                    plan.add(task = ExternalProcess.new(
+                        command_line: mock_command
+                    ))
+                    task.redirect_output :pipe
                     expect_execution { task.start! }.to { emit task.success_event }
                 end
 
@@ -278,17 +292,27 @@ module Roby
                 end
 
                 it "redirects stdout to the task's handler" do
-                    plan.add(task = pipe_task_m.new(command_line: [mock_command]))
+                    plan.add(task = pipe_task_m.new(
+                        command_line: [mock_command, "--sleep"]
+                    ))
                     task.redirect_output(stdout: :pipe, stderr: :close)
                     expect_execution { task.start! }.to { emit task.success_event }
-                    assert_equal Hash[stdout: "FIRST LINE\nSECOND LINE\n", stderr: ""], task.received_data
+                    assert_equal(
+                        { stdout: "FIRST LINE\nSECOND LINE\n", stderr: "" },
+                        task.received_data
+                    )
                 end
 
                 it "redirects stderr to the task's handler" do
-                    plan.add(task = pipe_task_m.new(command_line: [mock_command, "--stderr"]))
+                    plan.add(task = pipe_task_m.new(
+                        command_line: [mock_command, "--stderr", "--sleep"]
+                    ))
                     task.redirect_output(stdout: :close, stderr: :pipe)
                     expect_execution { task.start! }.to { emit task.success_event }
-                    assert_equal Hash[stdout: "", stderr: "FIRST LINE\nSECOND LINE\n"], task.received_data
+                    assert_equal(
+                        { stdout: "", stderr: "FIRST LINE\nSECOND LINE\n" },
+                        task.received_data
+                    )
                 end
 
                 it "redirects both to the task's handlers at the same time" do

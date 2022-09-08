@@ -4,12 +4,15 @@
 require "optparse"
 
 io = STDOUT
+io.sync = true
 common = false
+sleep_between_lines = nil
 parser = OptionParser.new do |opt|
     opt.on("--common") { common = true }
     opt.on("--error") { exit(1) }
     opt.on("--stderr") { io = STDERR }
     opt.on("--no-output") { io = nil }
+    opt.on("--sleep") { sleep_between_lines = 0.5 }
     opt.on("--block") do
         sleep
     end
@@ -18,12 +21,16 @@ parser.parse! ARGV
 
 if common
     STDOUT.puts "O: FIRST LINE"
+    sleep(sleep_between_lines) if sleep_between_lines
     STDERR.puts "E: FIRST LINE"
+    sleep(sleep_between_lines) if sleep_between_lines
     STDOUT.puts "O: SECOND LINE"
+    sleep(sleep_between_lines) if sleep_between_lines
     STDERR.puts "E: SECOND LINE"
 
 elsif io
     io.puts "FIRST LINE"
+    sleep(sleep_between_lines) if sleep_between_lines
     io.puts "SECOND LINE"
 end
 exit 0
