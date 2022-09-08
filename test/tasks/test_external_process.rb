@@ -327,6 +327,14 @@ module Roby
                     refute_match(/INT/, contents)
                 end
 
+                it "sends KILL after kill_timeout seconds "\
+                   "if the process did not terminate" do
+                    task = prepare_task(signal: "USR2", kill_timeout: 0.2)
+                    execute_one_cycle
+                    event = expect_execution { task.stop! }.to { emit task.stop_event }
+                    assert_equal 9, event.context.first.termsig
+                end
+
                 def assert_outfile_contents_eventually_match(task, regexp)
                     deadline = Time.now + 5
                     while Time.now < deadline

@@ -290,6 +290,24 @@ module Roby
             class InterruptibleWithSignal < ExternalProcess
                 argument :signal, default: "INT"
 
+                # Time after which the KILL signal gets sent if the process did not
+                # terminate
+                #
+                # Set to nil to disable
+                argument :kill_timeout, default: nil
+
+                def kill(signo)
+                    super
+
+                    @kill_deadline = Time.now + kill_timeout if kill_timeout
+                end
+
+                poll do
+                    super()
+
+                    kill("KILL") if @kill_deadline && @kill_deadline < Time.now
+                end
+
                 event :failed, terminal: true do |_|
                     kill(signal)
                 end
