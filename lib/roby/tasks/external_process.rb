@@ -275,7 +275,8 @@ module Roby
                     buffer.concat(@read_buffer)
                 end
             rescue EOFError
-                [true, buffer.dup] if received
+                pipe.close
+                [true, buffer.dup]
             rescue IO::WaitReadable
                 [false, buffer.dup] if received
             end
