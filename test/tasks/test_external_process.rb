@@ -203,6 +203,28 @@ module Roby
                     ev = task.signaled_event.last
                     assert_equal 9, ev.context.first.termsig
                 end
+
+                it "starts the program under the working directory" do
+                    working_directory = make_tmpdir
+                    task = ExternalProcess.new(
+                        command_line: ["pwd"], working_directory: working_directory
+                    )
+                    task.redirect_output(stdout: File.join(working_directory, "out"))
+                    plan.add(task)
+
+                    expect_execution { task.start! }.to { emit task.success_event }
+                    out = File.read(File.join(working_directory, "out")).chomp
+                    assert_equal working_directory, out
+                end
+
+                it "fails if the working directory does not exist" do
+                    task = ExternalProcess.new(
+                        command_line: ["pwd"], working_directory: "/does/not/exist"
+                    )
+                    plan.add(task)
+                    expect_execution { task.start! }
+                        .to { fail_to_start task, reason: CommandFailed.match.with_original_exception(Errno::ENOENT) }
+                end
             end
 
             describe "redirection" do

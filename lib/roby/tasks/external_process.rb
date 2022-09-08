@@ -212,7 +212,9 @@ module Roby
                     @pid = rand(65_535)
                     validate_program(command_line[0])
                 else
-                    @pid = Process.spawn(*command_line, **spawn_options)
+                    @pid = Process.spawn(
+                        *command_line, chdir: working_directory, **spawn_options
+                    )
                 end
 
                 opened_ios.each do |pattern, io|
