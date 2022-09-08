@@ -117,39 +117,46 @@ module Roby
 
                 describe "with substitution" do
                     it "creates a temporary file in the working directory for stdout to enable substitutions" do
-                        @task.redirect_output(stdout: "bla-%p")
+                        out_dir = make_tmpdir
+                        @task.redirect_output(stdout: File.join(out_dir, "bla-%p"))
                         opened_ios, options = @task.handle_redirection
                         assert_equal 1, opened_ios.size
                         target_file, io = opened_ios[0]
-                        assert_equal "bla-%p", target_file
-                        assert_equal @working_directory, File.dirname(io.path)
+                        assert_equal File.join(out_dir, "bla-%p"), target_file
+                        assert_equal out_dir, File.dirname(io.path)
                         assert_equal Hash[out: io], options
                     end
-                    it "creates a temporary file in the working directory for stderr to enable substitutions" do
-                        @task.redirect_output(stderr: "bla-%p")
+                    it "creates a temporary file in the target's directory for stderr to enable substitutions" do
+                        out_dir = make_tmpdir
+                        @task.redirect_output(stderr: File.join(out_dir, "bla-%p"))
                         opened_ios, options = @task.handle_redirection
                         assert_equal 1, opened_ios.size
                         target_file, io = opened_ios[0]
-                        assert_equal "bla-%p", target_file
-                        assert_equal @working_directory, File.dirname(io.path)
+                        assert_equal File.join(out_dir, "bla-%p"), target_file
+                        assert_equal out_dir, File.dirname(io.path)
                         assert_equal Hash[err: io], options
                     end
                     it "sets up a common target file if given a single string" do
-                        @task.redirect_output("bla")
+                        out_dir = make_tmpdir
+                        @task.redirect_output(File.join(out_dir, "bla"))
                         opened_ios, options = @task.handle_redirection
                         assert_equal 1, opened_ios.size
                         target_file, io = opened_ios[0]
-                        assert_equal "bla", target_file
-                        assert_equal @working_directory, File.dirname(io.path)
+                        assert_equal File.join(out_dir, "bla"), target_file
+                        assert_equal out_dir, File.dirname(io.path)
                         assert_equal Hash[out: io, err: io], options
                     end
                     it "sets up a common target file if given the same string for stdout and stderr" do
-                        @task.redirect_output(stdout: "bla", stderr: "bla")
+                        out_dir = make_tmpdir
+                        @task.redirect_output(
+                            stdout: File.join(out_dir, "bla"),
+                            stderr: File.join(out_dir, "bla")
+                        )
                         opened_ios, options = @task.handle_redirection
                         assert_equal 1, opened_ios.size
                         target_file, io = opened_ios[0]
-                        assert_equal "bla", target_file
-                        assert_equal @working_directory, File.dirname(io.path)
+                        assert_equal File.join(out_dir, "bla"), target_file
+                        assert_equal out_dir, File.dirname(io.path)
                         assert_equal Hash[out: io, err: io], options
                     end
                 end

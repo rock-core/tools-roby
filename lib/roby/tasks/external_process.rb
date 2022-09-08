@@ -169,7 +169,8 @@ module Roby
                         end
                     [[[:close, io]], io]
                 else
-                    io = open_redirection(working_directory)
+                    dir = File.dirname(File.expand_path(redir_target, working_directory))
+                    io = open_redirection(dir)
                     [[[redir_target, io]], io]
                 end
             end
@@ -182,7 +183,9 @@ module Roby
 
                 if (@redirection[:stdout] == @redirection[:stderr]) &&
                    !%i[pipe close].include?(@redirection[:stdout])
-                    io = open_redirection(working_directory)
+                    redir_target = @redirection[:stdout]
+                    dir = File.dirname(File.expand_path(redir_target, working_directory))
+                    io = open_redirection(dir)
                     return [[@redirection[:stdout], io]], Hash[out: io, err: io]
                 end
 
@@ -219,8 +222,9 @@ module Roby
 
                 opened_ios.each do |pattern, io|
                     if pattern != :close
-                        target_path = File.join(working_directory,
-                                                redirection_path(pattern, @pid))
+                        target_path = File.expand_path(
+                            redirection_path(pattern, @pid), working_directory
+                        )
                         FileUtils.mv io.path, target_path
                     end
                     io.close
