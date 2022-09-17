@@ -178,6 +178,8 @@ module Roby
 
             # @deprecated use {#run_planners} instead
             def roby_run_planner(root_task, recursive: true, **options)
+                Roby.warn_deprecated "#{__method__} is deprecated, "\
+                                     "use run_planners instead"
                 run_planners(root_task, recursive: recursive, **options)
             end
 
