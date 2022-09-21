@@ -179,6 +179,11 @@ module Roby
                 # @return [Hash<String, String>]
                 attr_accessor :config
 
+                # Explicit the list of files which should be tested.
+                #
+                # @return [Array<String>]
+                attr_accessor :test_files
+
                 # Patterns matching excluded test files
                 #
                 # It accepts any string that File.fnmatch? accepts
@@ -206,6 +211,7 @@ module Roby
                     @all_by_default = all_by_default
                     @robot_names = discover_robot_names
                     @config = {}
+                    @test_files = []
                     @excludes = []
                     @ui = false
 
@@ -318,6 +324,8 @@ module Roby
                         ]
                         FileUtils.mkdir_p report_dir
                     end
+
+                    args += test_files.map(&:to_s)
 
                     puts "Running roby test #{args.join(' ')}"
                     run_roby("test", *args)
