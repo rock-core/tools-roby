@@ -541,36 +541,6 @@ module Roby
                     assert_equal [], app.each_test_file_for_loaded_models.to_a
                 end
             end
-
-            describe "lib tests" do
-                before do
-                    flexmock(app).should_receive(:test_files_for).and_return([])
-                end
-
-                it "enumerates test_*.rb files in test/lib" do
-                    expected = touch_test_files \
-                        ["test_root.rb"],
-                        ["subdir", "test_subdir.rb"]
-                    assert_equal expected.to_set, app.each_test_file_for_loaded_models.to_set
-                end
-                it "enumerates *_test.rb files in test/lib" do
-                    expected = touch_test_files \
-                        ["root_test.rb"],
-                        ["subdir", "subdir_test.rb"]
-                    assert_equal expected.to_set, app.each_test_file_for_loaded_models.to_set
-                end
-                it "ignores files not matching the test pattern" do
-                    touch_test_files \
-                        ["root_test_root.rb"],
-                        ["subdir", "subdir.rb"]
-                    assert_equal [], app.each_test_file_for_loaded_models.to_a
-                end
-
-                def touch_test_files(*paths)
-                    full_paths = super(*paths.map { |ary| ["lib"] + ary })
-                    full_paths.map { |p| [p, Set.new] }
-                end
-            end
         end
 
         describe "each_test_file_in_app" do
