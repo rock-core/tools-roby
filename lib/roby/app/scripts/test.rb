@@ -22,6 +22,7 @@ only_self = false
 all = true
 testrb_args = []
 excluded_patterns = []
+base_dir = File.join(Roby.app.app_dir, "test")
 parser = OptionParser.new do |opt|
     opt.banner = "#{File.basename($0)} test [ROBY_OPTIONS] -- "\
                  "[MINITEST_OPTIONS] [TEST_FILES]"
@@ -68,6 +69,10 @@ parser = OptionParser.new do |opt|
                          "a full coverage information") do |name|
         coverage_mode = true
     end
+    opt.on("--base-dir DIR", "includes the directory on which the tests "\
+                         "will be auto-discovered") do |dir|
+        base_dir = dir
+    end
     opt.on "--help" do
         pp opt
         Minitest.run ["--help"]
@@ -103,7 +108,7 @@ exception = Roby.display_exception do
 
         if test_files.empty?
             test_files = app.discover_test_files(
-                all: all, only_self: only_self
+                all: all, only_self: only_self, base_dir: base_dir
             ).map(&:first)
             self_files, dependent_files =
                 test_files.partition { |f| app.self_file?(f) }

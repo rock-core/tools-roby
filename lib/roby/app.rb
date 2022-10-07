@@ -2997,11 +2997,12 @@ module Roby
         # @param [Boolean] only_self if set, list only test files from within
         #   {#app_dir}. Otherwise, consider test files from all over {#search_path}
         # @return [Array<String>]
-        def discover_test_files(all: true, only_self: false)
+        def discover_test_files(all: true, only_self: false, base_dir: File.join(app_dir, "test"))
             if all
-                test_files = each_test_file_in_app.each_with_object({}) do |k, h|
-                    h[k] = []
+                test_files = each_test_file_in(base_dir).with_object({}) do |t, h|
+                    h[t] = []
                 end
+
                 unless only_self
                     test_files.merge!(Hash[each_test_file_for_loaded_models.to_a])
                 end
@@ -3032,21 +3033,13 @@ module Roby
             end
         end
 
-        # Enumerate all the test files in this app and for this robot
+        # Enumerate all the test files in a specific dir for this robot
         # configuration
-        def each_test_file_in_app
-            return enum_for(__method__) unless block_given?
+        def each_test_file_in(dir)
+            return enum_for(__method__, dir) unless block_given?
 
-            dir = File.join(app_dir, "test")
-            return unless File.directory?(dir)
-
-            robot_test_dir = File.join(dir, "robots")
-            [robot_name, robot_type].each do |name|
-                robot_test_file = File.join(robot_test_dir, "test_#{name}.rb")
-                if File.file?(robot_test_file)
-                    yield(robot_test_file)
-                    break
-                end
+            each_robot_test_file_in(dir) do |path|
+                yield(path)
             end
 
             Find.find(dir) do |path|
@@ -3058,6 +3051,31 @@ module Roby
                     yield(path)
                 end
             end
+        end
+
+        # Enumerate all the test files specific for this robot
+        # configuration
+        def each_robot_test_file_in(dir)
+            return enum_for(__method__, dir) unless block_given?
+            return unless File.directory?(dir)
+
+            robot_test_dir = File.join(dir, "robots")
+            [robot_name, robot_type].each do |name|
+                robot_test_file = File.join(robot_test_dir, "test_#{name}.rb")
+                if File.file?(robot_test_file)
+                    yield(robot_test_file)
+                    break
+                end
+            end
+        end
+
+        # Enumerate all the test files in this app and for this robot
+        # configuration
+        def each_test_file_in_app
+            return enum_for(__method__) unless block_given?
+
+            dir = File.join(app_dir, "test")
+            each_test_file_in(dir)
         end
 
         # Enumerate the test files that should be run to test the current app

@@ -179,10 +179,15 @@ module Roby
                 # @return [Hash<String, String>]
                 attr_accessor :config
 
-                # Explicit the list of files which should be tested.
+                # The list of files that should be tested.
                 #
                 # @return [Array<String>]
                 attr_accessor :test_files
+
+                # The directory where the tests will be auto-discovered
+                #
+                # @return [String]
+                attr_accessor :base_dir
 
                 # Patterns matching excluded test files
                 #
@@ -310,6 +315,7 @@ module Roby
                     args += config.flat_map do |k, v|
                         ["--set", "#{k}=#{v}"]
                     end
+                    args += ["--base-dir", base_dir] if base_dir
 
                     args << "--ui" if ui?
                     args << "--"
