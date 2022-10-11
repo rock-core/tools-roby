@@ -23,6 +23,7 @@ all = true
 testrb_args = []
 excluded_patterns = []
 base_dir = File.join(Roby.app.app_dir, "test")
+force_discovery = false
 parser = OptionParser.new do |opt|
     opt.banner = "#{File.basename($0)} test [ROBY_OPTIONS] -- "\
                  "[MINITEST_OPTIONS] [TEST_FILES]"
@@ -73,6 +74,9 @@ parser = OptionParser.new do |opt|
                          "will be auto-discovered") do |dir|
         base_dir = dir
     end
+    opt.on("--force-discovery", "call discover_test_files even if there are explicit files on the command line") do
+        force_discovery = true
+    end
     opt.on "--help" do
         pp opt
         Minitest.run ["--help"]
@@ -106,20 +110,25 @@ exception = Roby.display_exception do
     begin
         Roby.app.prepare
 
+        def discover_test_files(all:, only_self:, base_dir:)
+            self_files, dependent_files = \
+                Roby.app.discover_test_files(
+                    all: all, only_self: only_self, base_dir: base_dir
+                ).map(&:first).partition { |f| Roby.app.self_file?(f) }
+
+            self_files.sort + dependent_files.sort
+        end
+
+        # list_tests = true
         if test_files.empty?
-            test_files = app.discover_test_files(
-                all: all, only_self: only_self, base_dir: base_dir
-            ).map(&:first)
-            self_files, dependent_files =
-                test_files.partition { |f| app.self_file?(f) }
-            test_files = self_files.sort + dependent_files.sort
+            test_files = discover_test_files(all: all, only_self: only_self, base_dir: base_dir)
             if list_tests
                 puts "Would load #{test_files.size} test files"
                 test_files.each do |path|
                     puts "  #{path}"
                 end
 
-                all_existing_tests = app.find_dirs("test", order: :specific_first, all: !only_self).inject(Set.new) do |all, dir|
+                all_existing_tests = Roby.app.find_dirs("test", order: :specific_first, all: !only_self).inject(Set.new) do |all, dir|
                     all.merge(Find.enum_for(:find, dir).find_all { |f| f =~ /\/test_.*\.rb$/ && File.file?(f) }.to_set)
                 end
                 not_run = (all_existing_tests - test_files.to_set)
@@ -130,6 +139,20 @@ exception = Roby.display_exception do
                     end
                 end
                 exit 0
+            end
+        elsif force_discovery
+            test_files += discover_test_files(all: all, only_self: only_self, base_dir: base_dir)
+
+            test_files = test_files.flat_map do |file|
+                next file unless file =~ /ROBOT/
+
+                robot_type = Roby.app.robot_type
+                robot_name = Roby.app.robot_name
+                (replacements = [robot_type]) << robot_name if robot_type != robot_name
+                replacements.map do |replacement|
+                    resolved_file = File.join(Roby.app.app_dir, file.gsub("ROBOT", replacement))
+                    resolved_file if File.file?(resolved_file)
+                end.compact
             end
         end
 

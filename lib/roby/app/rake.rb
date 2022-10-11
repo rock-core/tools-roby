@@ -203,9 +203,17 @@ module Roby
                 # Sets whether the tests should be started with the --ui flag
                 attr_writer :ui
 
+                # Sets whether the tests should be started with the --force-discovery flag
+                attr_writer :force_discovery
+
                 # Whether the tests should be started with the --ui flag
                 def ui?
                     @ui
+                end
+
+                # Whether the tests should be started with the --force-discovery flag
+                def force_discovery?
+                    @force_discovery
                 end
 
                 def initialize(task_name = "test", all_by_default: false)
@@ -219,6 +227,7 @@ module Roby
                     @test_files = []
                     @excludes = []
                     @ui = false
+                    @force_discovery = false
 
                     @use_junit = Rake.use_junit?
                     @report_dir = Rake.report_dir
@@ -318,6 +327,7 @@ module Roby
                     args += ["--base-dir", base_dir] if base_dir
 
                     args << "--ui" if ui?
+                    args << "--force-discovery" if force_discovery?
                     args << "--"
                     if (minitest_opts = ENV["TESTOPTS"])
                         args.concat(Shellwords.split(minitest_opts))
