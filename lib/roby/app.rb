@@ -2256,11 +2256,7 @@ module Roby
             base_dir_path.delete_if { |p| p =~ /ROBOT/ }
             relative_paths = [base_dir_path]
             if dir_path.any? { |p| p =~ /ROBOT/ } && robot_name && robot_type
-                replacements = [robot_type]
-                if robot_type != robot_name
-                    replacements << robot_name
-                end
-                replacements.each do |replacement|
+                robot_configuration_names.each do |replacement|
                     robot_dir_path = dir_path.map do |s|
                         s.gsub("ROBOT", replacement)
                     end
@@ -3071,11 +3067,9 @@ module Roby
 
         # Enumerate all the test files in this app and for this robot
         # configuration
-        def each_test_file_in_app
-            return enum_for(__method__) unless block_given?
-
+        def each_test_file_in_app(&block)
             dir = File.join(app_dir, "test")
-            each_test_file_in(dir)
+            each_test_file_in(dir, &block)
         end
 
         # Enumerate the test files that should be run to test the current app
@@ -3098,6 +3092,13 @@ module Roby
             end
 
             models_per_file.each(&block)
+        end
+
+        # Returns all unique valid robot configuration names (i.e robot_type and robot_name)
+        #
+        # @return [Array]
+        def robot_configuration_names
+            robot_type == robot_name ? [robot_type] : [robot_type, robot_name]
         end
     end
 end

@@ -127,10 +127,7 @@ exception = Roby.display_exception do
             test_files = test_files.flat_map do |file|
                 next file unless file =~ /ROBOT/
 
-                robot_type = Roby.app.robot_type
-                robot_name = Roby.app.robot_name
-                replacements = (robot_type == robot_name ? [robot_type] : [robot_type, robot_name])
-                replacements.map do |replacement|
+                Roby.app.robot_configuration_names.map do |replacement|
                     resolved_file = File.join(Roby.app.app_dir, file.gsub("ROBOT", replacement))
                     resolved_file if File.file?(resolved_file)
                 end.compact
