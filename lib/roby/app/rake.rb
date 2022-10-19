@@ -206,6 +206,9 @@ module Roby
                 # Sets whether the tests should be started with the --force-discovery flag
                 attr_writer :force_discovery
 
+                # Only run tests that are present in this bundle
+                attr_writer :self_only
+
                 # Whether the tests should be started with the --ui flag
                 def ui?
                     @ui
@@ -214,6 +217,11 @@ module Roby
                 # Whether the tests should be started with the --force-discovery flag
                 def force_discovery?
                     @force_discovery
+                end
+
+                # Whether the tests should be started with the --self flag
+                def self_only?
+                    @self_only
                 end
 
                 def initialize(task_name = "test", all_by_default: false)
@@ -228,6 +236,7 @@ module Roby
                     @excludes = []
                     @ui = false
                     @force_discovery = false
+                    @self_only = false
 
                     @use_junit = Rake.use_junit?
                     @report_dir = Rake.report_dir
@@ -328,6 +337,7 @@ module Roby
 
                     args << "--ui" if ui?
                     args << "--force-discovery" if force_discovery?
+                    args << "--self" if self_only?
                     args << "--"
                     if (minitest_opts = ENV["TESTOPTS"])
                         args.concat(Shellwords.split(minitest_opts))
