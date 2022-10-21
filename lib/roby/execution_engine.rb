@@ -408,20 +408,23 @@ module Roby
             def initialize(waiting_work)
                 super()
 
-                @waiting_work = waiting_work.dup
-            end
-
-            def pretty_print(pp)
-                pp.text "timed out in #join_all_waiting_work, #{waiting_work.size} promises waiting"
-                waiting_work.each do |w|
+                pp = PP.new(formatted = +"")
+                @waiting_work = waiting_work.each do |w|
                     pp.breakable
                     pp.nest(2) do
                         if w.respond_to?(:state)
-                            pp.text "[state=#{w.state}] "
+                            pp.text "[state=#{state}] "
                         end
                         w.pretty_print(pp)
                     end
                 end
+                @formatted = formatted
+            end
+
+            def pretty_print(pp)
+                pp.text "timed out in #join_all_waiting_work, #{waiting_work.size} promises waiting"
+                pp.breakable
+                pp.text @formatted
             end
         end
 
