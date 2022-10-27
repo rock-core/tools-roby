@@ -629,7 +629,7 @@ module Roby
                 rescue LocalizedError => e
                     execution_engine.add_error(e)
                 rescue Exception => e
-                    execution_engine.add_error(EventHandlerError.new(e, event))
+                    execution_engine.add_error(EventHandlerError.new(e, event.generator))
                 end
                 h.once?
             end

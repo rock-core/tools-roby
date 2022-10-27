@@ -421,6 +421,29 @@ module Roby
                                 emit agent.stop_event
                             end
                     end
+
+                    it "does not relate to a handler error" do
+                        task_m = Task.new_submodel do
+                            event(:start, controlable: true) { |_| start_event.emit }
+                        end
+                        plan.add_mission_task(task = task_m.new)
+                        task.stop_event.on { raise ArgumentError }
+
+                        execute do
+                            task.start!
+                        end
+
+                        e = assert_raises(ExecutionExpectations::UnexpectedErrors) do
+                            expect_execution { task.stop_event.emit }
+                                .to { emit task.stop_event }
+                        end
+
+                        errors = e.each_execution_exception.to_a
+                        assert_kind_of EventHandlerError, errors[0].exception
+                        assert_kind_of ArgumentError,
+                                       errors[0].exception.each_original_exception.first
+                        assert_kind_of MissionFailedError, errors[1].exception
+                    end
                 end
 
                 describe "#emit a task event query" do
@@ -476,6 +499,49 @@ module Roby
                             execute: proc { task.start! },
                             predicates: proc { emit find_tasks(task_m).start_event }
                         )
+                    end
+                    it "handles a toplevel task error caused by the event" do
+                        execution_agent_m = Tasks::Simple.new_submodel { event :ready }
+                        task_m = Task.new_submodel do
+                            event(:start) { |_| }
+                        end
+                        plan.add_mission_task(task = task_m.new)
+                        plan.add(agent = execution_agent_m.new)
+                        task.executed_by agent
+
+                        execute do
+                            agent.start!
+                            agent.ready_event.emit
+                            task.start!
+                        end
+
+                        expect_execution { agent.stop! }
+                            .to do
+                                fail_to_start task
+                                emit execution_agent_m.match.stop_event
+                            end
+                    end
+                    it "does not relate to a handler error" do
+                        task_m = Task.new_submodel do
+                            event(:start, controlable: true) { |_| start_event.emit }
+                        end
+                        plan.add_mission_task(task = task_m.new)
+                        task.stop_event.on { raise ArgumentError }
+
+                        execute do
+                            task.start!
+                        end
+
+                        e = assert_raises(ExecutionExpectations::UnexpectedErrors) do
+                            expect_execution { task.stop_event.emit }
+                                .to { emit task_m.match.stop_event }
+                        end
+
+                        errors = e.each_execution_exception.to_a
+                        assert_kind_of EventHandlerError, errors[0].exception
+                        assert_kind_of ArgumentError,
+                                       errors[0].exception.each_original_exception.first
+                        assert_kind_of MissionFailedError, errors[1].exception
                     end
                 end
 
@@ -1101,7 +1167,10 @@ module Roby
 
                 describe "#ignore_errors_from" do
                     it "passes if the predicate matches" do
-                        plan.add(task = Roby::Task.new)
+                        plan.add(parent_task = Tasks::Simple.new)
+                        task = parent_task.depends_on(Tasks::Simple.new, failure: :start)
+
+                        execute { parent_task.start! }
                         expect_execution { task.start! }
                             .to { ignore_errors_from emit(task.start_event) }
                     end

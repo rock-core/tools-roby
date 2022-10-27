@@ -934,6 +934,7 @@ module Roby
                                 Queries::LocalizedErrorMatcher
                                 .new
                                 .with_origin(ev.generator)
+                                .emitted
                                 .to_execution_exception_matcher
                         end
                     !@emitted_events.empty?
@@ -958,6 +959,7 @@ module Roby
                         Queries::LocalizedErrorMatcher
                         .new
                         .with_origin(@generator)
+                        .emitted
                         .to_execution_exception_matcher
                 end
 
