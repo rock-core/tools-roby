@@ -20,6 +20,7 @@ module Roby
                 super
                 @model = LocalizedError
                 @failure_point_matcher = Queries.any
+                @emitted = false
                 @original_exception_model = nil
             end
 
@@ -58,10 +59,18 @@ module Roby
                 self
             end
 
+            # If the failure point matcher is a generator matcher, require that
+            # the failure origin is an actual emission
+            def emitted
+                @emitted = true
+                self
+            end
+
             # @return [Boolean] true if the given execution exception object
             #   matches self, false otherwise
             def ===(exception)
                 return false unless model === exception
+                return false if @emitted && !exception.failed_event
 
                 if original_exception_model
                     original_exception = exception.original_exceptions
