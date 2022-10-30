@@ -535,6 +535,11 @@ module Roby
         end
     end
 
+    # Returns all exception objects that can be reached from an {Exception} or
+    # an {ExecutionException}
+    #
+    # @param [Exception,ExecurtionException] e
+    # @return [Set<Exception>]
     def self.flatten_exception(e)
         result = [e].to_set
 

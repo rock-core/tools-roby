@@ -363,7 +363,20 @@ module Roby
                     return enum_for(__method__) unless block_given?
 
                     @expectations.each do |_, e|
-                        yield(e) if e.kind_of?(Exception)
+                        if e.kind_of?(Exception)
+                            yield(e)
+                        elsif e.kind_of?(Roby::Event)
+                            e.context.each do |c|
+                                yield(c) if c.kind_of?(Exception)
+                            end
+                        end
+                    end
+
+                    @propagation_info.exceptions.each do |e|
+                        yield(e.exception)
+                    end
+                    @propagation_info.handled_errors.each do |e, _|
+                        yield(e.exception)
                     end
                 end
 
@@ -408,6 +421,7 @@ module Roby
                     return enum_for(__method__) unless block_given?
 
                     @errors.each do |e|
+                        yield(e.exception) if e.kind_of?(ExecutionException)
                         yield(e) if e.kind_of?(Exception)
                     end
                 end
@@ -432,27 +446,11 @@ module Roby
 
                         e = e.exception if e.kind_of?(ExecutionException)
                         if e.backtrace && !e.backtrace.empty?
+                            formatted_backtrace = e.backtrace.join("\n    ")
                             formatted_execution_exception +=
-                                "\n    #{e.backtrace.join('\n    ')}"
+                                "\n    #{formatted_backtrace}"
                         end
 
-                        sub_exceptions = Roby.flatten_exception(e)
-                        sub_exceptions.delete(e)
-                        formatted_sub_exceptions =
-                            sub_exceptions.each_with_index.map do |sub_e, sub_i|
-                                formatted = "[#{sub_i}] " +
-                                            Roby.format_exception(sub_e).join("\n    ")
-                                backtrace = Roby.format_backtrace(sub_e)
-                                unless backtrace.empty?
-                                    formatted += "    #{backtrace.join('\n    ')}"
-                                end
-                                formatted
-                            end.join("\n  ")
-
-                        unless formatted_sub_exceptions.empty?
-                            formatted_execution_exception +=
-                                "\n  #{formatted_sub_exceptions}"
-                        end
                         formatted_execution_exception
                     end.join("\n")
                     "#{@errors.size} unexpected errors\n#{formatted_errors}"

@@ -368,6 +368,11 @@ module Roby
             pp.text "failed emission of the "
             failed_generator.pretty_print(pp)
             pp.text " (#{self.class})"
+
+            each_original_exception do |e|
+                pp.breakable
+                e.pretty_print(pp)
+            end
         end
     end
     # Raised when an event handler has raised.
@@ -502,7 +507,9 @@ module Roby
 
         def pretty_print(pp)
             if reason
-                reason.pretty_print(pp)
+                if reason.kind_of?(::Exception)
+                    reason.pretty_print(pp)
+                end
             elsif failed_event
                 failed_event.pretty_print(pp)
             else

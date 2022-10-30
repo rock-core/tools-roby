@@ -92,7 +92,7 @@ module Roby
                     e_bt = Minitest.filter_backtrace(e.backtrace).join "\n    "
                     msg << "\n\n" << Roby.format_exception(e).join("\n") + "\n    #{e_bt}"
 
-                    queue.concat(e.original_exceptions) if e.respond_to?(:original_exceptions)
+                    queue.concat(e.each_original_exception.to_a) if e.respond_to?(:each_original_exception)
                 end
                 msg
             end
@@ -137,7 +137,8 @@ module Roby
 
                         # Try to be smart and to only keep the toplevel
                         # exceptions
-                        filter_execution_exceptions(exceptions).each do |original_e|
+                        all_exceptions = filter_execution_exceptions(exceptions)
+                        all_exceptions.each do |original_e|
                             unless original_e.backtrace
                                 original_e.set_backtrace(e.backtrace)
                             end
