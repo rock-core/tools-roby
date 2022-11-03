@@ -1231,6 +1231,21 @@ module Roby
                     .handled(handled)
             end
 
+            it "returns a disposable from on_exception" do
+                before_registering = plan.exception_handlers.dup
+
+                disposable = plan.on_exception(LocalizedError) {}
+                assert_kind_of(Roby::Disposable, disposable)
+
+                before_disposing = plan.exception_handlers.dup
+                refute_equal(before_registering, before_disposing)
+
+                disposable.dispose
+                after_disposing = plan.exception_handlers.dup
+
+                assert_equal(before_registering, after_disposing)
+            end
+
             it "reports handled structure exceptions" do
                 child = root.depends_on(task_m)
                 plan.on_exception(ChildFailedError) { root.remove_child(child) }

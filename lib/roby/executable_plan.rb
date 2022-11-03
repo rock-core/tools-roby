@@ -568,6 +568,9 @@ module Roby
         def on_exception(matcher, &handler)
             check_arity(handler, 2)
             exception_handlers.unshift [matcher.to_execution_exception_matcher, handler]
+            Roby.disposable do
+                exception_handlers.delete_if { |_, h| h == handler }
+            end
         end
 
         # Actually remove a task from the plan
