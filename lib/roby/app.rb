@@ -940,7 +940,6 @@ module Roby
             cleanup_user_lifecycle_hooks(require_handlers)
             cleanup_user_lifecycle_hooks(controllers)
             cleanup_user_lifecycle_hooks(action_handlers)
-            cleanup_user_lifecycle_hooks(clear_models_handlers)
             cleanup_user_lifecycle_hooks(cleanup_handlers)
 
             call_plugins(:cleanup, self)
@@ -2743,6 +2742,7 @@ module Roby
             additional_model_files.each do |path|
                 unload_features(path)
             end
+            cleanup_user_lifecycle_hooks(clear_models_handlers)
         end
 
         # Reload model files in models/
