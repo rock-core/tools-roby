@@ -144,12 +144,15 @@ module Roby
                            desc: "the robot name, separate name and type a comma"
             option :set, desc: "set configuration variable(s)",
                          type: :array, default: []
+            option :single, desc: "do not contact any remote service",
+                            type: :boolean, default: false
             def check(app_dir = nil, *extra_files)
                 app = Roby.app
                 app.app_dir = app_dir if app_dir
                 app.require_app_dir
                 app.setup_robot_names_from_config_dir
                 app.robot(*options[:robot].split(","))
+                app.single if options[:single]
 
                 options[:set].each do |v|
                     app.argv_set << v
@@ -168,12 +171,16 @@ module Roby
             desc "console", "open a pry console after the app code has been loaded"
             option :robot, aliases: "r", default: "default",
                            desc: "the robot name, separate name and type a comma"
+            option :single, desc: "do not contact any remote service",
+                            type: :boolean, default: false
             def console(*extra_files)
                 require "pry"
                 app = Roby.app
                 app.require_app_dir
                 app.setup_robot_names_from_config_dir
                 app.robot(*options[:robot].split(","))
+                app.single if options[:single]
+
                 begin
                     app.setup
                     extra_files.each do |path|
