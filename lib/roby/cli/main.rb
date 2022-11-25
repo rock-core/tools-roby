@@ -171,6 +171,8 @@ module Roby
             desc "console", "open a pry console after the app code has been loaded"
             option :robot, aliases: "r", default: "default",
                            desc: "the robot name, separate name and type a comma"
+            option :set, desc: "set configuration variable(s)",
+                         type: :array, default: []
             option :single, desc: "do not contact any remote service",
                             type: :boolean, default: false
             def console(*extra_files)
@@ -180,6 +182,11 @@ module Roby
                 app.setup_robot_names_from_config_dir
                 app.robot(*options[:robot].split(","))
                 app.single if options[:single]
+
+                options[:set].each do |v|
+                    app.argv_set << v
+                    Roby::Application.apply_conf_from_argv(v)
+                end
 
                 begin
                     app.setup
