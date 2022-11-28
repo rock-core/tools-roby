@@ -126,7 +126,8 @@ module Roby
                 app.plan.add_trigger Roby::Interface::Job do |job_task|
                     monitor_job(job_task, new_task: true) if job_task.job_id
                 end
-                execution_engine.on_exception(on_error: :raise) do |kind, exception, tasks|
+                execution_engine.on_exception(on_error: :raise) do |kind, exception, involved_objects|
+                    tasks = involved_objects.find_all { |t| t.respond_to?(:plan) }
                     involved_job_ids = tasks
                         .flat_map { |t| job_ids_of_task(t) if t.plan }
                         .compact.to_set

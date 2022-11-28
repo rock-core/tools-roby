@@ -531,8 +531,12 @@ describe Roby::Interface::Interface do
             execution_engine.notify_exception(Roby::ExecutionEngine::EXCEPTION_FATAL,
                                               exception, Set[parent_task, child_task])
             interface.push_pending_notifications
-            assert_equal [[Roby::ExecutionEngine::EXCEPTION_FATAL,
-                           exception, Set[child_task, parent_task], Set.new]], @messages
+            assert_equal 1, @messages.size
+            actual_level, actual_exception, actual_tasks, set = @messages[0]
+            assert_equal Roby::ExecutionEngine::EXCEPTION_FATAL, actual_level
+            assert_equal exception, actual_exception
+            assert_equal Set[child_task, parent_task], actual_tasks.to_set
+            assert_equal Set.new, set
         end
 
         it "queues the exception notifications and sends them after the job" do
@@ -559,7 +563,10 @@ describe Roby::Interface::Interface do
                 [Roby::ExecutionEngine::EXCEPTION_FATAL,
                  exception, Set[child_task, parent_task], Set.new]
             ]
-            assert_equal expected, @messages
+            assert_equal expected[0..-2], @messages[0..-2]
+            exception_msg = @messages.last
+            exception_msg[2] = exception_msg[2].to_set
+            assert_equal expected[-1], exception_msg
         end
 
         it "allows to remove a listener" do
