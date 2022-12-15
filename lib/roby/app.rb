@@ -788,6 +788,8 @@ module Roby
             @action_handlers       = []
 
             @robots = App::RobotNames.new
+
+            @base_setup_done = false
         end
 
         # Loads the base configuration
@@ -850,7 +852,16 @@ module Roby
             end
         end
 
+        def base_setup_done?
+            @base_setup_done
+        end
+
         def base_setup
+            if base_setup_done?
+                Roby.warn "base_setup should only be done once."
+                return
+            end
+
             STDOUT.sync = true
 
             load_base_config
@@ -861,10 +872,17 @@ module Roby
 
             # Set up the loaded plugins
             call_plugins(:base_setup, self)
+
+            @base_setup_done = true
         end
 
         # The inverse of #base_setup
         def base_cleanup
+            unless base_setup_done?
+                Roby.warn "base_cleanup should not be called before base_setup."
+                return
+            end
+
             unless public_logs?
                 created_log_dirs.delete_if do |dir|
                     FileUtils.rm_rf dir
@@ -884,6 +902,7 @@ module Roby
 
             log_files.each_value(&:close)
             log_files.clear
+            @base_setup_done = false
         end
 
         # Does basic setup of the Roby environment. It loads configuration files
