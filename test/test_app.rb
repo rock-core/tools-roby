@@ -471,6 +471,19 @@ module Roby
         end
 
         describe "#find_dirs" do
+            it "interprets the first element of search_path "\
+               "as being the most specific" do
+                least_specific = make_tmppath
+                (least_specific / "test").mkdir
+                most_specific = make_tmppath
+                (most_specific / "test").mkdir
+                app.search_path = [most_specific, least_specific].map(&:to_s)
+                actual = app.find_dirs("test", all: true, order: :specific_first)
+
+                expected = [most_specific, least_specific].map { |p| (p / "test").to_s }
+                assert_equal expected, actual
+            end
+
             it "raises ArgumentError if no path is given" do
                 exception = assert_raises(ArgumentError) { app.find_dirs }
                 assert_equal "no path given", exception.message
