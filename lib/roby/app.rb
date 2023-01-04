@@ -2231,7 +2231,7 @@ module Roby
         #   finally an empty string.
         # @return [Array<String>]
         #
-        # Given a search dir of [app2, app1]
+        # Given a search dir of [app1, app2]
         #
         #   app1/models/tasks/goto.rb
         #   app1/models/tasks/v3/goto.rb
@@ -2326,7 +2326,7 @@ module Roby
         #   the first matching directory is searched
         # @return [Array<String>]
         #
-        # Given a search dir of [app2, app1]
+        # Given a search dir of [app1, app2]
         #
         #   app1/models/tasks/goto.rb
         #   app1/models/tasks/v3/goto.rb
@@ -2392,7 +2392,7 @@ module Roby
         #   finally an empty string.
         # @return [Array<String>]
         #
-        # Given a search dir of [app2, app1], a robot name of v3 and a robot
+        # Given a search dir of [app1, app2], a robot name of v3 and a robot
         # type of asguard,
         #
         #   app1/config/v3.rb
