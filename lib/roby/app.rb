@@ -1092,6 +1092,9 @@ module Roby
 
         # @deprecated use {#on_setup} instead
         def on_config(user: false, &block)
+            Roby.warn_deprecated(
+                "Application#on_config is deprecated, use #on_setup instead"
+            )
             on_setup(user: user, &block)
         end
 
