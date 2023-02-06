@@ -1168,6 +1168,43 @@ module Roby
             end
         end
 
+        describe "#useful_tasks_using" do
+            it "returns the given task if it is a mission" do
+                plan.add_mission_task(task = Tasks::Simple.new)
+                assert_equal Set[task], plan.useful_tasks_using(task).to_set
+            end
+
+            it "returns the given task if it is permanent" do
+                plan.add_permanent_task(task = Tasks::Simple.new)
+                assert_equal Set[task], plan.useful_tasks_using(task).to_set
+            end
+
+            it "returns parents of the given task that are missions" do
+                plan.add_mission_task(a = Tasks::Simple.new)
+                a.depends_on(b = Tasks::Simple.new)
+                b.depends_on(leaf = Tasks::Simple.new)
+                plan.add_mission_task(c = Tasks::Simple.new)
+                c.depends_on(leaf)
+                assert_equal Set[a, c], plan.useful_tasks_using(leaf).to_set
+            end
+
+            it "returns parents of the given task that are permanent" do
+                plan.add_permanent_task(a = Tasks::Simple.new)
+                a.depends_on(b = Tasks::Simple.new)
+                b.depends_on(leaf = Tasks::Simple.new)
+                plan.add_permanent_task(c = Tasks::Simple.new)
+                c.depends_on(leaf)
+                assert_equal Set[a, c], plan.useful_tasks_using(leaf).to_set
+            end
+
+            it "goes across useful graphs" do
+                plan.add_permanent_task(a = Tasks::Simple.new)
+                a.planned_by(b = Tasks::Simple.new)
+                b.depends_on(leaf = Tasks::Simple.new)
+                assert_equal Set[a], plan.useful_tasks_using(leaf).to_set
+            end
+        end
+
         describe "#make_useless" do
             it "marks a mission task as non-mission" do
                 plan.add_mission_task(task = Roby::Task.new)
