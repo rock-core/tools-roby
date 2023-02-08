@@ -1422,8 +1422,13 @@ module Roby
             @log_dir
         end
 
+        def log_path
+            @log_path ||= Pathname.new(log_dir)
+        end
+
         # Reset the current log dir so that {#setup} picks a new one
         def reset_log_dir
+            @log_path = nil
             @log_dir = nil
         end
 
