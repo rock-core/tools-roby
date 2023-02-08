@@ -1267,11 +1267,20 @@ module Roby
             end
         end
 
-        # Loads the plugins whose name are listed in +names+
+        # Loads plugins
+        #
+        # @param [Array<String>] names
+        # @param [Boolean] force force-loading the plugin even if plugins are disabled
+        #   (see {#plugin_enabled?})
+        # @return [Array<Module>] the plugin's implementation modules
         def using(*names, force: false)
             if !plugins_enabled? && !force
-                raise PluginsDisabled,
-                      "plugins are disabled, cannot load #{names.join(', ')}"
+                unless names.all? { |n| plugin_loaded?(n) }
+                    raise PluginsDisabled,
+                          "plugins are disabled, cannot load #{names.join(', ')}"
+                end
+
+                return names.map { |n| plugin_definition(n)[2] }
             end
 
             register_plugins(force: true)
@@ -1305,6 +1314,15 @@ module Roby
 
                 add_plugin(name, mod)
             end
+        end
+
+        # Tests whether the given plugin is available and loaded
+        def plugin_loaded?(name)
+            name = name.to_s
+            return false unless (plugin = plugin_definition(name))
+
+            name, _, mod, = *plugin
+            plugins.any? { |n, m| n == name && m == mod }
         end
 
         def add_plugin(name, mod)
