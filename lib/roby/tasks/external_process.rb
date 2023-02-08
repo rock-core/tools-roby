@@ -35,8 +35,12 @@ module Roby
             argument :command_line
 
             # @!attribute [rw] working_directory
-            #   The working directory. If not set, the current directory is used.
+            #   DO NOT USE THIS. Use {#chdir} instead.
             argument :working_directory, default: nil
+
+            # @!attribute [rw] chdir
+            #   In which directory the program should be executed
+            argument :chdir, default: nil
 
             # @!attribute [rw] stub_in_roby_simulation_mode
             #   Controls whether the task should actually start the subprocess
@@ -161,17 +165,22 @@ module Roby
                     [[[:close, io]], io, pipe, "".dup]
                 elsif redir_target !~ /%p/
                     # Assume no replacement in redirection, just open the file
-                    io =
+                    filename, mode =
                         if redir_target[0, 1] == "+"
-                            File.open(redir_target[1..-1], "a")
+                            [redir_target[1..-1], "a"]
                         else
-                            File.open(redir_target, "w")
+                            [redir_target, "w"]
                         end
+
+                    full_path = File.expand_path(filename, redirection_base_path)
+                    io = File.open(full_path, mode)
+
                     [[[:close, io]], io]
                 else
-                    dir = File.dirname(File.expand_path(redir_target, working_directory))
+                    full_path = File.expand_path(redir_target, redirection_base_path)
+                    dir = File.dirname(full_path)
                     io = open_redirection(dir)
-                    [[[redir_target, io]], io]
+                    [[[full_path, io]], io]
                 end
             end
 
@@ -184,7 +193,8 @@ module Roby
                 if (@redirection[:stdout] == @redirection[:stderr]) &&
                    !%i[pipe close].include?(@redirection[:stdout])
                     redir_target = @redirection[:stdout]
-                    dir = File.dirname(File.expand_path(redir_target, working_directory))
+                    path = File.expand_path(redir_target, redirection_base_path)
+                    dir = File.dirname(path)
                     io = open_redirection(dir)
                     return [[@redirection[:stdout], io]], Hash[out: io, err: io]
                 end
@@ -202,13 +212,20 @@ module Roby
                 [(out_open + err_open), spawn_options]
             end
 
+            def redirection_base_path
+                chdir || working_directory || Dir.pwd
+            end
+
+            def actual_working_directory
+                chdir || Dir.pwd
+            end
+
             ##
             # :method: start!
             #
             # Starts the child process. Emits +start+ when the process is actually
             # started.
             event :start do |_|
-                working_directory = (self.working_directory || Dir.pwd)
                 opened_ios, spawn_options = handle_redirection
 
                 if stub_subprocess
@@ -216,14 +233,14 @@ module Roby
                     validate_program(command_line[0])
                 else
                     @pid = Process.spawn(
-                        *command_line, chdir: working_directory, **spawn_options
+                        *command_line, chdir: (chdir || Dir.pwd), **spawn_options
                     )
                 end
 
                 opened_ios.each do |pattern, io|
                     if pattern != :close
                         target_path = File.expand_path(
-                            redirection_path(pattern, @pid), working_directory
+                            redirection_path(pattern, @pid), redirection_base_path
                         )
                         FileUtils.mv io.path, target_path
                     end

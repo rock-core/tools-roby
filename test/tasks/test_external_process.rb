@@ -16,7 +16,7 @@ module Roby
             describe "#handle_redirection" do
                 before do
                     @working_directory = make_tmpdir
-                    @task = ExternalProcess.new(working_directory: @working_directory)
+                    @task = ExternalProcess.new(chdir: @working_directory)
                 end
                 def mock_pipe
                     pipe_r, pipe_w = flexmock, flexmock
@@ -228,7 +228,7 @@ module Roby
                 it "starts the program under the working directory" do
                     working_directory = make_tmpdir
                     task = ExternalProcess.new(
-                        command_line: ["pwd"], working_directory: working_directory
+                        command_line: ["pwd"], chdir: working_directory
                     )
                     task.redirect_output(stdout: File.join(working_directory, "out"))
                     plan.add(task)
@@ -240,7 +240,7 @@ module Roby
 
                 it "fails if the working directory does not exist" do
                     task = ExternalProcess.new(
-                        command_line: ["pwd"], working_directory: "/does/not/exist"
+                        command_line: ["pwd"], chdir: "/does/not/exist"
                     )
                     plan.add(task)
                     expect_execution { task.start! }
@@ -422,7 +422,7 @@ module Roby
                 it "pretends that the process starts" do
                     plan.add(@task = ExternalProcess.new(
                         command_line: [mock_command], stub_subprocess: true,
-                        working_directory: @working_directory
+                        chdir: @working_directory
                     ))
                     task.redirect_output stdout: "mockup-%p.log"
                     expect_execution { task.start! }.to { emit task.start_event }
@@ -450,6 +450,119 @@ module Roby
                         plan.add(task)
                         expect_execution { task.start! }.to { emit task.start_event }
                         expect_execution { task.stop! }.to { emit task.stop_event }
+                    end
+                end
+            end
+
+            describe "handling of the deprecated working_directory argument" do
+                describe "#handle_redirection" do
+                    before do
+                        @working_directory = make_tmpdir
+                        @task = ExternalProcess.new(working_directory: @working_directory)
+                    end
+
+                    def mock_pipe
+                        pipe_r, pipe_w = flexmock, flexmock
+                        flexmock(IO).should_receive(:pipe).once.and_return([pipe_r, pipe_w])
+                        [pipe_r, pipe_w]
+                    end
+
+                    describe "redirection to a relative path without substitution" do
+                        before do
+                            @specified_target = File.join(@working_directory, "out")
+                        end
+
+                        def self.common(c, arg, spawn_arg)
+                            c.it "opens the target file directly" do
+                                @task.redirect_output(**Hash[arg => "out"])
+                                _, options = @task.handle_redirection
+                                assert_equal @specified_target, options[spawn_arg].path
+                            end
+
+                            c.it "truncates the target file if the filename is not preceded by +" do
+                                File.open(@specified_target, "w") { |io| io.puts "TEST" }
+                                @task.redirect_output(**Hash[arg => "out"])
+                                _, options = @task.handle_redirection
+                                assert_equal 0, options[spawn_arg].stat.size
+                            end
+
+                            c.it "appends instead of truncating an existing target file if the filename is preceded by +" do
+                                File.open(@specified_target, "w") { |io| io.puts "TEST" }
+                                @task.redirect_output(**Hash[arg => "+out"])
+                                _, options = @task.handle_redirection
+                                assert_equal 5, options[spawn_arg].stat.size
+                            end
+
+                            c.it "requests that the IO be closed after the spawn" do
+                                @task.redirect_output(**Hash[arg => "out"])
+                                opened_ios, options = @task.handle_redirection
+                                assert_equal 1, opened_ios.size
+                                assert_equal [[:close, options[spawn_arg]]], opened_ios
+                            end
+                        end
+
+                        describe "stdout" do
+                            common(self, :stdout, :out)
+                        end
+
+                        describe "stderr" do
+                            common(self, :stderr, :err)
+                        end
+                    end
+
+                    describe "with substitution" do
+                        it "uses the working directory as default" do
+                            @task.redirect_output(stdout: "bla-%p")
+                            opened_ios, options = @task.handle_redirection
+                            assert_equal 1, opened_ios.size
+                            target_file, io = opened_ios[0]
+                            assert_equal File.join(@working_directory, "bla-%p"),
+                                         target_file
+                            assert_equal @working_directory, File.dirname(io.path)
+                            assert_equal Hash[out: io], options
+                        end
+                    end
+                end
+
+                def run_task(task)
+                    expect_execution { task.start! }.to { emit task.success_event }
+                end
+
+                describe "the execution workflow" do
+                    it "does not start the program under the working directory" do
+                        working_directory = make_tmpdir
+                        task = ExternalProcess.new(
+                            command_line: ["pwd"], working_directory: working_directory
+                        )
+                        task.redirect_output(stdout: File.join(working_directory, "out"))
+                        plan.add(task)
+
+                        expect_execution { task.start! }.to { emit task.success_event }
+                        out = File.read(File.join(working_directory, "out")).chomp
+                        assert_equal Dir.pwd, out
+                    end
+                end
+
+                describe "stub mode" do
+                    attr_reader :task
+
+                    after do
+                        execute { @task.stop_event.emit } if @task&.running?
+                    end
+
+                    it "pretends that the process starts" do
+                        @working_directory = make_tmpdir
+                        plan.add(@task = ExternalProcess.new(
+                            command_line: [mock_command], stub_subprocess: true,
+                            working_directory: @working_directory
+                        ))
+                        task.redirect_output stdout: "mockup-%p.log"
+                        expect_execution { task.start! }.to { emit task.start_event }
+                        expect_execution.to { not_emit task.stop_event }
+                        expect_execution { task.stop_event.emit }.to { emit task.stop_event }
+
+                        log_path = File.join(@working_directory, "mockup-#{task.pid}.log")
+                        assert_equal "", File.read(log_path)
                     end
                 end
             end
