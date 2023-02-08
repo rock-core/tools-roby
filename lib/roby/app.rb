@@ -529,6 +529,11 @@ module Roby
         #   (it is the opposite of setup)
         attr_reader :cleanup_handlers
 
+        # @return [Array<#call>] list of objects called when the app shuts down,
+        #   that is when the plan is being tore down but before cleanup. This is
+        #   called during test teardown as well
+        attr_reader :shutdown_handlers
+
         # @return [Array<#call>] list of blocks that should be executed once the
         #   application is started
         attr_reader :controllers
@@ -784,6 +789,7 @@ module Roby
             @require_handlers      = []
             @clear_models_handlers = []
             @cleanup_handlers      = []
+            @shutdown_handlers     = []
             @controllers           = []
             @action_handlers       = []
 
@@ -1029,10 +1035,15 @@ module Roby
         # The inverse of #prepare. It gets called either at the end of #run or
         # at the end of #setup if there is an error during loading
         def shutdown
+            run_shutdown_blocks
             call_plugins(:shutdown, self)
             stop_log_server
             stop_shell_interface
             stop_rest_interface(join: true)
+        end
+
+        def run_shutdown_blocks
+            shutdown_handlers.each(&:call)
         end
 
         # @api private
@@ -1105,6 +1116,20 @@ module Roby
             end
 
             add_lifecyle_hook(clear_models_handlers, block, user: user)
+        end
+
+        # Registers a callback to perform cleanup just after an execution
+        #
+        # This is called just after plan teardown. Unlike all the other
+        # cleanup handlers, it will be called during test teardown as well
+        #
+        # These callbacks MUST be idempotent
+        def on_shutdown(user: false, &block)
+            unless block
+                raise ArgumentError, "missing expected block argument"
+            end
+
+            add_lifecyle_hook(shutdown_handlers, block, user: user)
         end
 
         # Declares that the following block should be called when

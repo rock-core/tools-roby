@@ -96,6 +96,10 @@ module Robot
         Roby.app.controller(reset: reset, user: true, &block)
     end
 
+    def self.shutdown(&block)
+        Roby.app.on_shutdown(user: true, &block)
+    end
+
     def self.actions(&block)
         Roby.app.actions(user: true, &block)
     end

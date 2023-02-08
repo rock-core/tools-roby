@@ -15,13 +15,19 @@ Robot.init do
     # Roby.app.register_app('../separate_path')
 end
 
+# Block evaluated to configure the system, that is set up values in Roby's Conf
+# and State
+Robot.setup do
+end
+
 # Block evaluated to load the models this robot requires
+#
+# This is called after `setup`
 Robot.requires do
 end
 
-# Block evaluated to configure the system, that is set up values in Roby's Conf
-# and State
-Robot.config do
+# The opposite of 'setup' (and 'requires')
+Robot.cleanup do
 end
 
 # Setup of the robot's main action interface
@@ -40,4 +46,11 @@ end
 # Block evaluated when the Roby app is fully setup, and the robot ready to
 # start. This is where one usually adds permanent tasks and/or status lines
 Robot.controller do
+end
+
+# Block evaluated right after the execution, but before the cleanup
+#
+# In particular, this is executed at teardown between each tests. Mostly, undo
+# things here that the controller block would have registered.
+Robot.shutdown do
 end

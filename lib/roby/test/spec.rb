@@ -86,6 +86,7 @@ module Roby
                 end
 
                 teardown_registered_plans
+                app.run_shutdown_blocks
             ensure
                 clear_registered_plans
                 if teardown_failure
