@@ -410,6 +410,7 @@ module Roby
 
                     @errors.each do |e|
                         yield(e) if e.kind_of?(Exception)
+                        yield(e.exception) if e.kind_of?(ExecutionException)
                     end
                 end
 
