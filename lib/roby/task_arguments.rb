@@ -570,6 +570,11 @@ module Roby
             true
         end
 
+        def add_method(m)
+            @methods << m
+            self
+        end
+
         def can_merge?(task, other_task, other_arg)
             catch(:no_value) do
                 this_evaluated  = evaluate_delayed_argument(task)
@@ -619,8 +624,7 @@ module Roby
 
         def method_missing(m, *args)
             if args.empty? && !block_given?
-                @methods << m
-                self
+                dup.add_method(m)
             else
                 super
             end
@@ -658,8 +662,7 @@ module Roby
         end
 
         def can_merge?(task, other_task, other_arg)
-            other_arg.object == object &&
-                other_arg.methods == methods
+            other_arg.kind_of?(DelayedArgumentFromState) && other_arg == self
         end
 
         def merge(task, other_task, other_arg)
