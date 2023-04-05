@@ -350,6 +350,52 @@ module Roby
                     assert_match regexp, File.read(@out_file)
                 end
             end
+
+            describe "stub mode" do
+                attr_reader :task
+
+                before do
+                    @working_directory = make_tmpdir
+                end
+
+                after do
+                    execute { @task.stop_event.emit } if @task&.running?
+                end
+
+                it "pretends that the process starts" do
+                    plan.add(@task = ExternalProcess.new(
+                        command_line: [mock_command], stub_subprocess: true,
+                        working_directory: @working_directory
+                    ))
+                    task.redirect_output stdout: "mockup-%p.log"
+                    expect_execution { task.start! }.to { emit task.start_event }
+                    expect_execution.to { not_emit task.stop_event }
+                    expect_execution { task.stop_event.emit }.to { emit task.stop_event }
+
+                    log_path = File.join(@working_directory, "mockup-#{task.pid}.log")
+                    assert_equal "", File.read(log_path)
+                end
+
+                it "fails to start if the program does not exist" do
+                    plan.add(@task = ExternalProcess.new(
+                        command_line: ["does_not_exist", "--error"],
+                        stub_subprocess: true
+                    ))
+                    expect_execution { task.start! }
+                        .to { fail_to_start task, reason: CommandFailed.match.with_original_exception(Errno::ENOENT) }
+                end
+
+                describe "InterruptibleWithSignal" do
+                    it "does stub the interruption" do
+                        task = ExternalProcess.interruptible_with_signal(
+                            command_line: [mock_command], stub_subprocess: true
+                        )
+                        plan.add(task)
+                        expect_execution { task.start! }.to { emit task.start_event }
+                        expect_execution { task.stop! }.to { emit task.stop_event }
+                    end
+                end
+            end
         end
     end
 end

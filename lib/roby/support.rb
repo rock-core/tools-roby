@@ -179,4 +179,31 @@ module Roby
         Roby.fatal "Deprecation Error: #{msg} at #{caller[1, caller_depth].join("\n")}"
         raise NotImplementedError
     end
+
+    # Cross-platform way of finding a file in the $PATH.
+    #
+    #   which('ruby') #=> /usr/bin/ruby
+    def self.find_in_path(cmd)
+        if cmd =~ /#{File::SEPARATOR}/
+            return cmd if File.file?(cmd)
+        end
+
+        exts = ENV["PATHEXT"] ? ENV["PATHEXT"].split(";") : [""]
+        ENV["PATH"].split(File::PATH_SEPARATOR).each do |path|
+            exts.each do |ext|
+                exe = File.join(path, "#{cmd}#{ext}")
+                return exe if File.file?(exe)
+            end
+        end
+        nil
+    end
+
+    # Cross-platform way of finding an executable in the $PATH.
+    #
+    #   which('ruby') #=> /usr/bin/ruby
+    def self.which(cmd)
+        return unless (path = find_in_path(cmd))
+
+        path if File.executable?(path)
+    end
 end

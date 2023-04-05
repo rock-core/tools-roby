@@ -41,6 +41,36 @@ module Roby
             # The working directory. If not set, the current directory is used.
             argument :working_directory, default: nil
 
+            # @!attribute [rw] stub_in_roby_simulation_mode
+            #   Controls whether the task should actually start the subprocess
+            #   or not. If `nil`, the behavior is controlled by
+            #   {ExternalProcess.stub_in_roby_simulation_mode}
+            argument :stub_subprocess, default: nil
+
+            class << self
+                # Sets the default behavior of all ExternalProcess tasks regarding
+                # roby simulation mode (i.e. roby test)
+                #
+                # If true, tasks will not actually start the subprocess, but will check
+                # that it is in PATH and executable. If false, the subprocess is started.
+                # The flag can be overriden on a per-task basis by setting the
+                # stub_in_roby_simulation_mode argument to either `true` or
+                # `false`. Use `nil` to use the default
+                #
+                # The default is false for backward compatibility reasons
+                #
+                # @see {.stub_in_roby_simulation_mode?}
+                #   {ExternalProcess#stub_in_roby_simulation_mode}
+                attr_writer :stub_in_roby_simulation_mode
+
+                # @see {.stub_in_roby_simulation_mode=}
+                def stub_in_roby_simulation_mode?
+                    @stub_in_roby_simulation_mode
+                end
+
+                @stub_in_roby_simulation_mode = false
+            end
+
             # Event emitted if the process died because of a signal
             #
             # It carries the process signal as Process::Status
@@ -58,6 +88,12 @@ module Roby
                 @pid = nil
                 @buffer = nil
                 @redirection = {}
+
+                if arguments[:stub_subprocess].nil?
+                    arguments[:stub_subprocess] =
+                        Roby.app.simulation? &&
+                        ExternalProcess.stub_in_roby_simulation_mode?
+                end
                 super(command_line: command_line, **arguments)
             end
 
@@ -170,10 +206,15 @@ module Roby
             # started.
             event :start do |_|
                 working_directory = (self.working_directory || Dir.pwd)
-
                 opened_ios, spawn_options = handle_redirection
 
-                @pid = Process.spawn(*command_line, **spawn_options)
+                if stub_subprocess
+                    @pid = rand(65_535)
+                    validate_program(command_line[0])
+                else
+                    @pid = Process.spawn(*command_line, **spawn_options)
+                end
+
                 opened_ios.each do |pattern, io|
                     if pattern != :close
                         target_path = File.join(working_directory,
@@ -184,6 +225,16 @@ module Roby
                 end
 
                 start_event.emit
+            end
+
+            # @api private
+            #
+            # Emulates error handling of Process.spawn when stub_subprocess is set
+            def validate_program(cmd)
+                raise Errno::ENOENT, cmd unless (absolute = Roby.find_in_path(cmd))
+                raise Errno::EACCES, cmd unless File.executable?(absolute)
+
+                nil
             end
 
             # @api private
@@ -263,6 +314,10 @@ module Roby
             end
 
             poll do
+                poll_live_process unless stub_subprocess
+            end
+
+            def poll_live_process
                 read_pipes
                 pid, exit_status = ::Process.waitpid2(self.pid, ::Process::WNOHANG)
                 if pid
@@ -309,7 +364,11 @@ module Roby
                 end
 
                 event :failed, terminal: true do |_|
-                    kill(signal)
+                    if stub_subprocess
+                        failed_event.emit
+                    else
+                        kill(signal)
+                    end
                 end
 
                 interruptible
