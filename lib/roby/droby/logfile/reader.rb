@@ -75,6 +75,10 @@ module Roby
                     options_hash[:plugins]&.each do |plugin_name|
                         begin
                             Roby.app.using plugin_name
+                        rescue Roby::Application::PluginsDisabled => e
+                            Roby.warn "the log file mentions the #{plugin_name} plugin, "\
+                                      "but plugins are currently disabled. "\
+                                      "Some information might not be displayed"
                         rescue ArgumentError => e
                             Roby.warn "the log file mentions the #{plugin_name} plugin, "\
                                       "but it is not available on this system. "\
