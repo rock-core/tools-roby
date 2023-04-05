@@ -17,7 +17,6 @@ app.auto_load_models = false
 MetaRuby.keep_definition_location = false
 
 list_tests = false
-coverage_mode = false
 only_self = false
 all = true
 testrb_args = []
@@ -65,10 +64,13 @@ parser = OptionParser.new do |opt|
     opt.on("-i", "--interactive", "allow user interaction during tests") do
         Roby.app.automatic_testing = false
     end
-    opt.on("--coverage", "generate code coverage information. This autoloads "\
-                         "all files and task context models to get "\
-                         "a full coverage information") do |name|
-        coverage_mode = true
+    opt.on("--coverage[=NAME]", String,
+           "generate code coverage information. This autoloads "\
+           "all files and task context models to get "\
+           "a full coverage information") do |name|
+        require "simplecov"
+        SimpleCov.command_name name
+        SimpleCov.start
     end
     opt.on("--base-dir DIR", "includes the directory on which the tests "\
                          "will be auto-discovered") do |dir|
@@ -97,72 +99,69 @@ if test_files.empty?
     MetaRuby.keep_definition_location = true
 end
 
-if coverage_mode
-    require "simplecov"
-    SimpleCov.start
-end
-
 exception = Roby.display_exception do
     Roby.app.setup
     if Roby.app.public_logs?
         STDOUT.puts "Test logs are saved in #{Roby.app.log_dir}"
     end
-    begin
-        Roby.app.prepare
+    passed =
+        begin
+            Roby.app.prepare
 
-        def discover_test_files(all:, only_self:, base_dir:)
-            self_files, dependent_files = \
-                Roby.app.discover_test_files(
-                    all: all, only_self: only_self, base_dir: base_dir
-                ).map(&:first).partition { |f| Roby.app.self_file?(f) }
+            def discover_test_files(all:, only_self:, base_dir:)
+                self_files, dependent_files = \
+                    Roby.app.discover_test_files(
+                        all: all, only_self: only_self, base_dir: base_dir
+                    ).map(&:first).partition { |f| Roby.app.self_file?(f) }
 
-            self_files.sort + dependent_files.sort
-        end
-
-        if test_files.empty?
-            test_files = discover_test_files(all: all, only_self: only_self, base_dir: base_dir)
-        elsif force_discovery
-            test_files += discover_test_files(all: all, only_self: only_self, base_dir: base_dir)
-
-            test_files = test_files.flat_map do |file|
-                next file unless file =~ /ROBOT/
-
-                Roby.app.robot_configuration_names.map do |replacement|
-                    resolved_file = File.join(Roby.app.app_dir, file.gsub("ROBOT", replacement))
-                    resolved_file if File.file?(resolved_file)
-                end.compact
-            end
-        end
-
-        if list_tests
-            puts "Would load #{test_files.size} test files"
-            test_files.each do |path|
-                puts "  #{path}"
+                self_files.sort + dependent_files.sort
             end
 
-            all_existing_tests = Roby.app.find_dirs("test", order: :specific_first, all: !only_self).inject(Set.new) do |all, dir|
-                all.merge(Find.enum_for(:find, dir).find_all { |f| f =~ /\/test_.*\.rb$/ && File.file?(f) }.to_set)
-            end
-            not_run = (all_existing_tests - test_files.to_set)
-            unless not_run.empty?
-                puts "\nWould NOT load #{not_run.size} tests"
-                not_run.to_a.sort.each do |not_loaded|
-                    puts "  #{not_loaded}"
+            if test_files.empty?
+                test_files = discover_test_files(all: all, only_self: only_self, base_dir: base_dir)
+            elsif force_discovery
+                test_files += discover_test_files(all: all, only_self: only_self, base_dir: base_dir)
+
+                test_files = test_files.flat_map do |file|
+                    next file unless file =~ /ROBOT/
+
+                    Roby.app.robot_configuration_names.map do |replacement|
+                        resolved_file = File.join(Roby.app.app_dir, file.gsub("ROBOT", replacement))
+                        resolved_file if File.file?(resolved_file)
+                    end.compact
                 end
             end
-            exit 0
-        end
 
-        test_files.each do |arg|
-            next if excluded_patterns.any? { |pattern| File.fnmatch?(pattern, arg) }
+            if list_tests
+                puts "Would load #{test_files.size} test files"
+                test_files.each do |path|
+                    puts "  #{path}"
+                end
 
-            require arg
+                all_existing_tests = Roby.app.find_dirs("test", order: :specific_first, all: !only_self).inject(Set.new) do |all, dir|
+                    all.merge(Find.enum_for(:find, dir).find_all { |f| f =~ /\/test_.*\.rb$/ && File.file?(f) }.to_set)
+                end
+                not_run = (all_existing_tests - test_files.to_set)
+                unless not_run.empty?
+                    puts "\nWould NOT load #{not_run.size} tests"
+                    not_run.to_a.sort.each do |not_loaded|
+                        puts "  #{not_loaded}"
+                    end
+                end
+                exit 0
+            end
+
+            test_files.each do |arg|
+                next if excluded_patterns.any? { |pattern| File.fnmatch?(pattern, arg) }
+
+                require arg
+            end
+            Minitest.run(testrb_args)
+        ensure
+            Roby.app.shutdown
+            Roby.app.cleanup
         end
-        passed = Minitest.run(testrb_args)
-        exit(1) unless passed
-    ensure
-        Roby.app.shutdown
-        Roby.app.cleanup
-    end
+    SimpleCov.run_exit_tasks! if defined?(SimpleCov)
+    exit(passed ? 0 : 1)
 end
 exit(exception ? 1 : 0)
