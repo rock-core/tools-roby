@@ -16,7 +16,7 @@ module Roby
             describe "#handle_redirection" do
                 before do
                     @working_directory = make_tmpdir
-                    @task = ExternalProcess.new(working_directory: @working_directory)
+                    @task = ExternalProcess.new(chdir: @working_directory)
                 end
                 def mock_pipe
                     pipe_r, pipe_w = flexmock, flexmock
@@ -117,46 +117,53 @@ module Roby
 
                 describe "with substitution" do
                     it "creates a temporary file in the working directory for stdout to enable substitutions" do
-                        @task.redirect_output(stdout: "bla-%p")
+                        out_dir = make_tmpdir
+                        @task.redirect_output(stdout: File.join(out_dir, "bla-%p"))
                         opened_ios, options = @task.handle_redirection
                         assert_equal 1, opened_ios.size
                         target_file, io = opened_ios[0]
-                        assert_equal "bla-%p", target_file
-                        assert_equal @working_directory, File.dirname(io.path)
+                        assert_equal File.join(out_dir, "bla-%p"), target_file
+                        assert_equal out_dir, File.dirname(io.path)
                         assert_equal Hash[out: io], options
                     end
-                    it "creates a temporary file in the working directory for stderr to enable substitutions" do
-                        @task.redirect_output(stderr: "bla-%p")
+                    it "creates a temporary file in the target's directory for stderr to enable substitutions" do
+                        out_dir = make_tmpdir
+                        @task.redirect_output(stderr: File.join(out_dir, "bla-%p"))
                         opened_ios, options = @task.handle_redirection
                         assert_equal 1, opened_ios.size
                         target_file, io = opened_ios[0]
-                        assert_equal "bla-%p", target_file
-                        assert_equal @working_directory, File.dirname(io.path)
+                        assert_equal File.join(out_dir, "bla-%p"), target_file
+                        assert_equal out_dir, File.dirname(io.path)
                         assert_equal Hash[err: io], options
                     end
                     it "sets up a common target file if given a single string" do
-                        @task.redirect_output("bla")
+                        out_dir = make_tmpdir
+                        @task.redirect_output(File.join(out_dir, "bla"))
                         opened_ios, options = @task.handle_redirection
                         assert_equal 1, opened_ios.size
                         target_file, io = opened_ios[0]
-                        assert_equal "bla", target_file
-                        assert_equal @working_directory, File.dirname(io.path)
+                        assert_equal File.join(out_dir, "bla"), target_file
+                        assert_equal out_dir, File.dirname(io.path)
                         assert_equal Hash[out: io, err: io], options
                     end
                     it "sets up a common target file if given the same string for stdout and stderr" do
-                        @task.redirect_output(stdout: "bla", stderr: "bla")
+                        out_dir = make_tmpdir
+                        @task.redirect_output(
+                            stdout: File.join(out_dir, "bla"),
+                            stderr: File.join(out_dir, "bla")
+                        )
                         opened_ios, options = @task.handle_redirection
                         assert_equal 1, opened_ios.size
                         target_file, io = opened_ios[0]
-                        assert_equal "bla", target_file
-                        assert_equal @working_directory, File.dirname(io.path)
+                        assert_equal File.join(out_dir, "bla"), target_file
+                        assert_equal out_dir, File.dirname(io.path)
                         assert_equal Hash[out: io, err: io], options
                     end
                 end
             end
 
             it "has a default-constructible initializer" do
-                Tasks::ExternalProcess.new
+                ExternalProcess.new
             end
 
             def run_task(task)
@@ -164,37 +171,51 @@ module Roby
             end
 
             describe "the execution workflow" do
+                before do
+                    @working_directory = make_tmpdir
+                end
+
                 it "passes on command-line arguments" do
-                    plan.add(task = Tasks::ExternalProcess.new(command_line: [mock_command, "--no-output"]))
+                    plan.add(task = ExternalProcess.new(
+                        command_line: [mock_command, "--no-output"]
+                    ))
+                    path = File.join(@working_directory, "out")
+                    task.redirect_output path
                     expect_execution { task.start! }.to { emit task.success_event }
+
+                    assert_equal "", File.read(path)
                 end
 
                 it "accepts a command line with a single command argument" do
-                    plan.add(task = Tasks::ExternalProcess.new(command_line: [mock_command]))
+                    plan.add(task = ExternalProcess.new(
+                        command_line: [mock_command, "--no-output"]
+                    ))
                     task.redirect_output :close
                     expect_execution { task.start! }.to { emit task.success_event }
                 end
 
                 it "accepts a single command as string" do
-                    plan.add(task = Tasks::ExternalProcess.new(command_line: mock_command))
-                    task.redirect_output :close
+                    plan.add(task = ExternalProcess.new(
+                        command_line: mock_command
+                    ))
+                    task.redirect_output :pipe
                     expect_execution { task.start! }.to { emit task.success_event }
                 end
 
                 it "fails to start if the program does not exist" do
-                    plan.add(task = Tasks::ExternalProcess.new(command_line: ["does_not_exist", "--error"]))
+                    plan.add(task = ExternalProcess.new(command_line: ["does_not_exist", "--error"]))
                     expect_execution { task.start! }
                         .to { fail_to_start task, reason: CommandFailed.match.with_original_exception(Errno::ENOENT) }
                 end
 
                 it "emits failed with the program status object if the program fails" do
-                    plan.add(task = Tasks::ExternalProcess.new(command_line: [mock_command, "--error"]))
+                    plan.add(task = ExternalProcess.new(command_line: [mock_command, "--error"]))
                     expect_execution { task.start! }.to { emit task.failed_event }
                     assert_equal 1, task.event(:failed).last.context.first.exitstatus
                 end
 
                 it "emits signaled with the program status if the program is terminated by a signal" do
-                    plan.add(task = Tasks::ExternalProcess.new(command_line: [mock_command, "--block"]))
+                    plan.add(task = ExternalProcess.new(command_line: [mock_command, "--block"]))
                     expect_execution { task.start! }.to { emit task.start_event }
                     expect_execution { Process.kill("KILL", task.pid) }
                         .to { emit task.failed_event }
@@ -203,17 +224,43 @@ module Roby
                     ev = task.signaled_event.last
                     assert_equal 9, ev.context.first.termsig
                 end
+
+                it "starts the program under the working directory" do
+                    working_directory = make_tmpdir
+                    task = ExternalProcess.new(
+                        command_line: ["pwd"], chdir: working_directory
+                    )
+                    task.redirect_output(stdout: File.join(working_directory, "out"))
+                    plan.add(task)
+
+                    expect_execution { task.start! }.to { emit task.success_event }
+                    out = File.read(File.join(working_directory, "out")).chomp
+                    assert_equal working_directory, out
+                end
+
+                it "fails if the working directory does not exist" do
+                    task = ExternalProcess.new(
+                        command_line: ["pwd"], chdir: "/does/not/exist"
+                    )
+                    plan.add(task)
+                    expect_execution { task.start! }
+                        .to { fail_to_start task, reason: CommandFailed.match.with_original_exception(Errno::ENOENT) }
+                end
             end
 
             describe "redirection" do
                 def do_redirection(expected)
-                    plan.add(task = Tasks::ExternalProcess.new(command_line: [mock_command]))
+                    plan.add(task = ExternalProcess.new(
+                        command_line: [mock_command]
+                    ))
                     yield(task)
 
                     expect_execution { task.start! }.to { emit task.success_event }
 
                     assert File.exist?("mockup-#{task.pid}.log")
-                    File.read("mockup-#{task.pid}.log")
+                    contents = File.read("mockup-#{task.pid}.log")
+                    assert_equal expected, contents if expected
+                    contents
                 ensure
                     FileUtils.rm_f "mockup-#{task.pid}.log"
                 end
@@ -245,17 +292,27 @@ module Roby
                 end
 
                 it "redirects stdout to the task's handler" do
-                    plan.add(task = pipe_task_m.new(command_line: [mock_command]))
+                    plan.add(task = pipe_task_m.new(
+                        command_line: [mock_command, "--sleep"]
+                    ))
                     task.redirect_output(stdout: :pipe, stderr: :close)
                     expect_execution { task.start! }.to { emit task.success_event }
-                    assert_equal Hash[stdout: "FIRST LINE\nSECOND LINE\n", stderr: ""], task.received_data
+                    assert_equal(
+                        { stdout: "FIRST LINE\nSECOND LINE\n", stderr: "" },
+                        task.received_data
+                    )
                 end
 
                 it "redirects stderr to the task's handler" do
-                    plan.add(task = pipe_task_m.new(command_line: [mock_command, "--stderr"]))
+                    plan.add(task = pipe_task_m.new(
+                        command_line: [mock_command, "--stderr", "--sleep"]
+                    ))
                     task.redirect_output(stdout: :close, stderr: :pipe)
                     expect_execution { task.start! }.to { emit task.success_event }
-                    assert_equal Hash[stdout: "", stderr: "FIRST LINE\nSECOND LINE\n"], task.received_data
+                    assert_equal(
+                        { stdout: "", stderr: "FIRST LINE\nSECOND LINE\n" },
+                        task.received_data
+                    )
                 end
 
                 it "redirects both to the task's handlers at the same time" do
@@ -303,7 +360,7 @@ module Roby
                 def prepare_task(**options)
                     @out_file = File.join(@working_directory, "out")
                     FileUtils.touch @out_file
-                    @task = task = Roby::Tasks::ExternalProcess.interruptible_with_signal(
+                    @task = task = ExternalProcess.interruptible_with_signal(
                         command_line: [@mockup, @out_file], **options
                     )
                     plan.add(@task)
@@ -365,7 +422,7 @@ module Roby
                 it "pretends that the process starts" do
                     plan.add(@task = ExternalProcess.new(
                         command_line: [mock_command], stub_subprocess: true,
-                        working_directory: @working_directory
+                        chdir: @working_directory
                     ))
                     task.redirect_output stdout: "mockup-%p.log"
                     expect_execution { task.start! }.to { emit task.start_event }
@@ -393,6 +450,119 @@ module Roby
                         plan.add(task)
                         expect_execution { task.start! }.to { emit task.start_event }
                         expect_execution { task.stop! }.to { emit task.stop_event }
+                    end
+                end
+            end
+
+            describe "handling of the deprecated working_directory argument" do
+                describe "#handle_redirection" do
+                    before do
+                        @working_directory = make_tmpdir
+                        @task = ExternalProcess.new(working_directory: @working_directory)
+                    end
+
+                    def mock_pipe
+                        pipe_r, pipe_w = flexmock, flexmock
+                        flexmock(IO).should_receive(:pipe).once.and_return([pipe_r, pipe_w])
+                        [pipe_r, pipe_w]
+                    end
+
+                    describe "redirection to a relative path without substitution" do
+                        before do
+                            @specified_target = File.join(@working_directory, "out")
+                        end
+
+                        def self.common(c, arg, spawn_arg)
+                            c.it "opens the target file directly" do
+                                @task.redirect_output(**Hash[arg => "out"])
+                                _, options = @task.handle_redirection
+                                assert_equal @specified_target, options[spawn_arg].path
+                            end
+
+                            c.it "truncates the target file if the filename is not preceded by +" do
+                                File.open(@specified_target, "w") { |io| io.puts "TEST" }
+                                @task.redirect_output(**Hash[arg => "out"])
+                                _, options = @task.handle_redirection
+                                assert_equal 0, options[spawn_arg].stat.size
+                            end
+
+                            c.it "appends instead of truncating an existing target file if the filename is preceded by +" do
+                                File.open(@specified_target, "w") { |io| io.puts "TEST" }
+                                @task.redirect_output(**Hash[arg => "+out"])
+                                _, options = @task.handle_redirection
+                                assert_equal 5, options[spawn_arg].stat.size
+                            end
+
+                            c.it "requests that the IO be closed after the spawn" do
+                                @task.redirect_output(**Hash[arg => "out"])
+                                opened_ios, options = @task.handle_redirection
+                                assert_equal 1, opened_ios.size
+                                assert_equal [[:close, options[spawn_arg]]], opened_ios
+                            end
+                        end
+
+                        describe "stdout" do
+                            common(self, :stdout, :out)
+                        end
+
+                        describe "stderr" do
+                            common(self, :stderr, :err)
+                        end
+                    end
+
+                    describe "with substitution" do
+                        it "uses the working directory as default" do
+                            @task.redirect_output(stdout: "bla-%p")
+                            opened_ios, options = @task.handle_redirection
+                            assert_equal 1, opened_ios.size
+                            target_file, io = opened_ios[0]
+                            assert_equal File.join(@working_directory, "bla-%p"),
+                                         target_file
+                            assert_equal @working_directory, File.dirname(io.path)
+                            assert_equal Hash[out: io], options
+                        end
+                    end
+                end
+
+                def run_task(task)
+                    expect_execution { task.start! }.to { emit task.success_event }
+                end
+
+                describe "the execution workflow" do
+                    it "does not start the program under the working directory" do
+                        working_directory = make_tmpdir
+                        task = ExternalProcess.new(
+                            command_line: ["pwd"], working_directory: working_directory
+                        )
+                        task.redirect_output(stdout: File.join(working_directory, "out"))
+                        plan.add(task)
+
+                        expect_execution { task.start! }.to { emit task.success_event }
+                        out = File.read(File.join(working_directory, "out")).chomp
+                        assert_equal Dir.pwd, out
+                    end
+                end
+
+                describe "stub mode" do
+                    attr_reader :task
+
+                    after do
+                        execute { @task.stop_event.emit } if @task&.running?
+                    end
+
+                    it "pretends that the process starts" do
+                        @working_directory = make_tmpdir
+                        plan.add(@task = ExternalProcess.new(
+                            command_line: [mock_command], stub_subprocess: true,
+                            working_directory: @working_directory
+                        ))
+                        task.redirect_output stdout: "mockup-%p.log"
+                        expect_execution { task.start! }.to { emit task.start_event }
+                        expect_execution.to { not_emit task.stop_event }
+                        expect_execution { task.stop_event.emit }.to { emit task.stop_event }
+
+                        log_path = File.join(@working_directory, "mockup-#{task.pid}.log")
+                        assert_equal "", File.read(log_path)
                     end
                 end
             end
