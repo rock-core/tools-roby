@@ -223,7 +223,8 @@ module Roby
         def __root
             if p = __parent
                 p.__root
-            else self
+            else
+                self
             end
         end
 
@@ -266,7 +267,8 @@ module Roby
             @members.each do |k, v|
                 result[k.to_sym] = if recursive && v.respond_to?(:to_hash)
                                        v.to_hash
-                                   else v
+                                   else
+                                       v
                                    end
             end
             result

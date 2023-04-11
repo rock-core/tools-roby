@@ -83,7 +83,8 @@ module Roby
 
             def log_queue_size
                 if threaded? then @dump_queue.size
-                else 0
+                else
+                    0
                 end
             end
 

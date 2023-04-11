@@ -81,7 +81,8 @@ module Roby
                         :mission
                     elsif task.plan.permanent_task?(task)
                         :permanent
-                    else :normal
+                    else
+                        :normal
                     end
                 block.call(current_status)
             end

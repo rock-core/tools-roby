@@ -193,7 +193,8 @@ module Roby
                     plan.unmark_mission_task(task)
                     task.stop! if task.running?
                     true
-                else false
+                else
+                    false
                 end
             end
             command :kill_job, "forcefully kills the given job",
@@ -222,7 +223,8 @@ module Roby
                 if job_ids_of_task(placeholder_task).empty?
                     plan.unmark_mission_task(placeholder_task)
                     true
-                else false
+                else
+                    false
                 end
             end
             command :drop_job, "remove this job from the list of jobs, this does not necessarily kill the job's main task",
@@ -497,7 +499,8 @@ module Roby
                         else
                             JOB_PLANNING_READY
                         end
-                    else JOB_READY
+                    else
+                        JOB_READY
                     end
                 end
             end

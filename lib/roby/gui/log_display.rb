@@ -115,7 +115,7 @@ module Roby
                         rescue NameError => e
                             Roby.warn "cannot create display of class #{name}: #{e}"
                             return
-                        end
+                end
 
                 log_display = self
                 view = klass.new(@history_widget)

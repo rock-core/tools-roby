@@ -45,7 +45,8 @@ module Roby
                 def respond_to_missing?(m, include_private)
                     if m =~ /(.*)!/
                         action_interface&.find_action_by_name(m.to_s)
-                    else super
+                    else
+                        super
                     end
                 end
 
@@ -56,7 +57,8 @@ module Roby
                         task = task(action.new(*args))
                         task.name = action_name
                         execute(task)
-                    else super
+                    else
+                        super
                     end
                 end
             end

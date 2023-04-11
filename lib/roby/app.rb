@@ -262,7 +262,8 @@ module Roby
                 @app_name
             elsif app_dir
                 @app_name = File.basename(app_dir).gsub(/[^\w]/, "_")
-            else "default"
+            else
+                "default"
             end
         end
 
@@ -419,7 +420,8 @@ module Roby
                 @search_path
             elsif app_dir
                 [app_dir]
-            else []
+            else
+                []
             end
         end
 
@@ -1460,7 +1462,8 @@ module Roby
             current =
                 if File.file?(path)
                     YAML.load(File.read(path)) || []
-                else []
+                else
+                    []
                 end
 
             if append || current.empty?
@@ -1476,9 +1479,9 @@ module Roby
         # Read the time tag from the current log directory
         def log_read_metadata
             dir = begin
-                      log_current_dir
+                log_current_dir
                   rescue ArgumentError # rubocop:disable Lint/SuppressedException
-                  end
+            end
 
             if dir && File.exist?(File.join(dir, "info.yml"))
                 YAML.safe_load(File.read(File.join(dir, "info.yml")))
@@ -1673,7 +1676,8 @@ module Roby
             if ignore_all_load_errors?
                 Robot.warn message
                 Roby.log_exception_with_backtrace(e, logger, level)
-            else raise
+            else
+                raise
             end
         end
 
@@ -2152,7 +2156,8 @@ module Roby
                     else
                         [$0, *ARGV]
                     end
-                else cmdline
+                else
+                    cmdline
                 end
             quit
         end
@@ -2606,7 +2611,8 @@ module Roby
         def auto_load_search_path
             if auto_load_all? then search_path
             elsif app_dir then [app_dir]
-            else []
+            else
+                []
             end
         end
 
@@ -3075,12 +3081,10 @@ module Roby
 
         # Enumerate all the test files in a specific dir for this robot
         # configuration
-        def each_test_file_in(dir)
+        def each_test_file_in(dir, &block)
             return enum_for(__method__, dir) unless block_given?
 
-            each_robot_test_file_in(dir) do |path|
-                yield(path)
-            end
+            each_robot_test_file_in(dir, &block)
 
             Find.find(dir) do |path|
                 # Skip the robot-specific bits that don't apply on the

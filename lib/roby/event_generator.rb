@@ -318,7 +318,8 @@ module Roby
             # Generates an option hash valid for EventGenerator#on
             def as_options
                 mode = if copy_on_replace? then :copy
-                       else :drop
+                       else
+                           :drop
                        end
 
                 { on_replace: mode, once: once? }
@@ -375,7 +376,8 @@ module Roby
 
             if event
                 super(event)
-            else super(nil, &block)
+            else
+                super(nil, &block)
             end
         end
 
@@ -658,7 +660,8 @@ module Roby
             failure_message =
                 if message then message
                 elsif error.respond_to?(:message) then error.message
-                else "failed to emit #{self}"
+                else
+                    "failed to emit #{self}"
                 end
 
             if Class === error
@@ -890,11 +893,11 @@ module Roby
         def calling(context)
             each_precondition do |reason, block|
                 result = begin
-                             block.call(self, context)
+                    block.call(self, context)
                          rescue EventPreconditionFailed => e
                              e.generator = self
                              raise
-                         end
+                end
 
                 unless result
                     raise EventPreconditionFailed.new(self), "precondition #{reason} failed"

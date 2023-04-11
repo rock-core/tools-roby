@@ -529,7 +529,8 @@ module Roby
 
                 def find_failed_occurence_constraint(next_event)
                     base_event = if next_event then last
-                                 else history[-2]
+                                 else
+                                     history[-2]
                                  end
                     if base_event
                         base_time = base_event.time

@@ -4,7 +4,7 @@ require "pathname"
 
 # This is needed because of Ruby bug #9244
 module Syskit
-    module CustomRequire #:nodoc:
+    module CustomRequire # :nodoc:
         def self.resolve(path)
             match = /^([\w|-]+)\//.match(path)
             return path unless match
@@ -40,7 +40,7 @@ module Syskit
     end
 end
 
-module Kernel #:nodoc:
+module Kernel # :nodoc:
     alias syskit_original_require require
     def require(path)
         # Only deal with paths which is not prefixed with an app_dir basename,

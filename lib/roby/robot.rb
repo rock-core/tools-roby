@@ -42,12 +42,9 @@ module Robot
     #
     # See also Robot.prepare_action
     def self.method_missing(name, *args)
-        if name.to_s =~ /!$/
-            name = $`.to_sym
-        else
-            super
-        end
+        return super unless (m = /!$/.match(name.to_s))
 
+        name = m.pre_match.to_sym
         if args.size > 1
             raise ArgumentError, "wrong number of arguments (#{args.size} for 1) in #{name}!"
         end

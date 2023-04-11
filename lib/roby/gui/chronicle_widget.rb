@@ -41,13 +41,15 @@ module Roby
                 @pixel_to_time =
                     if new_value < 0
                         new_value.abs
-                    else 1.0 / new_value
+                    else
+                        1.0 / new_value
                     end
 
                 @time_to_pixel =
                     if new_value > 0
                         new_value
-                    else 1.0 / new_value.abs
+                    else
+                        1.0 / new_value.abs
                     end
 
                 update_scroll_ranges
@@ -493,7 +495,8 @@ module Roby
                             t.history.each do |ev|
                                 if ev.time < display_time
                                     last_event = ev
-                                else break
+                                else
+                                    break
                                 end
                             end
                             last_event.time
@@ -550,7 +553,8 @@ module Roby
                     Time.at(Float(time.toMSecsSinceEpoch) / 1000)
                 elsif !time
                     default
-                else time
+                else
+                    time
                 end
             end
 

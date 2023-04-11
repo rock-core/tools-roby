@@ -54,7 +54,8 @@ module Roby
         # the whole remote plan
         def sibling_on?(peer)
             if Roby.plan == self then peer.remote_plan
-            else super
+            else
+                super
             end
         end
 
@@ -279,7 +280,7 @@ module Roby
         end
 
         def merge_transaction!(transaction, merged_graphs, added, removed, updated)
-            # Note: Task#plan= updates its bound events
+            # NOTE: Task#plan= updates its bound events
             tasks = transaction.tasks.dup
             events = transaction.free_events.dup
             tasks.each { |t| t.plan = self }
@@ -449,8 +450,9 @@ module Roby
                 if o.respond_to?(:as_plan) then o.as_plan
                 elsif o.respond_to?(:to_event) then o.to_event
                 elsif o.respond_to?(:to_task) then o.to_task
-                else raise ArgumentError,
-                           "found #{o || 'nil'} which is neither a task nor an event"
+                else
+                    raise ArgumentError,
+                          "found #{o || 'nil'} which is neither a task nor an event"
                 end
             end
         end
@@ -1116,7 +1118,8 @@ module Roby
 
             if is_scalar
                 objects.first
-            else objects
+            else
+                objects
             end
         end
 

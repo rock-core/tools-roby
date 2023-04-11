@@ -28,7 +28,8 @@ module Roby
                     arguments = action.arguments.transform_values do |value|
                         if value.respond_to?(:evaluate)
                             value.evaluate(variables)
-                        else value
+                        else
+                            value
                         end
                     end
                     action.as_plan(**arguments)

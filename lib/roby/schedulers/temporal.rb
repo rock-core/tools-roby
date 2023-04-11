@@ -38,7 +38,8 @@ module Roby
                         ev.task != task &&
                             !stack.include?(ev.task) &&
                             !scheduling_constraints_graph.related_tasks?(ev.task, task)
-                    else true
+                    else
+                        true
                     end
                 end
 

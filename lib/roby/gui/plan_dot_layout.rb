@@ -196,7 +196,8 @@ module Roby
                     end
                 end
                 task_height = if !has_event then DEFAULT_TASK_HEIGHT + text_bb.height
-                              else text_bb.height
+                              else
+                                  text_bb.height
                               end
 
                 io << "  #{dot_id}[width=#{[DEFAULT_TASK_WIDTH, text_bb.width].max},height=#{task_height},fixedsize=true];\n"
@@ -210,7 +211,8 @@ module Roby
 
                 own = super
                 if own.size > event_names.size then own
-                else event_names
+                else
+                    event_names
                 end
             end
 
@@ -426,7 +428,8 @@ module Roby
                         p.propagated_events.each do |_, _, sources, to, _|
                             to_id =
                                 if to.respond_to?(:task) then to.task.dot_id
-                                else to.dot_id
+                                else
+                                    to.dot_id
                                 end
 
                             sources.each do |from|

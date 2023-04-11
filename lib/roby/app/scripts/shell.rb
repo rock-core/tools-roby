@@ -11,8 +11,6 @@ app.shell
 app.single
 app.load_base_config
 
-require "pp"
-
 silent = false
 opt = OptionParser.new do |opt|
     opt.on "--silent", "disable notifications (can also be controlled in the shell itself)" do

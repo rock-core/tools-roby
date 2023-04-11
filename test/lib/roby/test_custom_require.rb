@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "roby/test/self"
-require "lib/roby/custom_require.rb"
+require "lib/roby/custom_require"
 
 module Syskit
     describe CustomRequire do

@@ -193,7 +193,8 @@ module Roby
                 # Workaround what seems to be a Ruby bug ...
                 if e.message =~ /can.t modify frozen IOError/
                     raise ComError, "broken communication channel"
-                else raise
+                else
+                    raise
                 end
             end
         end

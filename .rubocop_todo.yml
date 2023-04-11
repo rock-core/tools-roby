@@ -1063,6 +1063,7 @@ Metrics/CyclomaticComplexity:
     - 'lib/roby/cli/display.rb'
     - 'lib/roby/cli/gen/helpers.rb'
     - 'lib/roby/cli/log.rb'
+    - 'lib/roby/cli/log/flamegraph_renderer.rb'
     - 'lib/roby/cli/main.rb'
     - 'lib/roby/coordination/action_state_machine.rb'
     - 'lib/roby/coordination/models/fault_handler.rb'
@@ -1077,6 +1078,8 @@ Metrics/CyclomaticComplexity:
     - 'lib/roby/droby/logfile/writer.rb'
     - 'lib/roby/droby/marshal.rb'
     - 'lib/roby/droby/plan_rebuilder.rb'
+    - 'lib/roby/droby/rebuilt_plan.rb'
+    - 'lib/roby/droby/v5/droby_dump.rb'
     - 'lib/roby/event_constraints.rb'
     - 'lib/roby/event_generator.rb'
     - 'lib/roby/event_structure/temporal_constraints.rb'
@@ -1085,6 +1088,7 @@ Metrics/CyclomaticComplexity:
     - 'lib/roby/execution_engine.rb'
     - 'lib/roby/gui/chronicle_widget.rb'
     - 'lib/roby/gui/log_display.rb'
+    - 'lib/roby/gui/object_info_view.rb'
     - 'lib/roby/gui/plan_dot_layout.rb'
     - 'lib/roby/gui/plan_rebuilder_widget.rb'
     - 'lib/roby/gui/relations_view.rb'
@@ -1098,6 +1102,7 @@ Metrics/CyclomaticComplexity:
     - 'lib/roby/interface/interface.rb'
     - 'lib/roby/interface/shell_client.rb'
     - 'lib/roby/interface/tcp.rb'
+    - 'lib/roby/interface/async/job_monitor.rb'
     - 'lib/roby/models/task.rb'
     - 'lib/roby/plan.rb'
     - 'lib/roby/plan_object.rb'
@@ -1109,6 +1114,7 @@ Metrics/CyclomaticComplexity:
     - 'lib/roby/relations/graph.rb'
     - 'lib/roby/relations/space.rb'
     - 'lib/roby/schedulers/basic.rb'
+    - 'lib/roby/schedulers/state.rb'
     - 'lib/roby/schedulers/temporal.rb'
     - 'lib/roby/standard_errors.rb'
     - 'lib/roby/state/events.rb'
@@ -1124,13 +1130,17 @@ Metrics/CyclomaticComplexity:
     - 'lib/roby/test/common.rb'
     - 'lib/roby/test/execution_expectations.rb'
     - 'lib/roby/test/minitest_helpers.rb'
+    - 'lib/roby/test/roby_app_helpers.rb'
     - 'lib/roby/test/run_planners.rb'
     - 'lib/roby/test/teardown_plans.rb'
     - 'lib/roby/test/testcase.rb'
     - 'lib/roby/test/tools.rb'
     - 'lib/roby/transaction.rb'
     - 'lib/roby/transaction/task_proxy.rb'
+    - 'lib/roby/transaction/event_generator_proxy.rb'
     - 'test/mockups/random_log.rb'
+    - 'test/test_execution_engine.rb'
+    - 'test/interface/async/client_server_test_helpers.rb'
 
 # Offense count: 9
 # Configuration parameters: CountComments, Max, ExcludedMethods.
@@ -1143,6 +1153,7 @@ Metrics/MethodLength:
     - 'lib/roby/relations/space.rb'
     - 'lib/roby/transaction.rb'
     - 'test/behaviors/plan_replace_behaviors.rb'
+    - 'lib/roby/cli/log.rb'
 
 # Offense count: 11
 # Configuration parameters: CountComments, Max.
@@ -1199,6 +1210,8 @@ Metrics/PerceivedComplexity:
     - 'lib/roby/cli/gen/helpers.rb'
     - 'lib/roby/cli/log.rb'
     - 'lib/roby/cli/main.rb'
+    - 'lib/roby/cli/log/flamegraph_renderer.rb'
+    - 'lib/roby/coordination/action_state_machine.rb'
     - 'lib/roby/coordination/models/actions.rb'
     - 'lib/roby/coordination/models/fault_handler.rb'
     - 'lib/roby/coordination/models/script.rb'
@@ -1207,8 +1220,11 @@ Metrics/PerceivedComplexity:
     - 'lib/roby/droby/logfile/client.rb'
     - 'lib/roby/droby/logfile/reader.rb'
     - 'lib/roby/droby/logfile/server.rb'
+    - 'lib/roby/droby/logfile/writer.rb'
     - 'lib/roby/droby/marshal.rb'
     - 'lib/roby/droby/plan_rebuilder.rb'
+    - 'lib/roby/droby/rebuilt_plan.rb'
+    - 'lib/roby/droby/v5/droby_dump.rb'
     - 'lib/roby/event_constraints.rb'
     - 'lib/roby/event_generator.rb'
     - 'lib/roby/event_structure/temporal_constraints.rb'
@@ -1236,10 +1252,12 @@ Metrics/PerceivedComplexity:
     - 'lib/roby/plan_object.rb'
     - 'lib/roby/queries/localized_error_matcher.rb'
     - 'lib/roby/queries/plan_object_matcher.rb'
+    - 'lib/roby/queries/task_matcher.rb'
     - 'lib/roby/relations/bidirectional_directed_adjacency_graph.rb'
     - 'lib/roby/relations/graph.rb'
     - 'lib/roby/relations/space.rb'
     - 'lib/roby/schedulers/basic.rb'
+    - 'lib/roby/schedulers/state.rb'
     - 'lib/roby/schedulers/temporal.rb'
     - 'lib/roby/standard_errors.rb'
     - 'lib/roby/state/events.rb'
@@ -1251,6 +1269,7 @@ Metrics/PerceivedComplexity:
     - 'lib/roby/task_structure/conflicts.rb'
     - 'lib/roby/task_structure/dependency.rb'
     - 'lib/roby/tasks/external_process.rb'
+    - 'lib/roby/test/assertions.rb'
     - 'lib/roby/test/common.rb'
     - 'lib/roby/test/execution_expectations.rb'
     - 'lib/roby/test/minitest_helpers.rb'
@@ -1259,8 +1278,11 @@ Metrics/PerceivedComplexity:
     - 'lib/roby/test/tools.rb'
     - 'lib/roby/transaction.rb'
     - 'lib/roby/transaction/task_proxy.rb'
+    - 'lib/roby/transaction/event_generator_proxy.rb'
     - 'test/behaviors/plan_common_behavior.rb'
     - 'test/mockups/random_log.rb'
+    - 'test/test_execution_engine.rb'
+    - 'test/interface/async/client_server_test_helpers.rb'
 
 # Offense count: 26
 Naming/ClassAndModuleCamelCase:
@@ -1959,6 +1981,8 @@ Style/IfUnlessModifier:
     - 'test/test_execution_engine.rb'
 
 # Offense count: 8
+# Rubocop 1.50
+# Lint/MissingSuper:
 Style/MethodMissingSuper:
   Exclude:
     - 'lib/roby/app/scripts/shell.rb'
@@ -2272,3 +2296,7 @@ Style/WhileUntilModifier:
     - 'lib/roby/test/tools.rb'
     - 'test/interface/async/test_interface.rb'
     - 'test/test_execution_engine.rb'
+
+# Rubocop 1.50
+# Style/OptionalBooleanParameter:
+#   Enabled: false

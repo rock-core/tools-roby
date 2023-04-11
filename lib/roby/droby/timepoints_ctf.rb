@@ -67,7 +67,7 @@ module Roby
                 end
 
                 def metadata_template_path
-                    Pathname.new(__FILE__).dirname + "timepoints_ctf.metadata.erb"
+                    "#{Pathname.new(__FILE__).dirname}timepoints_ctf.metadata.erb"
                 end
 
                 def generate_metadata
@@ -106,10 +106,10 @@ module Roby
                 end
 
                 def save(path)
-                    (path + "metadata").open("w") do |io|
+                    "#{path}metadata".open("w") do |io|
                         io.write generate_metadata
                     end
-                    (path + "channel0_0").open("w") do |io|
+                    "#{path}channel0_0".open("w") do |io|
                         io.write marshal_packet
                     end
                     path.sub_ext(".ctf.names").open("w") do |io|

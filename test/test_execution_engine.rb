@@ -2525,12 +2525,12 @@ class TC_ExecutionEngine < Minitest::Test
         returned_value = nil
         t = Thread.new do
             returned_value = begin
-                                 execution_engine.execute do
-                                     raise ArgumentError
-                                 end
+                execution_engine.execute do
+                    raise ArgumentError
+                end
                              rescue ArgumentError => e
                                  e
-                             end
+            end
         end
 
         # Wait for the thread to block

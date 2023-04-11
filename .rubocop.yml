@@ -66,3 +66,7 @@ Naming/MethodParameterName:
   - as
   - kw
 
+# Rubocop 1.50
+#
+# Style/GlobalStdStream:
+#   Enabled: false

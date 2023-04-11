@@ -85,7 +85,8 @@ module Roby
 
                 if other
                     [options, other]
-                else options
+                else
+                    options
                 end
             end
 
@@ -106,7 +107,8 @@ module Roby
             # valid for Task#poll
             def as_options
                 on_replace = if copy_on_replace? then :copy
-                             else :drop
+                             else
+                                 :drop
                              end
 
                 { on_replace: on_replace }

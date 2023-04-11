@@ -70,7 +70,8 @@ module Roby
                         matcher = Queries::ExecutionExceptionMatcher.new
                         matcher.send(m, *args, &block)
                         matcher
-                    else super
+                    else
+                        super
                     end
                 end
             end

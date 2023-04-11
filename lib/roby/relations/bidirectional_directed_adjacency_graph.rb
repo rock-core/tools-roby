@@ -189,7 +189,8 @@ module Roby
             def out_degree(v)
                 if (v_out = @forward_edges_with_info[v])
                     v_out.size
-                else 0
+                else
+                    0
                 end
             end
 

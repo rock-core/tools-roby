@@ -6,6 +6,7 @@ module Roby
             true
         end
     end
+
     class ConfigError < RuntimeError; end
     class ModelViolation < RuntimeError; end
     class InternalError < RuntimeError; end
@@ -345,7 +346,8 @@ module Roby
     def self.log_level_enabled?(logger, level)
         logger_level = if logger.respond_to?(:log_level)
                            logger.log_level
-                       else logger.level
+                       else
+                           logger.level
                        end
 
         if numeric_level = LOG_SYMBOLIC_TO_NUMERIC.index(level.to_sym)
@@ -450,6 +452,7 @@ module Roby
             Roby.pretty_print_backtrace(pp, backtrace)
         end
     end
+
     def self.do_display_exception(io, e)
         if colorizer.enabled?
             do_display_exception_formatted(io, e)

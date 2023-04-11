@@ -883,7 +883,8 @@ module Roby
                 models =
                     if models.respond_to?(:each)
                         models.to_a
-                    else [models]
+                    else
+                        [models]
                     end
 
                 models.each do |m|

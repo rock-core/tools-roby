@@ -186,7 +186,8 @@ module Roby
             def poll(expected_count = 0, timeout: nil)
                 result = nil
                 timeout = if expected_count > 0 then timeout
-                          else 0
+                          else
+                              0
                           end
 
                 has_cycle_end = false

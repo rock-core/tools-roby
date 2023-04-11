@@ -85,7 +85,8 @@ module Roby
                         task = TaskFromAsPlan.new(object, task_model)
                         tasks << task
                         task
-                    else raise ArgumentError, "cannot create a task from #{object}"
+                    else
+                        raise ArgumentError, "cannot create a task from #{object}"
                     end
                 end
 
@@ -144,7 +145,8 @@ module Roby
                         Variable.new(m)
                     elsif m =~ /(.*)(?:_event$|_child$)/
                         root.send(m, *args, &block)
-                    else super
+                    else
+                        super
                     end
                 end
 
@@ -162,7 +164,8 @@ module Roby
                 def validate_or_create_task(task)
                     if !task.kind_of?(Coordination::Models::Task)
                         task(task)
-                    else task
+                    else
+                        task
                     end
                 end
 

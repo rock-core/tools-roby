@@ -86,9 +86,11 @@ module Roby
                 if object.respond_to?(:droby_id)
                     if siblings = siblings_by_local_object_id.fetch(object.droby_id, nil)
                         siblings
-                    else Hash[local_id => object.droby_id]
+                    else
+                        Hash[local_id => object.droby_id]
                     end
-                else {}
+                else
+                    {}
                 end
             end
 

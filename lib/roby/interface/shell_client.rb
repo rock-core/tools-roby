@@ -42,7 +42,8 @@ module Roby
                         end
                         sleep retry_period
                         retry
-                    else raise
+                    else
+                        raise
                     end
                 end
             end
@@ -104,7 +105,8 @@ module Roby
                 hash.keys.map do |k|
                     v = hash[k]
                     v = if !v || v.respond_to?(:to_str) then v.inspect
-                        else v
+                        else
+                            v
                         end
                     "#{k} => #{v}"
                 end.join(", ")
@@ -125,7 +127,8 @@ module Roby
             def format_job_info(id, state, task, planning_task)
                 if planning_task.respond_to?(:action_model) && planning_task.action_model
                     name = "#{planning_task.action_model}(#{format_arguments(planning_task.action_arguments)})"
-                else name = task.to_s
+                else
+                    name = task.to_s
                 end
                 format("[%4d] (%s) %s", id, state.to_s, name)
             end
@@ -334,12 +337,14 @@ module Roby
                     rescue NoMethodError => e
                         if e.message =~ /undefined method .#{m}./
                             puts "invalid command name #{m}, call 'help' for more information"
-                        else raise
+                        else
+                            raise
                         end
                     rescue ArgumentError => e
                         if e.message =~ /wrong number of arguments/ && e.backtrace.first =~ /#{m}/
                             puts e.message
-                        else raise
+                        else
+                            raise
                         end
                     end
                 end

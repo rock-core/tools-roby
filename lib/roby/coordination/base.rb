@@ -88,7 +88,8 @@ module Roby
                     arguments = arguments.transform_values do |val|
                         if val.kind_of?(Models::Variable)
                             self.arguments[val.name]
-                        else val
+                        else
+                            val
                         end
                     end
                     root_task.use_fault_response_table(table, arguments)

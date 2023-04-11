@@ -15,6 +15,7 @@ class Module
         raise "can't dump modules (#{self})"
     end
 end
+
 class Class
     def droby_dump(dest)
         raise "can't dump class #{self}"
@@ -29,30 +30,37 @@ module Roby
     class ExceptionBase
         include DRoby::V5::ExceptionBaseDumper
     end
+
     class LocalizedError
         include DRoby::V5::LocalizedErrorDumper
     end
+
     class PlanningFailedError
         include DRoby::V5::PlanningFailedErrorDumper
     end
+
     class ExecutionException
         include DRoby::V5::ExecutionExceptionDumper
     end
+
     module Relations
         class BidirectionalDirectedAdjacencyGraph
             include DRoby::V5::BidirectionalGraphDumper
         end
+
         class Graph
             extend DRoby::Identifiable
             extend DRoby::V5::DRobyConstant::Dump
         end
     end
+
     module Models
         class TaskServiceModel
             include DRoby::Identifiable
             include DRoby::V5::Models::TaskServiceModelDumper
         end
     end
+
     class Event
         include DRoby::V5::EventDumper
     end
@@ -76,16 +84,20 @@ module Roby
         extend DRoby::V5::Models::TaskDumper
         include DRoby::V5::TaskDumper
     end
+
     class TaskEventGenerator
         include DRoby::V5::TaskEventGeneratorDumper
     end
+
     class DefaultArgument
         include DRoby::V5::DefaultArgumentDumper
     end
+
     class DelayedArgumentFromObject
         extend DRoby::V5::Builtins::ClassDumper
         include DRoby::V5::DelayedArgumentFromObjectDumper
     end
+
     class Plan
         include DRoby::Identifiable
         include DRoby::V5::PlanDumper
@@ -95,10 +107,12 @@ module Roby
         class Action
             include DRoby::V5::Actions::ActionDumper
         end
+
         class Interface
             extend DRoby::Identifiable
             extend DRoby::V5::ModelDumper
         end
+
         module Models
             class Action
                 include DRoby::V5::Actions::Models::ActionDumper

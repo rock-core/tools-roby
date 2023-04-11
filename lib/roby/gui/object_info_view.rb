@@ -56,7 +56,8 @@ module Roby
                     end
                     sections << ["History", text]
                     sections << ["Model Ancestry", obj.model.ancestors.map(&:name)]
-                else return false
+                else
+                    return false
                 end
 
                 self.windowTitle = "Details for #{obj}"

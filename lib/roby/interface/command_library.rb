@@ -12,7 +12,8 @@ module Roby
                 # Declares a command for this interface
                 def command(name, *info)
                     arguments = if info.last.kind_of?(Hash) then info.pop
-                                else {}
+                                else
+                                    {}
                                 end
 
                     arguments = arguments.transform_keys(&:to_sym)

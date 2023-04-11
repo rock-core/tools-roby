@@ -149,7 +149,8 @@ module Roby
                     result =
                         if @can_schedule_cache.include?(task)
                             @can_schedule_cache[task]
-                        else @can_schedule_cache[task] = can_schedule?(task, time, [])
+                        else
+                            @can_schedule_cache[task] = can_schedule?(task, time, [])
                         end
 
                     if result

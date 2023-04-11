@@ -181,7 +181,8 @@ module Roby
                 def added_method_action_check_arity(name, description)
                     expected_argument_count =
                         if description.arguments.empty? then 0
-                        else 1
+                        else
+                            1
                         end
 
                     begin

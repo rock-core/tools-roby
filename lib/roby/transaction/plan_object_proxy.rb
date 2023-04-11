@@ -29,7 +29,8 @@ module Roby
                                 next unless include_proxies
 
                                 obj.__getobj__
-                            else obj
+                            else
+                                obj
                             end
 
                         trsc_objects[plan_object] = obj
@@ -91,7 +92,8 @@ module Roby
 
                 if object
                     super(object)
-                else super(nil, &block)
+                else
+                    super(nil, &block)
                 end
             end
         end

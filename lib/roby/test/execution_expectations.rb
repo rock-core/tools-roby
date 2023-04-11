@@ -343,7 +343,8 @@ module Roby
             def method_missing(m, *args, &block)
                 if @test.respond_to?(m)
                     @test.public_send(m, *args, &block)
-                else super
+                else
+                    super
                 end
             end
 

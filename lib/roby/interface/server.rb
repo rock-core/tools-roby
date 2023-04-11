@@ -148,7 +148,8 @@ module Roby
             rescue Exception => e
                 if defer_exceptions
                     @deferred_exception = e
-                else raise
+                else
+                    raise
                 end
             end
 
