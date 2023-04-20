@@ -6,6 +6,23 @@ require "roby/tasks/simple"
 module Roby
     module Actions
         describe Action do
+            describe "#with_arguments" do
+                before do
+                    @interface_m = Interface.new_submodel
+                end
+
+                it "does not modify an original action after a copy" do
+                    @interface_m.describe("test_action")
+                                .required_arg("t", "")
+                    @interface_m.class_eval { def test_action(*args); end }
+
+                    action1 = @interface_m.test_action(t: 10)
+                    action2 = action1.dup.with_arguments(t: 20)
+                    assert_equal 10, action1.arguments[:t]
+                    assert_equal 20, action2.arguments[:t]
+                end
+            end
+
             describe "#missing_required_arguments" do
                 attr_reader :interface_m
 

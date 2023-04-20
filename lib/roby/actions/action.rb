@@ -30,7 +30,7 @@ module Roby
             # @param [Hash] arguments new arguments
             # @return [self]
             def with_arguments(**arguments)
-                @arguments.merge!(arguments)
+                @arguments = @arguments.merge(arguments)
                 self
             end
 
