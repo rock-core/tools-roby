@@ -357,14 +357,14 @@ module Roby
                 # Returns an action description if 'm' is the name of a known action
                 #
                 # @return [Action]
-                def method_missing(name, *args)
+                def method_missing(name, *args, **kw)
                     if (model = find_action_by_name(name.to_s))
                         if args.size > 1
                             raise ArgumentError,
                                   "expected zero or one argument, got #{args.size}"
                         end
 
-                        return model.new(*args)
+                        return model.new(*args, **kw)
                     end
 
                     super
