@@ -34,8 +34,11 @@ module Roby
                 self
             end
 
-            def has_missing_required_arg?
-                model.arguments.any? do |arg|
+            # List of required arguments that are currently not set
+            #
+            # @return [Array<Models::Action::Argument>]
+            def missing_required_arguments
+                model.arguments.find_all do |arg|
                     arg_sym = arg.name.to_sym
                     if arguments.has_key?(arg_sym)
                         TaskArguments.delayed_argument?(arguments.fetch(arg_sym))
@@ -43,6 +46,19 @@ module Roby
                         arg.required?
                     end
                 end
+            end
+
+            # Fill missing required arguments with example arguments when available
+            def with_example_arguments
+                new_args = missing_required_arguments.each_with_object({}) do |arg, h|
+                    h[arg.name.to_sym] = arg.example if arg.example_defined?
+                end
+                with_arguments(**new_args)
+            end
+
+            # Check whether the action model has required arguments missing
+            def has_missing_required_arg?
+                !missing_required_arguments.empty?
             end
 
             # The task model returned by this action
