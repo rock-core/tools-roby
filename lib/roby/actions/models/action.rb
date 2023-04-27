@@ -5,14 +5,21 @@ module Roby
         module Models
             # Basic description of an action
             class Action
+                Void = Object.new
+
                 # Structure that stores the information about planning method arguments
                 #
                 # See MethodDescription
-                Argument = Struct.new :name, :doc, :required, :default do
+                Argument = Struct.new :name, :doc, :required, :default, :example do
                     def pretty_print(pp)
                         pp.text "#{name}: #{doc}"
                         pp.text required ? " (required)" : " (optional)"
                         pp.text " default=#{default}" if default
+                        pp.text " example=#{example}" if example_defined?
+                    end
+
+                    def example_defined?
+                        example != Void
                     end
 
                     def required?
@@ -129,8 +136,10 @@ module Roby
                 end
 
                 # Documents a new required argument to the method
-                def required_arg(name, doc = nil)
-                    arguments << Argument.new(name.to_s, doc, true)
+                def required_arg(name, doc = nil, example: Void)
+                    arg = Argument.new(name.to_s, doc, true)
+                    arg.example = example
+                    arguments << arg
                     self
                 end
 
@@ -139,6 +148,7 @@ module Roby
                     doc = doc.to_str if doc
                     arg = Argument.new(name.to_s, doc, false)
                     arg.default = default
+                    arg.example = Void
                     arguments << arg
                     self
                 end

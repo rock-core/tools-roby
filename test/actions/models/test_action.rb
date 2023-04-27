@@ -176,12 +176,19 @@ describe Roby::Actions::Models::Action do
         end
 
         it "displays No arguments if there are no arguments" do
+            expected = <<~TEXT
+                Action #{@action_m}
+                  Returns Roby::Task
+                  No arguments.
+            TEXT
+            assert_equal expected, PP.pp(@action_m, "".dup)
         end
 
         it "pretty-prints the argument definitions" do
             @action_m.optional_arg("opt_arg_no_default", "opt arg no default doc")
             @action_m.optional_arg("opt_arg", "opt arg doc", 10)
             @action_m.required_arg("req_arg", "req arg doc")
+            @action_m.required_arg("req_arg_with_example", "req arg doc", example: "test")
             expected = <<~TEXT
                 Action #{@action_m}
                   Returns Roby::Task
@@ -189,8 +196,57 @@ describe Roby::Actions::Models::Action do
                     opt_arg: opt arg doc (optional) default=10
                     opt_arg_no_default: opt arg no default doc (optional)
                     req_arg: req arg doc (required)
+                    req_arg_with_example: req arg doc (required) example=test
             TEXT
             assert_equal expected, PP.pp(@action_m, "".dup)
+        end
+    end
+
+    describe "optional argument definition" do
+        before do
+            interface_m = Roby::Actions::Interface.new_submodel
+            @action_m   = Roby::Actions::Models::Action.new(interface_m)
+        end
+        it "is not a required argument" do
+            @action_m.optional_arg("a", "doc", 10)
+            arg = @action_m.find_arg("a")
+            refute arg.required?
+        end
+        it "does not have an example value" do
+            @action_m.optional_arg("a", "doc", 10)
+            arg = @action_m.find_arg("a")
+            refute arg.example_defined?
+        end
+        it "has a default value" do
+            @action_m.optional_arg("a", "doc", 10)
+            assert_equal 10, @action_m.find_arg("a").default
+        end
+    end
+
+    describe "required argument definition" do
+        before do
+            interface_m = Roby::Actions::Interface.new_submodel
+            @action_m   = Roby::Actions::Models::Action.new(interface_m)
+        end
+        it "does not have an example value by default" do
+            @action_m.required_arg("req", "req arg doc")
+            arg = @action_m.find_arg("req")
+            assert arg.required?
+            refute arg.example_defined?
+        end
+        it "declares a required argument with a nil example value" do
+            @action_m.required_arg("req", "req arg doc", example: nil)
+            arg = @action_m.find_arg("req")
+            assert arg.required?
+            assert arg.example_defined?
+            assert_nil arg.example
+        end
+        it "declares a required argument with example value" do
+            @action_m.required_arg("req", "req arg doc", example: "test")
+            arg = @action_m.find_arg("req")
+            assert arg.required?
+            assert arg.example_defined?
+            assert_equal "test", arg.example
         end
     end
 end
