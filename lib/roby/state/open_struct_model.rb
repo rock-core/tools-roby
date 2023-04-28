@@ -11,7 +11,8 @@ module Roby
             elsif superclass && (result = superclass.__get(name, false, &update))
                 if result.kind_of?(OpenStructModel)
                     super(name, true, &update)
-                else result
+                else
+                    result
                 end
             elsif create_substruct
                 super

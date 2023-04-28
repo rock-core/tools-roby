@@ -119,7 +119,8 @@ module Roby
                 args.each_with_index.inject(msg) do |msg, (a, i)|
                     a = if a.respond_to?(:map)
                             a.map(&:to_s).join(", ")
-                        else a.to_s
+                        else
+                            a.to_s
                         end
                     msg.gsub "%#{i + 1}", a
                 end

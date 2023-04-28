@@ -117,7 +117,8 @@ module Ui
                         if index.column == COL_NAME && role == Qt::CheckStateRole
                             if    display.relation_enabled?(relation) then Qt::Checked.to_i
                             elsif display.layout_relation?(relation)  then Qt::PartiallyChecked.to_i
-                            else Qt::Unchecked.to_i
+                            else
+                                Qt::Unchecked.to_i
                             end
                         elsif index.column == COL_NAME && role == Qt::DisplayRole
                             relation.name.gsub(/.*Structure::/, "")
@@ -127,7 +128,8 @@ module Ui
                     end
 
             if value then Qt::Variant.new(value)
-            else Qt::Variant.new
+            else
+                Qt::Variant.new
             end
         end
 
@@ -161,6 +163,7 @@ module Ui
             end
         end
     end
+
     class RelationDelegate < Qt::ItemDelegate
         MAX_WIDTH = 50
         def createEditor(parent, option, index)
@@ -217,7 +220,8 @@ module Ui
             index = combo.current_index
             display.layout_method =
                 if index == 0 then nil
-                else METHODS[index]
+                else
+                    METHODS[index]
                 end
             display.update
         end

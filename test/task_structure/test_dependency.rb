@@ -342,7 +342,7 @@ class TC_Dependency < Minitest::Test
         parent.depends_on child, model: [Tasks::Simple, { id: "child" }], success: []
         info[:model][1] = { id: "child" }
         assert_equal info, parent[child, Dependency]
-        # note: arguments can't be changed on the task *and* #depends_on
+        # NOTE: arguments can't be changed on the task *and* #depends_on
         # validates them, so we don't need to test that.
 
         # Test model/tag handling: #depends_on should find the most generic

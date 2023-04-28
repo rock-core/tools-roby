@@ -14,6 +14,7 @@ module Roby
                     Queries.none
                 end
             end
+
             def self.droby_dump(peer)
                 DRoby.new
             end

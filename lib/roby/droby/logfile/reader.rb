@@ -16,7 +16,7 @@ module Roby
                 def initialize(event_io, index_path: nil)
                     @event_io = event_io
                     @index_path = index_path ||
-                                  event_io.path.gsub(/\.log$/, "") + ".idx"
+                                  "#{event_io.path.gsub(/\.log$/, '')}.idx"
                     event_io.rewind
                     options_hash = read_header
                     self.class.process_options_hash(options_hash)

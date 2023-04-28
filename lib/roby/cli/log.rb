@@ -222,10 +222,10 @@ module Roby
                             info[:gc_total_time] || 0
                         )
 
-                    line = (start + info[:actual_start]).strftime("%H:%M:%S.%3N") + " " +
-                           formatted_fields
-
-                    io.puts line
+                    absolute_start_s =
+                        (start + info[:actual_start])
+                        .strftime("%H:%M:%S.%3N")
+                    io.puts "#{absolute_start_s} #{formatted_fields}"
                 end
 
                 exit(0)

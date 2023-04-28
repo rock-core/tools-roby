@@ -110,7 +110,8 @@ module Roby
                         pp.text "TProxy:"
                         __getobj__.pretty_print(pp)
                     end
-                else super
+                else
+                    super
                 end
             end
 

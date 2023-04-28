@@ -148,7 +148,8 @@ module Roby
             def matches_task?(task)
                 if failure_point_matcher.respond_to?(:task_matcher)
                     failure_point_matcher.task_matcher == task
-                else failure_point_matcher === task
+                else
+                    failure_point_matcher === task
                 end
             end
 

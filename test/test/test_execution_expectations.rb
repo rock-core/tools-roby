@@ -581,6 +581,7 @@ module Roby
 
                 describe "#not_emit a task event query" do
                     attr_reader :task_m
+
                     before do
                         @task_m = Roby::Tasks::Simple.new_submodel
                     end

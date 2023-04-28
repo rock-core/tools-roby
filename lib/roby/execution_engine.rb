@@ -1018,7 +1018,8 @@ module Roby
                 target_step_id, forwards, signals = *propagation_step[1]
                 target_priority = if forwards.empty? && signals.empty? then 2
                                   elsif forwards.empty? then 0
-                                  else 1
+                                  else
+                                      1
                                   end
 
                 do_select = if selected_event
@@ -1859,7 +1860,8 @@ module Roby
                 application_exceptions = clear_application_exceptions
                 if !application_exceptions.empty?
                     raise SynchronousEventProcessingMultipleErrors.new(application_exceptions.map(&:first) + [e])
-                else raise e
+                else
+                    raise e
                 end
             else
                 raise e
@@ -1904,7 +1906,8 @@ module Roby
                         plan.generate_induced_errors(error_phase_results)
                         if garbage_collect_pass
                             garbage_collect(error_phase_results.kill_tasks)
-                        else []
+                        else
+                            []
                         end
                     end
                     events_errors = (exception_propagation_errors + garbage_collection_errors)
@@ -2688,7 +2691,8 @@ module Roby
 
             @exception_display_handler = on_exception do |kind, error, tasks|
                 level = if kind == EXCEPTION_HANDLED then :debug
-                        else :warn
+                        else
+                            :warn
                         end
 
                 send(level) do

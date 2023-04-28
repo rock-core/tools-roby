@@ -127,7 +127,8 @@ module Roby
                     if connected?
                         if client.read_and_process_pending(max: max)
                             STATE_PENDING_DATA
-                        else STATE_CONNECTED
+                        else
+                            STATE_CONNECTED
                         end
                     elsif !closed?
                         poll_connection_attempt

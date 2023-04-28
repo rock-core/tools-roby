@@ -162,7 +162,8 @@ module Roby
                     def follow_edge?(u, v)
                         if selected.include?(u)
                             false
-                        else super
+                        else
+                            super
                         end
                     end
                 end

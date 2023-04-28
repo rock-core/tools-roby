@@ -307,7 +307,8 @@ module Roby
                     def local_plan(peer)
                         if plan_id
                             peer.local_plan(plan_id)
-                        else TemplatePlan.new
+                        else
+                            TemplatePlan.new
                         end
                     end
                 end
@@ -998,7 +999,8 @@ module Roby
                             query.neg_plan_predicates.merge(neg_plan_predicates)
                             if scope == :local
                                 query.local_scope
-                            else query.global_scope
+                            else
+                                query.global_scope
                             end
                             query
                         end

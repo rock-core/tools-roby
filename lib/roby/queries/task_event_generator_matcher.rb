@@ -42,7 +42,8 @@ module Roby
             def with_name(symbol)
                 @symbol =
                     if symbol.respond_to?(:to_sym) then symbol.to_s
-                    else symbol
+                    else
+                        symbol
                     end
                 self
             end

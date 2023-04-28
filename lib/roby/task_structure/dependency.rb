@@ -200,7 +200,8 @@ module Roby
                     if ev.plan == plan
                         events << ev
                         true
-                    else !ev.plan
+                    else
+                        !ev.plan
                     end
                 end
                 tasks = Set.new
@@ -208,7 +209,8 @@ module Roby
                     if task.plan == plan
                         tasks << task
                         true
-                    else !task.plan
+                    else
+                        !task.plan
                     end
                 end
                 return [] if events.empty? && tasks.empty?
@@ -705,7 +707,8 @@ module Roby
                 def fullfilled_model
                     if current_model = explicit_fullfilled_model
                         has_value = true
-                    else current_model = [Roby::Task, [], {}]
+                    else
+                        current_model = [Roby::Task, [], {}]
                     end
 
                     each_in_neighbour_merged(Dependency, intrusive: false) do |myself, parent|

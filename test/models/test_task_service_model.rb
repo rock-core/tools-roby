@@ -24,16 +24,16 @@ module Roby
 
             describe "arguments" do
                 before do
-                    tag.argument :model_tag_1
+                    tag.argument :model_tag1
                 end
 
                 it "holds argument definitions" do
-                    assert tag.has_argument?(:model_tag_1)
+                    assert tag.has_argument?(:model_tag1)
                 end
                 it "has the arguments of its supermodel" do
-                    subtag = tag.new_submodel { argument :model_tag_2 }
-                    assert subtag.has_argument?(:model_tag_1)
-                    assert subtag.has_argument?(:model_tag_2)
+                    subtag = tag.new_submodel { argument :model_tag2 }
+                    assert subtag.has_argument?(:model_tag1)
+                    assert subtag.has_argument?(:model_tag2)
                 end
             end
         end

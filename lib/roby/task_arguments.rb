@@ -63,7 +63,8 @@ module Roby
             if !key.kind_of?(Symbol)
                 Roby.warn_deprecated "accessing arguments using anything else than a symbol is deprecated", 2
                 key.to_sym
-            else key
+            else
+                key
             end
         end
 
@@ -313,7 +314,8 @@ module Roby
                 current_value = values[key]
                 is_updated    = (current_value != value)
                 update_static = TaskArguments.delayed_argument?(current_value)
-            else is_updated = true
+            else
+                is_updated = true
             end
 
             values[key] = value

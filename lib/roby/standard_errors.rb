@@ -177,6 +177,7 @@ module Roby
     # Raised during event propagation if an event is called or emitted,
     # while this event is not executable.
     class EventNotExecutable < LocalizedError; end
+
     # Same error than EventNotExecutable, but for task events
     #
     # The only difference is that this method displays some task-specific
@@ -344,6 +345,7 @@ module Roby
             pp.text " (#{self.class})"
         end
     end
+
     # Raised during event propagation if an event is called, while this event
     # is not controlable.
     class EventNotControlable < LocalizedError; end
@@ -353,6 +355,7 @@ module Roby
     # Raised when an event is called, but one of
     # its precondition is not met. See EventGenerator#precondition
     class EventPreconditionFailed < LocalizedError; end
+
     # Raised when the emission of an event has failed.
     # See EventGenerator#emit_failed.
     class EmissionFailed < CodeError
@@ -370,6 +373,7 @@ module Roby
             pp.text " (#{self.class})"
         end
     end
+
     # Raised when an event handler has raised.
     class EventHandlerError < CodeError
         def pretty_print(pp)
@@ -428,8 +432,7 @@ module Roby
 
     # Representation of a task's failure to start
     class FailedToStart < LocalizedError
-        attr_reader :time
-        attr_reader :reason
+        attr_reader :time, :reason
 
         def initialize(failed_task, reason, time)
             super(failed_task)

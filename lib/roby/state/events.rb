@@ -37,7 +37,8 @@ module Roby
 
             if events.size > 1
                 result = if or_aggregate then OrGenerator.new
-                         else AndGenerator.new
+                         else
+                             AndGenerator.new
                          end
 
                 result.on { |ev| result.reset }

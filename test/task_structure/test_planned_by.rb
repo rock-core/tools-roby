@@ -74,7 +74,7 @@ module Roby
             end
 
             it "wraps the planned_task within a transaction on first access" do
-                # Note: we only check #planned_task. #planning_task is provided
+                # NOTE: we only check #planned_task. #planning_task is provided
                 # by the single_child support in relations, and tested there.
                 plan = Roby::Plan.new
                 plan.add(planned_task = Roby::Task.new)

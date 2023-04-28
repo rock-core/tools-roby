@@ -24,7 +24,8 @@ module Roby
             #   needed e.g. for flamegraph generation
             def stackprof_start(one_shot: false, cycles: nil, mode: :cpu, interval: nil, raw: false)
                 interval ||= if mode == :object then 1
-                             else 1000
+                             else
+                                 1000
                              end
                 StackProf.start(mode: mode, interval: interval, raw: raw)
 

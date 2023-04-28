@@ -122,7 +122,7 @@ module Roby
                 item = Qt::ListWidgetItem.new(list)
                 item.setBackground(Qt::Brush.new(Qt::Color.fromHsv(33, 111, 255)))
                 item.flags = Qt::NoItemFlags
-                # Note: 'item' gets registered on the list by its constructor
+                # NOTE: 'item' gets registered on the list by its constructor
                 item.text = "[#{count} cycles missing]" # rubocop:disable Lint/UselessSetterCall
             end
 

@@ -157,7 +157,8 @@ module Roby
                     elsif starting? then "starting"
                     elsif finishing? then "finishing"
                     elsif running? then "running"
-                    else "finished"
+                    else
+                        "finished"
                     end
             "#<#{self} executable=#{executable?} state=#{state} plan=#{plan}>"
         end

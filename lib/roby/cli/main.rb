@@ -42,7 +42,8 @@ module Roby
                         end
                         Hash[host: Roby::App::Vagrant.resolve_ip(vagrant_name),
                              port: port]
-                    else {}
+                    else
+                        {}
                     end
                 end
 
@@ -193,7 +194,7 @@ module Roby
                     extra_files.each do |path|
                         app.require(File.expand_path(path))
                     end
-                    pry
+                    pry # rubocop:disable Lint/Debugger
                 ensure
                     app.cleanup
                 end

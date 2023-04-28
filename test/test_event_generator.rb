@@ -178,15 +178,15 @@ class TC_Event < Minitest::Test
 
     def test_if_unreachable_unconditional
         mock = flexmock
-        mock.should_receive(:unreachable_1).once.ordered
-        mock.should_receive(:unreachable_2).once.ordered
+        mock.should_receive(:unreachable1).once.ordered
+        mock.should_receive(:unreachable2).once.ordered
 
         plan.add(ev = EventGenerator.new)
-        ev.if_unreachable(cancel_at_emission: false) { mock.unreachable_1 }
+        ev.if_unreachable(cancel_at_emission: false) { mock.unreachable1 }
         execute { plan.remove_free_event(ev) }
 
         plan.add(ev = EventGenerator.new)
-        ev.if_unreachable(cancel_at_emission: false) { mock.unreachable_2 }
+        ev.if_unreachable(cancel_at_emission: false) { mock.unreachable2 }
         execute { ev.emit }
         execute { plan.remove_free_event(ev) }
     end
@@ -204,16 +204,16 @@ class TC_Event < Minitest::Test
 
     def test_if_unreachable_if_not_signalled
         mock = flexmock
-        mock.should_receive(:unreachable_1).once.ordered
-        mock.should_receive(:unreachable_2).never.ordered
+        mock.should_receive(:unreachable1).once.ordered
+        mock.should_receive(:unreachable2).never.ordered
 
         plan.add(ev = EventGenerator.new)
-        ev.if_unreachable(cancel_at_emission: true) { mock.unreachable_1 }
+        ev.if_unreachable(cancel_at_emission: true) { mock.unreachable1 }
         execute { plan.remove_free_event(ev) }
 
         plan.add(ev = EventGenerator.new)
         mock = flexmock
-        ev.if_unreachable(cancel_at_emission: true) { mock.unreachable_2 }
+        ev.if_unreachable(cancel_at_emission: true) { mock.unreachable2 }
         execute { ev.emit }
         execute { plan.remove_free_event(ev) }
     end

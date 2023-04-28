@@ -397,7 +397,8 @@ module Roby
                 else
                     object
                 end
-            else object
+            else
+                object
             end
         end
 

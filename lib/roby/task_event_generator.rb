@@ -360,7 +360,8 @@ module Roby
 
         def default_on_replace
             if task.abstract? then :copy
-            else :drop
+            else
+                :drop
             end
         end
 

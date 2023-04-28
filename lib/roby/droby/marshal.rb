@@ -71,7 +71,8 @@ module Roby
 
                 if block_given?
                     yield(*marshalled)
-                else marshalled
+                else
+                    marshalled
                 end
             ensure
                 context_objects.replace(current_context)
@@ -103,7 +104,8 @@ module Roby
 
                 if block_given?
                     yield(*local_objects)
-                else local_objects
+                else
+                    local_objects
                 end
             ensure
                 context_objects.replace(current_context)
@@ -225,7 +227,8 @@ module Roby
                 while subname = names.shift
                     if subname =~ /^[A-Z]\w*$/ && local_object.const_defined_here?(subname)
                         local_object = local_object.const_get(subname)
-                    else return
+                    else
+                        return
                     end
                 end
                 local_object

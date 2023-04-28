@@ -83,7 +83,8 @@ ARGV.delete_if do |arg|
     elsif has_double_dash
         extra_args << arg
         true
-    else false
+    else
+        false
     end
 end
 
@@ -109,7 +110,8 @@ remaining_arguments.each do |arg|
     elsif File.extname(arg) == ".rb"
         Roby.error "#{arg}, given as a model script on the command line, does not exist"
         exit 1
-    else actions << arg
+    else
+        actions << arg
     end
 end
 Roby.app.additional_model_files.concat(additional_model_files)

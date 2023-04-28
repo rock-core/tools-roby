@@ -363,7 +363,8 @@ module Roby
 
             result = result.map do |set|
                 if set.size == 1 then set.first
-                else set
+                else
+                    set
                 end
             end
 

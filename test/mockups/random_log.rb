@@ -108,7 +108,8 @@ execution_engine.every(period) do
 
         if ev.controlable?
             ev.call
-        else ev.emit
+        else
+            ev.emit
         end
     end
 end

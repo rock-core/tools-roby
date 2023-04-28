@@ -32,7 +32,7 @@ module Roby
 
     # Representation of a level in the state model
     class GoalModel < OpenStructModel
-        def initialize(state_model = nil, superclass = nil, attach_to = nil, attach_name = nil)
+        def initialize(state_model = nil, superclass = nil, attach_to = nil, attach_name = nil) # rubocop:disable Metrics/ParameterLists
             super(superclass, attach_to, attach_name)
 
             @model = state_model

@@ -7,10 +7,12 @@ module Roby
         class BaseExecutionAgent < Tasks::Simple
             event :ready
         end
+
         class ExecutionAgentModel < Tasks::Simple
             event :ready
             forward start: :ready
         end
+
         class SecondExecutionModel < Tasks::Simple
             event :ready
             forward start: :ready
