@@ -89,7 +89,8 @@ module Robot
     end
 
     def self.config(&block)
-        Roby.app.on_config(user: true, &block)
+        Roby.warn_deprecated "Robot.config is deprecated, use Robot.setup instead"
+        Roby.app.on_setup(user: true, &block)
     end
 
     def self.controller(reset: false, &block)
