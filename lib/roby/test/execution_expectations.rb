@@ -434,7 +434,7 @@ module Roby
                         e = e.exception if e.kind_of?(ExecutionException)
                         if e.backtrace && !e.backtrace.empty?
                             formatted_execution_exception +=
-                                "\n    #{e.backtrace.join('\n    ')}"
+                                "\n    #{e.backtrace.join("\n    ")}"
                         end
 
                         sub_exceptions = Roby.flatten_exception(e)
@@ -445,7 +445,7 @@ module Roby
                                             Roby.format_exception(sub_e).join("\n    ")
                                 backtrace = Roby.format_backtrace(sub_e)
                                 unless backtrace.empty?
-                                    formatted += "    #{backtrace.join('\n    ')}"
+                                    formatted += "    #{backtrace.join("\n    ")}"
                                 end
                                 formatted
                             end.join("\n  ")
