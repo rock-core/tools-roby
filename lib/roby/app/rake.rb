@@ -109,7 +109,7 @@ module Roby
 
             # Whether code coverage reports should be generated
             def self.coverage?
-                ENV["ROBY_TEST_COVERAGE"] != "0"
+                ENV["ROBY_TEST_COVERAGE"] == "1"
             end
 
             # Rake task to run the Roby tests
