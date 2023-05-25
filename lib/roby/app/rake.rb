@@ -387,6 +387,219 @@ module Roby
                 end
             end
 
+            # Rake task to run the Roby tests
+            #
+            # To use, add the following to your Rakefile:
+            #
+            #     require 'roby/app/rake'
+            #     Roby::App::Rake::TestTask.new
+            #
+            # It create a test task per robot configuration, named
+            # "test:${robot_name}". It also creates a test:all-robots task that
+            # runs each robot's configuration in sequence. You can inspect these
+            # tasks with
+            #
+            #     rake --tasks
+            #
+            # and call them with e.g.
+            #
+            #     rake test:default
+            #
+            # The test:all-robots task will fail only at the end of all tests, reporting
+            # which configuration actually failed. To stop at the first failure,
+            # pass a '0' as argument, e.g.
+            #
+            #    rake 'test:all-robots[0]'
+            #
+            # Finally, the 'test:all' target runs syskit test --all (i.e. runs
+            # all tests in the default robot configuration)
+            #
+            # The 'test' target points by default to test:all-robots. See below
+            # to change this.
+            #
+            # The following examples show how to fine-tune the creates tests:
+            #
+            # @example restrict the tests to run only under the
+            #   'only_this_configuration' configuration
+            #
+            #      Roby::App::Rake::TestTask.new do |t|
+            #          t.robot_names = ['only_this_configuration']
+            #      end
+            #
+            # @example create tasks under the roby_tests namespace instead of 'test'
+            #
+            #      Roby::App::Rake::TestCase.new('roby_tests')
+            #
+            # @example make 'test' point to 'test:all'
+            #
+            #      Roby::App::Rake::TestCase.new do |t|
+            #          t.all_by_default = true
+            #      end
+            #
+            class RobotTestTask < ::Rake::TaskLib
+                # The base test task name
+                attr_reader :task_name
+
+                # The app
+                #
+                # It defaults to Roby.app
+                attr_accessor :app
+
+                attr_accessor :robot_name
+                attr_accessor :robot_type
+
+                # The hash with extra configuration to be inserted into Conf
+                # for the tests we are running
+                #
+                # @return [Hash<String, String>]
+                attr_accessor :config
+
+                # The list of files that should be tested.
+                #
+                # @return [Array<String>]
+                attr_accessor :test_files
+
+                # The directory where the tests will be auto-discovered
+                #
+                # @return [String]
+                attr_accessor :base_dir
+
+                # Patterns matching excluded test files
+                #
+                # It accepts any string that File.fnmatch? accepts
+                #
+                # @return [Array<String>]
+                attr_accessor :excludes
+
+                # Whether the 'test' target should run all robot tests (false, the
+                # default) or the 'all tests' target (true)
+                attr_predicate :all_by_default?, true
+
+                # Sets whether the tests should be started with the --ui flag
+                attr_writer :ui
+
+                # Sets whether the tests should be started with the --force-discovery flag
+                attr_writer :force_discovery
+
+                # Only run tests that are present in this bundle
+                attr_writer :self_only
+
+                # Whether the tests should be started with the --ui flag
+                def ui?
+                    @ui
+                end
+
+                # Whether the tests should be started with the --force-discovery flag
+                def force_discovery?
+                    @force_discovery
+                end
+
+                # Whether the tests should be started with the --self flag
+                def self_only?
+                    @self_only
+                end
+
+                def initialize(task_name = "test", robot_name:, robot_type: nil)
+                    super()
+
+                    @task_name = task_name
+                    @app = Roby.app
+                    @robot_name = robot_name
+                    @robot_type = robot_type || robot_name
+                    @config = {}
+                    @test_files = []
+                    @excludes = []
+                    @ui = false
+                    @force_discovery = false
+                    @self_only = false
+
+                    @use_junit = Rake.use_junit?
+                    @report_dir = Rake.report_dir
+
+                    yield self if block_given?
+                    define
+                end
+
+                class Failed < RuntimeError; end
+
+                def define
+                    desc "run the tests for configuration #{robot_name}:#{robot_type}"
+                    task task_name do
+                        result = run_roby_test(
+                            "-r", "#{robot_name},#{robot_type}",
+                            report_name: "#{robot_name}:#{robot_type}"
+                        )
+                        unless result
+                            raise Failed.new("failed to run tests for "\
+                                             "#{robot_name}:#{robot_type}"),
+                                  "tests failed"
+                        end
+                    end
+                end
+
+                def task_name_for_robot(robot_name, robot_type)
+                    if robot_name == robot_type
+                        "#{task_name}:#{robot_name}"
+                    else
+                        "#{task_name}:#{robot_name}-#{robot_type}"
+                    end
+                end
+
+                # Whether the tests should generate a JUnit report in {#report_dir}
+                def use_junit?
+                    @use_junit
+                end
+
+                # Path to the JUnit/Rubocop reports (if enabled)
+                attr_accessor :report_dir
+
+                def run_roby_test(*args, report_name: "report")
+                    args += excludes.flat_map do |pattern|
+                        ["--exclude", pattern]
+                    end
+                    args += config.flat_map do |k, v|
+                        ["--set", "#{k}=#{v}"]
+                    end
+                    args += ["--base-dir", base_dir] if base_dir
+
+                    args << "--ui" if ui?
+                    args << "--force-discovery" if force_discovery?
+                    args << "--self" if self_only?
+                    args << "--"
+                    if (minitest_opts = ENV["TESTOPTS"])
+                        args.concat(Shellwords.split(minitest_opts))
+                    end
+
+                    if use_junit?
+                        args += [
+                            "--junit", "--junit-jenkins",
+                            "--junit-filename=#{report_dir}/#{report_name}.junit.xml"
+                        ]
+                        FileUtils.mkdir_p report_dir
+                    end
+
+                    args += test_files.map(&:to_s)
+
+                    puts "Running roby test #{args.join(' ')}"
+                    run_roby("test", *args)
+                end
+
+                def run_roby(*args)
+                    roby_bin = File.expand_path(
+                        File.join("..", "..", "..", "bin", "roby"),
+                        __dir__
+                    )
+                    pid = spawn(Gem.ruby, roby_bin, *args)
+                    begin
+                        _, status = Process.waitpid2(pid)
+                        status.success?
+                    rescue Interrupt
+                        Process.kill "TERM", pid
+                        Process.waitpid(pid)
+                    end
+                end
+            end
+
             def self.define_rubocop_if_enabled(
                 junit: Rake.use_junit?, report_dir: Rake.report_dir,
                 required: Rake.require_rubocop?
