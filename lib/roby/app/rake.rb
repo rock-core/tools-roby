@@ -516,6 +516,11 @@ module Roby
                     @self_only
                 end
 
+                # Whether the tests should be started with the --self flag
+                def coverage?
+                    @coverage
+                end
+
                 def initialize(task_name = "test", robot_name:, robot_type: nil)
                     super()
 
@@ -530,6 +535,7 @@ module Roby
                     @force_discovery = false
                     @self_only = false
 
+                    @coverage = Rake.coverage?
                     @use_junit = Rake.use_junit?
                     @report_dir = Rake.report_dir
 
@@ -544,6 +550,7 @@ module Roby
                     task task_name do
                         result = run_roby_test(
                             "-r", "#{robot_name},#{robot_type}",
+                            coverage_name: task_name,
                             report_name: "#{robot_name}:#{robot_type}"
                         )
                         unless result
@@ -570,7 +577,7 @@ module Roby
                 # Path to the JUnit/Rubocop reports (if enabled)
                 attr_accessor :report_dir
 
-                def run_roby_test(*args, report_name: "report")
+                def run_roby_test(*args, report_name: "report", coverage_name: "roby")
                     args += excludes.flat_map do |pattern|
                         ["--exclude", pattern]
                     end
@@ -582,6 +589,7 @@ module Roby
                     args << "--ui" if ui?
                     args << "--force-discovery" if force_discovery?
                     args << "--self" if self_only?
+                    args << "--coverage=#{coverage_name}" if coverage?
                     args << "--"
                     if (minitest_opts = ENV["TESTOPTS"])
                         args.concat(Shellwords.split(minitest_opts))
