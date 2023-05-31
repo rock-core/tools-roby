@@ -1021,7 +1021,7 @@ module Roby
                 if arguments.empty?
                     pp.text "no arguments"
                 else
-                    pp.text "arguments: "
+                    pp.text "arguments:"
                     pp.nest(2) do
                         pp.breakable
                         arguments.pretty_print(pp)
