@@ -2,6 +2,7 @@
 
 require "pp"
 require "roby/test/expect_execution"
+require "pp"
 
 module Roby
     module Test
@@ -98,23 +99,6 @@ module Roby
                 msg
             end
 
-            def to_s
-                if !error?
-                    super
-                else
-                    failures.map do |failure|
-                        bt = Minitest.filter_backtrace(failure.backtrace).join "\n    "
-                        msg =
-                            if failure.kind_of?(Minitest::UnexpectedError)
-                                roby_exception_to_string(failure.exception)
-                            else
-                                failure.message
-                            end
-                        "#{failure.result_label}:\n#{self.location}:\n#{msg}\n"
-                    end.join("\n")
-                end
-            end
-
             def register_failure(e)
                 case e
                 when Assertion
@@ -124,45 +108,8 @@ module Roby
                 end
             end
 
-            def capture_exceptions
-                super do
-                    begin
-                        yield
-                    rescue Exception => e
-                        unless e.respond_to?(:each_original_exception)
-                            raise
-                        end
-
-                        exceptions = e.each_original_exception
-                        register_failure(e)
-
-                        # Try to be smart and to only keep the toplevel
-                        # exceptions
-                        filter_execution_exceptions(exceptions).each do |original_e|
-                            unless original_e.backtrace
-                                original_e.set_backtrace(e.backtrace)
-                            end
-                            register_failure(original_e)
-                        end
-                    end
-                end
-            end
-
-            def filter_execution_exceptions(exceptions)
-                exceptions.flat_map { |e| Roby.flatten_exception(e).to_a }.uniq
-            end
-
-            def exception_details(e, msg)
-                [
-                    msg.to_s,
-                    "Class: <#{e.class}>",
-                    "Message: <#{e.message.inspect}>",
-                    "Pretty-print:",
-                    *Roby.format_exception(e),
-                    "---Backtrace---",
-                    Minitest.filter_backtrace(e.backtrace).join("\n").to_s,
-                    "---------------"
-                ].join "\n"
+            def sanitize_exception(e)
+                e
             end
         end
     end

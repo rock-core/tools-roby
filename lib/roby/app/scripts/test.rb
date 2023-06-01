@@ -2,6 +2,7 @@
 
 require "roby"
 require "roby/test/spec"
+require "roby/test/minitest_plugin"
 require "optparse"
 
 Robot.logger.level = Logger::WARN
@@ -156,11 +157,14 @@ exception = Roby.display_exception do
 
                 require arg
             end
+
+            Roby::Test::MinitestPlugin.register
             Minitest.run(testrb_args)
         ensure
             Roby.app.shutdown
             Roby.app.cleanup
         end
+
     SimpleCov.run_exit_tasks! if defined?(SimpleCov)
     exit(passed ? 0 : 1)
 end
