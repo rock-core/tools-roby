@@ -219,83 +219,90 @@ module Roby
         end
     end
 
-    def self.filter_backtrace(original_backtrace = nil, force: false, display_full_framework_backtraces: false)
-        filter_out = Roby.app.filter_out_patterns
+    def self.filter_backtrace(
+        original_backtrace = nil,
+        force: false, display_full_framework_backtraces: false
+    )
+        return [] unless original_backtrace || block_given?
 
         if !original_backtrace && block_given?
             begin
                 return yield
             rescue Exception => e
                 filtered = filter_backtrace(
-                    e.backtrace, force: force,
-                                 display_full_framework_backtraces: display_full_framework_backtraces)
+                    e.backtrace,
+                    force: force,
+                    display_full_framework_backtraces: display_full_framework_backtraces
+                )
                 raise e, e.message, filtered
             end
         end
 
-        if (Roby.app.filter_backtraces? || force) && original_backtrace
-            app_dir = Roby.app.app_dir
+        return original_backtrace unless Roby.app.filter_backtraces? || force
 
-            original_backtrace = original_backtrace.dup
+        filter_out = Roby.app.filter_out_patterns
+        original_backtrace = original_backtrace.dup
 
-            # First, read out the "bottom" of the backtrace: search for the
-            # first backtrace line that is within the framework
-            backtrace_bottom = []
-            while !original_backtrace.empty? &&
-                  filter_out.none? { |rx| rx.match?(original_backtrace.last) }
-                backtrace_bottom.unshift original_backtrace.pop
-            end
+        # First, read out the "bottom" of the backtrace: search for the
+        # first backtrace line that is within the framework
+        backtrace_bottom = []
+        while !original_backtrace.empty? &&
+              filter_out.none? { |rx| rx.match?(original_backtrace.last) }
+            backtrace_bottom.unshift original_backtrace.pop
+        end
 
-            got_user_line = false
-            backtrace = original_backtrace.enum_for(:each_with_index).map do |line, idx|
-                case line
-                when /in `poll_handler'$/
+        got_user_line = false
+        backtrace = original_backtrace.enum_for(:each_with_index).map do |line, idx|
+            case line
+            when /in `poll_handler'$/
+                got_user_line = true
+                line.gsub(/:in.*/, ":in the polling handler")
+            when /in `event_command_(\w+)'$/
+                got_user_line = true
+                line.gsub(/:in.*/, ":in command for '#{$1}'")
+            when /in `event_handler_(\w+)_(?:[a-f0-9]+)'$/
+                got_user_line = true
+                line.gsub(/:in.*/, ":in event handler for '#{$1}'")
+            else
+                if original_backtrace.size > idx + 4 &&
+                   original_backtrace[idx + 1] =~ /in `call'$/ &&
+                   original_backtrace[idx + 2] =~ /in `call_handlers'$/ &&
+                   original_backtrace[idx + 3] =~ /`each'$/ &&
+                   original_backtrace[idx + 4] =~ /`each_handler'$/
+
                     got_user_line = true
-                    line.gsub(/:in.*/, ":in the polling handler")
-                when /in `event_command_(\w+)'$/
-                    got_user_line = true
-                    line.gsub(/:in.*/, ":in command for '#{$1}'")
-                when /in `event_handler_(\w+)_(?:[a-f0-9]+)'$/
-                    got_user_line = true
-                    line.gsub(/:in.*/, ":in event handler for '#{$1}'")
+                    line.gsub(/:in /, ":in event handler, ")
                 else
-                    if original_backtrace.size > idx + 4 &&
-                       original_backtrace[idx + 1] =~ /in `call'$/ &&
-                       original_backtrace[idx + 2] =~ /in `call_handlers'$/ &&
-                       original_backtrace[idx + 3] =~ /`each'$/ &&
-                       original_backtrace[idx + 4] =~ /`each_handler'$/
-
-                        got_user_line = true
-                        line.gsub(/:in /, ":in event handler, ")
-                    else
-                        is_user = filter_out.none? { |rx| rx.match?(line) }
-                        got_user_line ||= is_user
-                        if !got_user_line || is_user
-                            case line
-                            when /^\(eval\):\d+:in `each(?:_handler)?'/
-                                nil
-                            else
-                                line
-                            end
+                    is_user = filter_out.none? { |rx| rx.match?(line) }
+                    got_user_line ||= is_user
+                    if !got_user_line || is_user
+                        case line
+                        when /^\(eval\):\d+:in `each(?:_handler)?'/
+                            nil
+                        else
+                            line
                         end
                     end
                 end
             end
-
-            backtrace.compact!
-
-            if app_dir
-                backtrace = backtrace.map do |line|
-                    line.gsub(/^#{app_dir}\/?/, "./")
-                end
-            end
-            backtrace.concat backtrace_bottom
-            if original_backtrace.size == backtrace.size && !display_full_framework_backtraces
-                # The backtrace is only within the framework, make it empty
-                backtrace = []
-            end
         end
-        backtrace || original_backtrace || []
+
+        backtrace.compact!
+        backtrace = make_backtrace_relative_to_app_dir(backtrace)
+        backtrace.concat backtrace_bottom
+
+        if original_backtrace.size == backtrace.size && !display_full_framework_backtraces
+            # The backtrace is only within the framework, make it empty
+            return []
+        end
+
+        backtrace
+    end
+
+    def self.make_backtrace_relative_to_app_dir(backtrace)
+        return backtrace unless (app_dir = Roby.app.app_dir)
+
+        backtrace.map { |line| line.gsub(/^#{app_dir}\/?/, "./") }
     end
 
     def self.pretty_print_backtrace(pp, backtrace, **options)
@@ -453,24 +460,24 @@ module Roby
         end
     end
 
-    def self.do_display_exception(io, e)
+    def self.do_display_exception(io, e, backtrace: true)
         if colorizer.enabled?
-            do_display_exception_formatted(io, e)
+            do_display_exception_formatted(io, e, backtrace: backtrace)
         else
-            do_display_exception_raw(io, e)
+            do_display_exception_raw(io, e, backtrace: backtrace)
         end
 
         if e.respond_to?(:original_exceptions)
             e.original_exceptions.each do |original_e|
-                do_display_exception(io, original_e)
+                do_display_exception(io, original_e, backtrace: backtrace)
             end
         end
     end
 
-    def self.do_display_exception_raw(io, e)
+    def self.do_display_exception_raw(io, e, backtrace: true)
         first_line = true
         io.puts
-        format_exception(e).each do |line|
+        format_exception(e, with_original_exceptions: false).each do |line|
             if first_line
                 io.puts line
                 first_line = false
@@ -478,16 +485,19 @@ module Roby
                 io.puts "  #{line}"
             end
         end
+
+        return unless backtrace
+
         format_exception(BacktraceFormatter.new(e)).each do |line|
             io.puts line
         end
         true
     end
 
-    def self.do_display_exception_formatted(io, e)
+    def self.do_display_exception_formatted(io, e, backtrace: true)
         first_line = true
         io.puts ""
-        format_exception(e).each do |line|
+        format_exception(e, with_original_exceptions: false).each do |line|
             if first_line
                 io.print color("= ", :bold, :red)
                 io.puts color(line, :bold, :red)
@@ -497,6 +507,9 @@ module Roby
                 io.puts line
             end
         end
+
+        return unless backtrace
+
         io.puts color("= Backtrace", :bold, :red)
         format_exception(BacktraceFormatter.new(e)).each do |line|
             io.print color("| ", :bold, :red)
@@ -506,32 +519,34 @@ module Roby
         true
     end
 
-    def self.display_exception(io = STDOUT, e = nil, filter_backtraces = nil)
-        unless filter_backtraces.nil?
-            old_filter_backtraces = Roby.app.filter_backtraces?
-            Roby.app.filter_backtraces = filter_backtraces
-        end
+    def self.display_exception(
+        io = STDOUT, e = nil,
+        filter_backtraces = Roby.app.filter_backtraces?,
+        backtrace: true
+    )
+        old_filter_backtraces = Roby.app.filter_backtraces?
+        Roby.app.filter_backtraces = filter_backtraces
 
-        if !block_given?
-            unless e
-                raise ArgumentError, "expected an exception object as no block was given"
+        if block_given?
+            begin
+                yield
+                nil
+            rescue Interrupt, SystemExit
+                raise
+            rescue Exception => e
+                if e.user_error?
+                    io.print color(e.message, :bold, :red)
+                else
+                    do_display_exception(io, e, backtrace: backtrace)
+                end
+                e
             end
-
-            do_display_exception(io, e)
+        elsif !e
+            raise ArgumentError, "expected an exception object as no block was given"
+        else
+            do_display_exception(io, e, backtrace: backtrace)
             e
-        else
-            yield
-            false
         end
-    rescue Interrupt, SystemExit
-        raise
-    rescue Exception => e
-        if e.user_error?
-            io.print color(e.message, :bold, :red)
-        else
-            do_display_exception(io, e)
-        end
-        e
     ensure
         unless filter_backtraces.nil?
             Roby.app.filter_backtraces = old_filter_backtraces
