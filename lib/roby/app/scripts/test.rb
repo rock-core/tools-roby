@@ -88,6 +88,9 @@ parser = OptionParser.new do |opt|
     Roby::Application.common_optparse_setup(opt)
 end
 
+minitest_path = $LOAD_PATH.resolve_feature_path("minitest").last
+Roby.app.filter_out_patterns << Regexp.new("^" + Regexp.quote(File.dirname(minitest_path)))
+
 test_files = parser.parse(ARGV)
 test_files.delete_if do |arg|
     if arg.start_with?("-")
