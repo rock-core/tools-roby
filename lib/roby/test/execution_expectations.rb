@@ -1026,6 +1026,7 @@ module Roby
                     @matched_execution_exceptions =
                         exceptions
                         .find_all { |error| @matcher === error }
+
                     matched_exceptions =
                         @matched_execution_exceptions
                         .map(&:exception).to_set
