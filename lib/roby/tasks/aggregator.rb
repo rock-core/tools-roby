@@ -3,7 +3,7 @@
 module Roby::Tasks
     # Base functionality for the Sequence and Parallel aggregators
     class TaskAggregator < Roby::Task
-        def initialize(arguments = {})
+        def initialize(**arguments)
             @tasks = []
             @name = nil
             super

@@ -46,7 +46,7 @@ module Roby
                 end
 
                 # Instanciate this action on the given plan
-                def instanciate(plan, arguments = {})
+                def instanciate(plan, **arguments)
                     arguments = arguments.transform_keys(&:to_sym)
                     detect_unknown_arguments(arguments)
                     required_and_default_arguments(arguments)

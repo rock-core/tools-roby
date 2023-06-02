@@ -51,7 +51,9 @@ module Roby
                         end
 
                     planner = Roby::Actions::Task.new(
-                        action_model: self, action_arguments: arguments, **job_id
+                        action_model: self,
+                        action_arguments: arguments,
+                        **job_id
                     )
                     planner.planning_result_task
                 end

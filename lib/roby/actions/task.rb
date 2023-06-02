@@ -79,7 +79,7 @@ module Roby
             end
 
             poll do
-                result_task = action_model.instanciate(transaction, action_arguments)
+                result_task = action_model.instanciate(transaction, **action_arguments)
 
                 # Don't replace the planning task with ourselves if the
                 # transaction specifies another planning task

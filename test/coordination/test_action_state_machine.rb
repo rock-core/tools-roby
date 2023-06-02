@@ -24,8 +24,8 @@ module Roby
                 @description = description
             end
 
-            def start_machine(action, *args)
-                task = action.instanciate(plan, *args)
+            def start_machine(action, **args)
+                task = action.instanciate(plan, **args)
                 plan.add_permanent_task(task)
                 execute { task.start! }
                 task
