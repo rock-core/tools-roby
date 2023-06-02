@@ -25,6 +25,7 @@ module Roby
             #
             # Must be called before Minitest.run
             def self.register
+                Minitest.load_plugins
                 Minitest.extensions << "roby"
                 Minitest.extend MinitestPlugin
             end
