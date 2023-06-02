@@ -460,16 +460,36 @@ module Roby
         end
     end
 
-    def self.do_display_exception(io, e, backtrace: true)
-        if colorizer.enabled?
-            do_display_exception_formatted(io, e, backtrace: backtrace)
-        else
-            do_display_exception_raw(io, e, backtrace: backtrace)
+    def self.do_display_exception(
+        io, exception, skip_identical_backtraces: true, backtrace: true
+    )
+        all = [exception]
+        if exception.respond_to?(:original_exceptions)
+            all += exception.original_exceptions.to_a
         end
 
-        if e.respond_to?(:original_exceptions)
-            e.original_exceptions.each do |original_e|
-                do_display_exception(io, original_e, backtrace: backtrace)
+        if skip_identical_backtraces
+            last_backtrace = nil
+            all =
+                all
+                .reverse
+                .map do |e|
+                    skip = (last_backtrace == e.backtrace)
+                    last_backtrace = e.backtrace
+                    [e, skip]
+                end
+                .reverse
+        end
+
+        all.each do |e, skip_backtrace|
+            if colorizer.enabled?
+                do_display_exception_formatted(
+                    io, e, backtrace: backtrace && !skip_backtrace
+                )
+            else
+                do_display_exception_raw(
+                    io, e, backtrace: backtrace && !skip_backtrace
+                )
             end
         end
     end
@@ -522,7 +542,8 @@ module Roby
     def self.display_exception(
         io = STDOUT, e = nil,
         filter_backtraces = Roby.app.filter_backtraces?,
-        backtrace: true
+        backtrace: true,
+        skip_identical_backtraces: true
     )
         old_filter_backtraces = Roby.app.filter_backtraces?
         Roby.app.filter_backtraces = filter_backtraces
@@ -537,20 +558,26 @@ module Roby
                 if e.user_error?
                     io.print color(e.message, :bold, :red)
                 else
-                    do_display_exception(io, e, backtrace: backtrace)
+                    do_display_exception(
+                        io, e,
+                        backtrace: backtrace,
+                        skip_identical_backtraces: skip_identical_backtraces
+                    )
                 end
                 e
             end
         elsif !e
             raise ArgumentError, "expected an exception object as no block was given"
         else
-            do_display_exception(io, e, backtrace: backtrace)
+            do_display_exception(
+                io, e,
+                backtrace: backtrace,
+                skip_identical_backtraces: skip_identical_backtraces
+            )
             e
         end
     ensure
-        unless filter_backtraces.nil?
-            Roby.app.filter_backtraces = old_filter_backtraces
-        end
+        Roby.app.filter_backtraces = old_filter_backtraces
     end
 
     def self.flatten_exception(e)
