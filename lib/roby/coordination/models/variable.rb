@@ -16,6 +16,15 @@ module Roby
                     end
                 end
 
+                # (see Roby::DefaultArgument#strong?)
+                def strong?
+                    true
+                end
+
+                def can_merge?(task, other_task, other_arg)
+                    false
+                end
+
                 def to_s
                     "var:#{name}"
                 end

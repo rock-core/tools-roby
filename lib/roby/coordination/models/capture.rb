@@ -28,6 +28,15 @@ module Roby
                         .instance_exec(event, &@filter)
                 end
 
+                # (see Roby::DelayedArgument#strong?)
+                def strong?
+                    true
+                end
+
+                def can_merge?
+                    false
+                end
+
                 class CaptureEvaluationContext < Object
                     def initialize(state_machine)
                         @state_machine = state_machine
