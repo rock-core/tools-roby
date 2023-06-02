@@ -107,6 +107,11 @@ module Roby
                 ENV["REPORT_DIR"] || File.expand_path(".test-results")
             end
 
+            # Whether code coverage reports should be generated
+            def self.coverage?
+                ENV["ROBY_TEST_COVERAGE"] == "1"
+            end
+
             # Rake task to run the Roby tests
             #
             # To use, add the following to your Rakefile:
@@ -224,6 +229,11 @@ module Roby
                     @self_only
                 end
 
+                # Whether the tests should be started with the --self flag
+                def coverage?
+                    @coverage
+                end
+
                 def initialize(task_name = "test", all_by_default: false)
                     super()
 
@@ -238,6 +248,7 @@ module Roby
                     @force_discovery = false
                     @self_only = false
 
+                    @coverage = Rake.coverage?
                     @use_junit = Rake.use_junit?
                     @report_dir = Rake.report_dir
 
@@ -255,6 +266,7 @@ module Roby
                         task task_name do
                             result = run_roby_test(
                                 "-r", "#{robot_name},#{robot_type}",
+                                coverage_name: task_name,
                                 report_name: "#{robot_name}:#{robot_type}"
                             )
                             unless result
@@ -270,32 +282,26 @@ module Roby
                         failures = []
                         keep_going = args.fetch(:keep_going, "1") == "1"
                         each_robot do |robot_name, robot_type|
+                            coverage_name = "#{task_name}:all-robots:"\
+                                            "#{robot_name}-#{robot_type}"
                             result = run_roby_test(
                                 "-r", "#{robot_name},#{robot_type}",
+                                coverage_name: coverage_name,
                                 report_name: "#{robot_name}:#{robot_type}"
                             )
+
                             unless result
-                                if keep_going
-                                    failures << [robot_name, robot_type]
-                                else
-                                    raise Failed.new("failed to run tests for "\
-                                                     "#{robot_name}:#{robot_type}"),
-                                          "tests failed"
-                                end
+                                failures << [robot_name, robot_type]
+                                handle_test_failures(failures) unless keep_going
                             end
                         end
-                        unless failures.empty?
-                            msg = failures
-                                  .map { |name, type| "#{name}:#{type}" }
-                                  .join(", ")
-                            raise Failed.new("failed to run the following test(s): "\
-                                             "#{msg}"), "failed ot run tests"
-                        end
+
+                        handle_test_failures(failures)
                     end
 
                     desc "run all tests"
                     task "#{task_name}:all" do
-                        unless run_roby_test
+                        unless run_roby_test(coverage_name: "all")
                             raise Failed.new("failed to run tests"),
                                   "failed to run tests"
                         end
@@ -308,6 +314,16 @@ module Roby
                         desc "run all robot tests"
                         task task_name => "#{task_name}:all-robots"
                     end
+                end
+
+                def handle_test_failures(failures)
+                    return if failures.empty?
+
+                    msg = failures
+                          .map { |name, type| "#{name}:#{type}" }
+                          .join(", ")
+                    raise Failed.new("failed to run the following test(s): "\
+                                     "#{msg}"), "failed ot run tests"
                 end
 
                 def task_name_for_robot(robot_name, robot_type)
@@ -326,7 +342,7 @@ module Roby
                 # Path to the JUnit/Rubocop reports (if enabled)
                 attr_accessor :report_dir
 
-                def run_roby_test(*args, report_name: "report")
+                def run_roby_test(*args, report_name: "report", coverage_name: "roby")
                     args += excludes.flat_map do |pattern|
                         ["--exclude", pattern]
                     end
@@ -338,6 +354,7 @@ module Roby
                     args << "--ui" if ui?
                     args << "--force-discovery" if force_discovery?
                     args << "--self" if self_only?
+                    args << "--coverage=#{coverage_name}" if coverage?
                     args << "--"
                     if (minitest_opts = ENV["TESTOPTS"])
                         args.concat(Shellwords.split(minitest_opts))
@@ -499,6 +516,11 @@ module Roby
                     @self_only
                 end
 
+                # Whether the tests should be started with the --self flag
+                def coverage?
+                    @coverage
+                end
+
                 def initialize(task_name = "test", robot_name:, robot_type: nil)
                     super()
 
@@ -513,6 +535,7 @@ module Roby
                     @force_discovery = false
                     @self_only = false
 
+                    @coverage = Rake.coverage?
                     @use_junit = Rake.use_junit?
                     @report_dir = Rake.report_dir
 
@@ -527,6 +550,7 @@ module Roby
                     task task_name do
                         result = run_roby_test(
                             "-r", "#{robot_name},#{robot_type}",
+                            coverage_name: task_name,
                             report_name: "#{robot_name}:#{robot_type}"
                         )
                         unless result
@@ -553,7 +577,7 @@ module Roby
                 # Path to the JUnit/Rubocop reports (if enabled)
                 attr_accessor :report_dir
 
-                def run_roby_test(*args, report_name: "report")
+                def run_roby_test(*args, report_name: "report", coverage_name: "roby")
                     args += excludes.flat_map do |pattern|
                         ["--exclude", pattern]
                     end
@@ -565,6 +589,7 @@ module Roby
                     args << "--ui" if ui?
                     args << "--force-discovery" if force_discovery?
                     args << "--self" if self_only?
+                    args << "--coverage=#{coverage_name}" if coverage?
                     args << "--"
                     if (minitest_opts = ENV["TESTOPTS"])
                         args.concat(Shellwords.split(minitest_opts))
