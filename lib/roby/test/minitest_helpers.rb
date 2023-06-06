@@ -2,7 +2,6 @@
 
 require "pp"
 require "roby/test/expect_execution"
-require "pp"
 
 module Roby
     module Test
