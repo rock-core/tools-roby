@@ -107,6 +107,14 @@ module Roby
                 end
             end
 
+            # Overloaded from minitest
+            #
+            # Minitest requires assertions to be marshallable, which this method
+            # checks. This is unnecessarily restrictive for us, so we
+            # reimplement this method to bypass that check
+            #
+            # It means that we can't use minitest's client/server tests, but
+            # that's not something we do.
             def sanitize_exception(e)
                 e
             end
