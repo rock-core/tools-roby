@@ -1533,12 +1533,12 @@ module Roby
 
             unhandled_errors.each do |work|
                 e = work.reason
-                e.set_backtrace(e.backtrace + caller)
+                e.set_backtrace(e.backtrace)
                 add_framework_error(e, work.to_s)
 
                 if work.respond_to?(:error_handling_failure) &&
                    (e = work.error_handling_failure)
-                    e.set_backtrace(e.backtrace + caller)
+                    e.set_backtrace(e.backtrace)
                     add_framework_error(e, work.to_s)
                 end
             end

@@ -769,7 +769,9 @@ module Roby
                     end
                     it "ignores non-LocalizedError exceptions" do
                         error_m = @error_m
-                        plan.add(task = Roby::Task.new)
+                        task_m = Roby::Tasks::Simple.new_submodel
+                        task_m.on_exception(error_m) { |*| }
+                        plan.add(task = task_m.new)
                         assert_predicate_ignores_framework_error(
                             execute: (
                                 proc do
@@ -1276,7 +1278,7 @@ module Roby
                     end
                 end
                 it "ignores non-LocalizedError exceptions" do
-                    plan.add(task = Roby::Task.new)
+                    plan.add(task = Roby::Tasks::Simple.new)
                     assert_predicate_ignores_framework_error(
                         execute: proc { task.start! },
                         predicates: proc { start task }
@@ -1328,7 +1330,7 @@ module Roby
                     end
                 end
                 it "ignores non-LocalizedError exceptions" do
-                    plan.add(task = Roby::Task.new)
+                    plan.add(task = Roby::Tasks::Simple.new)
                     assert_predicate_ignores_framework_error(
                         execute: proc { task.start! },
                         predicates: proc { have_running task }

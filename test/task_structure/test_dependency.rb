@@ -985,10 +985,10 @@ module Roby
                     success_to_s = "[#{Roby.format_time(success_event.time)} "\
                         "@#{success_event.propagation_id}]"
                     expected = <<~MESSAGE.chomp
-                        Child:0x#{@child.address.to_s(16)}
+                        Child<id:#{@child.droby_id.id}>
                           no owners
                           no arguments
-                        child 'test' of Parent:0x#{@parent.address.to_s(16)}
+                        child 'test' of Parent<id:#{@parent.droby_id.id}>
                           no owners
                           no arguments
 
@@ -1013,10 +1013,10 @@ module Roby
                     end.to { have_error_matching ChildFailedError }
 
                     expected = <<~MESSAGE.chomp
-                        Child:0x#{@child.address.to_s(16)}
+                        Child<id:#{@child.droby_id.id}>
                           no owners
                           no arguments
-                        child 'test' of Parent:0x#{@parent.address.to_s(16)}
+                        child 'test' of Parent<id:#{@parent.droby_id.id}>
                           no owners
                           no arguments
 
@@ -1026,7 +1026,7 @@ module Roby
 
                           The unreachability was caused by
                             failed emission of the event 'start' of
-                              Child:0x#{@child.address.to_s(16)}
+                              Child<id:#{@child.droby_id.id}>
                                 no owners
                                 no arguments (Roby::EmissionFailed)
                     MESSAGE

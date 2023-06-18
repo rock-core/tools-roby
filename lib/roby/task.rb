@@ -138,10 +138,8 @@ module Roby
         def name
             return @name if @name
 
-            name = "#{model.name || self.class.name}:0x#{address.to_s(16)}"
-            unless frozen?
-                @name = name
-            end
+            name = model.name || self.class.name
+            @name = name unless frozen?
             name
         end
 
@@ -1003,7 +1001,7 @@ module Roby
         end
 
         def pretty_print(pp, with_owners = true) # :nodoc:
-            pp.text "#{model.name}:0x#{self.address.to_s(16)}"
+            pp.text "#{model.name}<id:#{droby_id.id}>"
             if with_owners
                 pp.nest(2) do
                     pp.breakable
@@ -1023,7 +1021,7 @@ module Roby
                 if arguments.empty?
                     pp.text "no arguments"
                 else
-                    pp.text "arguments: "
+                    pp.text "arguments:"
                     pp.nest(2) do
                         pp.breakable
                         arguments.pretty_print(pp)

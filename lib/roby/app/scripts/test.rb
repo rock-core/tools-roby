@@ -2,6 +2,7 @@
 
 require "roby"
 require "roby/test/spec"
+require "roby/test/minitest_plugin"
 require "optparse"
 
 Robot.logger.level = Logger::WARN
@@ -87,6 +88,9 @@ parser = OptionParser.new do |opt|
     Roby::Application.common_optparse_setup(opt)
 end
 
+minitest_path = $LOAD_PATH.resolve_feature_path("minitest").last
+Roby.app.filter_out_patterns << Regexp.new("^" + Regexp.quote(File.dirname(minitest_path)))
+
 test_files = parser.parse(ARGV)
 test_files.delete_if do |arg|
     if arg.start_with?("-")
@@ -156,11 +160,14 @@ exception = Roby.display_exception do
 
                 require arg
             end
+
+            Roby::Test::MinitestPlugin.register
             Minitest.run(testrb_args)
         ensure
             Roby.app.shutdown
             Roby.app.cleanup
         end
+
     SimpleCov.run_exit_tasks! if defined?(SimpleCov)
     exit(passed ? 0 : 1)
 end
