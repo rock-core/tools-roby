@@ -43,7 +43,10 @@ module Roby
                 elsif bind_port = options[:server]
                     Roby.warn_deprecated "roby-display --server PATH is now roby-display server PATH, run roby-display help for more information"
                     server(*path, port: bind_port)
+                elsif path.empty?
+                    help
                 else
+                    Roby.warn_deprecated "roby-display FILE is deprecated, use roby-display file FILE instead"
                     file(*path)
                 end
             end
