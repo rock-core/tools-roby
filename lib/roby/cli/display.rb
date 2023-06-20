@@ -11,6 +11,10 @@ module Roby
         class Display < Thor
             Server = Roby::DRoby::Logfile::Server
 
+            def self.exit_on_failure?
+                true
+            end
+
             default_command "backward"
 
             class_option :debug, type: :boolean, default: false
