@@ -8,6 +8,8 @@ begin
 rescue Interrupt
     Roby.info "Interrupted by user"
     exit 1
+rescue SystemExit
+    raise
 rescue Exception => e
     Roby.log_exception_with_backtrace(e, Roby, :warn)
     exit 1
