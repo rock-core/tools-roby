@@ -83,12 +83,42 @@ module Roby
                 def initialize(name, remote_siblings = {})
                     @name = name
                     @remote_siblings = remote_siblings
+                    @constant_renaming = []
                 end
 
                 # Returns the local object which can be referenced by this name, or
                 # raises ArgumentError.
                 def proxy(peer)
-                    constant(name)
+                    constant(find_constant_renaming(name) || name)
+                end
+
+                def map_constant_name(from, to)
+                    item = [from, to]
+                    (@constant_renaming ||= []) << item
+                    Roby.disposable { @constant_renaming.delete(item) }
+                end
+
+                def find_constant_renaming(name)
+                    (@constant_renaming ||= []).each do |from, to|
+                        return name.gsub(from, to) if from === name
+                    end
+
+                    self.class.find_constant_renaming(name)
+                end
+
+                @constant_renaming = []
+
+                def self.map_constant_name(from, to)
+                    item = [from, to]
+                    @constant_renaming << item
+                    Roby.disposable { @constant_renaming.delete(item) }
+                end
+
+                def self.find_constant_renaming(name)
+                    @constant_renaming.each do |from, to|
+                        return name.gsub(from, to) if from === name
+                    end
+                    nil
                 end
             end
         end

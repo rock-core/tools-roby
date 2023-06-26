@@ -9,6 +9,10 @@ module Roby
                 extend DRobyConstant::Dump
             end
 
+            class DRobyConstantNewTestObject
+                extend DRobyConstant::Dump
+            end
+
             class DRobyConstantIdentifiable
                 extend DRobyConstant::Dump
                 extend Identifiable
@@ -36,6 +40,22 @@ module Roby
                 it "dumps and resolves a class by name" do
                     marshalled = DRobyConstantTestObject.droby_dump(@peer)
                     assert_equal "::Roby::DRoby::V5::DRobyConstantTestObject", marshalled.name
+                    assert_same DRobyConstantTestObject, marshalled.proxy(@peer)
+                end
+
+                it "allows to locally map old names to new names for backward compatibility" do
+                    marshalled = DRobyConstantTestObject.droby_dump(@peer)
+                    mapping = marshalled.map_constant_name(/TestObject/, "NewTestObject")
+                    assert_same DRobyConstantNewTestObject, marshalled.proxy(@peer)
+                    mapping.dispose
+                    assert_same DRobyConstantTestObject, marshalled.proxy(@peer)
+                end
+
+                it "allows to globally map old names to new names for backward compatibility" do
+                    marshalled = DRobyConstantTestObject.droby_dump(@peer)
+                    mapping = DRobyConstant.map_constant_name(/TestObject/, "NewTestObject")
+                    assert_same DRobyConstantNewTestObject, marshalled.proxy(@peer)
+                    mapping.dispose
                     assert_same DRobyConstantTestObject, marshalled.proxy(@peer)
                 end
 
