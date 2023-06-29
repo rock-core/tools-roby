@@ -127,6 +127,7 @@ module Roby
 end
 
 require "websocket"
+require "roby/interface/protocol"
 require "roby/interface/job"
 require "roby/interface/exceptions"
 require "roby/interface/command_argument"

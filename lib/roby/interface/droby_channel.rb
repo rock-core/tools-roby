@@ -26,16 +26,15 @@ module Roby
                 WebSocket::Frame::Incoming::Server
             ].freeze
 
-            MARSHAL_ALLOWED_CLASSES = [
+            DIRECT_TO_MARSHAL = [
                 TrueClass, FalseClass, NilClass, Integer, Float, String, Symbol,
-                CommandLibrary::InterfaceCommands,
-                Command, Protocol::VoidClass
+                CommandLibrary::InterfaceCommands, Command, Protocol::VoidClass,
+                Time
             ].freeze
 
             def initialize(
                 io, client,
-                max_write_buffer_size: 25 * 1024**2,
-                marshal_allowed_classes: MARSHAL_ALLOWED_CLASSES.dup
+                max_write_buffer_size: 25 * 1024**2
             )
                 @io = io
                 @io.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
@@ -58,7 +57,8 @@ module Roby
                 @write_buffer = String.new
                 @write_thread = nil
 
-                @marshal_allowed_classes = marshal_allowed_classes
+                @marshallers = {}
+                allow_classes(*DIRECT_TO_MARSHAL)
             end
 
             def write_buffer_size
@@ -201,34 +201,48 @@ module Roby
                 end
             end
 
-            def allow_marshalling_of(*classes)
-                @marshal_allowed_classes.concat(classes)
+            def allow_classes(*classes)
+                add_marshaller(*classes) { _1 }
+            end
+
+            def add_marshaller(*classes, &block)
+                classes.each { @marshallers[_1] = block }
             end
 
             def marshal_filter_object(object)
-                if object.kind_of?(Array)
+                case object
+                when Array
                     object.map { marshal_filter_object(_1) }
-                elsif object.kind_of?(Hash)
+                when Set
+                    object.each_with_object(Set.new) { _2 << marshal_filter_object(_1) }
+                when Hash
                     object.transform_values { marshal_filter_object(_1) }
-                elsif object.kind_of?(Struct)
+                when Struct
                     object = object.dup
                     object.each_pair { object[_1] = marshal_filter_object(_2) }
                     object
-                elsif object == Actions::Models::Action::Void
+                when Actions::Models::Action::VoidClass
                     Protocol::Void
-                elsif marshal_allowed?(object)
-                    object
                 else
-                    Protocol::Error.new(
-                        message: "object '#{object}' of class #{object.class} "\
-                                 "not allowed on this interface",
-                        backtrace: []
-                    )
+                    if (marshaller = find_marshaller(object))
+                        marshaller[object]
+                    else
+                        Protocol::Error.new(
+                            message: "object '#{object}' of class #{object.class} "\
+                                     "not allowed on this interface",
+                            backtrace: []
+                        )
+                    end
                 end
             end
 
-            def marshal_allowed?(object)
-                @marshal_allowed_classes.include?(object.class)
+            def find_marshaller(object)
+                return @marshallers[object.class] if @marshallers.key?(object.class)
+
+                _, v = @marshallers.find do |k, v|
+                    object.kind_of?(k)
+                end
+                @marshallers[object.class] = v
             end
 
             def reset_thread_guard(read_thread = nil, write_thread = nil)

@@ -17,7 +17,7 @@ module Roby
             attr_reader :server
 
             def stub_action(name)
-                action = Actions::Models::Action.new(InterfaceClientTestInterface)
+                action = Actions::Models::Action.new("test stub action")
                 InterfaceClientTestInterface.register_action(name, action)
             end
 
@@ -100,7 +100,9 @@ module Roby
                     [client.commands, client.actions]
                 end
                 assert_equal [:test], commands[""].commands.values.map(&:name)
-                assert_equal interface.actions, actions
+                assert(actions.all? { _1.kind_of?(Protocol::ActionModel) })
+                assert_equal ["Test"], actions.map(&:name)
+                assert_equal ["test stub action"], actions.map(&:doc)
             end
 
             it "dispatches an action call as a start_job message" do
@@ -183,15 +185,14 @@ module Roby
             end
 
             it "raises NoMethodError on an unknown call" do
-                e = assert_raises(Exception::DRoby) do
+                e = assert_raises(Client::RemoteError) do
                     connect { |client| client.does_not_exist(arg0: 10) }
                 end
-                assert_kind_of NoMethodError, e
                 assert(/does_not_exist/ === e.message)
             end
 
             it "appends the local client's backtrace to the remote's" do
-                e = assert_raises(Exception::DRoby) do
+                e = assert_raises(Client::RemoteError) do
                     connect { |client| client.does_not_exist(arg0: 10) }
                 end
 
@@ -210,7 +211,8 @@ module Roby
                 it "returns a matching action" do
                     interface.should_receive(actions: [stub_action("Test")])
                     result = connect { |client| client.find_action_by_name("Test") }
-                    assert_equal interface.actions.first, result
+                    assert_kind_of Protocol::ActionModel, result
+                    assert_equal "Test", result.name
                 end
                 it "returns nil for an unknown action" do
                     refute(connect { |client| client.find_action_by_name("bla") })
@@ -221,7 +223,10 @@ module Roby
                 it "returns a matching action" do
                     interface.should_receive(actions: [stub_action("Test")])
                     result = connect { |client| client.find_all_actions_matching(/Te/) }
-                    assert_equal [interface.actions.first], result
+
+                    assert_equal 1, result.size
+                    assert_kind_of Protocol::ActionModel, result.first
+                    assert_equal "Test", result.first.name
                 end
                 it "returns an empty array for an unknown action" do
                     result = connect { |client| client.find_all_actions_matching(/bla/) }
@@ -381,9 +386,11 @@ module Roby
                 assert client.has_exceptions?
 
                 level, _, tasks, jobs = client.pop_exception.last
-                assert_equal [:fatal, [1], Set.new], [level, tasks.map(&:id), jobs]
+                task_id = tasks.first.arguments[:id]
+                assert_equal [:fatal, [1], Set.new], [level, [task_id], jobs]
                 level, _, tasks, jobs = client.pop_exception.last
-                assert_equal [:warn, [2], Set.new], [level, tasks.map(&:id), jobs]
+                task_id = tasks.first.arguments[:id]
+                assert_equal [:warn, [2], Set.new], [level, [task_id], jobs]
                 assert !client.has_exceptions?
             end
 
@@ -520,8 +527,9 @@ module Roby
                                                   seq, path, m, *args)
                     client.async_call(path, m, *args) do |error, result|
                         if !exp_error.nil?
-                            assert_kind_of exp_error.class, error
-                            assert_equal exp_error.message, error.message
+                            assert_kind_of Protocol::Error, error
+                            assert_equal "#{exp_error.message} (#{exp_error.class})",
+                                         error.message.chomp
                         else
                             assert_nil error
                         end

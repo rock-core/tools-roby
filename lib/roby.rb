@@ -30,6 +30,7 @@ require "backports/2.5.0/hash/slice"
 require "backports/2.5.0/hash/transform_keys"
 require "roby/backports"
 
+require "pp"
 require "set"
 require "yaml"
 require "pastel"

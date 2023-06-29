@@ -27,11 +27,82 @@ module Roby
                 @pending_packets = Queue.new
                 @performed_handshake = false
 
-                @io.allow_marshalling_of(
+                @io.allow_classes(
                     Protocol::Action,
                     Protocol::ActionArgument,
                     Protocol::Error
                 )
+
+                @io.add_marshaller(Actions::Models::Action, &self.class.method(:marshal_action_model))
+                @io.add_marshaller(Actions::Action, &self.class.method(:marshal_action))
+                @io.add_marshaller(Task, &self.class.method(:marshal_task))
+                @io.add_marshaller(::Exception, &self.class.method(:marshal_exception))
+            end
+
+            def self.marshal_action_argument_model(action_argument)
+                Protocol::ActionArgument.new(**action_argument.to_h)
+            end
+
+            # Convert an action into the format we send on the wire
+            def self.marshal_action(action)
+                Protocol::Action.new(
+                    model: marshal_action_model(action.model),
+                    arguments: marshal_value(action)
+                )
+            end
+
+            # Convert an action into the format we send on the wire
+            def self.marshal_action_model(action, planner_model: nil)
+                arguments =
+                    action.arguments.map { marshal_action_argument_model(_1) }
+                Protocol::ActionModel.new(
+                    planner_name: planner_model&.name,
+                    name: action.name,
+                    doc: action.doc,
+                    arguments: arguments,
+                    advanced: action.advanced?
+                )
+            end
+
+            def self.marshal_task(task)
+                Protocol::Task.new(
+                    id: task.droby_id.id,
+                    model: task.model.name,
+                    arguments: marshal_task_arguments(task.arguments)
+                )
+            end
+
+            def self.marshal_value(value)
+                case value
+                when Hash
+                    value.transform_values { marshal_value(_1) }
+                when Array
+                    value.map { marshal_value(_1) }
+                when Struct
+                    mapped = value.dup
+                    value.each_pair do |k, v|
+                        mapped[k] = marshal_value(v)
+                    end
+                    mapped
+                when Actions::Models::Action
+                    marshal_action_model(value)
+                when Actions::Action
+                    marshal_action(value)
+                when Actions::Models::Action::Void
+                    Protocol::Void
+                else
+                    value
+                end
+            end
+
+            def self.marshal_task_arguments(arguments)
+                arguments.assigned_arguments.transform_values do
+                    marshal_value(_1)
+                end
+            end
+
+            def self.marshal_exception(e)
+                Protocol::Error.new(message: PP.pp(e, +""), backtrace: e.backtrace)
             end
 
             # Listen to notifications on the underlying interface

@@ -92,7 +92,9 @@ module Roby
                 end
 
                 def action_task?
-                    task&.respond_to?(:action_model)
+                    return unless task
+
+                    task.arguments[:action_model]
                 end
 
                 # The job's action model
@@ -106,12 +108,12 @@ module Roby
                 #
                 # @return [String,nil]
                 def action_name
-                    task&.action_model&.name if action_task?
+                    task.arguments[:action_model]&.name if action_task?
                 end
 
                 # Returns the arguments that were passed to the action
                 def action_arguments
-                    task&.action_arguments if action_task?
+                    task.arguments[:action_arguments] if action_task?
                 end
 
                 # @api private

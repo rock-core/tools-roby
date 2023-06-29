@@ -5,7 +5,8 @@ module Roby
         module Models
             # Basic description of an action
             class Action
-                Void = Object.new
+                VoidClass = Class.new
+                Void = VoidClass.new
 
                 # Structure that stores the information about planning method arguments
                 #
