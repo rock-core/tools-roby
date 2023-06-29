@@ -111,6 +111,8 @@ module Roby
                 actions.find { |act| act.name == name }
             end
 
+            class RemoteError < RuntimeError; end
+
             # Finds all actions whose name matches a pattern
             #
             # @param [#===] matcher the matching object (usually a Regexp or
@@ -135,7 +137,7 @@ module Roby
                         process_pending_async_call(args.first, nil)
                     else
                         e = args.first
-                        raise e, e.message, (e.backtrace + caller)
+                        raise RemoteError, e.message, (e.backtrace + caller)
                     end
                 when :reply
                     if !pending_async_calls.empty?

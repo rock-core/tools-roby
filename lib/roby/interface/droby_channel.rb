@@ -11,9 +11,7 @@ module Roby
             # @return [Boolean] true if the local process is the client or the
             #   server
             attr_predicate :client?
-            # @return [DRoby::Marshal] an object used to marshal or unmarshal
-            #   objects to/from the connection
-            attr_reader :marshaller
+
             # The maximum byte count that the channel can hold on the write side
             # until it bails out
             attr_reader :max_write_buffer_size
@@ -28,10 +26,16 @@ module Roby
                 WebSocket::Frame::Incoming::Server
             ].freeze
 
+            MARSHAL_ALLOWED_CLASSES = [
+                TrueClass, FalseClass, NilClass, Integer, Float, String, Symbol,
+                CommandLibrary::InterfaceCommands,
+                Command, Protocol::VoidClass
+            ].freeze
+
             def initialize(
                 io, client,
-                marshaller: DRoby::Marshal.new(auto_create_plans: true),
-                max_write_buffer_size: 25 * 1024**2
+                max_write_buffer_size: 25 * 1024**2,
+                marshal_allowed_classes: MARSHAL_ALLOWED_CLASSES.dup
             )
                 @io = io
                 @io.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
@@ -49,11 +53,12 @@ module Roby
                     else
                         WebSocket::Frame::Incoming::Server.new(type: :binary)
                     end
-                @marshaller = marshaller
                 @max_write_buffer_size = max_write_buffer_size
                 @read_buffer = String.new
                 @write_buffer = String.new
                 @write_thread = nil
+
+                @marshal_allowed_classes = marshal_allowed_classes
             end
 
             def write_buffer_size
@@ -133,15 +138,10 @@ module Roby
             end
 
             def unmarshal_packet(packet)
-                unmarshalled =
-                    begin
-                        Marshal.load(packet.to_s)
-                    rescue TypeError => e
-                        raise ProtocolError,
-                              "failed to unmarshal received packet: #{e.message}"
-                    end
-
-                marshaller.local_object(unmarshalled)
+                Marshal.load(packet.to_s)
+            rescue TypeError => e
+                raise ProtocolError,
+                      "failed to unmarshal received packet: #{e.message}"
             end
 
             # Write one ruby object (usually an array) as a marshalled packet and
@@ -150,9 +150,85 @@ module Roby
             # @param [Object] object the object to be sent
             # @return [void]
             def write_packet(object)
-                marshalled = Marshal.dump(marshaller.dump(object))
+                marshalled = marshal_object(object)
                 packet = @websocket_packet.new(data: marshalled, type: :binary)
                 push_write_data(packet.to_s)
+            end
+
+            def marshal_object(object)
+                object = marshal_filter_object(object)
+                Marshal.dump(object)
+            rescue TypeError => e
+                invalid = self.class.find_invalid_marshalling_object(object)
+                Marshal.dump(
+                    Protocol::Error.new(
+                        message: "failed to marshal #{invalid} of class "\
+                                 "#{invalid.class} in #{object}: #{e.message}",
+                        backtrace: []
+                    )
+                )
+            rescue RuntimeError => e
+                Marshal.dump(
+                    Protocol::Error.new(
+                        message: "failed to marshal #{object}: #{e.message}",
+                        backtrace: []
+                    )
+                )
+            end
+
+            def self.find_invalid_marshalling_object(object)
+                case object
+                when Array, Struct
+                    object.each do
+                        obj = find_invalid_marshalling_object(_1)
+                        return obj if obj
+                    end
+                when Hash
+                    object.each do |k, v|
+                        k = find_invalid_marshalling_object(k)
+                        return k if k
+
+                        v = find_invalid_marshalling_object(v)
+                        return v if v
+                    end
+                else
+                    begin
+                        ::Marshal.dump(object)
+                        nil
+                    rescue TypeError
+                        return object
+                    end
+                end
+            end
+
+            def allow_marshalling_of(*classes)
+                @marshal_allowed_classes.concat(classes)
+            end
+
+            def marshal_filter_object(object)
+                if object.kind_of?(Array)
+                    object.map { marshal_filter_object(_1) }
+                elsif object.kind_of?(Hash)
+                    object.transform_values { marshal_filter_object(_1) }
+                elsif object.kind_of?(Struct)
+                    object = object.dup
+                    object.each_pair { object[_1] = marshal_filter_object(_2) }
+                    object
+                elsif object == Actions::Models::Action::Void
+                    Protocol::Void
+                elsif marshal_allowed?(object)
+                    object
+                else
+                    Protocol::Error.new(
+                        message: "object '#{object}' of class #{object.class} "\
+                                 "not allowed on this interface",
+                        backtrace: []
+                    )
+                end
+            end
+
+            def marshal_allowed?(object)
+                @marshal_allowed_classes.include?(object.class)
             end
 
             def reset_thread_guard(read_thread = nil, write_thread = nil)

@@ -157,12 +157,11 @@ module Roby
         # @param [Array<Symbol>] handshake see {Client#initialize}
         # @return [Client] the connected {Client} object
         def self.connect_with_tcp_to(host, port = DEFAULT_PORT,
-                marshaller: DRoby::Marshal.new(auto_create_plans: true),
                 handshake: %i[actions commands])
             require "socket"
             socket = TCPSocket.new(host, port)
             addr = socket.addr(true)
-            channel = DRobyChannel.new(socket, true, marshaller: marshaller)
+            channel = DRobyChannel.new(socket, true)
             Client.new(channel, "#{addr[2]}:#{addr[1]}", handshake: handshake)
         rescue Errno::ECONNREFUSED, Errno::EADDRNOTAVAIL, Errno::ETIMEDOUT,
                Errno::EHOSTUNREACH, Errno::ENETUNREACH => e

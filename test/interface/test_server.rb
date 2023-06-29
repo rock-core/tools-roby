@@ -272,6 +272,7 @@ module Roby
                     @interface = Interface.new(Roby::Application.new)
                     interface.app.execution_engine.display_exceptions = false
                     @server_io = flexmock
+                    @server_io.should_receive(:allow_marshalling_of)
                     @server = Server.new(@server_io, interface)
                     flexmock(@server)
                     @server.listen_to_notifications

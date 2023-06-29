@@ -67,6 +67,18 @@ module Roby
             [JOB_FINALIZED].include?(state)
         end
 
+        module Protocol
+            Action = Struct.new :model, :arguments
+            ActionModel =
+                Struct.new :planner_name, :name, :doc, :arguments, keyword_init: true
+            ActionArgument =
+                Struct.new :name, :doc, :required, :default, :example, keyword_init: true
+            Task = Struct.new(:id, :model, :arguments, keyword_init: true)
+            Error = Struct.new(:message, :backtrace, keyword_init: true)
+            VoidClass = Class.new
+            Void = VoidClass.new.freeze
+        end
+
         # The server-side implementation of the command-based interface
         #
         # This exports all the services and/or APIs that are available through e.g.
@@ -157,22 +169,45 @@ module Roby
             #
             # @return [Array<Roby::Actions::Models::Action>]
             def actions
-                result = []
-                app.planners.each do |planner_model|
-                    planner_model.each_registered_action do |_, act|
-                        result << act
+                app.planners.flat_map do |planner_model|
+                    planner_model.each_registered_action.map do |_, act|
+                        action_model_to_interface(act, planner_model: nil)
                     end
                 end
-                result
             end
             command :actions, "lists a summary of the available actions"
+
+            # Convert an action into the format we send on the wire
+            def action_model_to_interface(action, planner_model: nil)
+                arguments =
+                    action.arguments.map { action_argument_model_to_interface(_1) }
+                Protocol::ActionModel.new(
+                    planner_name: planner_model&.name,
+                    name: action.name,
+                    doc: action.doc,
+                    arguments: arguments
+                )
+            end
+
+            def action_argument_model_to_interface(action_argument)
+                Protocol::ActionArgument.new(**action_argument.to_h)
+            end
+
+            # Convert an action into the format we send on the wire
+            def action_to_interface(action)
+                Protocol::Action.new(
+                    model: action_model_to_interface(action.model),
+                    arguments: arguments_to_interface(action)
+                )
+            end
 
             # Starts a job
             #
             # @return [Integer] the job ID
             def start_job(m, arguments = {})
-                _task, planning_task = app.prepare_action(m, mission: true,
-                                                             job_id: Job.allocate_job_id, **arguments)
+                _task, planning_task = app.prepare_action(
+                    m, mission: true, job_id: Job.allocate_job_id, **arguments
+                )
                 planning_task.job_id
             end
 
@@ -527,13 +562,40 @@ module Roby
                     placeholder_job_task = job_task.planned_task || job_task
                     result[job_id] = [
                         job_state(placeholder_job_task),
-                        placeholder_job_task,
-                        job_task
+                        task_to_interface(placeholder_job_task),
+                        task_to_interface(job_task)
                     ]
                 end
                 result
             end
             command :jobs, "returns the list of non-finished jobs"
+
+            def task_to_interface(task)
+                Protocol::Task.new(
+                    id: task.droby_id.id,
+                    model: task.model.name,
+                    arguments: arguments_to_interface(task.arguments)
+                )
+            end
+
+            def value_to_interface(value)
+                case value
+                when Actions::Models::Action
+                    action_model_to_interface(value)
+                when Actions::Action
+                    action_to_interface(value)
+                when Actions::Models::Action::Void
+                    Protocol::Void
+                else
+                    value
+                end
+            end
+
+            def arguments_to_interface(arguments)
+                arguments.assigned_arguments.transform_values do
+                    value_to_interface(_1)
+                end
+            end
 
             def find_job_info_by_id(id)
                 return unless (job_task = find_job_by_id(id))

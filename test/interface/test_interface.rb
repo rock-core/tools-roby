@@ -34,12 +34,17 @@ describe Roby::Interface::Interface do
 
     describe "#actions" do
         it "should list existing actions" do
-            actions = Roby::Actions::Interface.new_submodel do
+            actions = Roby::Actions::Interface.new_submodel(name: "I") do
                 describe "blablabla"
                 def an_action; end
             end
             app.planners << actions
-            assert_equal [actions.an_action.model], interface.actions
+
+            assert_equal 1, interface.actions.size
+            action = interface.actions.first
+            assert_equal "I", action.planner_name
+            assert_equal "an_action", action.name
+            assert_equal "blablabla", action.doc
         end
     end
 

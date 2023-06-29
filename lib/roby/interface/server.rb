@@ -26,6 +26,12 @@ module Roby
                 @main_thread = main_thread
                 @pending_packets = Queue.new
                 @performed_handshake = false
+
+                @io.allow_marshalling_of(
+                    Protocol::Action,
+                    Protocol::ActionArgument,
+                    Protocol::Error
+                )
             end
 
             # Listen to notifications on the underlying interface
