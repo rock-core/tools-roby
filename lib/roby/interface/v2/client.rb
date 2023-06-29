@@ -547,7 +547,7 @@ module Roby
 
             Job = Struct.new :job_id, :state, :placeholder_task, :task do
                 def action_model
-                    task.action_model
+                    task.arguments[:action_model]
                 end
             end
 
