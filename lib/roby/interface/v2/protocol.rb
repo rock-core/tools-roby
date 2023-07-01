@@ -50,6 +50,7 @@ module Roby
                 )
                 channel.add_marshaller(Actions::Action, &method(:marshal_action))
                 channel.add_marshaller(Roby::Task, &method(:marshal_task))
+                channel.add_marshaller(Actions::Models::Action::VoidClass) { Void }
                 channel.add_marshaller(::Exception, &method(:marshal_exception))
             end
 

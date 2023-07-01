@@ -26,7 +26,7 @@ module Roby
                 WebSocket::Frame::Incoming::Server
             ].freeze
 
-            DIRECT_TO_MARSHAL = [
+            ALLOWED_BASIC_TYPES = [
                 TrueClass, FalseClass, NilClass, Integer, Float, String, Symbol, Time
             ].freeze
 
@@ -56,7 +56,6 @@ module Roby
                 @write_thread = nil
 
                 @marshallers = {}
-                allow_classes(*DIRECT_TO_MARSHAL)
                 Protocol.setup_channel(self)
             end
 
@@ -91,7 +90,7 @@ module Roby
             # @return [Boolean] falsy if the timeout was reached, true
             #   otherwise
             def read_wait(timeout: nil)
-                !!IO.select([io], [], [], timeout)
+                IO.select([io], [], [], timeout)
             end
 
             # Read one packet from {#io} and unmarshal it
@@ -99,31 +98,23 @@ module Roby
             # @return [Object,nil] returns the unmarshalled object, or nil if no
             #   full object can be found in the data received so far
             def read_packet(timeout = 0)
-                @read_thread ||= Thread.current
-                if @read_thread != Thread.current
-                    raise InternalError,
-                          "cross-thread access to droby channel: "\
-                          "from #{@read_thread} to #{Thread.current}"
-                end
+                guard_read_thread
 
-                deadline       = Time.now + timeout if timeout
-                remaining_time = timeout
-
-                if packet = @incoming.next
+                if (packet = @incoming.next)
                     return unmarshal_packet(packet)
                 end
 
-                loop do
-                    if IO.select([io], [], [], remaining_time)
-                        begin
-                            if io.sysread(1024**2, @read_buffer)
-                                @incoming << @read_buffer
-                            end
-                        rescue Errno::EWOULDBLOCK, Errno::EAGAIN
-                        end
-                    end
+                read_packet_from_io(timeout)
+            end
 
-                    if packet = @incoming.next
+            def read_packet_from_io(timeout)
+                deadline       = Time.now + timeout if timeout
+                remaining_time = timeout
+
+                loop do
+                    read_data_from_io(remaining_time)
+
+                    if (packet = @incoming.next)
                         return unmarshal_packet(packet)
                     end
 
@@ -136,8 +127,15 @@ module Roby
                 raise ComError, "closed communication"
             end
 
+            def read_data_from_io(remaining_time)
+                return unless IO.select([@io], [], [], remaining_time)
+
+                @incoming << @read_buffer if io.sysread(1024**2, @read_buffer)
+            rescue Errno::EWOULDBLOCK, Errno::EAGAIN # rubocop:disable Lint/SuppressedException
+            end
+
             def unmarshal_packet(packet)
-                Marshal.load(packet.to_s)
+                Marshal.load(packet.to_s) # rubocop:disable Security/MarshalLoad
             rescue TypeError => e
                 raise ProtocolError,
                       "failed to unmarshal received packet: #{e.message}"
@@ -176,18 +174,10 @@ module Roby
 
             def self.find_invalid_marshalling_object(object)
                 case object
-                when Array, Struct
+                when Array, Struct, Hash
                     object.each do
                         obj = find_invalid_marshalling_object(_1)
                         return obj if obj
-                    end
-                when Hash
-                    object.each do |k, v|
-                        k = find_invalid_marshalling_object(k)
-                        return k if k
-
-                        v = find_invalid_marshalling_object(v)
-                        return v if v
                     end
                 else
                     begin
@@ -207,7 +197,22 @@ module Roby
                 classes.each { @marshallers[_1] = block }
             end
 
+            None = Object.new
+
             def marshal_filter_object(object)
+                marshalled = marshal_basic_object(object)
+                return marshalled if marshalled != None
+
+                if (marshaller = find_marshaller(object))
+                    return marshaller[self, object]
+                end
+
+                message = "object '#{object}' of class #{object.class} "\
+                          "not allowed on this interface"
+                report_error(message)
+            end
+
+            def marshal_basic_object(object) # rubocop:disable Metrics/AbcSize
                 case object
                 when Array
                     object.map { marshal_filter_object(_1) }
@@ -219,23 +224,17 @@ module Roby
                     object = object.dup
                     object.each_pair { object[_1] = marshal_filter_object(_2) }
                     object
-                when Actions::Models::Action::VoidClass
-                    Protocol::Void
+                when *ALLOWED_BASIC_TYPES
+                    object
                 else
-                    if (marshaller = find_marshaller(object))
-                        return marshaller[self, object]
-                    end
-
-                    message = "object '#{object}' of class #{object.class} "\
-                              "not allowed on this interface"
-                    report_error(message)
+                    None
                 end
             end
 
             def find_marshaller(object)
                 return @marshallers[object.class] if @marshallers.key?(object.class)
 
-                _, v = @marshallers.find do |k, v|
+                _, v = @marshallers.find do |k, _|
                     object.kind_of?(k)
                 end
                 @marshallers[object.class] = v
@@ -281,6 +280,15 @@ module Roby
                 raise InternalError,
                       "cross-thread access to channel: "\
                       "from #{@write_thread} to #{Thread.current}"
+            end
+
+            def guard_read_thread
+                @read_thread ||= Thread.current
+                return if @read_thread == Thread.current
+
+                raise InternalError,
+                      "cross-thread access to droby channel: "\
+                      "from #{@read_thread} to #{Thread.current}"
             end
 
             def guard_buffer_size
