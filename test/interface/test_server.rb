@@ -13,7 +13,7 @@ module Roby
 
                     client_io, server_io = Socket.pair(:UNIX, :STREAM, 0)
                     client_io.close
-                    server_channel = DRobyChannel.new(server_io, false)
+                    server_channel = Channel.new(server_io, false)
                     server_channel.reset_thread_guard(Thread.current, Thread.current)
                     @server = Server.new(server_channel, @interface)
                     flexmock(@server)
@@ -59,9 +59,9 @@ module Roby
 
                     main_thread = Thread.current
                     client_io, server_io = Socket.pair(:UNIX, :STREAM, 0)
-                    server_channel = DRobyChannel.new(server_io, false)
+                    server_channel = Channel.new(server_io, false)
                     server_channel.reset_thread_guard(Thread.current, Thread.current)
-                    client_channel = DRobyChannel.new(client_io, true)
+                    client_channel = Channel.new(client_io, true)
                     @server = Server.new(server_channel, @interface)
                     flexmock(@server)
                     @server.listen_to_notifications
@@ -152,8 +152,8 @@ module Roby
                     interface.app.execution_engine.display_exceptions = false
 
                     client_io, server_io = Socket.pair(:UNIX, :STREAM, 0)
-                    server_channel = DRobyChannel.new(server_io, false)
-                    @client_channel = DRobyChannel.new(client_io, true)
+                    server_channel = Channel.new(server_io, false)
+                    @client_channel = Channel.new(client_io, true)
                     @server = Server.new(server_channel, interface)
                     @server.listen_to_notifications
                     flexmock(@server)
@@ -199,6 +199,20 @@ module Roby
                     assert_equal [:reply, {}], client_channel.read_packet
                 end
 
+                it "handles action models as return values" do
+                    action_model = Actions::Models::Action.new("test")
+                    action_model.name = "some_action"
+                    flexmock(server)
+                        .should_receive(:test_call)
+                        .explicitly.once.and_return(action_model)
+                    client_channel.write_packet([[], :test_call])
+                    server.poll
+                    call, model = client_channel.read_packet
+                    assert_equal :reply, call
+                    assert_kind_of Protocol::ActionModel, model
+                    assert_equal "some_action", model.name
+                end
+
                 it "replies with :bad_call and the exception if the call raises" do
                     flexmock(server).should_receive(:test_call)
                         .explicitly.and_raise(ArgumentError.exception("test message"))
@@ -206,8 +220,8 @@ module Roby
                     server.poll
                     type, exception = client_channel.read_packet
                     assert_equal :bad_call, type
-                    assert_kind_of ArgumentError, exception
-                    assert_equal "test message", exception.message
+                    assert_kind_of Protocol::Error, exception
+                    assert_equal "test message (ArgumentError)", exception.message.chomp
                 end
 
                 it "processes all calls from a batch and returns "\
@@ -260,8 +274,8 @@ module Roby
                     server.poll
                     type, exception = client_channel.read_packet
                     assert_equal :bad_call, type
-                    assert_kind_of ArgumentError, exception
-                    assert_equal "test message", exception.message
+                    assert_kind_of Protocol::Error, exception
+                    assert_equal "test message (ArgumentError)", exception.message.chomp
                 end
             end
 
@@ -272,7 +286,8 @@ module Roby
                     @interface = Interface.new(Roby::Application.new)
                     interface.app.execution_engine.display_exceptions = false
                     @server_io = flexmock
-                    @server_io.should_receive(:allow_marshalling_of)
+                    @server_io.should_receive(:allow_classes)
+                    @server_io.should_receive(:add_marshaller)
                     @server = Server.new(@server_io, interface)
                     flexmock(@server)
                     @server.listen_to_notifications

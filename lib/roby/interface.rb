@@ -103,7 +103,7 @@ module Roby
     #
     # == Communication Channel
     #
-    # {Interface::DRobyChannel} provides a default implementation, using the
+    # {Interface::Channel} provides a default implementation, using the
     # DRoby marshalling/demarshalling for object-to-binary translation,
     # WebSockets for framing and a subclass of IO as the underlying
     # communication medium. The most common usage is to spawn a TCP server based
@@ -134,7 +134,7 @@ require "roby/interface/command_argument"
 require "roby/interface/command"
 require "roby/interface/command_library"
 require "roby/interface/interface"
-require "roby/interface/droby_channel"
+require "roby/interface/channel"
 require "roby/interface/server"
 require "roby/interface/client"
 require "roby/interface/subcommand_client"

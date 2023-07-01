@@ -3,7 +3,7 @@
 module Roby
     module Interface
         # A wrapper on top of raw IO that uses droby marshalling to communicate
-        class DRobyChannel
+        class Channel
             # @return [#read_nonblock,#write] the channel that allows us to
             #   communicate to clients
             attr_reader :io
@@ -27,9 +27,7 @@ module Roby
             ].freeze
 
             DIRECT_TO_MARSHAL = [
-                TrueClass, FalseClass, NilClass, Integer, Float, String, Symbol,
-                CommandLibrary::InterfaceCommands, Command, Protocol::VoidClass,
-                Time
+                TrueClass, FalseClass, NilClass, Integer, Float, String, Symbol, Time
             ].freeze
 
             def initialize(
@@ -59,6 +57,7 @@ module Roby
 
                 @marshallers = {}
                 allow_classes(*DIRECT_TO_MARSHAL)
+                Protocol.setup_channel(self)
             end
 
             def write_buffer_size
@@ -160,20 +159,19 @@ module Roby
                 Marshal.dump(object)
             rescue TypeError => e
                 invalid = self.class.find_invalid_marshalling_object(object)
-                Marshal.dump(
-                    Protocol::Error.new(
-                        message: "failed to marshal #{invalid} of class "\
-                                 "#{invalid.class} in #{object}: #{e.message}",
-                        backtrace: []
-                    )
-                )
+                message = "failed to marshal #{invalid} of class "\
+                          "#{invalid.class} in #{object}: #{e.message}"
+                Marshal.dump report_error(message)
             rescue RuntimeError => e
-                Marshal.dump(
-                    Protocol::Error.new(
-                        message: "failed to marshal #{object}: #{e.message}",
-                        backtrace: []
-                    )
-                )
+                message = "failed to marshal #{object}: #{e.message}"
+                Marshal.dump report_error(message)
+            end
+
+            def report_error(message)
+                Roby::Interface.warn message
+                caller.each { Roby::Interface.warn("  #{_1}") }
+
+                Protocol::Error.new(message: message, backtrace: [])
             end
 
             def self.find_invalid_marshalling_object(object)
@@ -196,13 +194,13 @@ module Roby
                         ::Marshal.dump(object)
                         nil
                     rescue TypeError
-                        return object
+                        object
                     end
                 end
             end
 
             def allow_classes(*classes)
-                add_marshaller(*classes) { _1 }
+                add_marshaller(*classes) { _2 }
             end
 
             def add_marshaller(*classes, &block)
@@ -225,14 +223,12 @@ module Roby
                     Protocol::Void
                 else
                     if (marshaller = find_marshaller(object))
-                        marshaller[object]
-                    else
-                        Protocol::Error.new(
-                            message: "object '#{object}' of class #{object.class} "\
-                                     "not allowed on this interface",
-                            backtrace: []
-                        )
+                        return marshaller[self, object]
                     end
+
+                    message = "object '#{object}' of class #{object.class} "\
+                              "not allowed on this interface"
+                    report_error(message)
                 end
             end
 
@@ -258,12 +254,7 @@ module Roby
             # @return [Boolean] true if there is still data left in the buffe,
             #   false otherwise
             def push_write_data(new_bytes = nil)
-                @write_thread ||= Thread.current
-                if @write_thread != Thread.current
-                    raise InternalError,
-                          "cross-thread access to droby channel: "\
-                          "from #{@write_thread} to #{Thread.current}"
-                end
+                guard_write_thread
 
                 @write_buffer.concat(new_bytes) if new_bytes
                 written_bytes = io.syswrite(@write_buffer)
@@ -271,21 +262,34 @@ module Roby
                 @write_buffer = @write_buffer[written_bytes..-1]
                 !@write_buffer.empty?
             rescue Errno::EWOULDBLOCK, Errno::EAGAIN
-                if @write_buffer.size > max_write_buffer_size
-                    raise ComError,
-                          "droby_channel reached an internal buffer size of "\
-                          "#{@write_buffer.size}, which is bigger than the limit "\
-                          "of #{max_write_buffer_size}, bailing out"
-                end
+                guard_buffer_size
             rescue SystemCallError, IOError
                 raise ComError, "broken communication channel"
             rescue RuntimeError => e
                 # Workaround what seems to be a Ruby bug ...
                 if e.message =~ /can.t modify frozen IOError/
                     raise ComError, "broken communication channel"
-                else
-                    raise
                 end
+
+                raise
+            end
+
+            def guard_write_thread
+                @write_thread ||= Thread.current
+                return if @write_thread == Thread.current
+
+                raise InternalError,
+                      "cross-thread access to channel: "\
+                      "from #{@write_thread} to #{Thread.current}"
+            end
+
+            def guard_buffer_size
+                return if @write_buffer.size <= max_write_buffer_size
+
+                raise ComError,
+                      "channel reached an internal buffer size of "\
+                      "#{@write_buffer.size}, which is bigger than the limit "\
+                      "of #{max_write_buffer_size}, bailing out"
             end
         end
     end

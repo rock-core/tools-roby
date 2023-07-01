@@ -42,13 +42,13 @@ module Roby
 
                 flexmock(@interface = interface_class.new(app))
                 server_socket, @client_socket = Socket.pair(:UNIX, :DGRAM, 0)
-                @server_channel = DRobyChannel.new(server_socket, false)
+                @server_channel = Channel.new(server_socket, false)
                 @server = Server.new(@server_channel, interface)
             end
 
             def open_client
                 @client = while_polling_server do
-                    Client.new(DRobyChannel.new(@client_socket, true), "test")
+                    Client.new(Channel.new(@client_socket, true), "test")
                 end
             end
 
