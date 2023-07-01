@@ -10,7 +10,7 @@ module Roby
 
             class TimeoutError < RuntimeError; end
 
-            # @return [DRobyChannel] the IO to the server
+            # @return [Channel] the IO to the server
             attr_reader :io
             # @return [Array<Roby::Actions::Model::Action>] set of known actions
             attr_reader :actions
@@ -55,7 +55,7 @@ module Roby
 
             # Create a client endpoint to a Roby interface [Server]
             #
-            # @param [DRobyChannel] io a channel to the server
+            # @param [Channel] io a channel to the server
             # @param [String] id a unique identifier for this client
             #   (e.g. host:port of the local endpoint when using TCP). It is
             #   passed to the server through {Server#handshake}
