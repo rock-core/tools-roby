@@ -42,9 +42,7 @@ describe Roby::Interface::Interface do
 
             assert_equal 1, interface.actions.size
             action = interface.actions.first
-            assert_equal "I", action.planner_name
-            assert_equal "an_action", action.name
-            assert_equal "blablabla", action.doc
+            assert_equal actions.find_action_by_name(:an_action), action
         end
     end
 
