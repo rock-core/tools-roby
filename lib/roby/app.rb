@@ -8,7 +8,7 @@ require "yaml"
 
 require "roby/app/base"
 require "roby/app/robot_names"
-require "roby/interface"
+require "roby/interface/base"
 require "roby/robot"
 require "roby/support"
 require "utilrb/hash/recursive_merge"
