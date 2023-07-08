@@ -27,7 +27,8 @@ module Roby
             ].freeze
 
             ALLOWED_BASIC_TYPES = [
-                TrueClass, FalseClass, NilClass, Integer, Float, String, Symbol, Time
+                TrueClass, FalseClass, NilClass, Integer, Float, String, Symbol, Time,
+                Range
             ].freeze
 
             def initialize(

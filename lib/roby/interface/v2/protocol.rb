@@ -26,17 +26,26 @@ module Roby
             end
 
             Task = Struct.new(:id, :model, :arguments, keyword_init: true)
-            Error = Struct.new(:message, :backtrace, keyword_init: true)
+            Error = Struct.new(:class_name, :message, :backtrace, keyword_init: true)
 
             class VoidClass; end
             Void = VoidClass.new.freeze
 
-            # Configure channel marshalling to convert Roby classes into their
-            # protocol equivalent
-            #
-            # @param [Channel] channel
-            def self.setup_channel(channel)
-                channel.allow_classes(
+            @marshallers = {}
+
+            def self.allow_classes(*classes)
+                add_marshaller(*classes) { _2 }
+            end
+
+            def self.add_marshaller(*classes, &block)
+                classes.each { @marshallers[_1] = block }
+            end
+
+            def self.each_marshaller(&block)
+                @marshallers.each(&block)
+            end
+            def self.register_marshallers(protocol)
+                protocol.allow_classes(
                     Action,
                     ActionArgument,
                     Error,
@@ -45,13 +54,24 @@ module Roby
                     Command
                 )
 
-                channel.add_marshaller(
+                protocol.add_marshaller(
                     Actions::Models::Action, &method(:marshal_action_model)
                 )
-                channel.add_marshaller(Actions::Action, &method(:marshal_action))
-                channel.add_marshaller(Roby::Task, &method(:marshal_task))
-                channel.add_marshaller(Actions::Models::Action::VoidClass) { Void }
-                channel.add_marshaller(::Exception, &method(:marshal_exception))
+                protocol.add_marshaller(Actions::Action, &method(:marshal_action))
+                protocol.add_marshaller(Roby::Task, &method(:marshal_task))
+                protocol.add_marshaller(Actions::Models::Action::VoidClass) { Void }
+                protocol.add_marshaller(::Exception, &method(:marshal_exception))
+                protocol.add_marshaller(
+                    Roby::ExecutionException, &method(:marshal_execution_exception)
+                )
+            end
+
+            # Configure channel marshalling to convert Roby classes into their
+            # protocol equivalent
+            #
+            # @param [Channel] channel
+            def self.setup_channel(channel)
+                each_marshaller { |klass, block| channel.add_marshaller(klass, &block) }
             end
 
             # Convert a {Actions::Models::Action::Argument}
@@ -71,7 +91,7 @@ module Roby
             # @param [Roby::Actions::Action] action
             # @return [Action]
             def self.marshal_action(channel, action)
-                Protocol::Action.new(
+                Action.new(
                     model: marshal_action_model(channel, action.model),
                     arguments: channel.marshal_filter_object(action)
                 )
@@ -85,7 +105,7 @@ module Roby
             def self.marshal_action_model(channel, action, planner_model: nil)
                 arguments =
                     action.arguments.map { marshal_action_argument_model(channel, _1) }
-                Protocol::ActionModel.new(
+                ActionModel.new(
                     planner_name: planner_model&.name,
                     name: action.name,
                     doc: action.doc,
@@ -100,7 +120,7 @@ module Roby
             # @param [Roby::Task] task
             # @return [ActionModel]
             def self.marshal_task(channel, task)
-                Protocol::Task.new(
+                Task.new(
                     id: task.droby_id.id,
                     model: task.model.name,
                     arguments: marshal_task_arguments(channel, task.arguments)
@@ -125,7 +145,10 @@ module Roby
             # @return [Error]
             def self.marshal_exception(_channel, exception)
                 message = PP.pp(exception, +"")
-                Protocol::Error.new(message: message, backtrace: exception.backtrace)
+                Error.new(
+                    class_name: exception.class.name, message: message,
+                    backtrace: exception.backtrace
+                )
             end
         end
     end
