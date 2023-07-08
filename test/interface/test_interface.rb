@@ -760,4 +760,17 @@ describe Roby::Interface::Interface do
             assert_equal result, interface.log_dir
         end
     end
+
+    describe "#tasks_of_job" do
+        it "returns an empty array if the job does not exist" do
+            assert_equal [], interface.tasks_of_job(10)
+        end
+
+        it "returns the list of tasks that are involved in the job" do
+            plan.add(job = @job_task_m.new(job_id: 10))
+            job.depends_on(task = Roby::Task.new)
+
+            assert_equal Set[job, task], interface.tasks_of_job(10).to_set
+        end
+    end
 end
