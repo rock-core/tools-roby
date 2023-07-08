@@ -534,6 +534,14 @@ module Roby
             end
             command :jobs, "returns the list of non-finished jobs"
 
+            # The list of tasks on which a given job depends
+            def tasks_of_job(id)
+                return [] unless (root = find_job_placeholder_by_id(id))
+
+                plan.compute_useful_tasks([root])
+            end
+            command :tasks_of_job, "returns all tasks on which a given job depends"
+
             def find_job_info_by_id(id)
                 return unless (job_task = find_job_by_id(id))
 
