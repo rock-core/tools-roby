@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "roby/test/self"
+require "roby/interface"
 
 module Roby
     module Interface
@@ -161,6 +162,23 @@ module Roby
                     assert_kind_of Protocol::ActionArgument, arg_out
                     assert_equal "arg", arg_out.name
                     assert_kind_of Protocol::VoidClass, arg_out.example
+                end
+
+                it "marshals an execution exception object" do
+                    plan.add(parent = Task.new)
+                    plan.add(child = Task.new)
+                    localized_error = Roby::LocalizedError.new(child)
+                    e = Roby::ExecutionException.new(localized_error)
+                    e.propagate(child, parent)
+
+                    @server.write_packet(e)
+                    ret = @client.read_packet
+                    assert_kind_of Protocol::ExecutionException, ret
+                    assert_equal "Roby::LocalizedError", ret.exception.class_name
+                    assert_equal child.droby_id.id, ret.failed_task.id
+                    assert_equal Set[parent.droby_id.id, child.droby_id.id],
+                                 ret.involved_tasks.map(&:id).to_set
+
                 end
             end
 

@@ -28,6 +28,10 @@ module Roby
             Task = Struct.new(:id, :model, :arguments, keyword_init: true)
             Error = Struct.new(:class_name, :message, :backtrace, keyword_init: true)
 
+            ExecutionException = Struct.new(
+                :exception, :failed_task, :involved_tasks, keyword_init: true
+            )
+
             class VoidClass; end
             Void = VoidClass.new.freeze
 
@@ -44,6 +48,7 @@ module Roby
             def self.each_marshaller(&block)
                 @marshallers.each(&block)
             end
+
             def self.register_marshallers(protocol)
                 protocol.allow_classes(
                     Action,
@@ -51,7 +56,8 @@ module Roby
                     Error,
                     VoidClass,
                     CommandLibrary::InterfaceCommands,
-                    Command
+                    Command,
+                    ExecutionException
                 )
 
                 protocol.add_marshaller(
@@ -148,6 +154,25 @@ module Roby
                 Error.new(
                     class_name: exception.class.name, message: message,
                     backtrace: exception.backtrace
+                )
+            end
+
+            # Convert a {ExecutionException}
+            def self.marshal_execution_exception(channel, execution_exception)
+                exception = execution_exception.exception
+                if exception.respond_to?(:failed_task)
+                    if (failed_task = exception.failed_task)
+                        marshalled_failed_task =
+                            channel.marshal_filter_object(failed_task)
+                    end
+                end
+
+                ExecutionException.new(
+                    exception: marshal_exception(channel, exception),
+                    failed_task: marshalled_failed_task,
+                    involved_tasks: channel.marshal_filter_object(
+                        execution_exception.each_involved_task.to_a
+                    )
                 )
             end
         end
