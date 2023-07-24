@@ -58,6 +58,14 @@ module Roby
                 @toplevel_task.current_task_child
             end
 
+            # Returns possible state names based on current patterns and the
+            # actual state name
+            def state_name_patterns(state_name)
+                matchers = [state_name.to_str]
+                matchers << "#{state_name}_state" unless state_name.end_with?("_state")
+                matchers
+            end
+
             # Verifies that some operations cause the state machine to transition
             #
             # Note that one assertion may wait for more than one state transition.
@@ -72,13 +80,14 @@ module Roby
             # @param [String,Symbol] state_name the name of the target state
             # @param [Numeric] timeout
             def assert_transitions_to_state(state_name, timeout: 5)
-                state_name = state_name.to_str
-                state_name = "#{state_name}_state" unless state_name.end_with?("_state")
+                matchers = state_name_patterns(state_name)
 
                 done = false
                 @state_machines.each do |m|
                     m.on_transition do |_, new_state|
-                        done ||= (state_name === new_state.name)
+                        done ||= matchers.any? do
+                            (_1 === new_state.name)
+                        end
                     end
                 end
                 yield(current_state_task) if block_given?
