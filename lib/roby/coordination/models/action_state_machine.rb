@@ -97,8 +97,10 @@ module Roby
                     @starting_state = validate_task(state)
                 end
 
-                def state(object, task_model = Roby::Task)
-                    task(object, task_model)
+                def state(object, task_model = Roby::Task, as: nil)
+                    state = task(object, task_model)
+                    state.name = as
+                    state
                 end
 
                 # Capture the value of an event context
