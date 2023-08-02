@@ -1609,6 +1609,63 @@ module Roby
                 assert_equal "test", @task.failure_reason.reason
             end
         end
+
+        describe "#action_state_machine" do
+            attr_reader :task_m, :task, :interface_m
+
+            before do
+                @task_m = Task.new_submodel { terminates }
+                @task = task_m.new
+
+                @interface_m = Actions::Interface.new_submodel
+                interface_m.class_eval do
+                    describe "some action"
+                    def some_action; end
+                end
+            end
+
+            it "creates a state machine and attaches it to the task" do
+                interface_m = @interface_m
+                machine = task.action_state_machine do
+                    s = state(interface_m.some_action)
+                    start(s)
+                end
+
+                assert(task.each_coordination_object.find { |m| m == machine })
+            end
+
+            it "uses the task as the state machine's root" do
+                interface_m = @interface_m
+                machine = task.action_state_machine do
+                    s = state(interface_m.some_action)
+                    start(s)
+                end
+                assert_equal task, machine.root_task
+            end
+
+            it "ensures the state machine is started when the task is" do
+                interface_m = @interface_m
+                plan.add(task)
+                machine = task.action_state_machine do
+                    s = state(interface_m.some_action)
+                    start(s)
+                end
+                execute { task.start! }
+                assert_kind_of interface_m::SomeAction, task.current_task_child
+            end
+
+            it "ensures the state machine is started if the task is already running" do
+                interface_m = @interface_m
+                plan.add(task)
+                execute { task.start! }
+                machine = task.action_state_machine do
+                    s = state(interface_m.some_action)
+                    start(s)
+                end
+                execute_one_cycle
+                assert_kind_of interface_m::SomeAction, task.current_task_child
+            end
+        end
     end
 end
 

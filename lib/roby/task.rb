@@ -1766,6 +1766,17 @@ module Roby
         def remove_coordination_object(object)
             @coordination_objects.delete(object)
         end
+
+        # Create an action state machine and attach it to this task
+        #
+        # Unlike `Actions::Interface#action_state_machine`, states must be
+        # defined from explicit action objects
+        def action_state_machine(&block)
+            model = Coordination::ActionStateMachine
+                .new_submodel(action_interface: nil, root: self.model)
+            model.parse(&block)
+            model.new(self)
+        end
     end
 
     unless defined? TaskStructure
