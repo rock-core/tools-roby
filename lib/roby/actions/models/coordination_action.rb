@@ -42,12 +42,17 @@ module Roby
                 end
 
                 # Returns the plan pattern that will deploy this action on the plan
-                def plan_pattern(arguments = {})
-                    job_id, arguments = Kernel.filter_options arguments, :job_id
+                def plan_pattern(**arguments)
+                    job_id =
+                        if arguments.key?(:job_id)
+                            { job_id: job_id }
+                        else
+                            {}
+                        end
 
                     planner = Roby::Actions::Task.new(
-                        Hash[action_model: self,
-                             action_arguments: arguments].merge(job_id))
+                        action_model: self, action_arguments: arguments, **job_id
+                    )
                     planner.planning_result_task
                 end
 
