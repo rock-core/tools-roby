@@ -2,7 +2,7 @@
 
 module Roby
     module Test
-        class Assertion < MiniTest::Assertion
+        class Assertion < Minitest::Assertion
             attr_reader :original_error
 
             def initialize(original_error)
