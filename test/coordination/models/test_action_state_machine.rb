@@ -69,6 +69,17 @@ describe Roby::Coordination::Models::ActionStateMachine do
         assert_nil state_arg.default
     end
 
+    it "handles not having an action interface in method_missing" do
+        model = Roby::Coordination::ActionStateMachine
+            .new_submodel(action_interface: nil, root: Roby::Task.new_submodel)
+
+        refute model.respond_to?(:does_not_exist)
+        e = assert_raises(NoMethodError) do
+            model.does_not_exist
+        end
+        assert_equal :does_not_exist, e.name
+    end
+
     describe "#transition" do
         it "raises if the source state if not reachable" do
             assert_raises(Roby::Coordination::Models::UnreachableStateUsed) do

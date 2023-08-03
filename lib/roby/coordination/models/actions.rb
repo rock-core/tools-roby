@@ -186,7 +186,7 @@ module Roby
                 end
 
                 def method_missing(m, *args, **kw)
-                    action = action_interface.find_action_by_name(m.to_s)
+                    action = action_interface&.find_action_by_name(m.to_s)
                     return super unless action
 
                     action.new(*args, **kw)
