@@ -111,14 +111,13 @@ module Roby
     # spawns such a server automatically by calling
     # {Roby::Application#setup_shell_interface} if
     # {Roby::Application#public_shell_interface?} is true.
-    #
-
     module Interface
         DEFAULT_PORT = 20_201
         DEFAULT_REST_PORT = 20_202
 
         extend Logger::Hierarchy
 
+        # Asynchronous client functionality for an {Interface} server
         module Async
             extend Logger::Hierarchy
         end
