@@ -121,7 +121,7 @@ module Roby
                         object = definition_context.local_variable_get(var)
                         suffixes.each do |klass, suffix|
                             if object.kind_of?(klass)
-                                object.name = "#{var}#{suffix}"
+                                object.name ||= "#{var}#{suffix}"
                             end
                         end
                     end

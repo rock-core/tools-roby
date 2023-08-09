@@ -588,6 +588,16 @@ module Roby
                     task.current_task_child.success_event.emit
                 end
             end
+
+            it "set state name explicitly" do
+                task_m = self.task_m
+                s0 = nil
+                action_m.action_state_machine "test" do
+                    s0 = state(task_m, as: "explicit-state-name")
+                    start(s0)
+                end
+                assert_equal "explicit-state-name", s0.name
+            end
         end
     end
 end
