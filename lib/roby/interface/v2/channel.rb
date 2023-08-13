@@ -57,6 +57,7 @@ module Roby
                 @write_thread = nil
 
                 @marshallers = {}
+                @resolved_marshallers = {}
                 Protocol.setup_channel(self)
             end
 
@@ -194,8 +195,17 @@ module Roby
                 add_marshaller(*classes) { _2 }
             end
 
+            # Define a custom marshaller for objects of the given class
+            #
+            # @param [Array<Class>] classes the classes to use the given marshaller
+            #   for. This will match instances of subclasses as well. The first marshaller
+            #   defined for a given instance will win.
+            # @yieldparam [Channel] channel
+            # @yieldparam [Object] object the object to marshal
+            # @yieldreturn [Object] the marshalled object
             def add_marshaller(*classes, &block)
                 classes.each { @marshallers[_1] = block }
+                @resolved_marshallers = @marshallers.dup
             end
 
             None = Object.new
@@ -233,12 +243,15 @@ module Roby
             end
 
             def find_marshaller(object)
-                return @marshallers[object.class] if @marshallers.key?(object.class)
-
-                _, v = @marshallers.find do |k, _|
-                    object.kind_of?(k)
+                if (block = @resolved_marshallers[object.class])
+                    return block
                 end
-                @marshallers[object.class] = v
+
+                _, block =
+                    @marshallers
+                    .find_all { |klass, _| object.kind_of?(klass) }
+                    .min_by { _1 }
+                @resolved_marshallers[object.class] = block
             end
 
             def reset_thread_guard(read_thread = nil, write_thread = nil)
