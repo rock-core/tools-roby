@@ -178,11 +178,176 @@ module Roby
                     assert_equal child.droby_id.id, ret.failed_task.id
                     assert_equal Set[parent.droby_id.id, child.droby_id.id],
                                  ret.involved_tasks.map(&:id).to_set
-
                 end
             end
 
-            describe "marshalling" do
+            describe "marshal_filter_object" do
+                before do
+                    @channel = flexmock(Channel.new(@io_w, false))
+                end
+
+                it "marshals an array" do
+                    array = 10.times.map { Object.new }
+                    @channel.should_receive(:marshal_filter_object)
+                            .with(array).pass_thru
+                    array.each_with_index do |o, i|
+                        @channel.should_receive(:marshal_filter_object)
+                                .with(o).and_return { i }
+                    end
+                    assert_equal (0...10).to_a, @channel.marshal_filter_object(array)
+                end
+
+                it "marshals a set" do
+                    set = 10.times.map { Object.new }.to_set
+                    set.each_with_index do |o, i|
+                        @channel.should_receive(:marshal_filter_object)
+                                .with(o).and_return { i }
+                    end
+                    @channel.should_receive(:marshal_filter_object)
+                            .with(set).pass_thru
+                    assert_equal (0...10).to_set, @channel.marshal_filter_object(set)
+                end
+
+                it "marshals only hash values" do
+                    values = 10.times.map { Object.new }
+                    values.each_with_index do |o, i|
+                        @channel.should_receive(:marshal_filter_object)
+                                .with(o).and_return { i }
+                    end
+                    keys = 10.times.map { _1 * 10 }
+                    keys.each do |k|
+                        @channel.should_receive(:marshal_filter_object).with(k).never
+                    end
+
+                    hash = Hash[keys.zip(values)]
+                    @channel.should_receive(:marshal_filter_object).with(hash).pass_thru
+
+                    expected = Hash[keys.zip(0...10)]
+                    assert_equal(
+                        expected, @channel.marshal_filter_object(hash)
+                    )
+                end
+
+                it "marshals structs values" do
+                    s_class = Struct.new :a, :b, :c
+                    values = 3.times.map { Object.new }
+                    s = s_class.new(*values)
+                    values.each_with_index do |o, i|
+                        @channel.should_receive(:marshal_filter_object)
+                                .with(o).ordered.and_return { i }
+                    end
+                    expected = s_class.new(0, 1, 2)
+                    @channel.should_receive(:marshal_filter_object).with(s).pass_thru
+                    assert_equal(
+                        expected, @channel.marshal_filter_object(s)
+                    )
+                end
+
+                it "returns booleans as-is" do
+                    assert_equal false, @channel.marshal_filter_object(false)
+                    assert_equal true, @channel.marshal_filter_object(true)
+                end
+
+                it "returns nil as-is" do
+                    assert_nil @channel.marshal_filter_object(nil)
+                end
+
+                it "returns numbers as-is" do
+                    assert_equal 10, @channel.marshal_filter_object(10)
+                    assert_equal 10.1, @channel.marshal_filter_object(10.1)
+                end
+
+                it "returns strings as-is" do
+                    assert_equal "10", @channel.marshal_filter_object("10")
+                end
+
+                it "returns symbols as-is" do
+                    assert_equal(:a, @channel.marshal_filter_object(:a))
+                end
+
+                it "returns times as-is" do
+                    t = Time.now
+                    assert_equal t, @channel.marshal_filter_object(t)
+                end
+
+                it "returns ranges as-is" do
+                    assert_equal (0..20), @channel.marshal_filter_object((0..20))
+                end
+
+                it "returns any objects whose class was set up with "\
+                   "#allow_classes as is" do
+                    k = Class.new
+                    o = k.new
+                    @channel.allow_classes(k)
+                    assert_equal o, @channel.marshal_filter_object(o)
+                end
+
+                it "allows setting up marshallers for specific classes" do
+                    k = Class.new
+                    o = k.new
+                    ret_class = Struct.new(:channel, :value)
+                    @channel.add_marshaller(k) { ret_class.new(_1, _2) }
+
+                    ret = @channel.marshal_filter_object(o)
+                    assert_equal @channel, ret.channel
+                    assert_equal o, ret.value
+                end
+
+                it "will pick up a marshaller for a base class "\
+                   "if there is none for the exact class" do
+                    base = Class.new
+                    o = Class.new(base).new
+                    ret_class = Struct.new(:channel, :value)
+                    @channel.add_marshaller(base) { ret_class.new(_1, _2) }
+
+                    ret = @channel.marshal_filter_object(o)
+                    assert_equal @channel, ret.channel
+                    assert_equal o, ret.value
+                end
+
+                it "will use the marshaller for the exact class "\
+                   "even if there is one for the base class" do
+                    base = Class.new
+                    k = Class.new(base)
+                    o = k.new
+                    ret_class = Struct.new(:channel, :value)
+                    @channel.add_marshaller(base) { 42 }
+                    @channel.add_marshaller(k) { ret_class.new(_1, _2) }
+
+                    ret = @channel.marshal_filter_object(o)
+                    assert_equal @channel, ret.channel
+                    assert_equal o, ret.value
+                end
+
+                it "will use the marshaller for the most specialized class in the "\
+                   "inheritance chain" do
+                    base = Class.new
+                    middle = Class.new(base)
+                    k = Class.new(middle)
+                    o = k.new
+                    ret_class = Struct.new(:channel, :value)
+                    @channel.add_marshaller(base) { 42 }
+                    @channel.add_marshaller(middle) { ret_class.new(_1, _2) }
+
+                    ret = @channel.marshal_filter_object(o)
+                    assert_equal @channel, ret.channel
+                    assert_equal o, ret.value
+                end
+
+                it "handles new marshallers being added at runtime" do
+                    base = Class.new
+                    middle = Class.new(base)
+                    k = Class.new(middle)
+                    o = k.new
+                    ret_class = Struct.new(:channel, :value)
+                    @channel.add_marshaller(base) { 42 }
+                    assert_equal 42, @channel.marshal_filter_object(o)
+
+                    @channel.add_marshaller(middle) { ret_class.new(_1, _2) }
+                    ret = @channel.marshal_filter_object(o)
+                    assert_equal @channel, ret.channel
+                    assert_equal o, ret.value
+                end
             end
         end
     end
