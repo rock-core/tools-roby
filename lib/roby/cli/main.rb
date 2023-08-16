@@ -48,6 +48,8 @@ module Roby
                 end
 
                 def setup_interface(app = Roby.app, retry_connection: false, timeout: nil)
+                    require "roby/interface"
+
                     host_port = parse_host_option
                     host = host_port[:host] || app.shell_interface_host || "localhost"
                     port = host_port[:port] || app.shell_interface_port || Interface::DEFAULT_PORT

@@ -5,6 +5,8 @@ require "optparse"
 require "rb-readline"
 require "readline"
 
+require "roby/interface"
+
 app = Roby.app
 app.guess_app_dir
 app.shell
