@@ -86,23 +86,32 @@ module Roby
                     interface.monitor_job(job_id)
                 end
 
+                def job_name
+                    args = task&.arguments
+                    (args[:job_name] if args) || action_name
+                end
+
+                def action_task?
+                    task&.respond_to?(:action_model)
+                end
+
                 # The job's action model
                 #
                 # @return [Roby::Actions::Model::Action,nil]
                 def action_model
-                    task&.action_model
+                    task&.action_model if action_task?
                 end
 
                 # Returns the job's action name
                 #
                 # @return [String,nil]
                 def action_name
-                    task&.action_model&.name
+                    task&.action_model&.name if action_task?
                 end
 
                 # Returns the arguments that were passed to the action
                 def action_arguments
-                    task&.action_arguments
+                    task&.action_arguments if action_task?
                 end
 
                 # @api private

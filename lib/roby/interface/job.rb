@@ -19,6 +19,13 @@ module Roby
             # @return [Integer,nil]
             argument :job_id, default: nil
 
+            # The job name
+            #
+            # String that should be used to display the job instead of the task's to_s
+            #
+            # @return [String,nil]
+            argument :job_name, default: nil
+
             def self.allocate_job_id
                 @@job_id += 1
             end
@@ -29,12 +36,6 @@ module Roby
             # @return [Integer]
             def allocate_job_id
                 self.job_id ||= Job.allocate_job_id
-            end
-
-            # @return [String] the job name as should be displayed by the job
-            #   management API
-            def job_name
-                to_s
             end
 
             def initialize(**)
