@@ -854,15 +854,18 @@ module Roby
 
             def task_timeline_title(task)
                 text = task.to_s
-                if job_task = all_job_info[task]
-                    job_text = ["[#{job_task.job_id}]"]
+                return text unless (job_task = all_job_info[task])
+
+                job_text = ["[#{job_task.job_id}]"]
+                job_text << job_task.job_name
+
+                if job_task.respond_to?(:action_model)
                     if job_task.action_model
                         job_text << job_task.action_model.name.to_s
                     end
-                    if job_task.action_arguments
-                        arg_s = job_task.action_arguments.map { |k, v| "#{k}: #{v}" }
-                        job_text << "(#{arg_s.join(', ')})"
-                    end
+                    arg_s = (job_task.action_arguments || {})
+                            .map { |k, v| "#{k}: #{v}" }
+                    job_text << "(#{arg_s.join(', ')})"
                     text = "#{job_text.join(' ')} / #{text}"
                 end
                 text

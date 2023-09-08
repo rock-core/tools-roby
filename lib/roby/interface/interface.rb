@@ -123,10 +123,8 @@ module Roby
                 @job_monitoring_state = {}
                 @cycle_end_listeners = []
 
-                app.plan.add_trigger Roby::Interface::Job do |task|
-                    if task.job_id && (planned_task = task.planned_task)
-                        monitor_job(task, planned_task, new_task: true)
-                    end
+                app.plan.add_trigger Roby::Interface::Job do |job_task|
+                    monitor_job(job_task, new_task: true) if job_task.job_id
                 end
                 execution_engine.on_exception(on_error: :raise) do |kind, exception, tasks|
                     involved_job_ids = tasks
@@ -385,18 +383,25 @@ module Roby
             # Monitor the given task as a job
             #
             # It must be called within the Roby execution thread
-            def monitor_job(planning_task, task, new_task: false)
+            def monitor_job(job_task, new_task: false)
                 # NOTE: this method MUST queue job notifications
                 # UNCONDITIONALLY. Job tracking is done on a per-cycle basis (in
                 # at_cycle_end) by {#push_pending_notifications}
 
-                job_id   = planning_task.job_id
-                job_name = planning_task.job_name
+                if (task = job_task.planned_task)
+                    planning_task = job_task
+                else
+                    planning_task = job_task.planning_task
+                    task = job_task
+                end
+
+                job_id   = job_task.job_id
+                job_name = job_task.job_name
 
                 # This happens when a placeholder/planning pair is replaced by
                 # another, but the job ID is inherited. We do this when e.g.
                 # running an action that returns another planning pair
-                if (state = @job_monitoring_state[job_id])
+                if planning_task && (state = @job_monitoring_state[job_id])
                     track_planning_state(
                         state.job_id, state.job_name, state.service, planning_task)
                     return
@@ -413,7 +418,7 @@ module Roby
                     state = @job_monitoring_state[job_id]
                     if !state.monitored? && (status == :mission)
                         job_notify(JOB_MONITORED, job_id, job_name, service.task,
-                                   service.task.planning_task)
+                                   service.task.planning_task || service.task)
                         job_notify(job_state(service.task), job_id, job_name)
                         state.monitored = true
                     elsif state.monitored? && (status != :mission)
@@ -422,7 +427,9 @@ module Roby
                     end
                 end
 
-                track_planning_state(job_id, job_name, service, planning_task)
+                if planning_task
+                    track_planning_state(job_id, job_name, service, planning_task)
+                end
 
                 service.on_replacement do |_current, new|
                     if plan.mission_task?(new) && job_ids_of_task(new).include?(job_id)
@@ -489,7 +496,7 @@ module Roby
                 elsif task.running?
                     JOB_STARTED
                 elsif task.pending?
-                    if planner = task.planning_task
+                    if (planner = task.planning_task)
                         if planner.success?
                             JOB_READY
                         elsif planner.stop?
@@ -529,10 +536,10 @@ module Roby
             command :jobs, "returns the list of non-finished jobs"
 
             def find_job_info_by_id(id)
-                if planning_task = plan.find_tasks(Job).with_arguments(job_id: id).to_a.first
-                    task = planning_task.planned_task || planning_task
-                    [job_state(task), task, planning_task]
-                end
+                return unless (job_task = find_job_by_id(id))
+
+                task = job_task.planned_task || job_task
+                [job_state(task), task, job_task]
             end
 
             # Finds a job task by its ID
@@ -540,7 +547,7 @@ module Roby
             # @param [Integer] id
             # @return [Roby::Task,nil]
             def find_job_by_id(id)
-                plan.find_tasks(Job).with_arguments(job_id: id).to_a.first
+                plan.find_tasks(Job).with_arguments(job_id: id).first
             end
 
             # Finds the task that represents the given job ID
@@ -548,9 +555,9 @@ module Roby
             # It can be different than the job task when e.g. the job task is a
             # planning task
             def find_job_placeholder_by_id(id)
-                if task = find_job_by_id(id)
-                    task.planned_task || task
-                end
+                return unless (job_task = find_job_by_id(id))
+
+                job_task.planned_task || job_task
             end
 
             # Reload all models from this Roby application
