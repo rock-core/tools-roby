@@ -301,8 +301,8 @@ module Roby
 
                             jobs = controller.roby_interface.client.each_job.to_a
                             assert_equal "CucumberTestTask",
-                                         jobs.first.placeholder_task.model.name
-                            assert_equal 10, jobs.first.placeholder_task.arg
+                                         jobs.first.placeholder_task.model
+                            assert_equal 10, jobs.first.placeholder_task.arguments[:arg]
                         end
                         it "drops all main jobs after a run_job" do
                             controller.start_job(
@@ -314,7 +314,9 @@ module Roby
                             )
                             controller.apply_current_batch
                             jobs = controller.roby_interface.client.each_job.to_a
-                            assert_equal([2], jobs.map { |t| t.placeholder_task.arg })
+                            assert_equal(
+                                [2], jobs.map { |t| t.placeholder_task.arguments[:arg] }
+                            )
                         end
                         it "does allow to queue new jobs again after a run_job" do
                             controller.start_job(
@@ -329,8 +331,10 @@ module Roby
                             )
                             controller.apply_current_batch
                             jobs = controller.roby_interface.client.each_job.to_a
-                            assert_equal [2, 3],
-                                         jobs.map { |t| t.placeholder_task.arg }.sort
+                            assert_equal(
+                                [2, 3],
+                                jobs.map { |t| t.placeholder_task.arguments[:arg] }.sort
+                            )
                         end
                         it "passes arguments to the action" do
                             controller.start_job(
@@ -338,7 +342,7 @@ module Roby
                             )
                             controller.apply_current_batch
                             jobs = controller.roby_interface.client.each_job.to_a
-                            assert_equal 20, jobs.first.placeholder_task.arg
+                            assert_equal 20, jobs.first.placeholder_task.arguments[:arg]
                         end
                         it "registers the job as a main job" do
                             job = controller.start_job(
@@ -377,9 +381,11 @@ module Roby
                             assert controller.roby_interface.client.each_job.to_a.empty?
                             controller.apply_current_batch
                             jobs = controller.roby_interface.client.each_job.to_a
-                            assert_equal "CucumberTestTask",
-                                         jobs.first.placeholder_task.model.name
-                            assert_equal 10, jobs.first.placeholder_task.arg
+
+                            placeholder_task = jobs.first.placeholder_task
+                            assert_kind_of Interface::Protocol::Task, placeholder_task
+                            assert_equal "CucumberTestTask", placeholder_task.model
+                            assert_equal 10, placeholder_task.arguments[:arg]
                         end
                         it "passes arguments to the action" do
                             controller.start_monitoring_job(
@@ -387,7 +393,8 @@ module Roby
                             )
                             controller.apply_current_batch
                             jobs = controller.roby_interface.client.each_job.to_a
-                            assert_equal Hash[arg: 20], jobs.first.task.action_arguments
+                            assert_equal Hash[arg: 20],
+                                         jobs.first.task.arguments[:action_arguments]
                         end
                         it "registers the job as a monitoring job" do
                             job = controller.start_monitoring_job(
