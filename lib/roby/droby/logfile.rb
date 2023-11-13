@@ -167,6 +167,19 @@ module Roby
 
                     raise
                 end
+            rescue TypeError => e
+                case e.message
+                when /^struct Roby::Actions::Models::Action::Argument not compatible/
+                    Roby::Actions::Models::Action.const_set(
+                        :Argument,
+                        Struct.new(:name, :doc, :required, :default)
+                    )
+                    retry
+                else
+                    raise e, "#{e.message}, running roby-log repair "\
+                             "might repair the file", e.backtrace
+                end
+
             rescue Exception => e # rubocop:disable Lint/RescueException
                 raise e, "#{e.message}, running roby-log repair "\
                          "might repair the file", e.backtrace
