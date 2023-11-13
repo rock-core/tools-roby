@@ -179,7 +179,6 @@ module Roby
                     raise e, "#{e.message}, running roby-log repair "\
                              "might repair the file", e.backtrace
                 end
-
             rescue Exception => e # rubocop:disable Lint/RescueException
                 raise e, "#{e.message}, running roby-log repair "\
                          "might repair the file", e.backtrace
