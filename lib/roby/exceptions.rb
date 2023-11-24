@@ -332,14 +332,20 @@ module Roby
         message.split("\n")
     end
 
-    def self.format_exception(exception, with_original_exceptions: true)
+    def self.format_exception(exception, with_original_exceptions: true, with_backtrace: false)
         message = format_one_exception(exception)
-        if with_original_exceptions && exception.respond_to?(:original_exceptions)
-            exception.original_exceptions.each do |original_e|
-                message.concat(format_exception(original_e, with_original_exceptions: true))
-            end
+        message += format_backtrace(exception) if with_backtrace
+        return message unless with_original_exceptions
+        return message unless exception.respond_to?(:original_exceptions)
+
+        original_exception_msgs = exception.original_exceptions.flat_map do |original_e|
+            format_exception(
+                original_e,
+                with_original_exceptions: true,
+                with_backtrace: with_backtrace
+            )
         end
-        message
+        message + original_exception_msgs
     end
 
     LOG_SYMBOLIC_TO_NUMERIC = Array[
