@@ -196,6 +196,35 @@ module Roby
                 assert_equal expected_edges, dg.each_edge.to_set
             end
 
+            describe "#freeze" do
+                it "does not allow adding a new source vertex" do
+                    dg = create_graph
+                    dg.freeze
+                    assert_raises(FrozenError) { dg.add_edge(1, 3, 5) }
+                end
+
+                it "does not allow adding a new target vertex" do
+                    dg = create_graph
+                    dg.add_edge(1, 2, 2)
+                    dg.freeze
+                    assert_raises(FrozenError) { dg.add_edge(1, 3, 5) }
+                end
+
+                it "does not allow adding a new edge between existing vertices" do
+                    dg = create_graph
+                    dg.add_edge(1, 2, 2)
+                    dg.add_edge(2, 3, 2)
+                    dg.freeze
+                    assert_raises(FrozenError) { dg.add_edge(1, 3, 5) }
+                end
+
+                it "can be called more than once" do
+                    dg = create_graph
+                    dg.freeze
+                    dg.freeze
+                end
+            end
+
             describe "#difference" do
                 attr_reader :a, :b, :v_a, :v_b, :mapping
 
