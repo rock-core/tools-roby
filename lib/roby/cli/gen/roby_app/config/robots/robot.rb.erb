@@ -48,6 +48,14 @@ end
 Robot.controller do
 end
 
+# Block evaluated right before execution, but before the cleanup
+#
+# In particular, this is executed at teardown between each tests. Mostly,
+# create things here that are needed only during execution. Anything done here
+# must be undone in the shutdown block
+Robot.prepare do
+end
+
 # Block evaluated right after the execution, but before the cleanup
 #
 # In particular, this is executed at teardown between each tests. Mostly, undo
