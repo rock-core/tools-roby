@@ -1666,6 +1666,30 @@ module Roby
                 assert_kind_of interface_m::SomeAction, task.current_task_child
             end
         end
+
+        describe "a finalized task" do
+            attr_reader :task
+
+            before do
+                plan.add(@task = Roby::Task.new)
+                execute { plan.remove_task(task) }
+            end
+
+            it "raises NoMethodError when a non-existent _child handler is called" do
+                e = assert_raises(NoMethodError) { task.some_child }
+                assert_equal :some_child, e.name
+            end
+
+            it "returns false when respond_to? is called on a _child handler" do
+                plan.add(task = Roby::Task.new)
+                execute { plan.remove_task(task) }
+                refute task.respond_to?(:some_child)
+            end
+
+            it "has access to relation-related methods" do
+                assert_equal [], task.each_out_neighbour(TaskStructure::Dependency).to_a
+            end
+        end
     end
 end
 

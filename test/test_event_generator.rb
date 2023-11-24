@@ -1641,5 +1641,18 @@ module Roby
                 refute event.pending?
             end
         end
+
+        describe "a finalized event" do
+            attr_reader :event
+
+            before do
+                plan.add(@event = EventGenerator.new)
+                execute { plan.remove_free_event(event) }
+            end
+
+            it "can use relation methods" do
+                event.each_out_neighbour(EventStructure::Forwarding).to_a
+            end
+        end
     end
 end
