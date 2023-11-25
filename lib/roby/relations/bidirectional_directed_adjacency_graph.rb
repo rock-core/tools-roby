@@ -413,12 +413,14 @@ module Roby
             end
 
             def freeze
-                @vertices_dict.each_value do |out_e, in_e|
-                    out_e.freeze
-                    in_e.freeze
-                end
-                @vertices_dict.freeze
-                @edge_info_map.freeze
+                return if frozen?
+
+                @forward_edges_with_info.transform_values!(&:freeze)
+                @forward_edges_with_info.freeze
+                @backward_edges.transform_values!(&:freeze)
+                @backward_edges.freeze
+
+                super
             end
 
             # Returns a set of removed edges and a set of new edges between elements

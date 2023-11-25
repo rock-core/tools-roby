@@ -99,8 +99,10 @@ module Roby
         attr_predicate :pending?, true
 
         def plan=(plan)
+            null = self.plan&.null_event_relation_graphs
             super
-            @relation_graphs = plan&.event_relation_graphs
+            @relation_graphs =
+                plan&.event_relation_graphs || null || @relation_graphs
         end
 
         # call-seq:

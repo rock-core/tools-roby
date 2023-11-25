@@ -103,8 +103,18 @@ module Roby
 
             @graph_observer = graph_observer
             create_relations
+            create_null_relations
 
             super()
+        end
+
+        def create_null_relations
+            @null_task_relation_graphs, @null_event_relation_graphs =
+                self.class.instanciate_relation_graphs(graph_observer: graph_observer)
+            @null_task_relation_graphs.freeze
+            @null_task_relation_graphs.each_value(&:freeze)
+            @null_event_relation_graphs.freeze
+            @null_event_relation_graphs.each_value(&:freeze)
         end
 
         def create_relations
@@ -121,6 +131,7 @@ module Roby
 
         def refresh_relations
             create_relations
+            create_null_relations
         end
 
         def self.instanciate_relation_graphs(graph_observer: nil)
@@ -159,11 +170,21 @@ module Roby
         # @see each_task_relation_graph
         attr_reader :task_relation_graphs
 
+        # A set of empty graphs that match {#task_relation_graphs}
+        #
+        # Used for finalized tasks
+        attr_reader :null_task_relation_graphs
+
         # The graphs that make event relations, formatted as required by
         # {Relations::DirectedRelationSupport#relation_graphs}
         #
         # @see each_event_relation_graph
         attr_reader :event_relation_graphs
+
+        # A set of empty graphs that match {#event_relation_graphs}
+        #
+        # Used for finalized events
+        attr_reader :null_event_relation_graphs
 
         # Enumerate all graphs (event and tasks) that form this plan
         def each_relation_graph(&block)

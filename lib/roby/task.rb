@@ -405,10 +405,12 @@ module Roby
         end
 
         def plan=(new_plan) # :nodoc:
+            null = self.plan&.null_task_relation_graphs
+
             super
 
             @relation_graphs =
-                plan&.task_relation_graphs
+                plan&.task_relation_graphs || null || @relation_graphs
             for ev in bound_events.each_value
                 ev.plan = plan
             end
