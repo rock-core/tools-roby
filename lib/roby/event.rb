@@ -11,7 +11,7 @@ module Roby
 
         def initialize(generator, propagation_id, context, time = Time.now)
             @generator, @propagation_id, @context, @time = generator, propagation_id, context.freeze, time
-            @sources = Set.new
+            @sources = []
         end
 
         def plan
@@ -65,7 +65,7 @@ module Roby
 
         # Sets the sources. See #sources
         def sources=(new_sources) # :nodoc:
-            @sources = Set.new
+            @sources = []
             add_sources(new_sources)
         end
 
