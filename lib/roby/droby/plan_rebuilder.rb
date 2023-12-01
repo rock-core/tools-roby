@@ -275,11 +275,27 @@ module Roby
                 event.finalization_time = time
                 if !plan.garbaged_events.include?(event) && event.root_object?
                     plan.finalized_events << event
-                    plan.remove_free_event(event)
+                    plan.at_cycle_end.remove_free_event << event
+                end
+
+                plan.at_cycle_end.deregister_object << event
+                [plan, event]
+            end
+
+            def apply_at_cycle_end
+                plan.at_cycle_end.remove_free_event.each do |ev|
+                    plan.remove_free_event(ev)
+                end
+                plan.at_cycle_end.remove_task.each do |task|
+                    plan.remove_task(task)
+                end
+                plan.at_cycle_end.deregister_object.each do |obj|
+                    object_manager.deregister_object(obj)
+                end
+                unless plan.at_cycle_end.remove_free_event.empty? &&
+                       plan.at_cycle_end.remove_task.empty?
                     announce_structure_update
                 end
-                object_manager.deregister_object(event)
-                [plan, event]
             end
 
             def finalized_task(time, plan_id, task)
@@ -288,10 +304,9 @@ module Roby
                 task.finalization_time = time
                 unless plan.garbaged_tasks.include?(task)
                     plan.finalized_tasks << task
-                    plan.remove_task(task)
-                    announce_structure_update
+                    plan.at_cycle_end.remove_task << task
                 end
-                object_manager.deregister_object(task)
+                plan.at_cycle_end.deregister_object << task
                 [plan, task]
             end
 
@@ -389,6 +404,7 @@ module Roby
                 @state = timings.delete(:state)
                 @stats = timings
                 @start_time ||= self.cycle_start_time
+                apply_at_cycle_end
                 announce_state_update
             end
 
