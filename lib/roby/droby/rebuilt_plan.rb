@@ -7,16 +7,6 @@ module Roby
         # It stores additional event propagation information extracted from the
         # stream
         class RebuiltPlan < Roby::Plan
-            AtCycleEnd =
-                Struct.new :remove_free_event, :remove_task, :deregister_object do
-                    def clear
-                        self.remove_free_event = []
-                        self.remove_task = []
-                        self.deregister_object = []
-                    end
-                end
-            # Set of operations that are scheduled to be done at cycle end
-            attr_reader :at_cycle_end
             # The set of tasks that have been finalized since the last call to
             # #clear_integrated
             attr_reader :finalized_tasks
@@ -69,7 +59,6 @@ module Roby
                 @failed_to_start = []
                 @propagated_exceptions = []
                 @scheduler_states = []
-                @at_cycle_end = AtCycleEnd.new([], [], [])
             end
 
             def merge(plan)

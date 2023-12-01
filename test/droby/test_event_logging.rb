@@ -226,7 +226,7 @@ module Roby
                     assert rebuilt_plan.garbaged_events.empty?
                 end
 
-                it "remove a non-garbaged event immediately" do
+                it "remove a non-garbaged task immediately" do
                     local_plan.add(event = EventGenerator.new)
                     process_logged_events
                     r_event = rebuilt_plan.free_events.first
