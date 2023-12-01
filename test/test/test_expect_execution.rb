@@ -69,6 +69,83 @@ module Roby
                     assert_equal expected_ret, ret
                 end
             end
+
+            it "properly formats an exception "\
+               "when it is the reason of an unachievable message" do
+                plan.add(task = Tasks::Simple.new)
+                exception =
+                    begin
+                        raise "something"
+                    rescue RuntimeError => e
+                        e
+                    end
+
+                begin
+                    expect_execution { task.success_event.unreachable!(exception) }
+                        .to { emit task.success_event }
+                rescue ExecutionExpectations::Unmet => unmet # rubocop:disable Lint/SuppressedException,Naming/RescuedExceptionsVariableName
+                end
+
+                expected = <<~MSG
+                    1 unmet expectations
+                    Roby::Tasks::Simple<id:XX>(id:XX)/success should be emitted, but it did not because of something (RuntimeError)
+
+                      test/test/test_expect_execution.rb:XXX:in `block (2 levels) in <module:Test>'
+                MSG
+
+                assert_error_message_start_with(expected, unmet.message)
+            end
+
+            it "properly formats an exception when it is the context of an event "\
+               "that is the reason the expectation is unmet" do
+                plan.add(task = Tasks::Simple.new)
+                task.poll { raise "something" }
+                begin
+                    expect_execution { task.start! }
+                        .to { emit task.success_event }
+                rescue ExecutionExpectations::Unmet => unmet # rubocop:disable Lint/SuppressedException,Naming/RescuedExceptionsVariableName
+                end
+
+                expected = <<~MSG
+                    1 unmet expectations
+                    Roby::Tasks::Simple<id:XX>(id:XX)/success should be emitted, but it did not because of event 'internal_error' emitted at [XX] from
+                      Roby::Tasks::Simple<id:XX>
+                        no owners
+                        arguments:
+                          id:XX
+                      Roby::CodeError: user code raised an exception Roby::Tasks::Simple<id:XX>
+                        no owners
+                        arguments:
+                          id:XX
+                      Roby::CodeError: user code raised an exception Roby::Tasks::Simple<id:XX>
+                        no owners
+                        arguments:
+                          id:XX
+                      something (RuntimeError)
+
+                        test/test/test_expect_execution.rb:XXX:in `block (3 levels) in <module:Test>'
+                        test/test/test_expect_execution.rb:XXX:in `block (2 levels) in <module:Test>'
+                MSG
+
+                assert_error_message_start_with(expected, unmet.message)
+            end
+
+            def normalize_error_message(msg)
+                msg.gsub(/id:\s*"?\d+"?/, "id:XX")
+                   .gsub(/\[[\d:.]* @\d+\]/, "[XX]")
+                   .gsub(/^\s+$/, "")
+                   .gsub(/\.rb:\d+:/, ".rb:XXX:")
+                   .gsub(%r{/.*tools/roby/}, "") # paths may be absolute or relative
+            end
+
+            def assert_error_message_start_with(expected, actual)
+                actual = normalize_error_message(actual)
+                actual_dbg = actual.split("\n").map(&:inspect).join("\n")
+                expected_dbg = expected.split("\n").map(&:inspect).join("\n")
+                assert actual.start_with?(expected),
+                       "expected\n```\n#{actual_dbg}\n```\nto start with\n"\
+                       "```\n#{expected_dbg}\n```"
+            end
         end
     end
 end
