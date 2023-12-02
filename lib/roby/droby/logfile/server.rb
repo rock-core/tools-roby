@@ -83,8 +83,12 @@ module Roby
 
                         # Incoming connections
                         if readable_sockets && !readable_sockets.empty?
-                            socket = server.accept
-                            @pending_data[socket] = []
+                            socket = Thread.handle_interrupt(Interrupt => :never) do
+                                s = server.accept
+                                @pending_data[s] = []
+                                s
+                            end
+
                             socket.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, true)
                             socket.fcntl(Fcntl::FD_CLOEXEC, 1)
 
