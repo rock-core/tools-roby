@@ -124,7 +124,6 @@ module Roby
                       something (RuntimeError)
 
                         test/test/test_expect_execution.rb:XXX:in `block (3 levels) in <module:Test>'
-                        test/test/test_expect_execution.rb:XXX:in `block (2 levels) in <module:Test>'
                 MSG
 
                 assert_error_message_start_with(expected, unmet.message)
