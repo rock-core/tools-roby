@@ -164,9 +164,11 @@ module Roby
                     )
                     client = DRoby::Logfile::Client.new("localhost")
                     stop_log_server_thread
-                    select([client.socket], nil, nil, 5)
-                    assert_raises(Errno::ECONNRESET) do
-                        client.socket.read_nonblock(1)
+                    assert select([client.socket], nil, nil, 5)
+                    assert_raises(Errno::ECONNRESET, EOFError) do
+                        loop do
+                            client.socket.read_nonblock(1024)
+                        end
                     end
                     client.close
                 end
