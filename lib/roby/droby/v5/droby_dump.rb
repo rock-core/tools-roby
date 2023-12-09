@@ -562,7 +562,7 @@ module Roby
                         end
 
                         unless fresh_proxy
-                            task.arguments.merge!(peer.local_object(arguments))
+                            task.arguments.force_merge!(peer.local_object(arguments))
                         end
                         task.instance_variable_set("@data", peer.local_object(data))
                     end
