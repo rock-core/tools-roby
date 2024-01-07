@@ -762,6 +762,7 @@ module Roby
             @created_log_base_dirs = []
             @additional_model_files = []
             @restarting = false
+            @running = false
 
             @shell_interface = nil
             @shell_interface_host = nil

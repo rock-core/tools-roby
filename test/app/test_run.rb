@@ -61,6 +61,32 @@ module Roby
                 end
             end
 
+            it "stops on CTRL+C" do
+                cmd = run_roby "run"
+                run_roby_and_stop "wait"
+                cmd.send_signal "INT"
+                cmd.wait
+            end
+
+            it "properly brings the system down on CTRL+C" do
+                write_file "config/robots/somename.rb", <<~DISPLAY
+                    require "roby/tasks/simple"
+                    Robot.controller do
+                        task = Roby::Tasks::Simple.new
+                        task.start_event.on { puts "TASK STARTED" }
+                        task.stop_event.on { puts "TASK STOPPED" }
+                        Roby.plan.add_mission_task(task)
+                        task.start!
+                    end
+                DISPLAY
+
+                cmd = run_roby "run -rsomename -c"
+                wait_for_output(cmd, :stdout) { |out| out.match?(/TASK STARTED/) }
+                cmd.send_signal "INT"
+                cmd.stop
+                assert_match(/TASK STOPPED/, cmd.stdout)
+            end
+
             it "raises if configuration files exist in config/robots/ "\
                "and the robot name does not match one" do
                 cmd = run_roby_and_stop "run -r somename", fail_on_error: false
