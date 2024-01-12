@@ -84,6 +84,18 @@ module Roby
                              "(#{cmd.exit_status})\n-- STDOUT\n#{cmd.stdout}\n"\
                              "-- STDERR\n#{cmd.stderr}"
             end
+
+            def wait_for_output(cmd, channel, timeout: 5)
+                deadline = Time.now + timeout
+                while Time.now < deadline
+                    if yield(cmd.send(channel))
+                        assert(true) # To account for the assertion
+                        return
+                    end
+                end
+
+                flunk("timed out waiting for #{channel} to match in #{cmd}")
+            end
         end
     end
 end

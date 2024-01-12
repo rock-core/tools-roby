@@ -762,6 +762,7 @@ module Roby
             @created_log_base_dirs = []
             @additional_model_files = []
             @restarting = false
+            @running = false
 
             @shell_interface = nil
             @shell_interface_host = nil
@@ -2089,47 +2090,28 @@ module Roby
             end
         end
 
-        def run(report_on_exception: true, thread_priority: 0, &block)
+        def run(thread_priority: 0, &block)
             prepare
 
             engine_config = self.engine
             engine = self.plan.execution_engine
+            engine.thread = Thread.current
             plugins = self.plugins.map { |_, mod| mod if mod.respond_to?(:start) || mod.respond_to?(:run) }.compact
             engine.once do
                 run_plugins(plugins, &block)
             end
-            @thread = Thread.new do
-                t = Thread.current
-                if t.respond_to?(:report_on_exception=)
-                    t.report_on_exception = report_on_exception
-                end
-                t.priority = thread_priority
-                engine.run cycle: engine_config["cycle"] || 0.1
-            end
-            join
-        ensure
-            shutdown
-            @thread = nil
-        end
 
-        def join
-            @thread.join
-        rescue Exception # rubocop:disable Lint/RescueException
-            if @thread.alive? && execution_engine.running?
-                if execution_engine.forced_exit?
-                    raise
-                else
-                    execution_engine.quit
-                    retry
-                end
-            else
-                raise
-            end
+            Thread.current.priority = thread_priority
+            @running = true
+            engine.run cycle: engine_config["cycle"] || 0.1
+        ensure
+            @running = false
+            shutdown
         end
 
         # Whether we're inside {#run}
         def running?
-            !!@thread
+            @running
         end
 
         # Restarts the same app

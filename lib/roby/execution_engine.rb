@@ -2245,6 +2245,9 @@ module Roby
             @thread.name = "MAIN"
 
             @cycle_length = cycle
+            trap("INT") do
+                interrupt
+            end
             event_loop
         ensure
             self.running = false
@@ -2274,6 +2277,7 @@ module Roby
             end
             @quit = 0
             @allow_propagation = true
+            trap("INT", "DEFAULT")
         end
 
         attr_reader :last_stop_count # :nodoc:
@@ -2340,8 +2344,14 @@ module Roby
             @cycle_index = 0
 
             exit_state = EventLoopExitState.new(0, Time.now, nil)
+            @interrupted = false
             loop do
                 GC::Profiler.enable if profile_gc?
+
+                if @interrupted
+                    @interrupted = false
+                    event_loop_handle_interrupt(exit_state)
+                end
 
                 if quitting?
                     return if forced_exit?
@@ -2353,8 +2363,6 @@ module Roby
                 end
 
                 GC::Profiler.disable if profile_gc?
-            rescue Interrupt
-                event_loop_handle_interrupt(exit_state)
             rescue Exception => e
                 if quitting?
                     fatal "Execution thread FORCEFULLY quitting "\
@@ -2507,6 +2515,10 @@ module Roby
         # True if the control thread is currently quitting
         def forced_exit?
             @quit > 1
+        end
+
+        def interrupt
+            @interrupted = true
         end
 
         # Make control quit properly

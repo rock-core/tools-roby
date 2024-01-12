@@ -917,7 +917,7 @@ module Roby
                     if (t = Thread.current).respond_to?(:report_on_exception=)
                         t.report_on_exception = report_on_exception
                     end
-                    @app.run(report_on_exception: report_on_exception)
+                    @app.run
                 end
                 Thread.pass until @run_thread.stop?
                 @run_sync.wait
@@ -931,14 +931,6 @@ module Roby
                 @run_thread = nil
             end
 
-            it "quits the engine on exception" do
-                start_run_thread do
-                    assert @app.execution_engine.quitting?
-                end
-                @run_thread.raise Interrupt
-                join_run_thread
-            end
-
             it "handles properly if the engine's run method raises unexpectedly" do
                 error = Class.new(RuntimeError).exception("test")
                 flexmock(@app.execution_engine).should_receive(:run)
@@ -947,7 +939,7 @@ module Roby
                     if (t = Thread.current).respond_to?(:report_on_exception=)
                         t.report_on_exception = false
                     end
-                    @app.run(report_on_exception: false)
+                    @app.run
                 end
                 assert_raises(error.class) do
                     run_thread.join
