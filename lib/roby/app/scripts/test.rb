@@ -121,6 +121,10 @@ exception = Roby.display_exception do
                 self_files.sort + dependent_files.sort
             end
 
+            test_files = test_files.flat_map do |arg|
+                Dir.enum_for(:glob, arg).to_a
+            end
+
             if test_files.empty?
                 test_files = discover_test_files(all: all, only_self: only_self, base_dir: base_dir)
             elsif force_discovery
@@ -155,7 +159,7 @@ exception = Roby.display_exception do
                 exit 0
             end
 
-            test_files.each do |arg|
+            test_files.sort.each do |arg|
                 next if excluded_patterns.any? { |pattern| File.fnmatch?(pattern, arg) }
 
                 require arg
