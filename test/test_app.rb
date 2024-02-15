@@ -31,6 +31,55 @@ module Roby
                 app.search_path = [app_dir]
             end
 
+            describe "#app_dir" do
+                before do
+                    @app = Roby::Application.new
+                    @root = make_tmpdir
+                end
+
+                it "returns the current app_dir if set" do
+                    app.app_dir = @root
+                    assert_equal @root, app.app_dir
+                end
+
+                it "lets the caller reset the app dir" do
+                    app.app_dir = @root
+                    assert_equal @root, app.app_dir
+                    app.app_dir = nil
+                    assert_nil app.app_dir
+                end
+            end
+
+            describe "#app_path" do
+                before do
+                    @app = Roby::Application.new
+                    @root = make_tmpdir
+                end
+
+                it "returns nil if the app dir is not set" do
+                    assert_nil @app.app_path
+                end
+
+                it "returns the value of app_dir converted to a pathname" do
+                    @app.app_dir = @root
+                    assert_equal Pathname(@root), @app.app_path
+                end
+
+                it "returns nil if the app_dir has been reset" do
+                    @app.app_dir = @root
+                    assert_equal Pathname(@root), @app.app_path
+                    @app.app_dir = nil
+                    assert_nil @app.app_path
+                end
+
+                it "returns the new value of app_dir if it has been changed" do
+                    @app.app_dir = @root
+                    assert_equal Pathname(@root), @app.app_path
+                    @app.app_dir = new_root = make_tmpdir
+                    assert_equal Pathname(new_root), @app.app_path
+                end
+            end
+
             describe ".guess_app_dir" do
                 after do
                     ENV.delete("ROBY_APP_DIR")
