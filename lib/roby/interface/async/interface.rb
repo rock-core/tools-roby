@@ -247,7 +247,7 @@ module Roby
 
                     finalized_monitors = {}
                     finalized_jobs = []
-                    client.job_progress_queue.each do |id, (job_state, job_id, job_name, *args)|
+                    client.job_progress_queue.each do |(id, (job_state, job_id, job_name, *args))|
                         new_job_listeners.each do |listener|
                             next if listener.seen_job_with_id?(job_id)
 
@@ -285,7 +285,7 @@ module Roby
                     end
                     client.job_progress_queue.clear
 
-                    client.exception_queue.each do |id, (kind, exception, tasks, job_ids)|
+                    client.exception_queue.each do |(id, (kind, exception, tasks, job_ids))|
                         job_ids.each do |job_id|
                             if monitors = job_monitors[job_id]
                                 monitors.dup.each do |m|

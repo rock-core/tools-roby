@@ -1222,7 +1222,7 @@ module Roby
             if on_available
                 plugins = available_plugins.map { |name, _, mod, _| [name, mod] }
             end
-            plugins.each do |_, mod|
+            plugins.each do |(_, mod)|
                 yield(mod)
             end
         end
@@ -1501,7 +1501,7 @@ module Roby
         def log_read_metadata
             dir = begin
                 log_current_dir
-                  rescue ArgumentError # rubocop:disable Lint/SuppressedException
+            rescue ArgumentError # rubocop:disable Lint/SuppressedException
             end
 
             if dir && File.exist?(File.join(dir, "info.yml"))

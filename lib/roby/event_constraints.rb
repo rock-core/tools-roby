@@ -788,9 +788,9 @@ module Roby
                 event1 = task.event(predicates[1].event_name)
 
                 if event0.unreachable?
-                    (!predicates[0].evaluate(task) || # stays false as pred[0] can't emit
-                     evaluate(task) || # stays true as pred[0] can't emit
-                     predicates[1].static?(task)) # pred1 can't change value
+                    !predicates[0].evaluate(task) || # stays false as pred[0] can't emit
+                        evaluate(task) || # stays true as pred[0] can't emit
+                        predicates[1].static?(task) # pred1 can't change value
                 elsif event1.unreachable?
                     !evaluate(task)
                 end
@@ -866,7 +866,7 @@ module Roby
                     return true unless evaluate(task)
 
                     # Stays whatever it is if predicate1 is static as well
-                    return true if predicates[1].static?(task)
+                    true if predicates[1].static?(task)
                 elsif event1.unreachable?
                     # Stay true if it is true as event1 can't emit
                     #

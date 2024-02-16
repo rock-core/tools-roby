@@ -186,8 +186,8 @@ module Roby
                     add_missing_cycles(cycle - last_cycle - 1)
                 end
                 needs_snapshot =
-                    (plan_rebuilder.has_structure_updates? ||
-                     plan_rebuilder.has_event_propagation_updates?)
+                    plan_rebuilder.has_structure_updates? ||
+                    plan_rebuilder.has_event_propagation_updates?
                 if snapshot && needs_snapshot
                     append_to_history
                 end
@@ -227,8 +227,8 @@ module Roby
                     plan_rebuilder.process_one_cycle(data)
                     if block_given?
                         needs_snapshot =
-                            (plan_rebuilder.has_structure_updates? ||
-                             plan_rebuilder.has_event_propagation_updates?)
+                            plan_rebuilder.has_structure_updates? ||
+                            plan_rebuilder.has_event_propagation_updates?
                         yield(needs_snapshot, data)
                     end
                     plan_rebuilder.clear_integrated

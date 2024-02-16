@@ -1983,7 +1983,7 @@ Style/IfUnlessModifier:
 # Offense count: 8
 # Rubocop 1.50
 # Lint/MissingSuper:
-Style/MethodMissingSuper:
+Lint/MissingSuper:
   Exclude:
     - 'lib/roby/app/scripts/shell.rb'
     - 'lib/roby/cli/gen/helpers.rb'
@@ -2298,5 +2298,5 @@ Style/WhileUntilModifier:
     - 'test/test_execution_engine.rb'
 
 # Rubocop 1.50
-# Style/OptionalBooleanParameter:
-#   Enabled: false
+Style/OptionalBooleanParameter:
+  Enabled: false
