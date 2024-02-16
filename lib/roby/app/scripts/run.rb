@@ -35,6 +35,10 @@ options = OptionParser.new do |opt|
         app.log_dir = dir
         app.log_create_current = false
     end
+    opt.on "--interface-fd=FD", Integer,
+           "file descriptor to use for the interface server" do |fd|
+        app.shell_interface_fd = fd
+    end
     opt.on "--port=PORT", Integer, "the interface port" do |port|
         app.shell_interface_port = port
     end

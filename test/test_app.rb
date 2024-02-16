@@ -310,18 +310,15 @@ module Roby
         end
 
         describe "shell interface setup" do
-            it "binds the shell interface to the value specified in #shell_interface_host" do
-                flexmock(::TCPServer).should_receive(:new).with("127.0.0.1", Interface::DEFAULT_PORT).pass_thru
+            before do
+                app.shell_interface_port = 0
+            end
+
+            it "binds the shell interface to the configured host and port" do
+                flexmock(::TCPServer).should_receive(:new).with("127.0.0.1", 0).pass_thru
                 app.shell_interface_host = "127.0.0.1"
                 app.setup_shell_interface
                 assert_equal "127.0.0.1", app.shell_interface.ip_address
-                roby_app_call_interface
-            end
-            it "starts the shell interface on the port specified by #shell_interface_port" do
-                flexmock(::TCPServer).should_receive(:new).with(nil, 0).pass_thru
-                flexmock(Robot).should_receive(:info).with("shell interface started on port 0").once
-                app.shell_interface_port = 0
-                app.setup_shell_interface
                 roby_app_call_interface(port: app.shell_interface.ip_port)
             end
             it "refuses to start a shell interface if one is already setup" do

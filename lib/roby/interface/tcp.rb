@@ -31,15 +31,15 @@ module Roby
 
             # Creates a new interface server on the given port
             #
-            # @param [Integer] port
-            def initialize(app, host: nil, port: Roby::Interface::DEFAULT_PORT)
+            # @param [String] host the host to bind the TCP server on
+            # @param [Integer] port the port to listen on
+            # @param [Integer,nil] server_fd a file descriptor for a TCP server that
+            #   should be used as-is. If set, it supersedes both host and port
+            def initialize(app, host: nil, port: DEFAULT_PORT, server_fd: nil)
                 @app = app
                 @interface = Interface.new(app)
                 @server =
-                    begin ::TCPServer.new(host, port)
-                    rescue TypeError
-                        raise Errno::EADDRINUSE, "#{port} already in use"
-                    end
+                    open_tcp_server(host: host, port: port, server_fd: server_fd)
                 @clients = []
                 @abort_on_exception = true
                 @accept_executor = Concurrent::CachedThreadPool.new
@@ -52,6 +52,15 @@ module Roby
                         on_error: :ignore
                     ) { process_pending_requests }
                 @warn_about_disconnection = false
+            end
+
+            def open_tcp_server(host: nil, port: DEFAULT_PORT, server_fd: nil)
+                return ::TCPServer.for_fd(server_fd) if server_fd
+
+                begin ::TCPServer.new(host, port)
+                rescue TypeError
+                    raise Errno::EADDRINUSE, "#{port} already in use"
+                end
             end
 
             def queue_accept_future

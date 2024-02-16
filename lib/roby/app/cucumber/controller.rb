@@ -15,14 +15,6 @@ module Roby
                 # @return [Integer,nil]
                 attr_reader :roby_pid
 
-                # The object used to communicate with the Roby instance
-                #
-                # It is set only after {#roby_connect} was called (or after a
-                # {#roby_start} whose connect parameter was set to true)
-                #
-                # @return [Roby::Interface::Client,nil]
-                attr_reader :roby_interface
-
                 # The set of jobs started by {#start_monitoring_job}
                 attr_reader :background_jobs
 
@@ -55,21 +47,37 @@ module Roby
 
                 # Whether we have a connection to the started Roby controller
                 def roby_connected?
-                    roby_interface.connected?
+                    @roby_interface&.connected?
                 end
 
+                # @param [Integer] port the port through which we should connect
+                #   to the Roby interface. Set to zero to pick a random port.
                 def initialize(
                     port: Roby::Interface::DEFAULT_PORT,
                     keep_running: (ENV["CUCUMBER_KEEP_RUNNING"] == "1"),
                     validation_mode: (ENV["ROBY_VALIDATE_STEPS"] == "1")
                 )
                     @roby_pid = nil
-                    @roby_interface = Roby::Interface::Async::Interface
-                                      .new("localhost", port: port)
+                    @roby_port = port
                     @background_jobs = []
                     @keep_running = keep_running
                     @validation_mode = validation_mode
                     @pending_actions = []
+                end
+
+                # The object used to communicate with the Roby instance
+                #
+                # @return [Roby::Interface::Async::Interface]
+                def roby_interface
+                    if @roby_port == 0
+                        raise InvalidState,
+                              "you passed port: 0 to .new, but has not yet "\
+                              "called #roby_start"
+                    end
+
+                    @roby_interface ||=
+                        Roby::Interface::Async::Interface
+                        .new("localhost", port: @roby_port)
                 end
 
                 # Start a Roby controller
@@ -96,6 +104,14 @@ module Roby
 
                     options = []
                     options << "--log-dir=#{log_dir}" if log_dir
+                    if @roby_port == 0
+                        server = TCPServer.new("localhost", 0)
+                        options << "--interface-fd=#{server.fileno}"
+                        spawn_options = spawn_options.merge({ server => server })
+                        @roby_port = server.local_address.ip_port
+                    else
+                        options << "--port=#{@roby_port}"
+                    end
                     @roby_pid = spawn(
                         Gem.ruby, File.join(Roby::BIN_DIR, "roby"), "run",
                         "--robot=#{robot_name},#{robot_type}",
@@ -107,17 +123,19 @@ module Roby
                         pgroup: 0,
                         **spawn_options
                     )
+                    server&.close
                     roby_connect if connect
                     roby_pid
                 end
 
                 # Try connecting to the Roby controller
                 #
-                # It sets {#roby_interface} on success
-                #
-                # @return [Roby::Interface::Client,nil] a valid interface object
-                #   if the connection was successful, and nil otherwise
+                # @return [Boolean] true if the interface is connected, false otherwise
                 def roby_try_connect
+                    # If in auto-port mode, we can't connect until roby_start
+                    # has been called
+                    return if @roby_port == 0
+
                     if !roby_interface.connecting? && !roby_interface.connected?
                         roby_interface.attempt_connection
                     end
