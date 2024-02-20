@@ -1012,9 +1012,10 @@ module Roby
                     end
 
                     out_r, out_w = IO.pipe
-                    pid = roby_app_spawn("run", "--set", "some.field=42", out: out_w)
+                    pid, iface =
+                        roby_app_start("run", "--set", "some.field=42", out: out_w)
                     out_w.close
-                    assert_roby_app_quits(pid)
+                    assert_roby_app_quits(pid, interface: iface)
                     output = out_r.read
                     assert_match(/TEST: 42/, output)
                 end
