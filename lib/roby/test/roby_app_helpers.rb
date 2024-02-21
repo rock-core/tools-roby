@@ -126,6 +126,7 @@ module Roby
 
                     sleep 0.01
                 end
+                flunk("app did not quit within #{timeout} seconds")
             end
 
             def assert_roby_app_has_job(
@@ -204,7 +205,7 @@ module Roby
                         ["--host", "localhost:#{port}"]
                     end
                 pid = spawn(
-                    roby_bin, command, *args, *port_args, chdir: app_dir, **options
+                    roby_bin, command, *port_args, *args, chdir: app_dir, **options
                 )
                 @spawned_pids << pid
                 pid

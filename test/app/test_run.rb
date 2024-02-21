@@ -197,8 +197,9 @@ module Roby
             it "loads files given as argument as model files" do
                 dir = roby_app_setup_single_script "is_running.rb"
                 out, = capture_subprocess_io do
-                    pid = roby_app_spawn("run", "scripts/is_running.rb", chdir: dir)
-                    assert_roby_app_exits(pid)
+                    pid, interface =
+                        roby_app_start("run", "scripts/is_running.rb", chdir: dir)
+                    assert_roby_app_quits(pid, interface: interface)
                 end
                 assert_match(/is_running: false/, out)
             end
@@ -217,8 +218,9 @@ module Roby
             it "loads the file just after a double dash as a controller file" do
                 dir = roby_app_setup_single_script "is_running.rb"
                 out, = capture_subprocess_io do
-                    pid = roby_app_spawn("run", "--", "scripts/is_running.rb", chdir: dir)
-                    assert_roby_app_exits(pid)
+                    pid, interface =
+                        roby_app_start("run", "--", "scripts/is_running.rb", chdir: dir)
+                    assert_roby_app_quits(pid, interface: interface)
                 end
                 assert_match(/is_running: true/, out)
             end
@@ -226,11 +228,11 @@ module Roby
             it "passes extra arguments to the controller file" do
                 dir = roby_app_setup_single_script "controller_arguments.rb"
                 out, = capture_subprocess_io do
-                    pid = roby_app_spawn(
+                    pid, interface = roby_app_start(
                         "run", "--", "scripts/controller_arguments.rb", "extra", "args",
                         chdir: dir
                     )
-                    assert_roby_app_exits(pid)
+                    assert_roby_app_quits(pid, interface: interface)
                 end
                 assert_match(/ARGV\[0\] = extra\nARGV\[1\] = args/, out)
             end
