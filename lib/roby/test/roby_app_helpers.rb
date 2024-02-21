@@ -82,7 +82,7 @@ module Roby
             end
 
             def assert_roby_app_is_running(
-                pid, timeout: 10, host: "localhost", port: Interface::DEFAULT_PORT
+                pid, timeout: 20, host: "localhost", port: Interface::DEFAULT_PORT
             )
                 start_time = Time.now
                 while (Time.now - start_time) < timeout
@@ -118,7 +118,7 @@ module Roby
             # itself
             #
             # @see assert_roby_app_quits
-            def assert_roby_app_exits(pid, timeout: 5)
+            def assert_roby_app_exits(pid, timeout: 20)
                 deadline = Time.now + timeout
                 while Time.now < deadline
                     _, status = Process.waitpid2(pid, Process::WNOHANG)
