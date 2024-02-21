@@ -82,7 +82,7 @@ module Roby
             end
 
             def assert_roby_app_is_running(
-                pid, timeout: 10, host: "localhost", port: Roby::Interface::DEFAULT_PORT
+                pid, timeout: 10, host: "localhost", port: Interface::DEFAULT_PORT
             )
                 start_time = Time.now
                 while (Time.now - start_time) < timeout
@@ -102,9 +102,9 @@ module Roby
             # Call the `quit` command and wait for the app to exit
             #
             # @see assert_roby_app_exits
-            def assert_roby_app_quits(pid, interface: nil)
+            def assert_roby_app_quits(pid, port: Interface::DEFAULT_PORT, interface: nil)
                 interface_owned = !interface
-                interface ||= assert_roby_app_is_running(pid)
+                interface ||= assert_roby_app_is_running(pid, port: port)
                 interface.quit
                 assert_roby_app_exits(pid)
             ensure

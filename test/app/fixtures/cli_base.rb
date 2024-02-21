@@ -6,6 +6,7 @@ class CLI < Roby::CLI::Base
     desc "cmd", "the command"
     option :robot
     option :controllers, type: :boolean, default: false
+    option :port, type: :numeric, default: Roby::Interface::DEFAULT_PORT
     def cmd
         setup_common
         app.log_server = false
