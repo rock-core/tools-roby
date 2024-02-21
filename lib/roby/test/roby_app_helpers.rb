@@ -186,7 +186,7 @@ module Roby
             end
 
             ROBY_PORT_COMMANDS = %w[run].freeze
-            ROBY_NO_INTERFACE_COMMANDS = %w[check].freeze
+            ROBY_NO_INTERFACE_COMMANDS = %w[check test].freeze
 
             # Spawn the roby app process
             #
