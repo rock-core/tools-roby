@@ -235,7 +235,10 @@ module Roby
         end
 
         # Allows to override the application base directory. See #app_dir
-        attr_writer :app_dir
+        def app_dir=(dir)
+            @app_path = nil
+            @app_dir = dir
+        end
 
         # @!method ignore_all_load_errors?
         # @!method ignore_all_load_errors=(flag)
@@ -306,7 +309,7 @@ module Roby
         end
 
         def app_path
-            @app_path ||= Pathname.new(app_dir)
+            @app_path ||= Pathname.new(app_dir) if app_dir
         end
 
         # The PID of the server that gives access to the log file
