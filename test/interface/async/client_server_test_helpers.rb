@@ -23,19 +23,21 @@ module Roby
                     Roby.app
                 end
 
-                def default_server_port
-                    Roby::Interface::DEFAULT_PORT + 1
+                def available_server_port
+                    server = ::TCPServer.new(nil, 0)
+                    port = server.local_address.ip_port
+                    server.close
+                    port
                 end
 
-                def create_server
-                    server = Roby::Interface::TCPServer.new(
-                        Roby.app, port: default_server_port)
+                def create_server(port: 0)
+                    server = Roby::Interface::TCPServer.new(Roby.app, port: port)
                     @interface_servers << server
                     server
                 end
 
-                def create_client(*args, port: default_server_port, **options, &block)
-                    interface = Interface.new(*args, port: default_server_port, **options, &block)
+                def create_client(*args, port:, **options, &block)
+                    interface = Interface.new(*args, port: port, **options, &block)
                     @interfaces << interface
                     interface
                 end

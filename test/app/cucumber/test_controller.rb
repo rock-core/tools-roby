@@ -11,7 +11,7 @@ module Roby
                 attr_reader :controller, :roby_app_dir, :roby_log_dir
 
                 before do
-                    @controller = Controller.new
+                    @controller = Controller.new(port: 0)
                     @roby_app_dir = make_tmpdir
                     @roby_log_dir = make_tmpdir
                     Dir.chdir(roby_app_dir) { CLI::GenMain.start(["app", "--quiet"]) }
@@ -38,10 +38,16 @@ module Roby
                     end
                 end
 
-                def roby_start(*args, log_dir: roby_log_dir, **options)
+                def roby_start(*args, log_dir: roby_log_dir, quiet: false, **options)
+                    redirection =
+                        if quiet
+                            { out: "/dev/null", err: "/dev/null" }
+                        else
+                            {}
+                        end
+
                     controller.roby_start(
-                        *args, out: "/dev/null", err: "/dev/null",
-                               log_dir: log_dir, **options
+                        *args, log_dir: log_dir, **redirection, **options
                     )
                 end
 

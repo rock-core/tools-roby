@@ -37,6 +37,13 @@ module Roby
                 super
             end
 
+            def roby_allocate_port
+                server = ::TCPServer.new(0)
+                server.local_address.ip_port
+            ensure
+                server&.close
+            end
+
             def run_command_and_stop(*args, fail_on_error: true)
                 cmd = run_command(*args)
                 cmd.stop

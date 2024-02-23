@@ -10,8 +10,9 @@ module Roby
 
             def validate_app_runs(*args)
                 run_roby_and_stop ["check", *args].join(" ")
-                roby_run = run_roby ["run", *args].join(" ")
-                run_roby_and_stop "quit --retry"
+                port = roby_allocate_port
+                roby_run = run_roby ["run", "--port=#{port}", *args].join(" ")
+                run_roby_and_stop "quit --retry --host=localhost:#{port}"
                 roby_run.stop
                 assert_command_finished_successfully roby_run
             end

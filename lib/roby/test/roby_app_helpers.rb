@@ -82,7 +82,7 @@ module Roby
             end
 
             def assert_roby_app_is_running(
-                pid, timeout: 10, host: "localhost", port: Roby::Interface::DEFAULT_PORT
+                pid, timeout: 20, host: "localhost", port: Interface::DEFAULT_PORT
             )
                 start_time = Time.now
                 while (Time.now - start_time) < timeout
@@ -99,15 +99,34 @@ module Roby
                 flunk "could not get a connection within #{timeout} seconds"
             end
 
-            def assert_roby_app_quits(pid, interface: nil)
+            # Call the `quit` command and wait for the app to exit
+            #
+            # @see assert_roby_app_exits
+            def assert_roby_app_quits(pid, port: Interface::DEFAULT_PORT, interface: nil)
                 interface_owned = !interface
-                interface ||= assert_roby_app_is_running(pid)
+                interface ||= assert_roby_app_is_running(pid, port: port)
                 interface.quit
-                _, status = Process.waitpid2(pid)
-                assert status.exited?
-                assert_equal 0, status.exitstatus
+                assert_roby_app_exits(pid)
             ensure
                 interface&.close if interface_owned
+            end
+
+            # Wait for the app to exit
+            #
+            # Unlike {#assert_roby_app_quits}, this method does not explicitly
+            # call quit or send a SIGINT signal. The app is expected to quit by
+            # itself
+            #
+            # @see assert_roby_app_quits
+            def assert_roby_app_exits(pid, timeout: 20)
+                deadline = Time.now + timeout
+                while Time.now < deadline
+                    _, status = Process.waitpid2(pid, Process::WNOHANG)
+                    return status if status
+
+                    sleep 0.01
+                end
+                flunk("app did not quit within #{timeout} seconds")
             end
 
             def assert_roby_app_has_job(
@@ -160,15 +179,34 @@ module Roby
                 dir
             end
 
+            def roby_app_allocate_interface_port
+                server = TCPServer.new(0)
+                server.local_address.ip_port
+            ensure
+                server&.close
+            end
+
+            ROBY_PORT_COMMANDS = %w[run].freeze
+            ROBY_NO_INTERFACE_COMMANDS = %w[check test].freeze
+
             # Spawn the roby app process
             #
             # @return [Integer] the app PID
-            def roby_app_spawn(*args, silent: false, **options)
+            def roby_app_spawn(command, *args, port: nil, silent: false, **options)
                 if silent
                     options[:out] ||= "/dev/null"
                     options[:err] ||= "/dev/null"
                 end
-                pid = spawn(roby_bin, *args, chdir: app_dir, **options)
+                port ||= roby_app_allocate_interface_port
+                port_args =
+                    if ROBY_PORT_COMMANDS.include?(command)
+                        ["--port", port.to_s]
+                    elsif !ROBY_NO_INTERFACE_COMMANDS.include?(command)
+                        ["--host", "localhost:#{port}"]
+                    end
+                pid = spawn(
+                    roby_bin, command, *port_args, *args, chdir: app_dir, **options
+                )
                 @spawned_pids << pid
                 pid
             end
@@ -177,9 +215,10 @@ module Roby
             #
             # @return [(Integer,Roby::Interface::Client)] the app PID and connected
             #   roby interface
-            def roby_app_start(*args, silent: false, **options)
-                pid = roby_app_spawn(*args, silent: silent, **options)
-                interface = assert_roby_app_is_running(pid)
+            def roby_app_start(*args, port: nil, silent: false, **options)
+                port ||= roby_app_allocate_interface_port
+                pid = roby_app_spawn(*args, port: port, silent: silent, **options)
+                interface = assert_roby_app_is_running(pid, port: port)
                 [pid, interface]
             end
 
@@ -187,10 +226,9 @@ module Roby
                 @spawned_pids << pid
             end
 
-            def roby_app_run(*args, silent: false, **options)
-                pid = roby_app_spawn(*args, silent: silent, **options)
-                _, status = Process.waitpid2(pid)
-                status
+            def roby_app_run(*args, port: nil, silent: false, **options)
+                pid = roby_app_spawn(*args, port: port, silent: silent, **options)
+                assert_roby_app_exits(pid)
             end
 
             def roby_app_create_logfile

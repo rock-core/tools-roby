@@ -722,12 +722,28 @@ module Roby
 
         # The host to which the shell interface server should bind
         #
+        # This is ignored if {#shell_interface_fd} is set
+        #
         # @return [String]
+        # @see shell_interface_host shell_interface_fd
         attr_accessor :shell_interface_host
+
         # The port on which the shell interface server should be
         #
+        # This is ignored if {#shell_interface_fd} is set
+        #
         # @return [Integer]
+        # @see shell_interface_host shell_interface_fd
         attr_accessor :shell_interface_port
+
+        # A file descriptor that should be used as-is for the interface server
+        #
+        # It supersedes the setting for {#shell_interface_port} and
+        # {#shell_interface_host}
+        #
+        # @return [Integer]
+        # @see shell_interface_host shell_interface_port
+        attr_accessor :shell_interface_fd
 
         # Whether an unexpected (non-comm-related) failure in the shell should
         # cause an abort
@@ -767,6 +783,7 @@ module Roby
             @shell_interface = nil
             @shell_interface_host = nil
             @shell_interface_port = Interface::DEFAULT_PORT
+            @shell_interface_fd = nil
             @shell_abort_on_exception = true
 
             @rest_interface = nil
@@ -2027,10 +2044,15 @@ module Roby
             end
 
             @shell_interface = Interface::TCPServer.new(
-                self, host: shell_interface_host, port: shell_interface_port
+                self,
+                host: shell_interface_host, port: shell_interface_port,
+                server_fd: shell_interface_fd
             )
             shell_interface.abort_on_exception = shell_abort_on_exception?
-            if shell_interface_port != Interface::DEFAULT_PORT
+            if shell_interface_fd
+                Robot.info "shell interface started on file descriptor "\
+                           "#{shell_interface_fd}"
+            elsif shell_interface_port != Interface::DEFAULT_PORT
                 Robot.info "shell interface started on port #{shell_interface_port}"
             else
                 Robot.debug "shell interface started on port #{shell_interface_port}"

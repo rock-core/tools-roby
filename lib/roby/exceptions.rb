@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "pp"
+
 module Roby
     class UserError < RuntimeError
         def user_error?

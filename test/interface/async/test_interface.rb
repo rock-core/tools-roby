@@ -103,7 +103,7 @@ module Roby
 
                 describe "reachability hooks" do
                     it "calls on_unreachable once when there are no remote server" do
-                        interface = create_client
+                        interface = create_client(port: available_server_port)
                         recorder.should_receive(:reachable).never
                         interface.on_reachable { recorder.reachable }
                         recorder.should_receive(:unreachable).once
@@ -150,7 +150,7 @@ module Roby
 
                 describe "#jobs" do
                     it "returns an empty array if not reachable" do
-                        client = create_client
+                        client = create_client(port: available_server_port)
                         assert_equal [], client.jobs
                     end
                     it "returns the current list of jobs" do
@@ -226,7 +226,8 @@ module Roby
                         end
                     end
                     it "calls the hook on the jobs received at connection time" do
-                        client = create_client(connect: false)
+                        port = available_server_port
+                        client = create_client(connect: false, port: port)
                         recorder.should_receive(:job)
                             .once
                             .with(lambda { |job|
@@ -236,7 +237,7 @@ module Roby
                                   })
                         client.on_job { |j| recorder.job(j) }
 
-                        server = create_server
+                        server = create_server(port: port)
                         flexmock(server.interface).should_receive(:jobs).and_return(1 => %w[a b c])
 
                         future = client.attempt_connection

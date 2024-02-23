@@ -35,6 +35,8 @@ module Roby
                         require "roby/app/debug"
                     end
 
+                    Roby.app.shell_interface_port = options[:port] if options[:port]
+
                     nil
                 end
 
