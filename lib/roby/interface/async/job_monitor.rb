@@ -92,7 +92,9 @@ module Roby
                 end
 
                 def action_task?
-                    task&.respond_to?(:action_model)
+                    return unless task
+
+                    task.arguments[:action_model]
                 end
 
                 # The job's action model
@@ -106,12 +108,12 @@ module Roby
                 #
                 # @return [String,nil]
                 def action_name
-                    task&.action_model&.name if action_task?
+                    task.arguments[:action_model]&.name if action_task?
                 end
 
                 # Returns the arguments that were passed to the action
                 def action_arguments
-                    task&.action_arguments if action_task?
+                    task.arguments[:action_arguments] if action_task?
                 end
 
                 # @api private
@@ -131,14 +133,21 @@ module Roby
                 # @api private
                 #
                 # Triggers {#on_exception} and {#on_planning_failed} hooks
-                def notify_exception(kind, exception)
-                    if exception.exception.kind_of?(PlanningFailedError)
-                        job_id = exception.exception.planning_task.arguments[:job_id]
+                #
+                # @param [Protocol::ExecutionException] execution_exception
+                def notify_exception(kind, execution_exception)
+                    planning_failed = (
+                        execution_exception.exception.class_name ==
+                            "Roby::PlanningFailedError"
+                    )
+
+                    if planning_failed
+                        job_id = execution_exception.source_task.arguments[:job_id]
                         if job_id && (job_id == self.job_id)
-                            run_hook :on_planning_failed, kind, exception
+                            run_hook :on_planning_failed, kind, execution_exception
                         end
                     end
-                    run_hook :on_exception, kind, exception
+                    run_hook :on_exception, kind, execution_exception
                 end
 
                 # @api private

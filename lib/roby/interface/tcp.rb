@@ -85,7 +85,9 @@ module Roby
             #
             # @return [Server]
             def create_server(socket)
-                Server.new(DRobyChannel.new(socket, false), interface)
+                channel = Channel.new(socket, false)
+                Protocol.setup_channel(channel)
+                Server.new(channel, interface)
             end
 
             # Number of clients connected to this server
@@ -166,12 +168,12 @@ module Roby
         # @param [Array<Symbol>] handshake see {Client#initialize}
         # @return [Client] the connected {Client} object
         def self.connect_with_tcp_to(host, port = DEFAULT_PORT,
-                marshaller: DRoby::Marshal.new(auto_create_plans: true),
                 handshake: %i[actions commands])
             require "socket"
             socket = TCPSocket.new(host, port)
             addr = socket.addr(true)
-            channel = DRobyChannel.new(socket, true, marshaller: marshaller)
+            channel = Channel.new(socket, true)
+            Protocol.setup_channel(channel)
             Client.new(channel, "#{addr[2]}:#{addr[1]}", handshake: handshake)
         rescue Errno::ECONNREFUSED, Errno::EADDRNOTAVAIL, Errno::ETIMEDOUT,
                Errno::EHOSTUNREACH, Errno::ENETUNREACH => e

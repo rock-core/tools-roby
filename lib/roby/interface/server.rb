@@ -5,7 +5,7 @@ module Roby
         # The server-side object allowing to access an interface (e.g. a Roby app)
         # through any communication channel
         class Server
-            # @return [DRobyChannel] the IO to the client
+            # @return [Channel] the IO to the client
             attr_reader :io
             # @return [Interface] the interface object we are giving access to
             attr_reader :interface
@@ -16,7 +16,7 @@ module Roby
             #   forwarded to our clients
             attr_predicate :notifications_enabled?, true
 
-            # @param [DRobyChannel] io a channel to the server
+            # @param [Channel] io a channel to the server
             # @param [Interface] interface the interface object we give remote
             #   access to
             def initialize(io, interface, main_thread: Thread.current)

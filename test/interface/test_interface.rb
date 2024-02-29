@@ -34,12 +34,15 @@ describe Roby::Interface::Interface do
 
     describe "#actions" do
         it "should list existing actions" do
-            actions = Roby::Actions::Interface.new_submodel do
+            actions = Roby::Actions::Interface.new_submodel(name: "I") do
                 describe "blablabla"
                 def an_action; end
             end
             app.planners << actions
-            assert_equal [actions.an_action.model], interface.actions
+
+            assert_equal 1, interface.actions.size
+            action = interface.actions.first
+            assert_equal actions.find_action_by_name(:an_action), action
         end
     end
 
@@ -755,6 +758,19 @@ describe Roby::Interface::Interface do
         it "returns the app's log dir" do
             flexmock(interface.app).should_receive(:log_dir).and_return(result = flexmock)
             assert_equal result, interface.log_dir
+        end
+    end
+
+    describe "#tasks_of_job" do
+        it "returns an empty array if the job does not exist" do
+            assert_equal [], interface.tasks_of_job(10)
+        end
+
+        it "returns the list of tasks that are involved in the job" do
+            plan.add(job = @job_task_m.new(job_id: 10))
+            job.depends_on(task = Roby::Task.new)
+
+            assert_equal Set[job, task], interface.tasks_of_job(10).to_set
         end
     end
 end
