@@ -143,7 +143,7 @@ module Roby
                             "known aliases: #{aliases.keys.join(', ')}"
                         )
                     end
-                    [robot_name, (type || robot_name)]
+                    [robot_name, type || robot_name]
                 end
             end
         end

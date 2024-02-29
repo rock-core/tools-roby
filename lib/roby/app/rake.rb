@@ -462,8 +462,7 @@ module Roby
                 # It defaults to Roby.app
                 attr_accessor :app
 
-                attr_accessor :robot_name
-                attr_accessor :robot_type
+                attr_accessor :robot_name, :robot_type
 
                 # The hash with extra configuration to be inserted into Conf
                 # for the tests we are running

@@ -91,7 +91,8 @@ parser = OptionParser.new do |opt|
 end
 
 minitest_path = $LOAD_PATH.resolve_feature_path("minitest").last
-Roby.app.filter_out_patterns << Regexp.new("^" + Regexp.quote(File.dirname(minitest_path)))
+minitest_path_rx = Regexp.quote(File.dirname(minitest_path))
+Roby.app.filter_out_patterns << Regexp.new("^#{minitest_path_rx}")
 
 test_files = parser.parse(ARGV)
 test_files.delete_if do |arg|

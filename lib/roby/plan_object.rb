@@ -77,7 +77,7 @@ module Roby
             #      kept).
             def self.handle_options(method, options, defaults)
                 options, other = Kernel.send("#{method}_options", options,
-                                             on_replace: (defaults[:on_replace] || :drop))
+                                             on_replace: defaults[:on_replace] || :drop)
 
                 unless %i[drop copy].include?(options[:on_replace])
                     raise ArgumentError, "wrong value for the :on_replace option. Expecting either :drop or :copy, got #{options[:on_replace]}"

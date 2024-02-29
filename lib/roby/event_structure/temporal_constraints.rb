@@ -34,7 +34,7 @@ module Roby
                     if found
                         false
                     else
-                        found = (deadline > time && generator == gen)
+                        found = deadline > time && generator == gen
                     end
                 end
                 found

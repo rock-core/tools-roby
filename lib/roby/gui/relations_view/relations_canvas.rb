@@ -208,7 +208,7 @@ module Roby
 
             def update_graphics(display, graphics_item)
                 new_state = GUI.task_state_at(self, display.current_time)
-                finalized = (finalization_time && finalization_time <= display.current_time)
+                finalized = finalization_time && finalization_time <= display.current_time
                 if displayed_state != [new_state, finalized]
                     if finalized
                         pen = Qt::Pen.new(TASK_PEN_COLORS[:finalized])
@@ -886,7 +886,7 @@ module Roby
                     if display_plan_bounding_boxes?
                         visible_objects << p
                     end
-                    p.emitted_events.each do |_, event|
+                    p.emitted_events.each do |(_, event)|
                         visible_objects << event.generator
                     end
                     p.propagated_events.each do |_, _, sources, to, _|
@@ -1018,7 +1018,7 @@ module Roby
                     end
                     base_priority = p.called_generators.size
 
-                    p.emitted_events.each do |_, event|
+                    p.emitted_events.each do |(_, event)|
                         generator = event.generator
                         flags[generator] |= EVENT_EMITTED
                     end
@@ -1093,7 +1093,7 @@ module Roby
                         end
                     end
                 end
-                arrows.each do |_, item|
+                arrows.each do |(_, item)|
                     item.visible = true
                 end
                 @free_arrows = last_arrows.values

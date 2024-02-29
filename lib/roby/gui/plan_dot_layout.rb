@@ -326,7 +326,7 @@ module Roby
                     bb.x -= graph_bb.x
                     bb.y  = graph_bb.y - bb.y - bb.height
                 end
-                object_pos.each do |id, pos|
+                object_pos.each do |(_, pos)|
                     pos.x -= graph_bb.x
                     pos.y = graph_bb.y - pos.y
                 end

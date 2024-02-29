@@ -363,7 +363,7 @@ module Roby
                 def each_original_exception
                     return enum_for(__method__) unless block_given?
 
-                    @expectations.each do |_, e|
+                    @expectations.each do |(_, e)|
                         yield(e) if e.kind_of?(Exception)
                     end
                 end

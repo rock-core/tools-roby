@@ -2459,8 +2459,8 @@ class TC_ExecutionEngine < Minitest::Test
                 execution_engine.execute do
                     raise ArgumentError
                 end
-                             rescue ArgumentError => e
-                                 e
+            rescue ArgumentError => e
+                e
             end
         end
 

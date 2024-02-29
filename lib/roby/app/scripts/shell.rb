@@ -99,7 +99,7 @@ Readline.completion_proc = lambda do |string|
             return actions.map { |act| "#{act.name}!" }
         end
     end
-    return []
+    []
 end
 
 class ShellEvalContext

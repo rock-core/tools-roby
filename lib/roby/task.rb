@@ -446,7 +446,7 @@ module Roby
             if @executable == true
                 true
             elsif @executable.nil?
-                (!abstract? && !partially_instanciated? && super)
+                !abstract? && !partially_instanciated? && super
             end
         end
 
@@ -1621,7 +1621,7 @@ module Roby
         #
         # @return [PlanService]
         def as_service
-            @service ||= (plan.find_plan_service(self) || PlanService.new(self))
+            @service ||= plan.find_plan_service(self) || PlanService.new(self)
         end
 
         def as_plan

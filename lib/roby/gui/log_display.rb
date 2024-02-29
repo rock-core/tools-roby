@@ -84,7 +84,7 @@ module Roby
             slots "updateWindowTitle()"
 
             def create_all_displays
-                self.class.available_displays.each do |user_name, klass_name|
+                self.class.available_displays.each do |(user_name, klass_name)|
                     create_display(klass_name)
                 end
             end
@@ -112,9 +112,9 @@ module Roby
                 end
 
                 klass = begin constant(name)
-                        rescue NameError => e
-                            Roby.warn "cannot create display of class #{name}: #{e}"
-                            return
+                rescue NameError => e
+                    Roby.warn "cannot create display of class #{name}: #{e}"
+                    return
                 end
 
                 log_display = self
@@ -211,7 +211,7 @@ module Roby
                 options["plugins"] = Roby.app.plugins.map(&:first)
                 save_widget_state(options["main"], self)
                 options["views"] = []
-                displays.each do |klass_name, views|
+                displays.each do |(_, views)|
                     views.each_with_index do |view, id|
                         next unless view
 

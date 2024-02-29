@@ -357,8 +357,10 @@ module Roby
         #
         def stable!(recursive = false, is_stable = true)
             @stable = is_stable
-            if recursive
-                @members.each { |name, object| object.stable!(recursive, is_stable) if object.respond_to?(:stable!) }
+            return unless recursive
+
+            @members.each do |(_, object)|
+                object.stable!(recursive, is_stable) if object.respond_to?(:stable!)
             end
         end
 
@@ -568,10 +570,10 @@ module Roby
         end
 
         FORBIDDEN_NAMES = %w{marshal each enum to}.map { |str| "^#{str}_" }
-        FORBIDDEN_NAMES_RX = /(?:#{FORBIDDEN_NAMES.join("|")})/.freeze
+        FORBIDDEN_NAMES_RX = /(?:#{FORBIDDEN_NAMES.join('|')})/.freeze
 
         NOT_OVERRIDABLE = %w{class} + instance_methods(false)
-        NOT_OVERRIDABLE_RX = /(?:#{NOT_OVERRIDABLE.join("|")})/.freeze
+        NOT_OVERRIDABLE_RX = /(?:#{NOT_OVERRIDABLE.join('|')})/.freeze
 
         def __merge(other)
             @members.merge(other) do |k, v1, v2|

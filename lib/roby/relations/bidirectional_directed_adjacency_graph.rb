@@ -379,7 +379,7 @@ module Roby
                               "but not in the backward-edge"
                     end
 
-                    out_edges.each do |out_e, _info|
+                    out_edges.each do |(out_e, _info)|
                         if !@backward_edges.key?(out_e)
                             raise Inconsistent,
                                   "#{out_e} is listed as an out-neighbour of #{v} "\
@@ -398,7 +398,7 @@ module Roby
                               "but not in the backward-edge"
                     end
 
-                    in_edges.each do |in_e, _|
+                    in_edges.each do |(in_e, _)|
                         if !@forward_edges_with_info[in_e]
                             raise Inconsistent,
                                   "#{in_e} is listed as an in-neighbour of #{v} "\

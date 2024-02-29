@@ -233,7 +233,7 @@ module Roby
                     validate_program(command_line[0])
                 else
                     @pid = Process.spawn(
-                        *command_line, chdir: (chdir || Dir.pwd), **spawn_options
+                        *command_line, chdir: chdir || Dir.pwd, **spawn_options
                     )
                 end
 
