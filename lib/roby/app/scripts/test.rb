@@ -77,7 +77,9 @@ parser = OptionParser.new do |opt|
                          "will be auto-discovered") do |dir|
         base_dir = dir
     end
-    opt.on("--force-discovery", "call discover_test_files even if there are explicit files on the command line") do
+    opt.on("--force-discovery",
+           "call discover_test_files even if there are "\
+           "explicit files on the command line") do
         force_discovery = true
     end
     opt.on "--help" do
@@ -103,6 +105,15 @@ if test_files.empty?
     MetaRuby.keep_definition_location = true
 end
 
+def discover_test_files(all:, only_self:, base_dir:)
+    self_files, dependent_files = \
+        Roby.app.discover_test_files(
+            all: all, only_self: only_self, base_dir: base_dir
+        ).map(&:first).partition { |f| Roby.app.self_file?(f) }
+
+    self_files.sort + dependent_files.sort
+end
+
 exception = Roby.display_exception do
     Roby.app.setup
     if Roby.app.public_logs?
@@ -112,13 +123,13 @@ exception = Roby.display_exception do
         begin
             Roby.app.prepare
 
-            def discover_test_files(all:, only_self:, base_dir:)
-                self_files, dependent_files = \
-                    Roby.app.discover_test_files(
-                        all: all, only_self: only_self, base_dir: base_dir
-                    ).map(&:first).partition { |f| Roby.app.self_file?(f) }
+            test_files = test_files.flat_map do |file|
+                next file unless file =~ /ROBOT/
 
-                self_files.sort + dependent_files.sort
+                Roby.app.robot_configuration_names.map do |replacement|
+                    resolved_file = File.join(Roby.app.app_dir, file.gsub("ROBOT", replacement))
+                    resolved_file if File.file?(resolved_file)
+                end.compact
             end
 
             test_files = test_files.flat_map do |arg|
@@ -129,15 +140,6 @@ exception = Roby.display_exception do
                 test_files = discover_test_files(all: all, only_self: only_self, base_dir: base_dir)
             elsif force_discovery
                 test_files += discover_test_files(all: all, only_self: only_self, base_dir: base_dir)
-
-                test_files = test_files.flat_map do |file|
-                    next file unless file =~ /ROBOT/
-
-                    Roby.app.robot_configuration_names.map do |replacement|
-                        resolved_file = File.join(Roby.app.app_dir, file.gsub("ROBOT", replacement))
-                        resolved_file if File.file?(resolved_file)
-                    end.compact
-                end
             end
 
             if list_tests
