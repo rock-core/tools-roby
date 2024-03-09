@@ -41,16 +41,30 @@ module Roby
                 # @param [Module,Interface]
                 # @return [void]
                 def use_library(library)
-                    if library <= Actions::Interface
-                        library.each_registered_action do |name, action|
-                            actions[name] ||= action
-                        end
-                        library.each_fault_response_table do |table|
-                            use_fault_response_table table
-                        end
-                    else
+                    unless library <= Actions::Interface
                         include library
+                        return
                     end
+
+                    library.each_registered_action do |name, action|
+                        actions[name] = action
+                        define_method(name) do |**kw|
+                            act = model.actions[name]
+                            case act
+                            when Models::MethodAction
+                                act.action_interface_model
+                                   .new(plan).send(name, **kw)
+                            else
+                                act.as_plan
+                            end
+                        end
+                    end
+
+                    library.each_fault_response_table do |table|
+                        use_fault_response_table table
+                    end
+
+                    rebind_all_actions
                 end
 
                 # Enumerates the actions registered on this interface
@@ -62,6 +76,14 @@ module Roby
                     each_registered_action do |_, description|
                         yield(description)
                     end
+                end
+
+                # Update all actions with updated definitions for dependent actions
+                #
+                # Used for instance in {#use_library} to update composite actions
+                # (e.g. action state machines)
+                def rebind_all_actions
+                    actions.transform_values { |act| act.rebind(self) }
                 end
 
                 # Clears everything stored on this model

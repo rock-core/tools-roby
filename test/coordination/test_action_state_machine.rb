@@ -14,7 +14,7 @@ module Roby
                 description = nil
                 @action_m = Roby::Actions::Interface.new_submodel do
                     describe("the start task").returns(task_m).optional_arg(:id, "the task ID")
-                    define_method(:start_task) { |arg| task_m.new(id: (arg[:id] || :start)) }
+                    define_method(:start_task) { |id: :start| task_m.new(id: id) }
                     describe("the next task").returns(task_m)
                     define_method(:next_task) { task_m.new(id: :next) }
                     describe("a monitoring task").returns(task_m)
@@ -497,8 +497,8 @@ module Roby
                 child_task_m = task_m.new_submodel(name: "TaskChildModel")
 
                 child_m = action_m.new_submodel do
-                    define_method(:start_task) do |arg|
-                        child_task_m.new(id: (arg[:id] || :start))
+                    define_method(:start_task) do |id: :start|
+                        child_task_m.new(id: id)
                     end
                 end
                 state_machine("test") do
@@ -597,6 +597,78 @@ module Roby
                     start(s0)
                 end
                 assert_equal "explicit-state-name", s0.name
+            end
+
+            it "updates actions referred to state machines to the ones provided with use_library " do
+                a0, b0, c0 = %w[a0 b0 c0].map { Roby::Actions::Interface.new_submodel(name: _1) }
+
+                task_m = Roby::Task.new_submodel(name: "tasl_m")
+                a0.class_eval do
+                    describe("a0").returns(task_m)
+                    define_method(:act) { task_m.new }
+                end
+
+                b0.use_library a0
+                b0.describe "statemachine"
+                b0.action_state_machine "b" do
+                    start state(act)
+                end
+
+                sub_task_m = task_m.new_submodel(name: "sub_task_m")
+                a1 = a0.new_submodel(name: "a1")
+                a1.class_eval do
+                    describe("a1").returns(sub_task_m)
+                    define_method(:act) { sub_task_m.new }
+                end
+
+                b1 = b0.new_submodel(name: "b1")
+                puts "b1: #{b1}"
+                b1.use_library a1
+
+                validate_state_machine b1.b do
+                    assert_kind_of sub_task_m, current_state_task
+                end
+            end
+
+            it "handles complex inheritance schemes" do
+                a0, b0, c0 =
+                    %w[a0 b0 c0].map { Roby::Actions::Interface.new_submodel(name: _1) }
+
+                task_m = Roby::Task.new_submodel(name: "task_m")
+                a0.class_eval do
+                    describe("a0").returns(task_m)
+                    define_method(:act) { task_m.new }
+                end
+
+                b0.use_library a0
+                b0.describe "statemachine"
+                b0.action_state_machine "b" do
+                    start state(act)
+                end
+
+                c0.use_library b0
+                c0.describe "statemachine"
+                c0.action_state_machine "c" do
+                    start state(b)
+                end
+
+                sub_task_m = task_m.new_submodel(name: "sub_task_m")
+                a1 = a0.new_submodel
+                a1.class_eval do
+                    describe("a1").returns(task_m)
+                    define_method(:act) { sub_task_m.new }
+                end
+
+                b1 = b0.new_submodel
+                b1.use_library a1
+                c1 = c0.new_submodel
+                c1.use_library b1
+
+                validate_state_machine c1.c do
+                    validate_state_machine current_state_task do
+                        assert_kind_of sub_task_m, current_state_task
+                    end
+                end
             end
         end
     end
