@@ -198,7 +198,7 @@ module Roby
 
                     remote_error_line =
                         e.backtrace
-                         .index { |l| l =~ %r{interface/server.rb.*process_call} }
+                         .index { |l| l =~ %r{interface/v1/server.rb.*process_call} }
                     local_error_line =
                         e.backtrace
                          .index { |l| l =~ /#{__FILE__}:#{__LINE__ - 8}/ }

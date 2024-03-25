@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "roby/interface/async"
+require "roby/interface/v1/async"
 
 module Roby
     module App
@@ -67,7 +67,7 @@ module Roby
 
                 # The object used to communicate with the Roby instance
                 #
-                # @return [Roby::Interface::Async::Interface]
+                # @return [Roby::Interface::V1::Async::Interface]
                 def roby_interface
                     if @roby_port == 0
                         raise InvalidState,
@@ -76,7 +76,7 @@ module Roby
                     end
 
                     @roby_interface ||=
-                        Roby::Interface::Async::Interface
+                        Roby::Interface::V1::Async::Interface
                         .new("localhost", port: @roby_port)
                 end
 
@@ -358,7 +358,7 @@ module Roby
                         return
                     end
 
-                    action = Interface::Async::ActionMonitor.new(
+                    action = Interface::V1::Async::ActionMonitor.new(
                         roby_interface, m, arguments
                     )
                     action.restart(batch: current_batch)
@@ -434,7 +434,7 @@ module Roby
                         return
                     end
 
-                    action = Interface::Async::ActionMonitor.new(
+                    action = Interface::V1::Async::ActionMonitor.new(
                         roby_interface, m, arguments
                     )
                     action.restart(batch: current_batch)

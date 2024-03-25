@@ -1,6 +1,18 @@
 # frozen_string_literal: true
 
 require "roby"
+
+Roby.warn_deprecated(
+    "require \"roby/interface\" is deprecated, require the versioned "\
+    "v1/interface or v2/interface instead, and use the explicitly "\
+    "versioned namespace"
+)
+
+if ENV["ROBY_STRICT_INTERFACE_VERSION"] == "1"
+    raise LoadError,
+          "roby/interface not available because ROBY_STRICT_INTERFACE_VERSION is set"
+end
+
 require "roby/interface/core"
 require "roby/interface/v1"
 

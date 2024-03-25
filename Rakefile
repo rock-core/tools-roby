@@ -46,7 +46,7 @@ has_gui =
         end
     end
 
-Rake::TestTask.new(:test) do |t|
+Rake::TestTask.new("test:core") do |t|
     t.libs << "."
     t.libs << "lib"
     minitest_set_options(t, "core")
@@ -64,6 +64,17 @@ Rake::TestTask.new(:test) do |t|
     t.test_files = test_files
     t.warning = false
 end
+
+Rake::TestTask.new("test:interface:v1") do |t|
+    t.libs << "."
+    t.libs << "lib"
+    minitest_set_options(t, "core")
+    t.test_files = FileList["test/interface/v1/**/test_*.rb"]
+    t.warning = false
+end
+
+task "test" => "test:core"
+task "test" => "test:interface:v1"
 
 if USE_RUBOCOP
     begin

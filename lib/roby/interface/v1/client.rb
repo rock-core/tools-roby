@@ -65,7 +65,7 @@ module Roby
                 #   Include :actions and :commands if you pass this explicitely, unless
                 #   you know what you are doing
                 #
-                # @see Interface.connect_with_tcp_to
+                # @see V1.connect_with_tcp_to
                 def initialize(io, id, handshake: %i[actions commands])
                     @pending_async_calls = []
                     @io = io

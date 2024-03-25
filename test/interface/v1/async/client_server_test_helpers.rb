@@ -2,8 +2,8 @@
 
 module Roby
     module Interface
-        module Async
-            module V1
+        module V1
+            module Async
                 module ClientServerTestHelpers
                     attr_reader :recorder
 
@@ -32,7 +32,7 @@ module Roby
                     end
 
                     def create_server(port: 0)
-                        server = Roby::Interface::TCPServer.new(Roby.app, port: port)
+                        server = V1::TCPServer.new(Roby.app, port: port)
                         @interface_servers << server
                         server
                     end

@@ -144,7 +144,7 @@ module Roby
                     )
                         @remote_port = port
                         @connection_method = connection_method || lambda {
-                            Roby::Interface.connect_with_tcp_to(
+                            V1.connect_with_tcp_to(
                                 remote_name, port,
                                 handshake: %i[actions commands jobs log_server_port]
                             )
