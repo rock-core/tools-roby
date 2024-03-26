@@ -2,7 +2,7 @@
 
 require "optparse"
 require "roby/standalone"
-require "roby/interface"
+require "roby/interface/v1"
 
 module Roby
     module App
@@ -53,7 +53,7 @@ module Roby
 
                     args = option_parser.parse(args)
                     host, port = self.host
-                    interface = Roby::Interface.connect_with_tcp_to(host, port)
+                    interface = Interface::V1.connect_with_tcp_to(host, port)
                     yield(interface)
                 end
 

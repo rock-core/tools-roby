@@ -4,7 +4,7 @@ require "roby"
 require "thor"
 require "roby/droby/logfile/server"
 require "roby/droby/logfile/client"
-require "roby/interface"
+require "roby/interface/v1"
 
 module Roby
     module CLI
@@ -126,7 +126,7 @@ module Roby
                 end
 
                 def discover_log_server_port(host, interface_port)
-                    client = Interface.connect_with_tcp_to(host, interface_port)
+                    client = Interface::V1.connect_with_tcp_to(host, interface_port)
                     port = client.log_server_port
                 ensure
                     client&.close

@@ -91,7 +91,7 @@ module Roby
                     end
 
                     begin
-                        return Roby::Interface.connect_with_tcp_to(host, port)
+                        return Roby::Interface::V1.connect_with_tcp_to(host, port)
                     rescue Roby::Interface::ConnectionError # rubocop:disable Lint/SuppressedException
                     end
                     sleep 0.01
@@ -248,7 +248,7 @@ module Roby
             def roby_app_call_remote_interface(
                 host: "localhost", port: Interface::DEFAULT_PORT
             )
-                interface = Interface.connect_with_tcp_to(host, port)
+                interface = Interface::V1.connect_with_tcp_to(host, port)
                 yield(interface) if block_given?
             ensure
                 interface&.close
@@ -263,7 +263,7 @@ module Roby
             def roby_app_call_interface(host: "localhost", port: Interface::DEFAULT_PORT)
                 client_thread = Thread.new do
                     begin
-                        interface = Interface.connect_with_tcp_to(host, port)
+                        interface = Interface::V1.connect_with_tcp_to(host, port)
                         result = yield(interface) if block_given?
                     rescue Exception => e # rubocop:disable Lint/RescueException
                         error = e

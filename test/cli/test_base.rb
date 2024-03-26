@@ -103,7 +103,7 @@ module Roby
 
                     interface = Base.new([], { host: "localhost:#{port}" })
                                     .setup_roby_for_interface(app: app)
-                    assert_kind_of Interface::Client, interface
+                    assert_kind_of Interface::V1::Client, interface
                     assert_roby_app_quits(pid, interface: interface)
                 end
 
@@ -125,7 +125,7 @@ module Roby
                     end
                     pid = roby_app_spawn("run", "--log=robot:FATAL", port: port)
                     interface = t.value
-                    assert_kind_of Interface::Client, interface
+                    assert_kind_of Interface::V1::Client, interface
                     # Do not reuse `interface`. It has been used in a different
                     # thread and Roby has protections against cross-thread use
                     assert_roby_app_quits(pid, port: port)

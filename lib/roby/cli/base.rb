@@ -2,6 +2,7 @@
 
 require "thor"
 require "roby"
+require "roby/interface/v1"
 require "roby/cli/exceptions"
 require "roby/app/vagrant"
 
@@ -113,7 +114,7 @@ module Roby
                     deadline = Time.now + timeout if retry_connection && timeout
                     loop do
                         begin
-                            return Roby::Interface.connect_with_tcp_to(host, port)
+                            return Roby::Interface::V1.connect_with_tcp_to(host, port)
                         rescue Roby::Interface::ConnectionError => e
                             if !retry_connection || (deadline && Time.now > deadline)
                                 raise

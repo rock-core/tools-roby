@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "roby"
+require "roby/interface/v1"
 require "optparse"
 require "rb-readline"
 require "readline"
@@ -46,8 +47,8 @@ IRB.conf[:PROMPT][:ROBY] = {
 
 main_remote_interface__ =
     begin
-        Roby::Interface::ShellClient.new("#{host}:#{port}") do
-            Roby::Interface.connect_with_tcp_to(host, port)
+        Roby::Interface::V1::ShellClient.new("#{host}:#{port}") do
+            Roby::Interface::V1.connect_with_tcp_to(host, port)
         end
     rescue Interrupt
         Roby::Interface.warn "Interrupted by user"
