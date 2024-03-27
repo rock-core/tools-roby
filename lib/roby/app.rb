@@ -8,7 +8,7 @@ require "yaml"
 
 require "roby/app/base"
 require "roby/app/robot_names"
-require "roby/interface"
+require "roby/interface/base"
 require "roby/robot"
 require "roby/support"
 require "utilrb/hash/recursive_merge"
@@ -2040,13 +2040,13 @@ module Roby
         #
         # @see stop_shell_interface
         def setup_shell_interface
-            require "roby/interface"
+            require "roby/interface/v1"
 
             if @shell_interface
                 raise "there is already a shell interface started, call #stop_shell_interface first"
             end
 
-            @shell_interface = Interface::TCPServer.new(
+            @shell_interface = Interface::V1::TCPServer.new(
                 self,
                 host: shell_interface_host, port: shell_interface_port,
                 server_fd: shell_interface_fd

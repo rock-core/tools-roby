@@ -2,6 +2,7 @@
 
 require "thor"
 require "roby"
+require "roby/interface/v1"
 require "roby/cli/exceptions"
 require "roby/cli/gen_main"
 
@@ -63,7 +64,7 @@ module Roby
                     end
                     loop do
                         begin
-                            return Roby::Interface.connect_with_tcp_to(host, port)
+                            return Roby::Interface::V1.connect_with_tcp_to(host, port)
                         rescue Roby::Interface::ConnectionError => e
                             if deadline && deadline > Time.now
                                 Robot.warn "failed to connect to #{host}:#{port}: #{e.message}, retrying"
