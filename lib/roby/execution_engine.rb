@@ -2318,13 +2318,17 @@ module Roby
         attr_predicate :gc_warning?, true
 
         def issue_quit_progression_warning(remaining)
-            info "Waiting for #{remaining.size} tasks to finish (#{plan.num_tasks} tasks still in plan) and #{waiting_work.size} async work jobs"
+            Robot.info(
+                "Waiting for #{remaining.size} tasks to finish "\
+                "(#{plan.num_tasks} tasks still in plan) and "\
+                "#{waiting_work.size} async work jobs"
+            )
             remaining.each do |task|
-                info "  #{task}"
+                Robot.info "  #{task}"
             end
             quarantined = remaining.find_all(&:quarantined?)
             unless quarantined.empty?
-                info "#{quarantined.size} tasks in quarantine"
+                Robot.info "#{quarantined.size} tasks in quarantine"
             end
         end
 
@@ -2398,7 +2402,7 @@ module Roby
             return unless display_warning
 
             if display_warning
-                info "Roby quitting ..." if exit_state.last_stop_count == 0
+                Robot.info "Roby quitting ..." if exit_state.last_stop_count == 0
 
                 issue_quit_progression_warning(remaining)
                 exit_state.last_quit_warning = Time.now
@@ -2406,8 +2410,8 @@ module Roby
             end
             false
         rescue Exception => e
-            warn "Execution thread failed to clean up"
-            Roby.log_exception_with_backtrace(e, self, :warn, filter: false)
+            Robot.warn "Execution thread failed to clean up"
+            Roby.log_exception_with_backtrace(e, Robot, :warn, filter: false)
             true
         end
 
