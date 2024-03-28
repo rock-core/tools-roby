@@ -374,6 +374,15 @@ module Roby
                 end
 
                 def help(subcommand = client)
+                    # IRB nowadays converts `help syskit` into `help "syskit"`
+                    if subcommand.kind_of?(String)
+                        subcommand_name = subcommand
+                        subcommand = client.find_subcommand_by_name(subcommand_name)
+                        unless subcommand
+                            raise ArgumentError, "no subcommand '#{subcommand}'"
+                        end
+                    end
+
                     puts
                     if safe?
                         puts Roby.color("Currently in safe mode, use 'unsafe' to switch", :bold)
@@ -405,10 +414,10 @@ module Roby
                         puts unless commands.empty?
                         puts Roby.color("Subcommands (use help <subcommand name> for more details)", :bold)
                         puts Roby.color("-----------", :bold)
-                        subcommand.commands.keys.sort.each do |subcommand_name|
-                            next if subcommand_name.empty?
+                        subcommand.commands.keys.sort.each do |sub_name|
+                            next if sub_name.empty?
 
-                            puts "#{subcommand_name}: #{subcommand.commands[subcommand_name].description.first}"
+                            puts "#{sub_name}: #{subcommand.commands[sub_name].description.first}"
                         end
                     end
                     nil
