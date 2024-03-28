@@ -114,8 +114,9 @@ class ShellEvalContext
     WHITELISTED_METHODS = %i[actions wtf? cancel safe unsafe safe? help]
         .freeze
 
-    def initialize(interface, send_q: ::Queue.new, results_q: ::Queue.new)
+    def initialize(interface, interface_m, send_q: ::Queue.new, results_q: ::Queue.new)
         @__interface = interface
+        @__interface_m = interface_m
         @__send = send_q
         @__results = results_q
     end
@@ -135,8 +136,10 @@ class ShellEvalContext
         result, error = @__results.pop
         if error
             raise error
-        elsif result.kind_of?(::Roby::Interface::ShellSubcommand)
-            ::ShellEvalContext.new(result, send_q: @__send, results_q: @__results)
+        elsif result.kind_of?(@__interface_m::ShellSubcommand)
+            ::ShellEvalContext.new(
+                result, @__interface_m, send_q: @__send, results_q: @__results
+            )
         else
             result
         end
@@ -161,7 +164,7 @@ end
 
 begin
     # Make main_remote_interface__ the top-level object
-    shell_context__ = ShellEvalContext.new(main_remote_interface__)
+    shell_context__ = ShellEvalContext.new(main_remote_interface__, interface_m)
     ws = IRB::WorkSpace.new(shell_context__)
     irb = IRB::Irb.new(ws)
 
