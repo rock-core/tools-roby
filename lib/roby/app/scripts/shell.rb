@@ -31,14 +31,8 @@ host, port, interface_version = host_options.values_at(:host, :port, :interface_
 
 require "irb"
 require "irb/ext/save-history"
-interface_m =
-    if interface_version == 2
-        require "roby/interface/v2"
-        Roby::Interface::V2
-    else
-        require "roby/interface/v1"
-        Roby::Interface::V1
-    end
+
+interface_m = Roby.app.enable_remote_interface_version(interface_version)
 
 IRB.setup("#{host}:#{port}")
 IRB.conf[:INSPECT_MODE] = false

@@ -77,11 +77,7 @@ module Roby
                     port = host_port[:port] || interface_default_port(app)
 
                     namespace =
-                        if options[:interface_version] == 1
-                            Interface::V1
-                        else
-                            Interface::V2
-                        end
+                        app.enable_remote_interface_version(options[:interface_version])
 
                     [host, port, namespace]
                 end

@@ -660,6 +660,23 @@ module Roby
             end
         end
 
+        # Called by tooling to enable the given remote interface version
+        #
+        # @param [Integer] version the desired interface version (1 or 2 for now)
+        # @return [Module] the namespace of the interface implementation
+        def enable_remote_interface_version(version)
+            if version == 1
+                require "roby/interface/v1"
+                Roby::Interface::V1
+            elsif version == 2
+                require "roby/interface/v2"
+                call_plugins(:setup_interface_v2_protocol)
+                Roby::Interface::V2
+            else
+                raise ArgumentError, "remote interface version #{version} does not exist"
+            end
+        end
+
         # Fill defaults in the option hash setup by {.host_options}
         #
         # This must be called if interface_versions is set
@@ -2124,7 +2141,7 @@ module Roby
         #
         # @see stop_shell_interface
         def setup_shell_interface_v1
-            require "roby/interface/v1"
+            enable_remote_interface_version(1)
 
             if @shell_interface
                 raise "there is already a shell interface started, call #stop_shell_interface first"
@@ -2156,7 +2173,8 @@ module Roby
         #
         # @see stop_shell_interface
         def setup_shell_interface_v2
-            require "roby/interface/v2"
+            enable_remote_interface_version(2)
+            call_plugins(:setup_interface_v2_protocol)
 
             if @shell_interface_v2
                 raise "there is already a v2 shell interface started, "\

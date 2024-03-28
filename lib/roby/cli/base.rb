@@ -86,7 +86,8 @@ module Roby
                 #
                 # (see connect_to_roby_interface)
                 def setup_roby_for_interface(
-                    app: self.app, retry_connection: false, timeout: nil, retry_period: 0.1
+                    app: self.app, retry_connection: false, timeout: nil,
+                    retry_period: 0.1, interface_version: 1
                 )
                     host, port = interface_host_port
 
@@ -98,7 +99,8 @@ module Roby
                     connect_to_roby_interface(
                         host, port,
                         retry_connection: retry_connection,
-                        timeout: timeout, retry_period: retry_period
+                        timeout: timeout, retry_period: retry_period,
+                        interface_version: interface_version
                     )
                 end
 
@@ -108,13 +110,16 @@ module Roby
                 # @param timeout if retry_connection is true, how long should the
                 #    method retry before baling out. Leave to nil to retry forever.
                 # @return [Roby::Interface::Client]
-                def connect_to_roby_interface(
-                    host, port, retry_connection: false, timeout: nil, retry_period: 0.1
+                def connect_to_roby_interface( # rubocop:disable Metrics/ParameterLists
+                    host, port,
+                    app: self.app, retry_connection: false, timeout: nil,
+                    retry_period: 0.1, interface_version: 1
                 )
                     deadline = Time.now + timeout if retry_connection && timeout
+                    interface_m = app.enable_remote_interface_version(interface_version)
                     loop do
                         begin
-                            return Roby::Interface::V1.connect_with_tcp_to(host, port)
+                            return interface_m.connect_with_tcp_to(host, port)
                         rescue Roby::Interface::ConnectionError => e
                             if !retry_connection || (deadline && Time.now > deadline)
                                 raise
