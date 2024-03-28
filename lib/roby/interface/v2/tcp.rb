@@ -36,7 +36,7 @@ module Roby
                 # @param [Integer] port the port to listen on
                 # @param [Integer,nil] server_fd a file descriptor for a TCP server that
                 #   should be used as-is. If set, it supersedes both host and port
-                def initialize(app, host: nil, port: DEFAULT_PORT, server_fd: nil)
+                def initialize(app, host: nil, port: DEFAULT_PORT_V2, server_fd: nil)
                     @app = app
                     @interface = Interface.new(app)
                     @server =
@@ -55,7 +55,7 @@ module Roby
                     @warn_about_disconnection = false
                 end
 
-                def open_tcp_server(host: nil, port: DEFAULT_PORT, server_fd: nil)
+                def open_tcp_server(host: nil, port: DEFAULT_PORT_V2, server_fd: nil)
                     return ::TCPServer.for_fd(server_fd) if server_fd
 
                     begin ::TCPServer.new(host, port)
@@ -168,7 +168,7 @@ module Roby
             #
             # @param [Array<Symbol>] handshake see {Client#initialize}
             # @return [Client] the connected {Client} object
-            def self.connect_with_tcp_to(host, port = DEFAULT_PORT,
+            def self.connect_with_tcp_to(host, port = DEFAULT_PORT_V2,
                     handshake: %i[actions commands])
                 require "socket"
                 socket = TCPSocket.new(host, port)
