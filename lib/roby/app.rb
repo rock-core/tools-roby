@@ -877,7 +877,7 @@ module Roby
             @shell_interface_host = nil
             @shell_interface_port = Interface::DEFAULT_PORT
             @shell_interface_fd = nil
-            @shell_abort_on_exception = true
+            @shell_abort_on_exception = false
 
             @shell_interface_v2 = nil
             @shell_interface_v2_host = nil
