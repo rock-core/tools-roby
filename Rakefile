@@ -73,8 +73,16 @@ Rake::TestTask.new("test:interface:v1") do |t|
     t.warning = false
 end
 
+Rake::TestTask.new("test:interface:v2") do |t|
+    t.libs << "."
+    t.libs << "lib"
+    minitest_set_options(t, "interface:v2")
+    t.test_files = FileList["test/interface/v2/**/test_*.rb"]
+    t.warning = false
+end
+
 task "test" => "test:core"
-task "test" => "test:interface:v1"
+task "test" => "test:interface:v2"
 
 if USE_RUBOCOP
     begin

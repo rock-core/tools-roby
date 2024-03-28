@@ -2,7 +2,7 @@
 
 module Roby
     module Interface
-        module V1
+        module V2
             module Async
                 # Creates a connection between a Syskit job and a Qt-based GUI
                 #
@@ -73,7 +73,7 @@ module Roby
                         attr_reader :argument_name
 
                         def initialize(connector, action, argument_name, getter: nil)
-                            super(connector, action, getter: getter)
+                            super(connector, action, getter: nil)
                             @argument_name = argument_name.to_sym
                         end
 
