@@ -21,4 +21,5 @@ require "roby/interface/v2/tcp"
 require "roby/interface/v2/shell_client"
 require "roby/interface/v2/shell_subcommand"
 
-Roby::Interface::V2::Protocol.register_marshallers(Roby::Interface::V2::Protocol)
+Roby::Interface::V2::Protocol
+    .register_marshallers(Roby::Interface::V2::Protocol)
