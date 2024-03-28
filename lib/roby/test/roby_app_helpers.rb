@@ -223,6 +223,7 @@ module Roby
                          "--host", "localhost:#{port}"]
                     end
                 pid = spawn(
+                    { "ROBY_PLUGIN_PATH" => nil },
                     roby_bin, command, *port_args, *args, chdir: app_dir, **options
                 )
                 @spawned_pids << pid
