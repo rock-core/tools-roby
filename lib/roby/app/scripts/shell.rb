@@ -34,8 +34,12 @@ require "irb/ext/save-history"
 
 interface_m = Roby.app.enable_remote_interface_version(interface_version)
 
+IRB::Inspector.def_inspector([:roby_pp], proc { require "irb/color_printer" }) do |v|
+    IRB::ColorPrinter.pp(v, +"", 0).chomp
+end
+
 IRB.setup("#{host}:#{port}")
-IRB.conf[:INSPECT_MODE] = false
+IRB.conf[:INSPECT_MODE] = :roby_pp
 IRB.conf[:IRB_NAME]     = "#{host}:#{port}"
 IRB.conf[:USE_READLINE] = true
 IRB.conf[:PROMPT_MODE]  = :ROBY
