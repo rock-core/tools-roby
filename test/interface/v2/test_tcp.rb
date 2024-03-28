@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "roby/test/self"
-require "roby/interface/v2/tcp"
+require "roby/interface/v2"
 
 module Roby
     module Interface
@@ -39,11 +39,12 @@ module Roby
                     before do
                         flexmock(@client = connect)
                         flexmock(Roby).should_receive(:log_exception_with_backtrace)
-                            .by_default
+                                      .by_default
                     end
 
-                    def self.common_behavior_on_poll_exception
-                        it "does not disconnect a client based on the return value of #poll" do
+                    def self.common_behavior_on_poll_exception # rubocop:disable Metrics/AbcSize
+                        it "does not disconnect a client "\
+                           "based on the return value of #poll" do
                             @client.should_receive(:poll).and_return(true)
                             @server.process_pending_requests
                             refute @client.closed?
@@ -87,11 +88,12 @@ module Roby
                         it "displays an exception that is not ComError" do
                             @client.should_receive(:poll).and_raise(RuntimeError)
                             flexmock(Roby).should_receive(:log_exception_with_backtrace)
-                                .with(RuntimeError, Roby::Interface, :warn)
-                                .once
+                                          .with(RuntimeError, Roby::Interface, :warn)
+                                          .once
                             @server.process_pending_requests
                         end
-                        it "processes other clients after an exception that is not ComError" do
+                        it "processes other clients after an exception "\
+                           "that is not ComError" do
                             other_client = connect
                             @client.should_receive(:poll).and_raise(RuntimeError)
                             flexmock(other_client).should_receive(:poll).once

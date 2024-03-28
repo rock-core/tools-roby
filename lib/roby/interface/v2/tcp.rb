@@ -36,7 +36,7 @@ module Roby
                 # @param [Integer] port the port to listen on
                 # @param [Integer,nil] server_fd a file descriptor for a TCP server that
                 #   should be used as-is. If set, it supersedes both host and port
-                def initialize(app, host: nil, port: DEFAULT_PORT, server_fd: nil)
+                def initialize(app, host: nil, port: DEFAULT_PORT_V2, server_fd: nil)
                     @app = app
                     @interface = Interface.new(app)
                     @server =
@@ -55,7 +55,7 @@ module Roby
                     @warn_about_disconnection = false
                 end
 
-                def open_tcp_server(host: nil, port: DEFAULT_PORT, server_fd: nil)
+                def open_tcp_server(host: nil, port: DEFAULT_PORT_V2, server_fd: nil)
                     return ::TCPServer.for_fd(server_fd) if server_fd
 
                     begin ::TCPServer.new(host, port)
@@ -88,7 +88,9 @@ module Roby
                 #
                 # @return [Server]
                 def create_server(socket)
-                    Server.new(DRobyChannel.new(socket, false), interface)
+                    channel = Channel.new(socket, false)
+                    Protocol.setup_channel(channel)
+                    Server.new(channel, interface)
                 end
 
                 # Number of clients connected to this server
@@ -172,13 +174,13 @@ module Roby
             #
             # @param [Array<Symbol>] handshake see {Client#initialize}
             # @return [Client] the connected {Client} object
-            def self.connect_with_tcp_to(host, port = DEFAULT_PORT,
-                    marshaller: DRoby::Marshal.new(auto_create_plans: true),
+            def self.connect_with_tcp_to(host, port = DEFAULT_PORT_V2,
                     handshake: %i[actions commands])
                 require "socket"
                 socket = TCPSocket.new(host, port)
                 addr = socket.addr(true)
-                channel = DRobyChannel.new(socket, true, marshaller: marshaller)
+                channel = Channel.new(socket, true)
+                Protocol.setup_channel(channel)
                 Client.new(channel, "#{addr[2]}:#{addr[1]}", handshake: handshake)
             rescue Errno::ECONNREFUSED, Errno::EADDRNOTAVAIL, Errno::ETIMEDOUT,
                    Errno::EHOSTUNREACH, Errno::ENETUNREACH => e

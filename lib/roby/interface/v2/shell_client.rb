@@ -126,10 +126,10 @@ module Roby
                 end
 
                 def format_job_info(id, state, task, planning_task)
-                    if planning_task.respond_to?(:action_model) && planning_task.action_model
-                        name = "#{planning_task.action_model}(#{format_arguments(planning_task.action_arguments)})"
+                    if planning_task.arguments[:action_model]
+                        name = "#{planning_task.arguments[:action_model].name}(#{format_arguments(planning_task.arguments[:action_arguments])})"
                     else
-                        name = task.to_s
+                        name = "#{task.model}<id:#{task.id}>"
                     end
                     format("[%4d] (%s) %s", id, state.to_s, name)
                 end
@@ -143,16 +143,33 @@ module Roby
                 end
 
                 def describe(matcher)
-                    if matcher.kind_of?(Roby::Actions::Action)
-                        pp matcher.model
-                    elsif matcher.kind_of?(Roby::Actions::Models::Action)
-                        pp matcher
-                    else
-                        client.find_all_actions_matching(matcher).each do |act|
-                            pp act
-                        end
+                    if matcher.kind_of?(Protocol::Action)
+                        display_action(matcher)
+                    elsif matcher.kind_of?(Protocol::ActionModel)
+                        display_action_model(matcher)
                     end
                     nil
+                end
+
+                def display_action_model(act)
+                    puts "#{act.name}     #{act.doc}"
+                    act.arguments.each do |arg|
+                        puts "  #{arg.name} - #{arg.doc}"
+                        puts "                #{arg.required ? 'required' : 'optional'}"
+                        unless arg.default.kind_of?(Protocol::VoidClass)
+                            puts "                default: #{arg.default}"
+                        end
+                        unless arg.example.kind_of?(Protocol::VoidClass)
+                            puts "                example: #{arg.example}"
+                        end
+                    end
+                end
+
+                def display_action(act)
+                    puts act.model.name
+                    act.arguments.each do |arg|
+                        puts "  #{arg}"
+                    end
                 end
 
                 def call(options, path, m, *args)
@@ -326,7 +343,7 @@ module Roby
                     if sub = client.find_subcommand_by_name(m.to_s)
                         ShellSubcommand.new(self, m.to_s, sub.description, sub.commands)
                     elsif act = client.find_action_by_name(m.to_s)
-                        Roby::Actions::Action.new(act, *args)
+                        act
                     elsif @batch && m.to_s =~ /(.*)!$/
                         action_name = $1
                         @batch.start_job(action_name, *args)

@@ -19,7 +19,7 @@ module Roby
                     arguments = arguments.transform_keys(&:to_sym)
                     arguments =
                         arguments.each_with_object({}) do |(arg_name, description), h|
-                            h[name] = CommandArgument.new(
+                            h[arg_name] = CommandArgument.new(
                                 arg_name.to_sym, Array(description)
                             )
                         end
