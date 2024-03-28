@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "roby"
-require "roby/interface/v1"
 require "optparse"
 require "rb-readline"
 require "readline"
@@ -13,20 +12,34 @@ app.single
 app.load_base_config
 
 silent = false
+interface_version = 1
 opt = OptionParser.new do |opt|
+    opt.on "--interface-version=VERSION", Integer, "which interface version to use" do |v|
+        interface_version = v
+    end
     opt.on "--silent", "disable notifications (can also be controlled in the shell itself)" do
         silent = true
     end
 end
 
 host_options = {}
-Roby::Application.host_options(opt, host_options)
+Roby::Application.host_options(opt, host_options, interface_versions: true)
 opt.parse! ARGV
+Roby::Application.host_options_set_defaults(host_options)
 
-host, port = host_options.values_at(:host, :port)
+host, port, interface_version = host_options.values_at(:host, :port, :interface_version)
 
 require "irb"
 require "irb/ext/save-history"
+interface_m =
+    if interface_version == 2
+        require "roby/interface/v2"
+        Roby::Interface::V2
+    else
+        require "roby/interface/v1"
+        Roby::Interface::V1
+    end
+
 IRB.setup("#{host}:#{port}")
 IRB.conf[:INSPECT_MODE] = false
 IRB.conf[:IRB_NAME]     = "#{host}:#{port}"
@@ -47,8 +60,8 @@ IRB.conf[:PROMPT][:ROBY] = {
 
 main_remote_interface__ =
     begin
-        Roby::Interface::V1::ShellClient.new("#{host}:#{port}") do
-            Roby::Interface::V1.connect_with_tcp_to(host, port)
+        interface_m::ShellClient.new("#{host}:#{port}") do
+            interface_m.connect_with_tcp_to(host, port)
         end
     rescue Interrupt
         Roby::Interface.warn "Interrupted by user"

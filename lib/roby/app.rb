@@ -623,9 +623,20 @@ module Roby
         # Sets up provided option parser to add the --host and --vagrant option
         #
         # When added, a :host entry will be added to the provided options hash
-        def self.host_options(parser, options)
-            options[:host] ||= Roby.app.shell_interface_host || "localhost"
-            options[:port] ||= Roby.app.shell_interface_port || Interface::DEFAULT_PORT
+        def self.host_options(parser, options, interface_versions: false)
+            if interface_versions
+                options[:interface_version] ||= 1
+            else
+                options[:host] ||= Roby.app.shell_interface_host || "localhost"
+                options[:port] ||= Roby.app.shell_interface_port || Interface::DEFAULT_PORT
+            end
+
+            if interface_versions
+                parser.on("--interface-version=VERSION", Integer,
+                          "the remote interface version to use") do |version|
+                    options[:interface_version] = version
+                end
+            end
 
             parser.on(
                 "--host URL", String, "sets the host to connect to as hostname[:PORT]"
@@ -646,6 +657,23 @@ module Roby
                 end
                 options[:host] = Roby::App::Vagrant.resolve_ip(vagrant_name)
                 options[:port] = port
+            end
+        end
+
+        # Fill defaults in the option hash setup by {.host_options}
+        #
+        # This must be called if interface_versions is set
+        def self.host_options_set_defaults(options)
+            return unless options[:interface_version]
+
+            if options[:interface_version] == 1
+                options[:host] ||= Roby.app.shell_interface_host || "localhost"
+                options[:port] ||= Roby.app.shell_interface_port ||
+                                   Interface::DEFAULT_PORT
+            else
+                options[:host] ||= Roby.app.shell_interface_v2_host || "localhost"
+                options[:port] ||= Roby.app.shell_interface_v2_port ||
+                                   Interface::DEFAULT_PORT
             end
         end
 
