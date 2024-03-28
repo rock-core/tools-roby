@@ -295,8 +295,8 @@ module Roby
                     return if @write_thread == Thread.current
 
                     raise InternalError,
-                          "cross-thread access to channel: "\
-                          "from #{@write_thread} to #{Thread.current}"
+                          "cross-thread access to channel while writing: "\
+                          "expected #{@write_thread} to #{Thread.current}"
                 end
 
                 def guard_read_thread
@@ -304,8 +304,8 @@ module Roby
                     return if @read_thread == Thread.current
 
                     raise InternalError,
-                          "cross-thread access to droby channel: "\
-                          "from #{@read_thread} to #{Thread.current}"
+                          "cross-thread access to channel while reading: "\
+                          "expected #{@read_thread} but got #{Thread.current}"
                 end
 
                 def guard_buffer_size
