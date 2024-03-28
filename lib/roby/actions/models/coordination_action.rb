@@ -41,13 +41,17 @@ module Roby
                     root
                 end
 
-                # Returns the plan pattern that will deploy this action on the plan
-                def plan_pattern(arguments = {})
-                    job_id, arguments = Kernel.filter_options arguments, :job_id
+                None = Object.new
 
-                    planner = Roby::Actions::Task.new(
-                        Hash[action_model: self,
-                             action_arguments: arguments].merge(job_id))
+                # Returns the plan pattern that will deploy this action on the plan
+                def plan_pattern(job_id: None, **action_arguments)
+                    job_id = ({ job_id: job_id } if job_id != None)
+
+                    arguments = {
+                        action_model: self,
+                        action_arguments: action_arguments
+                    }.merge(job_id || {})
+                    planner = Roby::Actions::Task.new(**arguments)
                     planner.planning_result_task
                 end
 

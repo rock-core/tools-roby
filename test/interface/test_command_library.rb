@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "roby/test/self"
-require "roby/interface"
+require "roby/interface/core"
 
 module Roby
     module Interface
