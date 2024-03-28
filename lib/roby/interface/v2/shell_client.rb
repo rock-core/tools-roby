@@ -2,7 +2,7 @@
 
 module Roby
     module Interface
-        module V1
+        module V2
             # An interface client using TCP that provides reconnection capabilities
             # as well as proper formatting of the information
             class ShellClient
@@ -183,7 +183,7 @@ module Roby
                     [format_notification(source, level, message).first, true]
                 end
 
-                def format_job_progress(kind, job_id, job_name, *_args)
+                def format_job_progress(kind, job_id, job_name, *args)
                     ["[#{job_id}] #{job_name}: #{kind}"]
                 end
 
@@ -191,7 +191,7 @@ module Roby
                     [format_job_progress(kind, job_id, job_name, *args).first, true]
                 end
 
-                def format_exception(kind, error, *_args)
+                def format_exception(kind, error, *args)
                     color =
                         case kind
                         when ExecutionEngine::EXCEPTION_FATAL
