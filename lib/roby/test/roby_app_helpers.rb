@@ -254,13 +254,24 @@ module Roby
                 interface&.close
             end
 
+            def roby_app_shell_interface(version: @roby_app_interface_version)
+                if version == 1
+                    app.shell_interface
+                else
+                    app.shell_interface_v2
+                end
+            end
+
             # Create a client to the interface running in the test's current app
             #
             # The method disconnects from the interface before returning
             #
             # @yieldparam [Roby::Interface::Client] client the interface client
             # @yieldreturn [Object] object returned by the method
-            def roby_app_call_interface(host: "localhost", port: Interface::DEFAULT_PORT)
+            def roby_app_call_interface(
+                version: @roby_app_interface_version,
+                host: "localhost", port: Interface::DEFAULT_PORT
+            )
                 client_thread = Thread.new do
                     begin
                         interface = Interface::V1.connect_with_tcp_to(host, port)
@@ -270,7 +281,10 @@ module Roby
                     end
                     [interface, result, error]
                 end
-                app.shell_interface.process_pending_requests while client_thread.alive?
+                while client_thread.alive?
+                    roby_app_shell_interface(version: version)
+                        .process_pending_requests
+                end
                 begin
                     interface, result, error = client_thread.value
                 rescue Exception => e # rubocop:disable Lint/RescueException
