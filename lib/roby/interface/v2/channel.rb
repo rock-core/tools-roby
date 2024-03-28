@@ -199,8 +199,8 @@ module Roby
                 # Define a custom marshaller for objects of the given class
                 #
                 # @param [Array<Class>] classes the classes to use the given marshaller
-                #   for. This will match instances of subclasses as well. The first marshaller
-                #   defined for a given instance will win.
+                #   for. This will match instances of subclasses as well. The first
+                #   marshaller defined for a given instance will win.
                 # @yieldparam [Channel] channel
                 # @yieldparam [Object] object the object to marshal
                 # @yieldreturn [Object] the marshalled object
@@ -229,7 +229,9 @@ module Roby
                     when Array
                         object.map { marshal_filter_object(_1) }
                     when Set
-                        object.each_with_object(Set.new) { _2 << marshal_filter_object(_1) }
+                        object.each_with_object(Set.new) do
+                            _2 << marshal_filter_object(_1)
+                        end
                     when Hash
                         object.transform_values { marshal_filter_object(_1) }
                     when Struct

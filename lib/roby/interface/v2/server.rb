@@ -59,8 +59,8 @@ module Roby
                     @listeners = Roby.disposable(*listeners)
                 end
 
-                # Write or queue a call, depending on whether the current thread is the main
-                # thread
+                # Write or queue a call, depending on whether the current thread is
+                # the main thread
                 #
                 # Time ordering between out-of-thread and in-thread packets is not
                 # guaranteed, so this can only be used in cases where it does not matter.

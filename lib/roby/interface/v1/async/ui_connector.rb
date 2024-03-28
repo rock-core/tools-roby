@@ -73,7 +73,7 @@ module Roby
                         attr_reader :argument_name
 
                         def initialize(connector, action, argument_name, getter: nil)
-                            super(connector, action, getter: nil)
+                            super(connector, action, getter: getter)
                             @argument_name = argument_name.to_sym
                         end
 

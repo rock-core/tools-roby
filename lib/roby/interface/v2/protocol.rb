@@ -78,7 +78,9 @@ module Roby
                 #
                 # @param [Channel] channel
                 def self.setup_channel(channel)
-                    each_marshaller { |klass, block| channel.add_marshaller(klass, &block) }
+                    each_marshaller do |klass, block|
+                        channel.add_marshaller(klass, &block)
+                    end
                 end
 
                 # Convert a {Actions::Models::Action::Argument}
@@ -110,8 +112,9 @@ module Roby
                 # @param [Roby::Actions::Models::Action] action
                 # @return [ActionModel]
                 def self.marshal_action_model(channel, action, planner_model: nil)
-                    arguments =
-                        action.arguments.map { marshal_action_argument_model(channel, _1) }
+                    arguments = action.arguments.map do
+                        marshal_action_argument_model(channel, _1)
+                    end
                     ActionModel.new(
                         planner_name: planner_model&.name,
                         name: action.name,

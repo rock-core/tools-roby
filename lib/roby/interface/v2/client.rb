@@ -255,7 +255,9 @@ module Roby
                 #
                 # Push a generic notification to {#notification_queue}
                 def queue_notification(source, level, message)
-                    notification_queue.push [allocate_message_id, [source, level, message]]
+                    notification_queue.push(
+                        [allocate_message_id, [source, level, message]]
+                    )
                 end
 
                 # Whether some generic notifications have been queued
@@ -298,7 +300,9 @@ module Roby
                 # See the yield parameters of {Interface#on_exception} for
                 # the overall argument format.
                 def queue_exception(kind, error, tasks, job_ids)
-                    exception_queue.push [allocate_message_id, [kind, error, tasks, job_ids]]
+                    exception_queue.push(
+                        [allocate_message_id, [kind, error, tasks, job_ids]]
+                    )
                 end
 
                 # Whether some exception notifications have been queued
@@ -372,7 +376,8 @@ module Roby
                 # @param [Symbol] m command or action name. Actions are always
                 #   formatted as action_name!
                 # @param [Object] args the command or action arguments
-                # @return [Object] an Object associated with the call @see async_call_pending?
+                # @return [Object] an Object associated with the call
+                # @see async_call_pending?
                 def async_call(path, m, *args, &block)
                     raise "no callback block given" unless block_given?
 
@@ -608,7 +613,8 @@ module Roby
                 # Returns a shell object
                 def subcommand(name)
                     unless (sub = find_subcommand_by_name(name))
-                        raise ArgumentError, "#{name} is not a known subcommand on #{self}"
+                        raise ArgumentError,
+                              "#{name} is not a known subcommand on #{self}"
                     end
 
                     SubcommandClient.new(self, name, sub.description, sub.commands)

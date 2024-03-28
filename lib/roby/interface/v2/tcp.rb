@@ -76,8 +76,10 @@ module Roby
                 #
                 # @return [Integer]
                 def port
-                    Roby.warn_deprecated "Interface::TCPServer#port is deprecated in favor "\
+                    Roby.warn_deprecated(
+                        "Interface::TCPServer#port is deprecated in favor "\
                         "of #ip_port to match ruby's Addrinfo API"
+                    )
                     ip_port
                 end
 
@@ -122,7 +124,9 @@ module Roby
                             client.close
 
                             if warn_about_disconnection?
-                                Roby::Interface.warn "disconnecting from #{client.client_id}"
+                                Roby::Interface.warn(
+                                    "disconnecting from #{client.client_id}"
+                                )
                             end
 
                             next(true) if e.kind_of?(ComError)
@@ -130,7 +134,9 @@ module Roby
                             if abort_on_exception?
                                 exceptions << e
                             else
-                                Roby.log_exception_with_backtrace(e, Roby::Interface, :warn)
+                                Roby.log_exception_with_backtrace(
+                                    e, Roby::Interface, :warn
+                                )
                             end
                             true
                         end
@@ -178,7 +184,8 @@ module Roby
                 Client.new(channel, "#{addr[2]}:#{addr[1]}", handshake: handshake)
             rescue Errno::ECONNREFUSED, Errno::EADDRNOTAVAIL, Errno::ETIMEDOUT,
                    Errno::EHOSTUNREACH, Errno::ENETUNREACH => e
-                raise ConnectionError, "failed to connect to #{host}:#{port}: #{e.message}",
+                raise ConnectionError,
+                      "failed to connect to #{host}:#{port}: #{e.message}",
                       e.backtrace
             rescue SocketError => e
                 raise e, "cannot connect to host '#{host}' port '#{port}': #{e.message}",
