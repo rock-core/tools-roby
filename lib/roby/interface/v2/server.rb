@@ -36,25 +36,25 @@ module Roby
                         write_packet(
                             [
                                 :cycle_end,
-                                @interface.execution_engine.cycle_index,
-                                @interface.execution_engine.cycle_start
+                                [@interface.execution_engine.cycle_index,
+                                 @interface.execution_engine.cycle_start]
                             ], defer_exceptions: true)
                     end
                     listeners << @interface.on_notification do |*args|
                         if notifications_enabled?
-                            queue_packet([:notification, *args])
+                            queue_packet([:notification, args])
                         elsif Thread.current == @main_thread
                             flush_pending_packets
                         end
                     end
                     listeners << @interface.on_ui_event do |*args|
-                        queue_packet([:ui_event, *args])
+                        queue_packet([:ui_event, args])
                     end
                     listeners << @interface.on_job_notification do |*args|
-                        write_packet([:job_progress, *args], defer_exceptions: true)
+                        write_packet([:job_progress, args], defer_exceptions: true)
                     end
                     listeners << @interface.on_exception do |*args|
-                        write_packet([:exception, *args], defer_exceptions: true)
+                        write_packet([:exception, args], defer_exceptions: true)
                     end
                     @listeners = Roby.disposable(*listeners)
                 end
@@ -121,20 +121,24 @@ module Roby
                 end
 
                 def process_batch(path, calls)
-                    calls.map do |p, m, *a|
-                        process_call(path + p, m, *a)
+                    calls.map do |p, m, a, kw|
+                        process_call(path + p, m, a, kw)
                     end
                 end
 
-                def process_call(path, name, *args)
+                def process_call(path, name, args, keywords)
                     if path.empty? && respond_to?(name)
-                        send(name, *args)
+                        send(name, *args, **keywords)
                     else
-                        receiver = path.inject(interface) do |obj, subcommand|
-                            obj.send(subcommand)
-                        end
-                        receiver.send(name, *args)
+                        process_interface_call(path, name, args, keywords)
                     end
+                end
+
+                def process_interface_call(path, name, args, keywords)
+                    receiver = path.inject(interface) do |obj, subcommand|
+                        obj.send(subcommand)
+                    end
+                    receiver.send(name, *args, **keywords)
                 end
 
                 def has_deferred_exception?
@@ -158,7 +162,7 @@ module Roby
                 def poll
                     raise @deferred_exception if has_deferred_exception?
 
-                    path, m, *args = io.read_packet
+                    path, m, args, keywords = io.read_packet
                     return unless m
 
                     begin
@@ -166,7 +170,7 @@ module Roby
                             if m == :process_batch
                                 process_batch(path, args.first)
                             else
-                                process_call(path, m, *args)
+                                process_call(path, m, args, keywords)
                             end
 
                         true

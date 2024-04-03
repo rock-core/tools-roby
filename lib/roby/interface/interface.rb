@@ -168,7 +168,7 @@ module Roby
             # Starts a job
             #
             # @return [Integer] the job ID
-            def start_job(m, arguments = {})
+            def start_job(m, **arguments)
                 _task, planning_task = app.prepare_action(
                     m, mission: true, job_id: Job.allocate_job_id, **arguments
                 )

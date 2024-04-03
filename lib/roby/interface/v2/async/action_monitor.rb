@@ -104,10 +104,8 @@ module Roby
                         end
 
                         handle_batch_argument(batch) do |b|
-                            if running?
-                                kill(batch: b)
-                            end
-                            b.start_job(action_name, arguments)
+                            kill(batch: b) if running?
+                            b.start_job(action_name, **arguments)
                         end
                     end
 
