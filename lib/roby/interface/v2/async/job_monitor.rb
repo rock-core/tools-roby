@@ -93,21 +93,23 @@ module Roby
                     end
 
                     def action_task?
-                        task&.respond_to?(:action_model)
+                        return unless task
+
+                        task.arguments[:action_model]
                     end
 
                     # The job's action model
                     #
                     # @return [Roby::Actions::Model::Action,nil]
                     def action_model
-                        task&.action_model if action_task?
+                        task.arguments[:action_model] if action_task?
                     end
 
                     # Returns the job's action name
                     #
                     # @return [String,nil]
                     def action_name
-                        task&.action_model&.name if action_task?
+                        action_model&.name
                     end
 
                     # Returns the arguments that were passed to the action
