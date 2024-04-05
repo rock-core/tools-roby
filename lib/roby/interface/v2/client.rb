@@ -11,7 +11,7 @@ module Roby
 
                 class TimeoutError < RuntimeError; end
 
-                # @return [DRobyChannel] the IO to the server
+                # @return [Channel] the IO to the server
                 attr_reader :io
                 # @return [Array<Roby::Actions::Model::Action>] set of known actions
                 attr_reader :actions
@@ -56,7 +56,7 @@ module Roby
 
                 # Create a client endpoint to a Roby interface [Server]
                 #
-                # @param [DRobyChannel] io a channel to the server
+                # @param [Channel] io a channel to the server
                 # @param [String] id a unique identifier for this client
                 #   (e.g. host:port of the local endpoint when using TCP). It is
                 #   passed to the server through {Server#handshake}
@@ -65,7 +65,7 @@ module Roby
                 #   Include :actions and :commands if you pass this explicitely, unless
                 #   you know what you are doing
                 #
-                # @see V2.connect_with_tcp_to
+                # @see Interface.connect_with_tcp_to
                 def initialize(io, id, handshake: %i[actions commands])
                     @pending_async_calls = []
                     @io = io
@@ -112,6 +112,8 @@ module Roby
                     actions.find { |act| act.name == name }
                 end
 
+                class RemoteError < RuntimeError; end
+
                 # Finds all actions whose name matches a pattern
                 #
                 # @param [#===] matcher the matching object (usually a Regexp or
@@ -136,7 +138,7 @@ module Roby
                             process_pending_async_call(args.first, nil)
                         else
                             e = args.first
-                            raise e, e.message, (e.backtrace + caller)
+                            raise RemoteError, e.message, (e.backtrace + caller)
                         end
                     when :reply
                         if !pending_async_calls.empty?
@@ -551,7 +553,7 @@ module Roby
 
                 Job = Struct.new :job_id, :state, :placeholder_task, :task do
                     def action_model
-                        task.action_model
+                        task.arguments[:action_model]
                     end
                 end
 

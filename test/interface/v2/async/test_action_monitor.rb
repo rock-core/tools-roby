@@ -2,7 +2,7 @@
 
 require "roby/test/self"
 require "roby/interface/v2/async"
-require "roby/interface/v2/tcp"
+require "roby/interface/v2"
 require_relative "client_server_test_helpers"
 
 module Roby
@@ -39,7 +39,7 @@ module Roby
                     def assert_client_receives_batch(*calls)
                         batch = nil
                         flexmock(client.client, :strict).should_receive(:process_batch)
-                            .once.with(->(b) { batch = b })
+                                                        .once.with(->(b) { batch = b })
                         yield
                         assert batch
                         assert_equal calls, batch.__calls

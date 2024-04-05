@@ -43,7 +43,7 @@ module Roby
                         interface
                     end
 
-                    def connect(server = nil, **options, &block)
+                    def connect(server = nil, **options)
                         server ||= create_server
                         client = create_client("localhost", port: server.ip_port, **options)
                         yield(client) if block_given?

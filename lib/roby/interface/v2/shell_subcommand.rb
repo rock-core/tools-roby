@@ -13,12 +13,14 @@ module Roby
                     parent.call({}, [name], m, *args)
                 rescue NoMethodError => e
                     if e.message =~ /undefined method .#{m}./
-                        puts "invalid command name #{m}, call 'help #{path.join('.')}' for more information"
+                        puts "invalid command name #{m}, "\
+                             "call 'help #{path.join('.')}' for more information"
                     else
                         raise
                     end
                 rescue ArgumentError => e
-                    if e.message =~ /wrong number of arguments/ && e.backtrace.first =~ /#{m}/
+                    if e.message =~ /wrong number of arguments/ &&
+                       e.backtrace.first =~ /#{m}/
                         puts e.message
                     else
                         raise

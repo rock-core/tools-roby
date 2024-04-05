@@ -2,7 +2,7 @@
 
 require "roby/test/self"
 require "roby/interface/v2/async"
-require "roby/interface/v2/tcp"
+require "roby/interface/v2"
 require_relative "client_server_test_helpers"
 
 module Roby
@@ -23,40 +23,49 @@ module Roby
                     end
 
                     describe "connection handling" do
-                        it "#poll retries connecting if the connection method raised ConnectionError" do
+                        it "#poll retries connecting if the connection "\
+                           "method raised ConnectionError" do
                             interface = Interface.new { raise ConnectionError }
                             interface.connection_future.wait
-                            flexmock(interface, :strict).should_receive(:attempt_connection).once
+                            flexmock(interface, :strict)
+                                .should_receive(:attempt_connection).once
                             interface.poll
                         end
-                        it "#poll retries connecting if the connection method raised ComError" do
+                        it "#poll retries connecting if the connection "\
+                           "method raised ComError" do
                             interface = Interface.new { raise ComError }
                             interface.connection_future.wait
-                            flexmock(interface, :strict).should_receive(:attempt_connection).once
+                            flexmock(interface, :strict)
+                                .should_receive(:attempt_connection).once
                             interface.poll
                         end
-                        it "#poll forwards any exception that is not ComError or ConnectionError" do
+                        it "#poll forwards any exception that is not "\
+                           "ComError or ConnectionError" do
                             interface = Interface.new { raise ArgumentError }
                             interface.connection_future.wait
-                            flexmock(interface, :strict).should_receive(:attempt_connection).never
+                            flexmock(interface, :strict)
+                                .should_receive(:attempt_connection).never
                             assert_raises(ArgumentError) { interface.poll }
                         end
                     end
 
                     describe "#wait" do
                         describe "while connecting" do
-                            it "waits for the pending connection attempt to finish and returns true" do
+                            it "waits for the pending connection attempt "\
+                               "to finish and returns true" do
                                 interface = Interface.new {}
                                 assert interface.wait
                                 assert interface.connection_future.complete?
                             end
-                            it "with a timeout, the method returns false if the attempt is not finished" do
+                            it "with a timeout, the method returns false "\
+                               "if the attempt is not finished" do
                                 sync = Concurrent::Event.new
                                 interface = Interface.new { sync.wait }
                                 refute interface.wait(timeout: 0.1)
                                 sync.set
                             end
-                            it "with a timeout, the method returns true if the attempt is finished" do
+                            it "with a timeout, the method returns true "\
+                               "if the attempt is finished" do
                                 interface = Interface.new {}
                                 assert interface.wait(timeout: 10)
                             end
@@ -79,11 +88,13 @@ module Roby
                             it "times out if no data is received on the channel" do
                                 refute interface.wait(timeout: 0.1)
                             end
-                            it "returns true if there is data on the channel without a timeout" do
+                            it "returns true if there is data on the channel "\
+                               "without a timeout" do
                                 server.interface.notify_cycle_end
                                 assert interface.wait
                             end
-                            it "returns true if there is data on the channel with a timeout" do
+                            it "returns true if there is data on the channel "\
+                               "with a timeout" do
                                 server.interface.notify_cycle_end
                                 assert interface.wait(timeout: 0.1)
                             end
@@ -91,11 +102,10 @@ module Roby
                                 server.close
                                 assert interface.wait
                             end
-                            it "blocks if no data is on the channel and no timeout is given" do
+                            it "blocks if no data is on the channel "\
+                               "and no timeout is given" do
                                 t = Thread.new { interface.wait }
-                                while t.status != "sleep"
-                                    sleep 0.01
-                                end
+                                sleep 0.01 while t.status != "sleep"
                                 sleep 0.1
                                 assert(t.status == "sleep")
                             end
@@ -113,7 +123,8 @@ module Roby
                             interface.poll
                             interface.poll
                         end
-                        it "calls on_reachable callback when connected to the remote server" do
+                        it "calls on_reachable callback when connected "\
+                           "to the remote server" do
                             connect do |interface|
                                 recorder.should_receive(:reachable).once.ordered
                                 interface.on_reachable { recorder.reachable }
@@ -121,7 +132,8 @@ module Roby
                                 interface.on_unreachable { recorder.unreachable }
                             end
                         end
-                        it "passes the current list of jobs as argument to #on_reachable" do
+                        it "passes the current list of jobs as argument "\
+                           "to #on_reachable" do
                             server = create_server
                             flexmock(server.interface).should_receive(:jobs)
                                                       .and_return(1 => %w[a b c])
@@ -137,7 +149,8 @@ module Roby
                                 c.on_reachable { |jobs| recorder.called(jobs) }
                             end
                         end
-                        it "calls the on_unreachable callback when the connection is lost" do
+                        it "calls the on_unreachable callback "\
+                           "when the connection is lost" do
                             server = create_server
                             client = connect(server)
                             recorder.should_receive(:unreachable).once.ordered
@@ -157,7 +170,8 @@ module Roby
                         it "returns the current list of jobs" do
                             server = create_server
                             client = connect(server)
-                            flexmock(server.interface).should_receive(:jobs).and_return(1 => %w[a b c])
+                            flexmock(server.interface)
+                                .should_receive(:jobs).and_return(1 => %w[a b c])
                             jobs = process_call { client.jobs }
                             assert_equal 1, jobs.size
                             job = jobs.first
@@ -171,7 +185,8 @@ module Roby
                         before do
                             @job_monitor = flexmock(job_id: 10)
                             @job_monitor.should_receive(:update_state).by_default
-                            @job_monitor.should_receive(:finalized?).and_return(false).by_default
+                            @job_monitor.should_receive(:finalized?)
+                                        .and_return(false).by_default
                             @interface = connect
                             @client = @interface.client
                             @interface.add_job_monitor(@job_monitor)
@@ -188,7 +203,8 @@ module Roby
 
                         it "notifies added job monitors" do
                             @client.queue_job_progress(:new_state, 10, "test")
-                            flexmock(@job_monitor).should_receive(:update_state).with(:new_state).once
+                            flexmock(@job_monitor)
+                                .should_receive(:update_state).with(:new_state).once
                             @interface.poll
                         end
                         it "does not notify removed job monitors" do
@@ -199,11 +215,13 @@ module Roby
                         end
                         it "auto-deregisters job monitors when the job is finalized" do
                             @client.queue_job_progress(:new_state, 10, "test")
-                            flexmock(@job_monitor).should_receive(:finalized?).and_return(true)
+                            flexmock(@job_monitor)
+                                .should_receive(:finalized?).and_return(true)
                             @interface.poll
                             refute @interface.active_job_monitor?(@job_monitor)
                         end
-                        it "accepts an already removed job monitor as argument to #remove_job_monitor" do
+                        it "accepts an already removed job monitor "\
+                           "as argument to #remove_job_monitor" do
                             @interface.remove_job_monitor(@job_monitor)
                             @interface.remove_job_monitor(@job_monitor)
                             refute @interface.active_job_monitor?(@job_monitor)
@@ -214,14 +232,15 @@ module Roby
                         it "calls the hook on the current jobs" do
                             server = create_server
                             client = connect(server)
-                            flexmock(server.interface).should_receive(:jobs).and_return(1 => %w[a b c])
+                            flexmock(server.interface)
+                                .should_receive(:jobs).and_return(1 => %w[a b c])
                             recorder.should_receive(:job)
-                                .once
-                                .with(lambda { |job|
-                                          job.job_id == 1 &&
-                                          job.state == "a" &&
-                                          job.task == "c"
-                                      })
+                                    .once
+                                    .with(lambda { |job|
+                                              job.job_id == 1 &&
+                                              job.state == "a" &&
+                                              job.task == "c"
+                                          })
                             process_call do
                                 client.on_job { |j| recorder.job(j) }
                             end
@@ -230,16 +249,17 @@ module Roby
                             port = available_server_port
                             client = create_client(connect: false, port: port)
                             recorder.should_receive(:job)
-                                .once
-                                .with(lambda { |job|
-                                          job.job_id == 1 &&
-                                          job.state == "a" &&
-                                          job.task == "c"
-                                      })
+                                    .once
+                                    .with(lambda { |job|
+                                              job.job_id == 1 &&
+                                              job.state == "a" &&
+                                              job.task == "c"
+                                          })
                             client.on_job { |j| recorder.job(j) }
 
                             server = create_server(port: port)
-                            flexmock(server.interface).should_receive(:jobs).and_return(1 => %w[a b c])
+                            flexmock(server.interface)
+                                .should_receive(:jobs).and_return(1 => %w[a b c])
 
                             future = client.attempt_connection
                             process_call { future.wait }
@@ -256,48 +276,68 @@ module Roby
                                 @server = create_server
                                 @client = connect(server)
                                 recorder.should_receive(:job)
-                                    .by_default
-                                    .once
-                                    .with(lambda { |job|
-                                              job.job_id == 1 &&
-                                              job.state == "a" &&
-                                              job.task == "c"
-                                          })
+                                        .by_default
+                                        .once
+                                        .with(lambda { |job|
+                                                  job.job_id == 1 &&
+                                                  job.state == "a" &&
+                                                  job.task == "c"
+                                              })
                                 @listener = process_call do
                                     client.on_job { |j| recorder.job(j) }
                                 end
-                                flexmock(server.interface).should_receive(:find_job_info_by_id)
+                                flexmock(server.interface)
+                                    .should_receive(:find_job_info_by_id)
                                     .with(1)
                                     .and_return(%w[a b c])
                                 interface.tracked_jobs << 1
                             end
 
                             it "calls the hook on jobs created by a third party" do
-                                interface.job_notify(Roby::Interface::JOB_READY, 1, "name")
+                                interface.job_notify(
+                                    Roby::Interface::JOB_READY, 1, "name"
+                                )
                                 interface.push_pending_notifications
                                 process_call { client.poll }
                             end
-                            it "does not repeatedly call a listener that already ignored a job" do
-                                interface.job_notify(Roby::Interface::JOB_READY, 1, "name")
+                            it "does not repeatedly call a listener "\
+                               "that already ignored a job" do
+                                interface.job_notify(
+                                    Roby::Interface::JOB_READY, 1, "name"
+                                )
                                 interface.push_pending_notifications
-                                interface.job_notify(Roby::Interface::JOB_READY, 1, "name")
+                                interface.job_notify(
+                                    Roby::Interface::JOB_READY, 1, "name"
+                                )
                                 interface.push_pending_notifications
-                                flexmock(listener).should_receive(:matches?).once.and_return(false)
+                                flexmock(listener)
+                                    .should_receive(:matches?).once.and_return(false)
                                 recorder.should_receive(:job).never
                                 process_call { client.poll }
                             end
-                            it "does not call the hook on jobs that have already been seen" do
-                                interface.job_notify(Roby::Interface::JOB_READY, 1, "name")
+                            it "does not call the hook on jobs "\
+                               "that have already been seen" do
+                                interface.job_notify(
+                                    Roby::Interface::JOB_READY, 1, "name"
+                                )
                                 interface.push_pending_notifications
-                                interface.job_notify(Roby::Interface::JOB_READY, 1, "name")
+                                interface.job_notify(
+                                    Roby::Interface::JOB_READY, 1, "name"
+                                )
                                 interface.push_pending_notifications
                                 process_call { client.poll }
                             end
-                            it "calls the hook only once on jobs created by the interface" do
-                                flexmock(client.client).should_receive(:find_action_by_name).once.and_return(true)
-                                flexmock(interface).should_receive(:start_job).once.and_return(1)
+                            it "calls the hook only once on jobs "\
+                               "created by the interface" do
+                                flexmock(client.client)
+                                    .should_receive(:find_action_by_name)
+                                    .once.and_return(true)
+                                flexmock(interface)
+                                    .should_receive(:start_job).once.and_return(1)
                                 process_call { client.client.action! }
-                                interface.job_notify(Roby::Interface::JOB_READY, 1, "name")
+                                interface.job_notify(
+                                    Roby::Interface::JOB_READY, 1, "name"
+                                )
                                 interface.push_pending_notifications
                                 process_call { client.poll }
                             end
@@ -316,11 +356,17 @@ module Roby
                         end
 
                         it "updates the state of the monitored jobs" do
-                            monitor = flexmock(:on, JobMonitor, job_id: 42, finalized?: false)
+                            monitor = flexmock(
+                                :on, JobMonitor, job_id: 42, finalized?: false
+                            )
                             client.add_job_monitor(monitor)
-                            monitor.should_receive(:update_state).with(Roby::Interface::JOB_MONITORED).once.ordered
-                            monitor.should_receive(:update_state).with(Roby::Interface::JOB_READY).once.ordered
-                            interface.job_notify(Roby::Interface::JOB_MONITORED, 42, "name")
+                            monitor.should_receive(:update_state)
+                                   .with(Roby::Interface::JOB_MONITORED).once.ordered
+                            monitor.should_receive(:update_state)
+                                   .with(Roby::Interface::JOB_READY).once.ordered
+                            interface.job_notify(
+                                Roby::Interface::JOB_MONITORED, 42, "name"
+                            )
                             interface.job_notify(Roby::Interface::JOB_READY, 42, "name")
                             interface.push_pending_notifications
                             process_call do
@@ -329,7 +375,8 @@ module Roby
                         end
 
                         it "calls #replaced on the job monitor for a REPLACED state change" do
-                            monitor = flexmock(:on, JobMonitor, job_id: 42, finalized?: false)
+                            monitor =
+                                flexmock(:on, JobMonitor, job_id: 42, finalized?: false)
                             client.add_job_monitor(monitor)
                             monitor.should_receive(:update_state).with(Roby::Interface::JOB_MONITORED).once.ordered
                             monitor.should_receive(:update_state).with(Roby::Interface::JOB_REPLACED).once.ordered
@@ -346,7 +393,7 @@ module Roby
                             monitor = flexmock(:on, JobMonitor, job_id: 42, finalized?: false)
                             client.add_job_monitor(monitor)
                             monitor.should_receive(:notify_exception)
-                                .with(:fatal, "exception_object").once
+                                   .with(:fatal, "exception_object").once
                             client.client.queue_exception(:fatal, "exception_object", [], [42])
                             process_call do
                                 client.poll
@@ -357,7 +404,7 @@ module Roby
                             monitor = JobMonitor.new(client, 42)
                             monitor.start
                             flexmock(monitor).should_receive(:notify_exception)
-                                .with(:fatal, "exception_object").once
+                                             .with(:fatal, "exception_object").once
                             interface.job_notify(Roby::Interface::JOB_MONITORED, 42, "name")
                             client.client.queue_exception(:fatal, "exception_object", [], [42])
                             interface.job_notify(Roby::Interface::JOB_FINALIZED, 42, "name")

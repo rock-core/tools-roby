@@ -2,6 +2,7 @@
 
 require "roby/test/self"
 require "roby/interface/v2/async"
+
 module Roby
     module Interface
         module V2
@@ -18,7 +19,8 @@ module Roby
                     end
 
                     describe "state management" do
-                        it "has none of the predicates set when initialized in REACHABLE state" do
+                        it "has none of the predicates set "\
+                           "when initialized in REACHABLE state" do
                             refute job_monitor.planning_finished?
                             refute job_monitor.running?
                             refute job_monitor.terminated?
@@ -96,7 +98,8 @@ module Roby
                             job_monitor.update_state(states::JOB_SUCCESS)
                             assert job_monitor.success?
                         end
-                        it "keeps #success? if JOB_SUCCESS is received and other states were received since" do
+                        it "keeps #success? if JOB_SUCCESS is received "\
+                           "and other states were received since" do
                             job_monitor.update_state(states::JOB_SUCCESS)
                             job_monitor.update_state(states::JOB_FINISHED)
                             job_monitor.update_state(states::JOB_FINALIZED)
@@ -118,7 +121,8 @@ module Roby
                             job_monitor.update_state(states::JOB_FAILED)
                             assert job_monitor.failed?
                         end
-                        it "keeps it set if JOB_SUCCESS is received and other states were received since" do
+                        it "keeps it set if JOB_SUCCESS is received "\
+                           "and other states were received since" do
                             job_monitor.update_state(states::JOB_FAILED)
                             job_monitor.update_state(states::JOB_FINISHED)
                             job_monitor.update_state(states::JOB_FINALIZED)
@@ -135,15 +139,18 @@ module Roby
                             job_monitor.update_state states::JOB_SUCCESS
                             assert job_monitor.finished?
                         end
-                        it "is not finished if terminated but no JOB_STARTED was ever received" do
+                        it "is not finished if terminated but "\
+                           "no JOB_STARTED was ever received" do
                             job_monitor.update_state states::JOB_PLANNING_FAILED
                             refute job_monitor.finished?
                         end
-                        it "infers that the system ran if the state logically descends from a running state" do
+                        it "infers that the system ran if the state logically "\
+                           "descends from a running state" do
                             job_monitor.update_state states::JOB_FINISHED
                             assert job_monitor.finished?
                         end
-                        it "does not infer that the system ran if the state does not logically descend from a running state" do
+                        it "does not infer that the system ran if the state "\
+                           "does not logically descend from a running state" do
                             job_monitor.update_state states::JOB_FINALIZED
                             refute job_monitor.finished?
                         end

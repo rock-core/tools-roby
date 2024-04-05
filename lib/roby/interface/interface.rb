@@ -157,13 +157,11 @@ module Roby
             #
             # @return [Array<Roby::Actions::Models::Action>]
             def actions
-                result = []
-                app.planners.each do |planner_model|
-                    planner_model.each_registered_action do |_, act|
-                        result << act
+                app.planners.flat_map do |planner_model|
+                    planner_model.each_registered_action.map do |_, act|
+                        act
                     end
                 end
-                result
             end
             command :actions, "lists a summary of the available actions"
 
@@ -171,8 +169,9 @@ module Roby
             #
             # @return [Integer] the job ID
             def start_job(m, arguments = {})
-                _task, planning_task = app.prepare_action(m, mission: true,
-                                                             job_id: Job.allocate_job_id, **arguments)
+                _task, planning_task = app.prepare_action(
+                    m, mission: true, job_id: Job.allocate_job_id, **arguments
+                )
                 planning_task.job_id
             end
 
@@ -534,6 +533,14 @@ module Roby
                 result
             end
             command :jobs, "returns the list of non-finished jobs"
+
+            # The list of tasks on which a given job depends
+            def tasks_of_job(id)
+                return [] unless (root = find_job_placeholder_by_id(id))
+
+                plan.compute_useful_tasks([root])
+            end
+            command :tasks_of_job, "returns all tasks on which a given job depends"
 
             def find_job_info_by_id(id)
                 return unless (job_task = find_job_by_id(id))

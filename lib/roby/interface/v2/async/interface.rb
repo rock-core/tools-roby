@@ -139,7 +139,7 @@ module Roby
 
                     def initialize(
                         remote_name = DEFAULT_REMOTE_NAME,
-                        port: Roby::Interface::DEFAULT_PORT,
+                        port: Roby::Interface::DEFAULT_PORT_V2,
                         connect: true, &connection_method
                     )
                         @remote_port = port

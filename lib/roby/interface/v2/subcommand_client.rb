@@ -17,8 +17,10 @@ module Roby
                 attr_reader :commands
 
                 def initialize(parent, name, description, commands)
-                    @parent, @name, @description, @commands =
-                        parent, name, description, commands
+                    @parent = parent
+                    @name = name
+                    @description = description
+                    @commands = commands
                 end
 
                 def call(path, m, *args)
@@ -38,7 +40,7 @@ module Roby
                 end
 
                 def has_command?(m)
-                    @commands.has_key?(m.to_s)
+                    @commands.key?(m.to_s)
                 end
 
                 def method_missing(m, *args, &block)
