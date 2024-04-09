@@ -8,6 +8,7 @@ module Roby
 
             def setup
                 @roby_app_interface_version ||= 1
+                @roby_plugin_path = []
 
                 require "roby/interface/v#{@roby_app_interface_version}"
 
@@ -205,6 +206,10 @@ module Roby
             ROBY_PORT_COMMANDS = %w[run].freeze
             ROBY_NO_INTERFACE_COMMANDS = %w[wait check test].freeze
 
+            def register_roby_plugin(path)
+                @roby_plugin_path << path
+            end
+
             # Spawn the roby app process
             #
             # @return [Integer] the app PID
@@ -223,7 +228,7 @@ module Roby
                          "--host", "localhost:#{port}"]
                     end
                 pid = spawn(
-                    { "ROBY_PLUGIN_PATH" => nil },
+                    { "ROBY_PLUGIN_PATH" => @roby_plugin_path.join(":") },
                     roby_bin, command, *port_args, *args, chdir: app_dir, **options
                 )
                 @spawned_pids << pid
