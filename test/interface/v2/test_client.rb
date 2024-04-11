@@ -538,6 +538,18 @@ module Roby
                         assert_equal "failed to receive expected reply within 0.01s",
                                      e.message
                     end
+
+                    it "forwards an exception from the server" do
+                        client = open_client
+                        e = RuntimeError.new("test")
+                        flexmock(interface).should_receive(:bad_call).explicitly.and_raise(e)
+                        remote_e = assert_raises(Client::RemoteError) do
+                            while_polling_server do
+                                client.call([], :bad_call)
+                            end
+                        end
+                        assert_equal "test (RuntimeError)", remote_e.message.chomp
+                    end
                 end
 
                 describe "#async_call" do
@@ -552,6 +564,7 @@ module Roby
                     def async_call_and_expect_ordered( # rubocop:disable Metrics/AbcSize,Metrics/ParameterLists
                         client, exp_error, exp_result, seq, path, method_name, *args, **keywords
                     )
+                        event = Concurrent::Event.new
                         client.async_call(path, method_name, *args, **keywords) do |error, result|
                             if !exp_error.nil?
                                 assert_kind_of Protocol::Error, error
@@ -562,9 +575,26 @@ module Roby
                             end
                             assert_equal [exp_result], [result]
                             watch.ping(seq)
+                            event.set
                             @async_calls_count += 1
                         end
                         watch.should_receive(:ping).with(seq).once.ordered
+                        event
+                    end
+
+                    def poll_until(timeout: 10, period: 0.02, message: "a condition")
+                        deadline = Time.now + timeout
+                        @server_channel.reset_thread_guard
+                        while Time.now < deadline
+                            return if yield
+
+                            @server.poll
+                            @client.poll
+
+                            sleep period
+                        end
+
+                        flunk("timed out polling for #{message}")
                     end
 
                     it "dispatches an action call and yields the job id" do
@@ -606,6 +636,16 @@ module Roby
                         )
                         server.io.write_packet [:reply, "foo"]
                         client.poll
+                    end
+
+                    it "forwards an exception from the server" do
+                        client = open_client
+                        e = RuntimeError.new("test")
+                        flexmock(interface).should_receive(:bad_call).explicitly.and_raise(e)
+                        event = async_call_and_expect_ordered(
+                            client, e, nil, 0, [], "bad_call", 0, 1
+                        )
+                        poll_until { event.set? }
                     end
 
                     it "dispatches a method call and yields an exception on error" do

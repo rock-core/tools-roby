@@ -127,8 +127,11 @@ module Roby
                 #
                 # Process a message as received on {#io}
                 #
+                # @param args the arguments to the given message. The object type
+                #   is message-dependent
+                #
                 # @return [Boolean] whether the message was a cycle_end message
-                def process_packet(m, args = [])
+                def process_packet(m, args = nil)
                     case m
                     when :cycle_end
                         @cycle_index, @cycle_start_time = *args
@@ -156,8 +159,7 @@ module Roby
                         queue_exception(*args)
                     else
                         raise ProtocolError,
-                              "unexpected reply from #{io}: #{m} "\
-                              "(#{args.map(&:to_s).join(',')})"
+                              "unexpected reply from #{io}: #{m} args=#{args}"
                     end
                     false
                 end
