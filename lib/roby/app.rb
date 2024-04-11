@@ -2174,7 +2174,6 @@ module Roby
         # @see stop_shell_interface
         def setup_shell_interface_v2
             enable_remote_interface_version(2)
-            call_plugins(:setup_interface_v2_protocol)
 
             if @shell_interface_v2
                 raise "there is already a v2 shell interface started, "\
