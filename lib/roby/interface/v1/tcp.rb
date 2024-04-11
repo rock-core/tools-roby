@@ -42,7 +42,7 @@ module Roby
                     @server =
                         open_tcp_server(host: host, port: port, server_fd: server_fd)
                     @clients = []
-                    @abort_on_exception = true
+                    @abort_on_exception = false
                     @accept_executor = Concurrent::CachedThreadPool.new
                     @accept_future = queue_accept_future
                     @propagation_handler_id =

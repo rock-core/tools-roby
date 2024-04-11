@@ -127,24 +127,27 @@ module Roby
                 #
                 # Process a message as received on {#io}
                 #
+                # @param args the arguments to the given message. The object type
+                #   is message-dependent
+                #
                 # @return [Boolean] whether the message was a cycle_end message
-                def process_packet(m, *args)
+                def process_packet(m, args = nil)
                     case m
                     when :cycle_end
                         @cycle_index, @cycle_start_time = *args
                         return true
                     when :bad_call
                         if !pending_async_calls.empty?
-                            process_pending_async_call(args.first, nil)
+                            process_pending_async_call(args, nil)
                         else
-                            e = args.first
+                            e = args
                             raise RemoteError, e.message, (e.backtrace + caller)
                         end
                     when :reply
                         if !pending_async_calls.empty?
-                            process_pending_async_call(nil, args.first)
+                            process_pending_async_call(nil, args)
                         else
-                            yield args.first
+                            yield args
                         end
                     when :job_progress
                         queue_job_progress(*args)
@@ -156,8 +159,7 @@ module Roby
                         queue_exception(*args)
                     else
                         raise ProtocolError,
-                              "unexpected reply from #{io}: #{m} "\
-                              "(#{args.map(&:to_s).join(',')})"
+                              "unexpected reply from #{io}: #{m} args=#{args}"
                     end
                     false
                 end
@@ -334,7 +336,7 @@ module Roby
                               "there is no action called #{action_name} on #{self}"
                     end
 
-                    call([], :start_job, action_name, arguments)
+                    call([], :start_job, action_name, **arguments)
                 end
 
                 # @api private
@@ -349,18 +351,15 @@ module Roby
                 # @param [Object] args the command or action arguments
                 # @return [Object] the command result, or -- in the case of an
                 #   action -- the job ID for the newly created action
-                def call(path, m, *args)
+                def call(path, m, *args, **keywords)
                     if (action_match = /(.*)!$/.match(m.to_s))
-                        if args.empty?
-                            args = [{}]
-                        elsif args.size > 1 || !args.last.kind_of?(Hash)
-                            raise ArgumentError,
-                                  "expected a single Hash argument, but got #{args}"
+                        unless args.empty?
+                            raise ArgumentError, "jobs only accept keyword arguments"
                         end
 
-                        start_job(action_match[1], **args.first)
+                        start_job(action_match[1], **keywords)
                     else
-                        io.write_packet([path, m, *args])
+                        io.write_packet([path, m, args, keywords])
                         result, = poll(1, timeout: @call_timeout)
                         result
                     end
@@ -378,7 +377,7 @@ module Roby
                 # @param [Object] args the command or action arguments
                 # @return [Object] an Object associated with the call
                 # @see async_call_pending?
-                def async_call(path, m, *args, &block)
+                def async_call(path, m, *args, **keywords, &block)
                     raise "no callback block given" unless block_given?
 
                     if (action_match = /(.*)!$/.match(m.to_s))
@@ -392,7 +391,7 @@ module Roby
                         m = :start_job
                         args = [action_name, *args]
                     end
-                    io.write_packet([path, m, *args])
+                    io.write_packet([path, m, args, keywords])
                     pending_async_calls << { block: block, path: path, m: m, args: args }
                     pending_async_calls.last.freeze
                 end
@@ -431,8 +430,8 @@ module Roby
                     end
 
                     # Pushes an operation in the batch
-                    def __push(path, m, *args)
-                        @calls << [path, m, *args]
+                    def __push(path, m, args, keywords = {})
+                        @calls << [path, m, args, keywords]
                     end
 
                     # Start the given job within the batch
@@ -440,9 +439,9 @@ module Roby
                     # Note that as all batch operations, order does NOT matter
                     #
                     # @raise [NoSuchAction] if the action does not exist
-                    def start_job(action_name, *args)
+                    def start_job(action_name, **arguments)
                         if @context.has_action?(action_name)
-                            __push([], :start_job, action_name, *args)
+                            __push([], :start_job, [action_name], arguments)
                         else
                             ::Kernel.raise ::Roby::Interface::V2::Client::NoSuchAction,
                                            "there is no action called #{action_name} "\
@@ -454,14 +453,14 @@ module Roby
                     #
                     # Note that as all batch operations, order does NOT matter
                     def drop_job(job_id)
-                        __push([], :drop_job, job_id)
+                        __push([], :drop_job, [job_id])
                     end
 
                     # Kill the given job within the batch
                     #
                     # Note that as all batch operations, order does NOT matter
                     def kill_job(job_id)
-                        __push([], :kill_job, job_id)
+                        __push([], :kill_job, [job_id])
                     end
 
                     def respond_to_missing?(m, include_private)
@@ -471,9 +470,9 @@ module Roby
                     # @api private
                     #
                     # Provides the action_name! syntax to start jobs
-                    def method_missing(m, *args) # rubocop:disable Style/MethodMissingSuper
+                    def method_missing(m, *, **keywords) # rubocop:disable Style/MethodMissingSuper
                         if (action_match = /(.*)!$/.match(m.to_s))
-                            return start_job(action_match[1], *args)
+                            return start_job(action_match[1], **keywords)
                         end
 
                         ::Kernel.raise ::NoMethodError.new(m),
@@ -540,13 +539,13 @@ module Roby
                         def killed_jobs_id
                             filter(call: :kill_job)
                                 .each_element
-                                .map { |e| e.call[2] }
+                                .flat_map { |e| e.call[2] }
                         end
 
                         def dropped_jobs_id
                             filter(call: :drop_job)
                                 .each_element
-                                .map { |e| e.call[2] }
+                                .flat_map { |e| e.call[2] }
                         end
                     end
                 end
@@ -620,13 +619,13 @@ module Roby
                     SubcommandClient.new(self, name, sub.description, sub.commands)
                 end
 
-                def method_missing(m, *args, &b) # rubocop:disable Style/MethodMissingSuper
+                def method_missing(m, *args, **keywords, &b) # rubocop:disable Style/MethodMissingSuper
                     if (sub = find_subcommand_by_name(m.to_s))
                         SubcommandClient.new(self, m.to_s, sub.description, sub.commands)
                     elsif (match = /^async_(.*)$/.match(m.to_s))
-                        async_call([], match[1].to_sym, *args, &b)
+                        async_call([], match[1].to_sym, *args, **keywords, &b)
                     else
-                        call([], m, *args)
+                        call([], m, *args, **keywords)
                     end
                 end
             end

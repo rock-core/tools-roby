@@ -16,6 +16,25 @@ module Roby
                     def advanced?
                         advanced
                     end
+
+                    def pp_arguments(pp)
+                        pp.nest(2) do
+                            arguments.each do |arg|
+                                pp.breakable
+                                arg.pretty_print(pp)
+                            end
+                        end
+                    end
+
+                    def pretty_print(pp)
+                        args = arguments.map(&:name).join(", ")
+                        pp.text "#{planner_name}.#{name}(#{args})"
+                        pp.breakable
+                        pp.text doc
+                        pp.breakable
+                        pp.text "Arguments"
+                        pp_arguments(pp)
+                    end
                 end
 
                 ActionArgument = Struct.new(
@@ -24,10 +43,66 @@ module Roby
                     def required?
                         required
                     end
+
+                    def pretty_print(pp)
+                        req_opt =
+                            if required?
+                                "[required]"
+                            else
+                                "[optional]"
+                            end
+
+                        default = " default=#{default}" unless Protocol.void?(default)
+
+                        pp.text "#{name} #{req_opt} #{doc}#{default}"
+                        unless Protocol.void?(example)
+                            pp.breakable
+                            pp.text "  example: #{example}"
+                        end
+
+                        nil
+                    end
                 end
 
-                Task = Struct.new(:id, :model, :arguments, keyword_init: true)
-                Error = Struct.new(:class_name, :message, :backtrace, keyword_init: true)
+                Task = Struct.new(
+                    :id, :model, :state, :started_since, :arguments, keyword_init: true
+                ) do
+                    def pretty_print(pp)
+                        pp.text "#{model}<id:#{id}> #{state}"
+                        if started_since
+                            pp.breakable
+                            pp.text "Started for: #{started_since}"
+                        end
+                        pp.breakable
+                        pp_arguments(pp)
+                    end
+
+                    def pp_arguments(pp)
+                        pp.text "Arguments"
+                        pp.nest(2) do
+                            arguments.each do |name, arg|
+                                pp.breakable
+                                pp.text name.to_s
+                                pp.text ": "
+                                arg.pretty_print(pp)
+                            end
+                        end
+                    end
+                end
+
+                Error = Struct.new(
+                    :class_name, :message, :backtrace, keyword_init: true
+                ) do
+                    def pretty_print(pp)
+                        pp.text "#{message} (#{class_name})"
+                        pp.nest(2) do
+                            backtrace.each do |line|
+                                pp.breakable
+                                pp.text line
+                            end
+                        end
+                    end
+                end
 
                 ExecutionException = Struct.new(
                     :exception, :failed_task, :involved_tasks, keyword_init: true
@@ -35,6 +110,9 @@ module Roby
 
                 class VoidClass; end
                 Void = VoidClass.new.freeze
+                def self.void?(value)
+                    value.kind_of?(VoidClass)
+                end
 
                 @marshallers = {}
 
@@ -58,7 +136,8 @@ module Roby
                         VoidClass,
                         CommandLibrary::InterfaceCommands,
                         Command,
-                        ExecutionException
+                        ExecutionException,
+                        Time
                     )
 
                     protocol.add_marshaller(
@@ -133,6 +212,8 @@ module Roby
                     Task.new(
                         id: task.droby_id.id,
                         model: task.model.name,
+                        state: task.current_state,
+                        started_since: task.start_event.last&.time,
                         arguments: marshal_task_arguments(channel, task.arguments)
                     )
                 end

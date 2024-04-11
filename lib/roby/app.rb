@@ -329,9 +329,6 @@ module Roby
         # @return [Integer,nil]
         attr_reader :log_server_port
 
-        # The TCP server that gives access to the {Interface}
-        attr_reader :shell_interface
-
         # Tests if the given directory looks like the root of a Roby app
         #
         # @param [String] test_dir the path to test
@@ -626,9 +623,20 @@ module Roby
         # Sets up provided option parser to add the --host and --vagrant option
         #
         # When added, a :host entry will be added to the provided options hash
-        def self.host_options(parser, options)
-            options[:host] ||= Roby.app.shell_interface_host || "localhost"
-            options[:port] ||= Roby.app.shell_interface_port || Interface::DEFAULT_PORT
+        def self.host_options(parser, options, interface_versions: false)
+            if interface_versions
+                options[:interface_version] ||= 1
+            else
+                options[:host] ||= Roby.app.shell_interface_host || "localhost"
+                options[:port] ||= Roby.app.shell_interface_port || Interface::DEFAULT_PORT
+            end
+
+            if interface_versions
+                parser.on("--interface-version=VERSION", Integer,
+                          "the remote interface version to use") do |version|
+                    options[:interface_version] = version
+                end
+            end
 
             parser.on(
                 "--host URL", String, "sets the host to connect to as hostname[:PORT]"
@@ -649,6 +657,40 @@ module Roby
                 end
                 options[:host] = Roby::App::Vagrant.resolve_ip(vagrant_name)
                 options[:port] = port
+            end
+        end
+
+        # Called by tooling to enable the given remote interface version
+        #
+        # @param [Integer] version the desired interface version (1 or 2 for now)
+        # @return [Module] the namespace of the interface implementation
+        def enable_remote_interface_version(version)
+            if version == 1
+                require "roby/interface/v1"
+                Roby::Interface::V1
+            elsif version == 2
+                require "roby/interface/v2"
+                call_plugins(:setup_interface_v2_protocol)
+                Roby::Interface::V2
+            else
+                raise ArgumentError, "remote interface version #{version} does not exist"
+            end
+        end
+
+        # Fill defaults in the option hash setup by {.host_options}
+        #
+        # This must be called if interface_versions is set
+        def self.host_options_set_defaults(options)
+            return unless options[:interface_version]
+
+            if options[:interface_version] == 1
+                options[:host] ||= Roby.app.shell_interface_host || "localhost"
+                options[:port] ||= Roby.app.shell_interface_port ||
+                                   Interface::DEFAULT_PORT
+            else
+                options[:host] ||= Roby.app.shell_interface_v2_host || "localhost"
+                options[:port] ||= Roby.app.shell_interface_v2_port ||
+                                   Interface::DEFAULT_PORT
             end
         end
 
@@ -723,6 +765,16 @@ module Roby
         # @return [Integer]
         attr_accessor :rest_interface_port
 
+        # The TCP server that gives access to the {Interface}
+        attr_reader :shell_interface
+
+        # @!method public_shell_interface?
+        # @!method public_shell_interface=(flag)
+        #
+        # If set to true, this Roby application will publish a
+        # {Interface::Interface} object as a TCP server.
+        attr_predicate :public_shell_interface?, true
+
         # The host to which the shell interface server should bind
         #
         # This is ignored if {#shell_interface_fd} is set
@@ -747,6 +799,44 @@ module Roby
         # @return [Integer]
         # @see shell_interface_host shell_interface_port
         attr_accessor :shell_interface_fd
+
+        # @!method public_shell_interface_v2?
+        # @!method public_shell_interface_v2=(flag)
+        #
+        # If set to true, this Roby application will publish a
+        # {Interface::Interface} object as a TCP server.
+        attr_predicate :public_shell_interface_v2?, true
+
+        # The TCP server that gives access to main remote {Interface} using
+        # the v2 protocol
+        #
+        # Unless {#shell_interface_v2_fd} is set, the interface listens to
+        # {#shell_interface_host} and {#shell_interface_port} + 2
+        attr_reader :shell_interface_v2
+
+        # The host to which the v2 shell interface server should bind
+        #
+        # This is ignored if {#shell_interface_v2_fd} is set
+        #
+        # @return [String]
+        # @see shell_interface_v2_host shell_interface_v2_fd
+        attr_accessor :shell_interface_v2_host
+
+        # The port on which the v2 shell interface server should be
+        #
+        # This is ignored if {#shell_interface_v2_fd} is set
+        #
+        # @return [Integer]
+        # @see shell_interface_v2_host shell_interface_v2_fd
+        attr_accessor :shell_interface_v2_port
+
+        # A file descriptor that should be used as-is for the v2 interface server
+        #
+        # Unless {#shell_interface_v2_fd} is set, the interface listens to
+        # {#shell_interface_host} and {#shell_interface_port} + 2
+        #
+        # @return [Integer]
+        attr_accessor :shell_interface_v2_fd
 
         # Whether an unexpected (non-comm-related) failure in the shell should
         # cause an abort
@@ -787,7 +877,12 @@ module Roby
             @shell_interface_host = nil
             @shell_interface_port = Interface::DEFAULT_PORT
             @shell_interface_fd = nil
-            @shell_abort_on_exception = true
+            @shell_abort_on_exception = false
+
+            @shell_interface_v2 = nil
+            @shell_interface_v2_host = nil
+            @shell_interface_v2_port = Interface::DEFAULT_PORT_V2
+            @shell_interface_v2_fd = nil
 
             @rest_interface = nil
             @rest_interface_host = nil
@@ -1022,9 +1117,9 @@ module Roby
 
         # Prepares the environment to actually run
         def prepare
-            if public_shell_interface?
-                setup_shell_interface
-            end
+            setup_shell_interface_v1 if public_shell_interface?
+            setup_shell_interface_v2 if public_shell_interface_v2?
+
             if public_rest_interface?
                 setup_rest_interface
             end
@@ -2028,6 +2123,12 @@ module Roby
             end
         end
 
+        def shell_interface_has_clients?
+            v1_count = shell_interface&.client_count(handshake: true) || 0
+            v2_count = shell_interface_v2&.client_count(handshake: true) || 0
+            (v1_count + v2_count) > 0
+        end
+
         # Publishes a shell interface
         #
         # This method publishes a Roby::Interface object using
@@ -2039,8 +2140,8 @@ module Roby
         # The shell interface is started in #setup and stopped in #cleanup
         #
         # @see stop_shell_interface
-        def setup_shell_interface
-            require "roby/interface/v1"
+        def setup_shell_interface_v1
+            enable_remote_interface_version(1)
 
             if @shell_interface
                 raise "there is already a shell interface started, call #stop_shell_interface first"
@@ -2055,10 +2156,41 @@ module Roby
             if shell_interface_fd
                 Robot.info "shell interface started on file descriptor "\
                            "#{shell_interface_fd}"
-            elsif shell_interface_port != Interface::DEFAULT_PORT
-                Robot.info "shell interface started on port #{shell_interface_port}"
             else
-                Robot.debug "shell interface started on port #{shell_interface_port}"
+                Robot.info "shell interface started on port #{shell_interface_port}"
+            end
+        end
+
+        # Publishes a shell interface
+        #
+        # This method publishes a Roby::Interface object using
+        # {Interface::TCPServer}. It is published on {Interface::DEFAULT_PORT}
+        # by default. This default can be overriden by setting
+        # {#shell_interface_port} either in config/init.rb, or in a
+        # {Robot.setup} block in the robot configuration file.
+        #
+        # The shell interface is started in #setup and stopped in #cleanup
+        #
+        # @see stop_shell_interface
+        def setup_shell_interface_v2
+            enable_remote_interface_version(2)
+
+            if @shell_interface_v2
+                raise "there is already a v2 shell interface started, "\
+                      "call #stop_shell_interface first"
+            end
+
+            @shell_interface_v2 = Interface::V2::TCPServer.new(
+                self,
+                host: shell_interface_v2_host, port: shell_interface_v2_port,
+                server_fd: shell_interface_v2_fd
+            )
+            shell_interface_v2.abort_on_exception = shell_abort_on_exception?
+            if shell_interface_v2_fd
+                Robot.info "shell interface v2 started on file descriptor "\
+                           "#{shell_interface_v2_fd}"
+            else
+                Robot.info "shell interface v2 started on port #{shell_interface_v2_port}"
             end
         end
 
@@ -2069,6 +2201,11 @@ module Roby
             if @shell_interface
                 @shell_interface.close
                 @shell_interface = nil
+            end
+
+            if @shell_interface_v2
+                @shell_interface_v2.close
+                @shell_interface_v2 = nil
             end
         end
 
@@ -2526,13 +2663,6 @@ module Roby
             self.modelling_only = true
             setup
         end
-
-        # @!method public_shell_interface?
-        # @!method public_shell_interface=(flag)
-        #
-        # If set to true, this Roby application will publish a
-        # {Interface::Interface} object as a TCP server.
-        attr_predicate :public_shell_interface?, true
 
         # @!method public_logs?
         # @!method public_logs=(flag)

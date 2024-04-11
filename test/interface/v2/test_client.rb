@@ -107,8 +107,10 @@ module Roby
 
                 it "dispatches an action call as a start_job message" do
                     interface.should_receive(actions: [stub_action("Test")])
-                    interface.should_receive(:start_job).with("Test", arg0: 10).once
-                             .and_return(10)
+                    interface
+                        .should_receive(:start_job)
+                        .with("Test", { arg0: 10 }).once
+                        .and_return(10)
                     result = connect { |client| client.Test!(arg0: 10) }
                     assert_equal 10, result
                 end
@@ -269,9 +271,9 @@ module Roby
                             ret = while_polling_server { client.process_batch(batch) }
                             assert_kind_of Client::BatchContext::Return, ret
                             expected =
-                                [[[[], :start_job, "Test", Hash[arg: 10]], 1],
-                                 [[[], :kill_job, 1], 2],
-                                 [[[], :start_job, "Test", Hash[arg: 20]], 3]]
+                                [[[[], :start_job, ["Test"], { arg: 10 }], 1],
+                                 [[[], :kill_job, [1], {}], 2],
+                                 [[[], :start_job, ["Test"], { arg: 20 }], 3]]
                                 .map do |call, call_ret|
                                     Client::BatchContext::Return::Element
                                         .new(call, call_ret)
@@ -300,8 +302,8 @@ module Roby
                             batch.Test!(arg: 20)
                             ret = while_polling_server { client.process_batch(batch) }
                             expected =
-                                [[[[], :start_job, "Test", Hash[arg: 10]], 1],
-                                 [[[], :start_job, "Test", Hash[arg: 20]], 3]]
+                                [[[[], :start_job, ["Test"], Hash[arg: 10]], 1],
+                                 [[[], :start_job, ["Test"], Hash[arg: 20]], 3]]
                                 .map do |call, call_ret|
                                     Client::BatchContext::Return::Element
                                         .new(call, call_ret)
@@ -536,6 +538,18 @@ module Roby
                         assert_equal "failed to receive expected reply within 0.01s",
                                      e.message
                     end
+
+                    it "forwards an exception from the server" do
+                        client = open_client
+                        e = RuntimeError.new("test")
+                        flexmock(interface).should_receive(:bad_call).explicitly.and_raise(e)
+                        remote_e = assert_raises(Client::RemoteError) do
+                            while_polling_server do
+                                client.call([], :bad_call)
+                            end
+                        end
+                        assert_equal "test (RuntimeError)", remote_e.message.chomp
+                    end
                 end
 
                 describe "#async_call" do
@@ -548,9 +562,10 @@ module Roby
                     end
 
                     def async_call_and_expect_ordered( # rubocop:disable Metrics/AbcSize,Metrics/ParameterLists
-                        client, exp_error, exp_result, seq, path, method_name, *args
+                        client, exp_error, exp_result, seq, path, method_name, *args, **keywords
                     )
-                        client.async_call(path, method_name, *args) do |error, result|
+                        event = Concurrent::Event.new
+                        client.async_call(path, method_name, *args, **keywords) do |error, result|
                             if !exp_error.nil?
                                 assert_kind_of Protocol::Error, error
                                 assert_equal "#{exp_error.message} (#{exp_error.class})",
@@ -560,9 +575,26 @@ module Roby
                             end
                             assert_equal [exp_result], [result]
                             watch.ping(seq)
+                            event.set
                             @async_calls_count += 1
                         end
                         watch.should_receive(:ping).with(seq).once.ordered
+                        event
+                    end
+
+                    def poll_until(timeout: 10, period: 0.02, message: "a condition")
+                        deadline = Time.now + timeout
+                        @server_channel.reset_thread_guard
+                        while Time.now < deadline
+                            return if yield
+
+                            @server.poll
+                            @client.poll
+
+                            sleep period
+                        end
+
+                        flunk("timed out polling for #{message}")
                     end
 
                     it "dispatches an action call and yields the job id" do
@@ -604,6 +636,16 @@ module Roby
                         )
                         server.io.write_packet [:reply, "foo"]
                         client.poll
+                    end
+
+                    it "forwards an exception from the server" do
+                        client = open_client
+                        e = RuntimeError.new("test")
+                        flexmock(interface).should_receive(:bad_call).explicitly.and_raise(e)
+                        event = async_call_and_expect_ordered(
+                            client, e, nil, 0, [], "bad_call", 0, 1
+                        )
+                        poll_until { event.set? }
                     end
 
                     it "dispatches a method call and yields an exception on error" do

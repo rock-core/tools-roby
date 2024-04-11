@@ -190,7 +190,7 @@ module Roby
                     assert_equal ["localhost", 2356], cli.resolve_remote_host(":!2356")
                 end
                 it "resolves the port by contacting the Roby instance" do
-                    app.setup_shell_interface
+                    app.setup_shell_interface_v1
                     app.start_log_server(logfile_path, { "silent" => true })
                     resolve_thread = Thread.new { cli.resolve_remote_host }
                     capture_subprocess_io do

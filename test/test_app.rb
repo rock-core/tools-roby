@@ -358,7 +358,7 @@ module Roby
             end
         end
 
-        describe "shell interface setup" do
+        describe "shell interface v1 setup" do
             before do
                 app.shell_interface_port = 0
             end
@@ -366,21 +366,47 @@ module Roby
             it "binds the shell interface to the configured host and port" do
                 flexmock(::TCPServer).should_receive(:new).with("127.0.0.1", 0).pass_thru
                 app.shell_interface_host = "127.0.0.1"
-                app.setup_shell_interface
+                app.setup_shell_interface_v1
                 assert_equal "127.0.0.1", app.shell_interface.ip_address
                 roby_app_call_interface(port: app.shell_interface.ip_port)
             end
             it "refuses to start a shell interface if one is already setup" do
-                app.setup_shell_interface
+                app.setup_shell_interface_v1
                 assert_raises(RuntimeError) do
-                    app.setup_shell_interface
+                    app.setup_shell_interface_v1
                 end
             end
             it "accepts restarting a shell interface after the previous one has been stopped" do
-                app.setup_shell_interface
+                app.setup_shell_interface_v1
                 app.stop_shell_interface
-                app.setup_shell_interface
+                app.setup_shell_interface_v1
                 roby_app_call_interface(port: app.shell_interface.ip_port)
+            end
+        end
+
+        describe "shell interface v2 setup" do
+            before do
+                app.shell_interface_v2_port = 0
+            end
+
+            it "binds the shell interface to the configured host and port" do
+                flexmock(::TCPServer).should_receive(:new).with("127.0.0.1", 0).pass_thru
+                app.shell_interface_v2_host = "127.0.0.1"
+                app.setup_shell_interface_v2
+                assert_equal "127.0.0.1", app.shell_interface_v2.ip_address
+                roby_app_call_interface(version: 2, port: app.shell_interface_v2.ip_port)
+            end
+            it "refuses to start a shell interface if one is already setup" do
+                app.setup_shell_interface_v2
+                assert_raises(RuntimeError) do
+                    app.setup_shell_interface_v2
+                end
+            end
+            it "accepts restarting a shell interface after the previous one has been stopped" do
+                app.setup_shell_interface_v2
+                app.stop_shell_interface
+                app.setup_shell_interface_v2
+                roby_app_call_interface(version: 2, port: app.shell_interface_v2.ip_port)
             end
         end
 
@@ -402,7 +428,7 @@ module Roby
                 assert_roby_app_can_connect_to_log_server
             end
             it "gives access to this port through the Roby interface" do
-                app.setup_shell_interface
+                app.setup_shell_interface_v1
                 app.start_log_server(logfile_path)
                 actual_port = roby_app_call_interface(&:log_server_port)
                 assert_equal app.log_server_port, actual_port

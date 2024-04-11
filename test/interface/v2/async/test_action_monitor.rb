@@ -100,7 +100,7 @@ module Roby
 
                             it "kills the job" do
                                 job.should_receive(:running?).and_return(true)
-                                assert_client_receives_batch [[], :kill_job, 42] do
+                                assert_client_receives_batch [[], :kill_job, [42], {}] do
                                     subject.kill
                                 end
                             end
@@ -128,7 +128,7 @@ module Roby
                     describe "#restart" do
                         it "simply starts the job if there are no running jobs" do
                             flexmock(client.client, :strict).should_receive(:has_action?).with("test").and_return(true)
-                            assert_client_receives_batch [[], :start_job, "test", { id: 20 }] do
+                            assert_client_receives_batch [[], :start_job, ["test"], { id: 20 }] do
                                 subject.restart
                             end
                         end
@@ -136,7 +136,10 @@ module Roby
                             job = create_mock_job(42, "test", id: 20)
                             job.should_receive(:running?).and_return(true)
                             flexmock(client.client, :strict).should_receive(:has_action?).with("test").and_return(true)
-                            assert_client_receives_batch [[], :kill_job, 42], [[], :start_job, "test", { id: 20 }] do
+                            assert_client_receives_batch(
+                                [[], :kill_job, [42], {}],
+                                [[], :start_job, ["test"], { id: 20 }]
+                            ) do
                                 subject.restart
                             end
                         end
