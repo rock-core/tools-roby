@@ -240,11 +240,13 @@ module Roby
                         end
 
                         def update(peer, local_object, fresh_proxy: false)
-                            if @argument_set # Backward compatibility
-                                arguments = @argument_set.map { |name| [name, false, nil, nil] }
-                            end
+                            # Backward compatibility, @argument_set is not nil
+                            # in older logs
+                            arguments =
+                                @argument_set&.map { |name| [name, false, nil, nil] } ||
+                                @arguments
 
-                            @arguments.each do |name, has_default, default, doc|
+                            arguments.each do |name, has_default, default, doc|
                                 unless local_object.has_argument?(name)
                                     unless has_default
                                         default = Roby::Models::Task::NO_DEFAULT_ARGUMENT
@@ -252,6 +254,7 @@ module Roby
                                     local_object.argument name, default: peer.local_object(default), doc: doc
                                 end
                             end
+
                             events.each do |name, controlable, terminal|
                                 unless local_object.has_event?(name)
                                     local_object.event name, controlable: controlable, terminal: terminal

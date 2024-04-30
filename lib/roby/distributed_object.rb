@@ -4,14 +4,10 @@ module Roby
     class ::Class
         # If true, this model will never get sent to remote peers.
         def private_model?
-            if !@private_model.nil?
-                @private_model
-            else
-                klass = superclass
-                if superclass.respond_to?(:private_model?)
-                    superclass.private_model?
-                end
-            end
+            return @private_model unless @private_model.nil?
+
+            klass = superclass
+            klass.private_model? if klass.respond_to?(:private_model?)
         end
 
         # Declares that neither this model nor its subclasses should be sent to

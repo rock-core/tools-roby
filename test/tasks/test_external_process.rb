@@ -49,22 +49,22 @@ module Roby
                 end
 
                 it "creates a pipe for stdout" do
-                    pipe_r, pipe_w = mock_pipe
+                    _, pipe_w = mock_pipe
                     @task.redirect_output(stdout: :pipe)
                     opened_ios, options = @task.handle_redirection
                     assert_equal [[:close, pipe_w]], opened_ios
                     assert_equal Hash[out: pipe_w], options
                 end
                 it "creates a pipe for stderr" do
-                    pipe_r, pipe_w = mock_pipe
+                    _, pipe_w = mock_pipe
                     @task.redirect_output(stderr: :pipe)
                     opened_ios, options = @task.handle_redirection
                     assert_equal [[:close, pipe_w]], opened_ios
                     assert_equal Hash[err: pipe_w], options
                 end
                 it "creates two different pipes for stdout and stderr if given a single :pipe symbol" do
-                    out_pipe_r, out_pipe_w = mock_pipe
-                    err_pipe_r, err_pipe_w = mock_pipe
+                    _, out_pipe_w = mock_pipe
+                    _, err_pipe_w = mock_pipe
                     @task.redirect_output(:pipe)
                     opened_ios, options = @task.handle_redirection
                     assert_equal [[:close, out_pipe_w], [:close, err_pipe_w]], opened_ios

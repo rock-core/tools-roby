@@ -511,7 +511,7 @@ module Roby
                     assert_equal info, receiver.edge_info(2, 5)
                 end
                 it "update the edge info of existing edges" do
-                    receiver.set_edge_info(2, 3, old_info = Object.new)
+                    receiver.set_edge_info(2, 3, Object.new)
                     argument.set_edge_info(2, 3, info = Object.new)
                     receiver.merge(argument)
                     assert_equal info, receiver.edge_info(2, 3)

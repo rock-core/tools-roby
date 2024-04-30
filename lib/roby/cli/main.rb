@@ -35,7 +35,7 @@ module Roby
                         else
                             Hash[host: url]
                         end
-                    elsif (url = options[:vagrant])
+                    elsif (vagrant_name = options[:vagrant])
                         require "roby/app/vagrant"
                         if vagrant_name =~ /(.*):(\d+)$/
                             vagrant_name, port = $1, Integer($2)
@@ -83,17 +83,12 @@ module Roby
                 end
 
                 def setup_interface(app = Roby.app, retry_connection: false, timeout: nil)
-                    interface_version = options[:interface_version] || 1
-
-                    host_port = parse_host_option
                     host, port, namespace = interface_host_port_and_namespace(app)
 
                     app.guess_app_dir
                     app.shell
                     app.single
                     app.load_base_config
-
-                    interface = nil
                     deadline = Time.now + timeout if retry_connection && timeout
 
                     loop do
@@ -117,7 +112,7 @@ module Roby
                     until interface.closed?
                         interface.poll
                         while interface.has_notifications?
-                            _, (source, level, message) = interface.pop_notification
+                            _, (_, level, message) = interface.pop_notification
                             Robot.send(level.downcase, message)
                         end
                         while interface.has_job_progress?

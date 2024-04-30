@@ -93,7 +93,6 @@ module Roby
             end
 
             def remove_current_task
-                current_task_child = root_task.find_child_from_role("current_task")
                 task_info[current_task].required_tasks.each do |task, roles|
                     if (state_name = task.name)
                         roles = [state_name, *roles]

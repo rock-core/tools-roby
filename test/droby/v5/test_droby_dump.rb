@@ -142,7 +142,7 @@ module Roby
                         task_m.event :terminal, terminal: true
                         marshaller.register_model(task_m)
                         marshalled = marshaller.dump(task_m)
-                        loaded = ::Marshal.load(::Marshal.dump(marshalled))
+                        ::Marshal.load(::Marshal.dump(marshalled))
                         loaded = demarshaller.local_object(marshalled)
                         assert loaded.find_event(:controlable).controlable?
                         assert loaded.find_event(:terminal).terminal?
@@ -153,7 +153,7 @@ module Roby
 
                     it "registers its model" do
                         task_m = Roby::Task.new_submodel
-                        task = task_m.new
+                        task_m.new
                         droby_transfer(task_m.new)
                         assert_kind_of Roby::DRoby::RemoteDRobyID,
                                        droby_local_marshaller.dump(task_m)
@@ -269,7 +269,7 @@ module Roby
                                 event :additional, controlable: true
                             end
                             local_plan.add_mission_task(task = task_m.new)
-                            remote_task = transfer(task)
+                            transfer(task)
 
                             local_plan.unmark_mission_task(task)
                             remote_task = transfer(task)
@@ -330,7 +330,7 @@ module Roby
                     end
 
                     it "transfers the tasks" do
-                        plan.add(task0 = task_m.new(test: 20))
+                        plan.add(task_m.new(test: 20))
                         plan = transfer(self.plan)
                         assert_equal 1, plan.tasks.size
                         assert_equal Roby::Task, plan.tasks.first.class.superclass
@@ -339,7 +339,7 @@ module Roby
 
                     it "handles tasks in arguments" do
                         plan.add(task0 = task_m.new)
-                        plan.add(task1 = task_m.new(test: task0))
+                        plan.add(task_m.new(test: task0))
                         plan = transfer(self.plan)
                         task0, task1 = plan.tasks.to_a
                         assert_equal task0, task1.arguments[:test]
@@ -470,7 +470,7 @@ module Roby
                 describe DefaultArgumentDumper do
                     it "transfers the default argument value" do
                         local = Roby::Task.new_submodel
-                        obj = DefaultArgument.new(local)
+                        DefaultArgument.new(local)
                         arg = Roby::DefaultArgument.new(local)
 
                         remote_arg = droby_transfer(arg)
@@ -484,7 +484,7 @@ module Roby
                         obj = Object.new
                         arg = Roby::DelayedArgumentFromObject.new(obj, false).bla
 
-                        loaded = transfer(arg)
+                        transfer(arg)
                         assert_kind_of Object, arg.instance_variable_get(:@object)
                         assert_equal [:bla], arg.instance_variable_get(:@methods)
                         assert_equal Object, arg.instance_variable_get(:@expected_class)
@@ -494,7 +494,7 @@ module Roby
                     it "handles DelayedArgumentFromState" do
                         arg = Roby::DelayedArgumentFromState.new.bla
 
-                        loaded = transfer(arg)
+                        transfer(arg)
                         assert_kind_of Roby::StateSpace, arg.instance_variable_get(:@object)
                         assert_equal [:bla], arg.instance_variable_get(:@methods)
                         assert_equal Object, arg.instance_variable_get(:@expected_class)

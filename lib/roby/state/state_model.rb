@@ -187,7 +187,7 @@ module Roby
 
         # Reimplemented from OpenStruct
         def method_missing(name, *args)
-            if name =~ /(.*)=$/ && (data_source = data_sources.get($1))
+            if name =~ /(.*)=$/ && data_sources.get($1)
                 raise ArgumentError,
                       "cannot explicitely set a field for which a data source exists"
             end

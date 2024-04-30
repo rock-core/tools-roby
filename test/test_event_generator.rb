@@ -347,8 +347,8 @@ class TC_EventGenerator < Minitest::Test
     end
 
     def test_related_tasks
-        e1, e2 = (1..2).map { EventGenerator.new(true) }
-                       .each { |ev| plan.add(ev) }
+        e1, = (1..2).map { EventGenerator.new(true) }
+                    .each { |ev| plan.add(ev) }
         t1 = Tasks::Simple.new
 
         assert_equal([].to_set, e1.related_tasks)
@@ -1231,8 +1231,8 @@ module Roby
                 plan.add(generator = EventGenerator.new {})
                 execute { generator.call }
                 assert generator.pending?
-                execution_exception = expect_execution { generator.emit_failed }
-                                      .to { have_error_matching EmissionFailed }
+                expect_execution { generator.emit_failed }
+                    .to { have_error_matching EmissionFailed }
                 refute generator.pending?
             end
         end

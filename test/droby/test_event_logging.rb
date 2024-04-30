@@ -176,7 +176,7 @@ module Roby
                 end
 
                 it "stores a garbaged task in the plan structure" do
-                    local_plan.add(task = Task.new)
+                    local_plan.add(Task.new)
                     process_logged_events
                     r_task = rebuilt_plan.tasks.first
                     execute_one_cycle(garbage_collect: true)
@@ -194,7 +194,7 @@ module Roby
                 end
 
                 it "does not remove a garbaged task until #clear_integrated is called" do
-                    local_plan.add(task = Task.new)
+                    local_plan.add(Task.new)
                     process_logged_events
                     r_task = rebuilt_plan.tasks.first
                     execute_one_cycle(garbage_collect: true)
@@ -206,7 +206,7 @@ module Roby
                 end
 
                 it "stores a garbaged event in the plan structure" do
-                    local_plan.add(event = EventGenerator.new)
+                    local_plan.add(EventGenerator.new)
                     process_logged_events
                     r_event = rebuilt_plan.free_events.first
                     execute_one_cycle(garbage_collect: true)
@@ -215,7 +215,7 @@ module Roby
                 end
 
                 it "does not remove a garbaged event until #clear_integrated is called" do
-                    local_plan.add(event = EventGenerator.new)
+                    local_plan.add(EventGenerator.new)
                     process_logged_events
                     r_event = rebuilt_plan.free_events.first
                     execute_one_cycle(garbage_collect: true)
@@ -429,7 +429,7 @@ module Roby
 
                 it "propagates event emission" do
                     local_plan.add(generator = EventGenerator.new)
-                    event = execute { generator.emit(flexmock(droby_dump: 42)) }
+                    execute { generator.emit(flexmock(droby_dump: 42)) }
                     process_logged_events
                     r_generator = rebuilt_plan.free_events.first
                     assert r_generator.emitted?

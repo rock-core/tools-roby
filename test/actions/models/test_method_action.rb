@@ -88,7 +88,7 @@ module Roby
                             flexmock(@interface_m)
                                 .new_instances.should_receive(:args)
                                 .with(req: 42, opt_with_value: 10, opt_without_value: 20)
-                                .once.and_return(task = @task_m.new)
+                                .once.and_return(@task_m.new)
 
                             @interface_m.args.instanciate(
                                 plan, req: 42, opt_with_value: 10, opt_without_value: 20
@@ -99,7 +99,7 @@ module Roby
                             flexmock(@interface_m)
                                 .new_instances.should_receive(:args)
                                 .with(req: 42, opt_with_value: 10)
-                                .once.and_return(task = @task_m.new)
+                                .once.and_return(@task_m.new)
 
                             @interface_m.args.instanciate(plan, req: 42)
                         end
@@ -124,7 +124,7 @@ module Roby
                         @action_m.instanciate(plan)
                     end
                     it "rejects a task of an unexpected task model" do
-                        @action_m.returns(expected_m = Roby::Task.new_submodel)
+                        @action_m.returns(Roby::Task.new_submodel)
                         assert_raises(MethodAction::InvalidReturnedType) do
                             @action_m.instanciate(plan)
                         end

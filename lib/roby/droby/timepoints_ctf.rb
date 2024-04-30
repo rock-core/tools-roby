@@ -75,7 +75,6 @@ module Roby
                 end
 
                 def marshal_event(time, event_id, thread_id, thread_name, name)
-                    timestamp = make_timestamp(time)
                     event_header =
                         [0xFFFF, event_id, make_timestamp(time)]
                         .pack("S<L<Q<")

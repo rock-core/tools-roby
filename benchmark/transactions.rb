@@ -63,7 +63,7 @@ Benchmark.bm(70) do |x|
 
     x.report("creating #{COUNT} transactions") do
         COUNT.times do
-            trsc = Roby::Transaction.new(plan)
+            Roby::Transaction.new(plan)
         end
     end
     x.report("import non-connected task from plan (#{COUNT} times)") do

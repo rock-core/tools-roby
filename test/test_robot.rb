@@ -26,12 +26,12 @@ describe Robot do
         end
 
         it "sets the job_id by default" do
-            task, planner = Robot.test_action!
+            _, planner = Robot.test_action!
             refute_nil planner.job_id
         end
 
         it "allows to override the job_id to nil" do
-            task, planner = Robot.test_action!(job_id: nil)
+            _, planner = Robot.test_action!(job_id: nil)
             assert_nil planner.job_id
         end
 

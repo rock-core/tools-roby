@@ -22,7 +22,7 @@ module Roby
             # @raise VagrantVMNotRunning
             def self.resolve_vm(vagrant_name)
                 IO.popen(%w[vagrant global-status]).each_line do |line|
-                    id, name, provider, state, * = line.chomp.split(/\s+/)
+                    id, name, _, state, * = line.chomp.split(/\s+/)
                     if vagrant_name == id || vagrant_name == name
                         if state != "running"
                             raise NotRunning,

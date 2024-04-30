@@ -63,7 +63,7 @@ class TC_StateSpace < Minitest::Test
         flexmock(m).should_receive(:set).never
         flexmock(m).should_receive(:attach_child).and_raise(ArgumentError)
 
-        s = StateSpace.new(m)
+        StateSpace.new(m)
         assert_same val_field, m.val
         assert_same pose_field, m.pose
         assert_same position_field, m.pose.position
@@ -215,7 +215,7 @@ class TC_StateSpace < Minitest::Test
     def test_state_model_read_should_validate_type
         source = flexmock
         source.should_receive(:read).once
-              .and_return(obj = Object.new)
+              .and_return(Object.new)
         field_type = Class.new
 
         s = create_state_space("pose.position")

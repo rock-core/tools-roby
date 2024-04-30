@@ -35,7 +35,7 @@ describe Roby::Coordination::Models::Task do
             assert !task.find_child("name", flexmock)
         end
         it "uses the model given as argument even if the task model provides one through #find_child" do
-            task_model.should_receive(:find_child).with("name").and_return(child_model = flexmock)
+            task_model.should_receive(:find_child).with("name").and_return(flexmock)
             child = task.find_child("name", argument_model = flexmock)
             assert_equal argument_model, child.model
         end

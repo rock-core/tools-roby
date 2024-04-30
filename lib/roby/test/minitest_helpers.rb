@@ -38,8 +38,6 @@ module Roby
                         plan.execution_engine.display_exceptions?, display_exceptions
                 end
 
-                msg = exp.pop if String === exp.last
-
                 matchers = exp.dup
                 exp = exp.map do |e|
                     if e.kind_of?(Queries::LocalizedErrorMatcher)

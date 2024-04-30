@@ -19,9 +19,7 @@ module Roby
 
                 sample_type = Struct.new(*fields)
 
-                start = Time.now
                 Roby.condition_variable(true) do |cv, mt|
-                    first_sample = nil
                     mt.synchronize do
                         timeout = false
                         id = engine.every(period) do
@@ -98,14 +96,13 @@ module Roby
                 samples = samples.map do |original_sample|
                     sample = original_sample.dup
                     fields.each do |name|
-                        next unless (value = sample[name])
+                        next unless sample[name]
 
                         unless spec[name] == :absolute || spec[name] == :absolute_rate
                             if last_sample && last_sample[name]
                                 sample[name] -= last_sample[name]
                             else
                                 sample[name] = nil
-                                next
                             end
                         end
                     end

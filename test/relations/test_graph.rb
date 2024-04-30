@@ -51,13 +51,13 @@ module Roby
                 end
 
                 it "ignores edges for which the source does not have a mapping" do
-                    old_graph.add_edge(old_a, old_b, info = Object.new)
+                    old_graph.add_edge(old_a, old_b, Object.new)
                     old_graph.copy_subgraph_to(new_graph, old_b => new_b)
                     refute new_graph.has_edge?(new_a, new_b)
                 end
 
                 it "ignores edges for which the target does not have a mapping" do
-                    old_graph.add_edge(old_a, old_b, info = Object.new)
+                    old_graph.add_edge(old_a, old_b, Object.new)
                     old_graph.copy_subgraph_to(new_graph, old_a => new_a)
                     refute new_graph.has_edge?(new_a, new_b)
                 end
@@ -320,7 +320,7 @@ module Roby
 
                     describe "creating edges in superset graphs" do
                         it "does not create edges in the subgraphs" do
-                            parent.add_child_object(child, superset_graph_m, info = flexmock)
+                            parent.add_child_object(child, superset_graph_m, flexmock)
                             assert !graph.has_vertex?(parent)
                             assert !graph.has_vertex?(child)
                         end
@@ -491,7 +491,7 @@ module Roby
                     assert graph.has_edge_in_hierarchy?(a, b)
                 end
                 it "returns false if this graph and none of its parents has the edge" do
-                    assert !graph.has_edge_in_hierarchy?(a = Object.new, b = Object.new)
+                    assert !graph.has_edge_in_hierarchy?(Object.new, Object.new)
                 end
             end
         end

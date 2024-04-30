@@ -35,7 +35,7 @@ module Roby
                "registered on Roby::Task's submodels" do
                 root_space = flexmock(instanciate: Hash[1 => 2])
                 submodel_space = flexmock(instanciate: Hash[41 => 42])
-                task_m = Roby::Task.new_submodel
+                Roby::Task.new_submodel
                 flexmock(Roby::Task)
                     .should_receive(:all_relation_spaces)
                     .and_return([root_space, submodel_space])
@@ -48,7 +48,7 @@ module Roby
                 flexmock(Roby::Task)
                     .should_receive(:all_relation_spaces).and_return([space])
                 assert_raises(ArgumentError) do
-                    plan.task_relation_graphs[invalid = flexmock]
+                    plan.task_relation_graphs[flexmock]
                 end
             end
             it "configures #task_relation_graphs to return nil "\
@@ -71,7 +71,7 @@ module Roby
                 flexmock(Roby::EventGenerator)
                     .should_receive(:all_relation_spaces).and_return([space])
                 assert_raises(ArgumentError) do
-                    plan.event_relation_graphs[invalid = flexmock]
+                    plan.event_relation_graphs[flexmock]
                 end
             end
             it "configures #task_relation_graphs to return nil if nil "\
@@ -398,7 +398,7 @@ module Roby
                 plan.add(source = Roby::Task.new)
                 plan.add(target = Roby::Task.new)
                 graph = Roby::Relations::Graph.new(strong: true)
-                graph.add_edge(parent, source, info = flexmock)
+                graph.add_edge(parent, source, flexmock)
                 new, removed =
                     plan.compute_subplan_replacement(Hash[source => target], [graph])
                 assert_equal [], new
@@ -424,7 +424,7 @@ module Roby
                 assert_equal [ev].to_set, plan.unneeded_events.to_set
             end
             it "does not return free events that are reachable from a permanent event" do
-                plan.add_permanent_event(ev = Roby::EventGenerator.new)
+                plan.add_permanent_event(Roby::EventGenerator.new)
                 assert plan.unneeded_events.empty?
             end
             it "does not return free events that are reachable from a task event" do
@@ -596,7 +596,7 @@ module Roby
             end
 
             it "returns false for a plan with a missing task" do
-                plan.add(task = Task.new)
+                plan.add(Task.new)
                 assert !plan.same_plan?(copy, {})
             end
 
@@ -818,14 +818,14 @@ module Roby
         describe "#num_events" do
             it "returns the sum of free and task events" do
                 plan.add(t = Task.new)
-                plan.add(ev = EventGenerator.new)
+                plan.add(EventGenerator.new)
                 assert_equal (t.each_event.to_a.size + 1), plan.num_events
             end
         end
 
         describe "#num_tasks" do
             it "returns the sum of tasks" do
-                plan.add(t = Task.new)
+                plan.add(Task.new)
                 assert_equal 1, plan.num_tasks
             end
         end
@@ -954,7 +954,7 @@ module Roby
             end
             it "does not call the finalized_plan_task hook on disabled transactions" do
                 plan.in_transaction do |trsc|
-                    proxy = trsc[@task]
+                    trsc[@task]
                     flexmock(trsc).should_receive(:finalized_plan_task).never
                     trsc.disable_proxying do
                         plan.remove_task(@task)
@@ -1057,7 +1057,7 @@ module Roby
             end
             it "does not call the finalized_plan_event hook on disabled transactions" do
                 plan.in_transaction do |trsc|
-                    proxy = trsc[@event]
+                    trsc[@event]
                     flexmock(trsc).should_receive(:finalized_plan_event).never
                     trsc.disable_proxying do
                         plan.remove_free_event!(@event)

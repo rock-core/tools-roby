@@ -414,7 +414,6 @@ module Roby
                     update_base_time(time)
                 end
 
-                _, end_time = displayed_time_range
                 update_display_point
 
                 unless horizontal_scroll_bar_down?

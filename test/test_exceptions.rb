@@ -73,8 +73,8 @@ describe Roby do
         end
 
         it "pretty_prints the original exceptions as well" do
-            main = stub_exception(main_text = "Main\nMainException")
-            sub  = stub_exception(sub_text = "Sub\nSubException")
+            main = stub_exception("Main\nMainException")
+            sub  = stub_exception("Sub\nSubException")
             flexmock(main, original_exceptions: [sub])
 
             logger = flexmock(log_level: Logger::WARN)

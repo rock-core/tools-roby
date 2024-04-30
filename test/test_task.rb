@@ -1438,7 +1438,7 @@ module Roby
                     assert_equal reason, task.failure_reason
                 end
                 it "sets the task as failed in the index" do
-                    task.mark_failed_to_start(reason = flexmock, Time.now)
+                    task.mark_failed_to_start(flexmock, Time.now)
                     assert_equal [task], plan.find_tasks.failed.to_a
                 end
             end
@@ -1652,7 +1652,7 @@ module Roby
             it "ensures the state machine is started when the task is" do
                 interface_m = @interface_m
                 plan.add(task)
-                machine = task.action_state_machine do
+                task.action_state_machine do
                     s = state(interface_m.some_action)
                     start(s)
                 end
@@ -1664,7 +1664,7 @@ module Roby
                 interface_m = @interface_m
                 plan.add(task)
                 execute { task.start! }
-                machine = task.action_state_machine do
+                task.action_state_machine do
                     s = state(interface_m.some_action)
                     start(s)
                 end
@@ -1720,7 +1720,7 @@ class TC_Task < Minitest::Test
         end
         flexmock(model).new_instances.should_receive(:arg=).with("B").once.pass_thru
 
-        plan.add(task = model.new(arg: "B"))
+        plan.add(model.new(arg: "B"))
     end
 
     def test_meaningful_arguments
@@ -1860,7 +1860,7 @@ class TC_Task < Minitest::Test
 
     # Test the behaviour of Task#on, and event propagation inside a task
     def test_instance_event_handlers
-        plan.add(t1 = Tasks::Simple.new)
+        plan.add(Tasks::Simple.new)
         plan.add(task = Tasks::Simple.new)
         FlexMock.use do |mock|
             task.start_event.on   { |event| mock.started(event.context) }
@@ -2192,7 +2192,6 @@ class TC_Task < Minitest::Test
         assert_respond_to(task, :start?)
 
         # Test modifications to the class hierarchy
-        my_event = nil
         my_event = klass.const_get(:EvContingent)
         assert_raises(NameError) { klass.superclass.const_get(:EvContingent) }
         assert_equal(TaskEvent, my_event.superclass)
@@ -2210,7 +2209,7 @@ class TC_Task < Minitest::Test
         # Check properties on EvControlable
         assert(klass::EvControlable.controlable?)
         assert(klass::EvControlable.respond_to?(:call))
-        event = klass::EvControlable.new(task, task.ev_controlable_event, 0, nil)
+        klass::EvControlable.new(task, task.ev_controlable_event, 0, nil)
         assert_equal(:ev_controlable, klass::EvControlable.call(task, :ev_controlable))
 
         # Check Event.terminal? if terminal: true
@@ -2843,7 +2842,7 @@ class TC_Task < Minitest::Test
     end
 
     def test_delayed_argument_from_task
-        value_obj = Class.new do
+        Class.new do
             attr_accessor :value
         end.new
 

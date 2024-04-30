@@ -63,7 +63,7 @@ if !server_pid
     manager = Autorespawn::Manager.new(name: Hash[cmdline: "#{$0} #{ARGV.join(' ')}"])
     server_pid = Process.pid
     server = Roby::App::TestServer.start(Process.pid)
-    server_console_output = Roby::App::AutotestConsoleReporter.new(server, manager)
+    Roby::App::AutotestConsoleReporter.new(server, manager)
     cmdline_args << "--server" << server_pid.to_s
 else
     DRb.start_service

@@ -51,7 +51,7 @@ module Roby
                     app.single
                     app.load_base_config
 
-                    args = option_parser.parse(args)
+                    option_parser.parse(args)
                     host, port = self.host
                     interface = Interface::V1.connect_with_tcp_to(host, port)
                     yield(interface)

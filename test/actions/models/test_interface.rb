@@ -213,7 +213,7 @@ module Roby
                     end
                     it "does not modify the original" do
                         define_action(interface_m, "action")
-                        child_m = interface_m.new_submodel
+                        interface_m.new_submodel
                         assert_same interface_m, interface_m
                             .find_action_by_name("action").action_interface_model
                     end
@@ -242,7 +242,7 @@ module Roby
                             end
                         end
                         interface_m.describe("a state machine").required_arg(:test_arg, "test")
-                        _, machine_m = interface_m.action_state_machine("test") do
+                        interface_m.action_state_machine("test") do
                             start state(substate(test_arg: test_arg))
                         end
 

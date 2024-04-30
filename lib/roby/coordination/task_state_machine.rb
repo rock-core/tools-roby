@@ -121,7 +121,7 @@ module Roby
         def do_poll(task)
             begin
                 proxy.poll(task)
-            rescue NoMethodError => e
+            rescue NoMethodError
                 # poll only if the state has a poll handler defined
             end
         end

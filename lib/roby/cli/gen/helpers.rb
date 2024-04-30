@@ -50,13 +50,6 @@ module Roby
                 def resolve_name_as_path(
                     gen_type, given_name, robot_name, file_root, namespace_root
                 )
-                    robot_module =
-                        if robot_name
-                            [robot_name.camelcase(:upper)]
-                        else
-                            []
-                        end
-
                     file_name = given_name.split("/")
                     non_matching_prefix = file_root.each_with_index.find do |p, i|
                         file_name[i] != p

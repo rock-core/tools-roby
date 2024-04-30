@@ -3,7 +3,6 @@
 require "roby"
 require "fileutils"
 Roby.app.load_base_config
-app = Roby.app
 
 unless (name = ARGV.shift)
     STDERR.puts "calling 'results' with no arguments does nothing anymore"

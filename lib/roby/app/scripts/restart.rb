@@ -7,7 +7,7 @@ def display_notifications(interface)
     until interface.closed?
         interface.poll
         while interface.has_notifications?
-            _, (source, level, message) = interface.pop_notification
+            _, (_, level, message) = interface.pop_notification
             Robot.send(level.downcase, message)
         end
         while interface.has_job_progress?

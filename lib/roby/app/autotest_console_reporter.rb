@@ -125,7 +125,7 @@ module Roby
                     io.puts "[##{slave_id}] #{slave_to_s(slave)} started testing"
                 end
                 server.on_test_result do |pid, file, test_case_name, test_name, failures, assertions, time|
-                    slave, slave_id = slave_from_pid(pid)
+                    _, slave_id = slave_from_pid(pid)
                     io.puts "[##{slave_id}] #{test_case_name}##{test_name}: #{failures.size} failures and #{assertions.size} assertions (#{time})"
                     failures.each do |e|
                         Roby.display_exception(io, e)

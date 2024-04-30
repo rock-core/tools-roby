@@ -202,7 +202,7 @@ module Roby
             def stat
                 Hash[siblings_by_local_object_id: siblings_by_local_object_id.size,
                      models_by_name: models_by_name.size,
-                     siblings_by_peer: siblings_by_peer.inject(0) { |sum, (_, siblings)| sum += siblings.size }]
+                     siblings_by_peer: siblings_by_peer.inject(0) { |sum, (_, siblings)| sum + siblings.size }]
             end
         end
     end

@@ -83,7 +83,7 @@ module Roby
             it "starting state can be overridden by passing start_state argument" do
                 state_machine "test" do
                     start = state start_task
-                    second = state next_task
+                    state next_task
                     start(start)
                 end
 

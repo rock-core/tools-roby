@@ -68,7 +68,7 @@ describe Roby::Coordination::Models::FaultHandler do
         end
         it "registers the fault handling task as a repair for the error event if the response location is the origin" do
             flexmock(handler).should_receive(:find_response_locations).with(t2).and_return([t2].to_set)
-            failure_event = t2.start_event.last
+            t2.start_event.last
             execute { handler.activate(flexmock(origin: t2)) }
 
             repairs = t2.find_all_matching_repair_tasks(t2.stop_event)

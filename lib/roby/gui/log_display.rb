@@ -245,7 +245,7 @@ module Roby
                 (options["plugins"] || []).each do |plugin_name|
                     begin
                         Roby.app.using plugin_name
-                    rescue ArgumentError => e
+                    rescue ArgumentError
                         Roby.warn "the display configuration file mentions the "\
                                   "#{plugin_name} plugin, but it is not available "\
                                   "on this system. Some information might not "\
@@ -253,7 +253,6 @@ module Roby
                     end
                 end
 
-                filters = options["plan_rebuilder"] || {}
                 apply_widget_state(options["main"] || {}, self)
                 (options["views"] || []).each do |view_options|
                     id = view_options["id"]

@@ -301,7 +301,7 @@ class TC_TaskStateMachine < Minitest::Test
             event.each do |event|
                 derivedTask.state_machine.send("#{event}!")
             end
-        rescue Exception => e
+        rescue Exception
             flunk("Calling event '#{event} failed")
         end
     end

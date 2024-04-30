@@ -40,8 +40,8 @@ module Roby
                         event.accept
 
                         menu = Qt::Menu.new
-                        inspect_cycle = menu.add_action("Step-by-step from there")
-                        if (action = menu.exec(event.globalPos))
+                        menu.add_action("Step-by-step from there")
+                        if menu.exec(event.globalPos)
                             cycle_index = currentItem.data(Qt::UserRole).toInt
 
                             rebuilder_widget = self.parentWidget

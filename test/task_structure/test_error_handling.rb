@@ -80,7 +80,7 @@ module Roby
                 it "returns an empty array if there are repair tasks, but for matching the exception" do
                     task_e = localized_error_m.new(task.start_event).to_execution_exception
                     matcher = flexmock
-                    task.add_error_handler(repair_task = task_m.new, Set[matcher])
+                    task.add_error_handler(task_m.new, Set[matcher])
                     matcher.should_receive(:===).once.with(task_e).and_return(false)
                     assert_equal [], task.find_all_matching_repair_tasks(task_e)
                 end

@@ -306,7 +306,6 @@ module Roby
             end
 
             def display_create(display)
-                scene = display.scene
                 item = super
 
                 brush = item.brush
@@ -1016,7 +1015,6 @@ module Roby
                     p.called_generators.each do |generator|
                         flags[generator] |= EVENT_CALLED
                     end
-                    base_priority = p.called_generators.size
 
                     p.emitted_events.each do |(_, event)|
                         generator = event.generator
@@ -1077,7 +1075,6 @@ module Roby
                 layouts.each(&:apply)
 
                 # Display the signals
-                signal_arrow_idx = -1
                 plans.each do |p|
                     p.propagated_events.each_with_index do |(_, flag, sources, to), signal_arrow_idx|
                         relation =

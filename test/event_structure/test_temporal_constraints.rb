@@ -265,7 +265,7 @@ module Roby
             end
 
             def test_temporal_constraint_violation
-                t1, t2, t3 = prepare_plan add: 3, model: Tasks::Simple
+                t1, t2, = prepare_plan add: 3, model: Tasks::Simple
                 e1 = t1.start_event
                 e2 = t2.start_event
 

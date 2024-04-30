@@ -253,7 +253,6 @@ module Roby
                     data.each_slice(4) do |m, sec, usec, args|
                         header = "#{Time.at(sec, usec)} #{m} "
                         puts "#{header} #{args.map(&:to_s).join('  ')}"
-                        header = " " * header.size
                         if rebuilder
                             begin
                                 rebuilder.process_one_event(m, sec, usec, args)

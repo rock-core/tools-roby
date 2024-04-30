@@ -119,7 +119,7 @@ module Roby
             end
 
             context.it "provides a more useful error message if the InvalidReplace error is caused by mismatching arguments" do
-                model = Task.new_submodel
+                Task.new_submodel
                 @replaced_task.fullfilled_model = [Task, [], { arg: 10 }]
                 @replacing_task.arguments[:arg] = 20
                 e = assert_raises(InvalidReplace) do
@@ -263,7 +263,7 @@ module Roby
             end
 
             context.it "provides a more useful error message if the InvalidReplace error is caused by mismatching arguments" do
-                model = Task.new_submodel
+                Task.new_submodel
                 @replaced_task.fullfilled_model = [Task, [], { arg: 10 }]
                 @replacing_task.arguments[:arg] = 20
                 e = assert_raises(InvalidReplace) do

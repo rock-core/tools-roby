@@ -977,7 +977,7 @@ module Roby
         #
         def self.validate_timespec(timespec)
             if timespec
-                timespec = validate_options timespec, %i[delay at]
+                validate_options timespec, %i[delay at]
             end
         end
 
@@ -1311,7 +1311,6 @@ module Roby
                             handled_by = (handled.propagation_leafs.to_set << plan)
                             exceptions_handled_by << [handled.merge(e), handled_by]
                         else
-                            handled = e
                             exceptions_handled_by << [e, [plan].to_set]
                         end
                     else
@@ -1950,7 +1949,6 @@ module Roby
                     plan.unmark_mission_task(finished_mission)
                 end
             end
-            finished_permanent = (plan.permanent_tasks & to_unmark)
             for finished_permanent in (plan.permanent_tasks & to_unmark)
                 unless finished_permanent.being_repaired?
                     plan.unmark_permanent_task(finished_permanent)

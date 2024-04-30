@@ -40,7 +40,7 @@ module Roby
             # underlying history widget changed its source
             def updateWindowTitle
                 if (parent_title = history_widget.window_title)
-                    self.window_title = "#{history_widget.window_title}: Relations"
+                    self.window_title = "#{parent_title}: Relations"
                 else
                     self.window_title = "roby-display: Relations"
                 end
@@ -106,9 +106,9 @@ class Ui::RelationsView
             return unless obj.kind_of?(Roby::Task)
 
             menu = Qt::Menu.new
-            hide_this = menu.add_action("Hide")
-            hide_children = menu.add_action("Hide children")
-            show_children = menu.add_action("Show children")
+            menu.add_action("Hide")
+            menu.add_action("Hide children")
+            menu.add_action("Show children")
             return unless (action = menu.exec(event.globalPos))
 
             case action.text

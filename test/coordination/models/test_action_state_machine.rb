@@ -243,7 +243,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
             _, @machine = @action_m.action_state_machine "test" do
                 state = state(start_task)
                 start(state)
-                c = capture(state.success_event) do |ev|
+                capture(state.success_event) do |ev|
                 end
                 state.success_event.forward_to success_event
             end
@@ -265,7 +265,7 @@ describe Roby::Coordination::Models::ActionStateMachine do
                         .depends_on(monitor)
                 start(state)
 
-                c = capture(state, monitor.start_event) do |ev|
+                capture(state, monitor.start_event) do |ev|
                 end
                 state.success_event.forward_to success_event
             end

@@ -669,7 +669,7 @@ describe Roby::Interface::Interface do
             plan.add(job_task = job_task_m.new(job_id: 10))
             plan.add_mission_task(task = Roby::Tasks::Simple.new)
             task.planned_by job_task
-            job_state, task, planning_task = interface.find_job_info_by_id(20)
+            interface.find_job_info_by_id(20)
         end
     end
 

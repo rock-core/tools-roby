@@ -92,10 +92,8 @@ module Roby
                 end
 
                 state_info = task_info[state]
-                tasks, known_transitions, captures =
-                    state_info.required_tasks,
-                    state_info.transitions,
-                    state_info.captures
+                known_transitions = state_info.transitions
+                captures = state_info.captures
 
                 transitioned = false
                 captures.each do |capture, captured_event|

@@ -520,7 +520,7 @@ module Roby
 
                     def add_job_monitor(job)
                         set = (job_monitors[job.job_id] ||= Set.new)
-                        job_monitors[job.job_id] << job
+                        set << job
                     end
 
                     def cleanup_dead_monitors

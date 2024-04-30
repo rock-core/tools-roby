@@ -432,7 +432,7 @@ module Roby
                 quit_r.read(2)
             end
             start_w.close
-            result = start_r.read(2)
+            start_r.read(2)
 
             remote_processes << [remote_pid, quit_w]
             remote_pid

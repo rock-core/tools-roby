@@ -96,7 +96,6 @@ module Roby
 
                 unless actions.empty?
                     pp.breakable if has_text
-                    has_text = true
                     pp.text "Actions taken"
                     pp.nest(2) do
                         actions.each do |task, msgs|

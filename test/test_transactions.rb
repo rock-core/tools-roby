@@ -591,8 +591,6 @@ module TC_TransactionBehaviour
     def test_commit_updates_edge_info_between_existing_plan_tasks
         parent, child = prepare_plan(add: 2)
         parent.planned_by child, plan_early: false
-
-        info = nil
         transaction_commit(plan, parent, child) do |trsc, p_parent, p_child|
             p_parent[p_child, PlannedBy] = Hash[plan_early: true]
         end
@@ -602,8 +600,6 @@ module TC_TransactionBehaviour
     def test_commit_removed_relations_between_existing_plan_tasks
         parent, child = prepare_plan(add: 2)
         parent.planned_by child, plan_early: false
-
-        info = nil
         transaction_commit(plan, parent, child) do |trsc, p_parent, p_child|
             p_parent.remove_planning_task p_child
         end
@@ -1142,7 +1138,7 @@ class TC_Transactions < Minitest::Test
         root, t1, t2 = prepare_plan add: 3, model: Tasks::Simple
         root.depends_on t1, model: Tasks::Simple
         root.depends_on t2, model: Tasks::Simple
-        service = Roby::PlanService.get(t1)
+        Roby::PlanService.get(t1)
 
         mock = flexmock
         transaction_commit(plan, t1, t2) do |trsc, p1, p2|
@@ -1165,7 +1161,7 @@ class TC_Transactions < Minitest::Test
         root, t1, t2 = prepare_plan add: 3, model: Tasks::Simple
         root.depends_on t1, model: Tasks::Simple
         root.depends_on t2, model: Tasks::Simple
-        service = Roby::PlanService.get(t1)
+        Roby::PlanService.get(t1)
 
         FlexMock.use do |mock|
             transaction_commit(plan, t1, t2) do |trsc, p1, p2|

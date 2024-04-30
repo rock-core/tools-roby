@@ -218,7 +218,7 @@ module Roby
                 if (mode = options["sort_mode"])
                     @act_sort[mode].checked = true
                 end
-                if (mode = options["restrict_to_jobs"])
+                if options["restrict_to_jobs"]
                     @restrict_to_jobs_btn.checked = true
                 end
             end

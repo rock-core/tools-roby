@@ -108,7 +108,7 @@ class TC_Dependency < Minitest::Test
     end
 
     def assert_child_failed(child, error, reason, plan)
-        result = plan.check_structure
+        plan.check_structure
         assert_equal(child, error.failed_task)
         assert_equal(reason, error.failure_point)
         assert_formatting_succeeds(error)
@@ -147,7 +147,7 @@ class TC_Dependency < Minitest::Test
             end
 
             plan.execution_engine.control = decision_control
-            parent, child = create_pair success: [], failure: [:stop], start: false
+            _, child = create_pair success: [], failure: [:stop], start: false
             execute { child.start! }
 
             mock.should_receive(:decision_control_called).once
@@ -329,7 +329,7 @@ class TC_Dependency < Minitest::Test
     end
 
     def test_merging_models
-        parent, child, info, child_model, tag = setup_merging_test
+        parent, child, info, _, tag = setup_merging_test
 
         # Test that models are "upgraded"
         parent.depends_on child, model: Tasks::Simple, success: []
@@ -401,7 +401,7 @@ class TC_Dependency < Minitest::Test
     end
 
     def test_resolve_role_path
-        t1, t2, t3, t4 = prepare_plan add: 4, model: Tasks::Simple
+        t1, t2, t3, = prepare_plan add: 4, model: Tasks::Simple
 
         t1.depends_on t2, role: "1"
         t2.depends_on t3, role: "2"
@@ -668,7 +668,7 @@ module Roby
             describe "interesting_events set" do
                 def self.runs(context)
                     context.it "registers the start event of a parent" do
-                        parent, child = create_parent_child do |parent, child|
+                        parent, = create_parent_child do |parent, child|
                             parent.depends_on child, success: :start
                         end
                         flexmock(dependency_graph.interesting_events)
@@ -679,7 +679,7 @@ module Roby
                     end
 
                     context.it "registers an event emitted that is positively involved in a dependency" do
-                        parent, child = create_parent_child do |parent, child|
+                        _, child = create_parent_child do |parent, child|
                             parent.depends_on child, success: :start
                         end
                         flexmock(dependency_graph.interesting_events)
