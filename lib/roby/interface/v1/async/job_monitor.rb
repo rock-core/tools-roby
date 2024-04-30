@@ -151,8 +151,8 @@ module Roby
                             @planning_finished ||= Roby::Interface.planning_finished_state?(state)
                             @success ||= Roby::Interface.success_state?(state)
                             @failed  ||= Roby::Interface.error_state?(state)
-                            @has_ran ||= (Roby::Interface.planning_finished_state?(state) &&
-                                          state != JOB_READY && state != JOB_PLANNING_FAILED)
+                            @has_ran ||= Roby::Interface.planning_finished_state?(state) &&
+                                         state != JOB_READY && state != JOB_PLANNING_FAILED
                         end
                         run_hook :on_progress, state
                     end
