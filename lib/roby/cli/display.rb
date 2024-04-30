@@ -25,18 +25,18 @@ module Roby
             option :sampling, type: :numeric
             def backward(*path)
                 host, port = "localhost", Server::DEFAULT_PORT
-                if remote_addr = options[:client] || options[:host]
+                if (remote_addr = options[:client] || options[:host])
                     if options[:host]
                         Roby.warn_deprecated "--host is deprecated, use 'roby-display client' instead, run roby-display help for more information"
                     else
                         Roby.warn_deprecated "roby-display --client=HOST is now roby-display client HOST, run roby-display help for more information"
                     end
-                    if vagrant_host = options[:vagrant]
+                    if (vagrant_host = options[:vagrant])
                         _, port = remote_addr.split(":")
                         remote_addr = "vagrant:#{vagrant_host}:#{port}"
                     end
                     client(remote_addr)
-                elsif bind_port = options[:server]
+                elsif (bind_port = options[:server])
                     Roby.warn_deprecated "roby-display --server PATH is now roby-display server PATH, run roby-display help for more information"
                     server(*path, port: bind_port)
                 else
@@ -115,7 +115,7 @@ module Roby
                         Roby::DRoby::Logfile.logger.level = Logger::DEBUG
                     end
 
-                    if config_path = options[:config]
+                    if (config_path = options[:config])
                         @config_path = File.expand_path(config_path)
                     elsif Roby.app.app_dir
                         @config_path =
@@ -166,7 +166,7 @@ module Roby
                     app = Qt::Application.new(ARGV)
 
                     display = Roby::GUI::LogDisplay.new
-                    if display_mode = options[:display]
+                    if (display_mode = options[:display])
                         if display_mode == "all"
                             display.create_all_displays
                         else

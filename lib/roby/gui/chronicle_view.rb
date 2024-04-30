@@ -209,16 +209,16 @@ module Roby
 
             # Apply saved configuration
             def apply_options(options)
-                if scale = options["time_scale"]
+                if (scale = options["time_scale"])
                     chronicle.time_scale = scale
                 end
-                if mode = options["show_mode"]
+                if (mode = options["show_mode"])
                     @act_show[mode].checked = true
                 end
-                if mode = options["sort_mode"]
+                if (mode = options["sort_mode"])
                     @act_sort[mode].checked = true
                 end
-                if mode = options["restrict_to_jobs"]
+                if (mode = options["restrict_to_jobs"])
                     @restrict_to_jobs_btn.checked = true
                 end
             end

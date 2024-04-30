@@ -29,13 +29,13 @@ module Roby
 
             no_commands do
                 def parse_host_option
-                    if url = options[:host]
+                    if (url = options[:host])
                         if url =~ /(.*):(\d+)$/
                             Hash[host: $1, port: Integer($2)]
                         else
                             Hash[host: url]
                         end
-                    elsif url = options[:vagrant]
+                    elsif (url = options[:vagrant])
                         require "roby/app/vagrant"
                         if vagrant_name =~ /(.*):(\d+)$/
                             vagrant_name, port = $1, Integer($2)
@@ -143,7 +143,8 @@ module Roby
                 timeout = options[:retry] if options[:retry] != 0
                 interface = setup_interface(
                     retry_connection: !!options[:retry],
-                    timeout: timeout)
+                    timeout: timeout
+                )
                 Robot.info "connected"
                 interface.quit
                 begin
@@ -173,7 +174,8 @@ module Roby
             def wait
                 interface = setup_interface(
                     retry_connection: true,
-                    timeout: options[:timeout])
+                    timeout: options[:timeout]
+                )
             ensure
                 interface.close if interface && !interface.closed?
             end

@@ -24,7 +24,7 @@ module Roby
 
                 def read_header
                     Logfile.read_prologue(event_io)
-                    if chunk = Logfile.read_one_chunk(event_io)
+                    if (chunk = Logfile.read_one_chunk(event_io))
                         ::Marshal.load(chunk)
                     else
                         raise InvalidFileError,

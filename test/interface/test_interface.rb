@@ -26,8 +26,8 @@ describe Roby::Interface::Interface do
             task.planned_by(job = @job_task_m.new(job_id: 10))
             app.plan.add(task)
             flexmock(Roby::Interface::Interface).new_instances
-                .should_receive(:monitor_job).with(job, new_task: true)
-                .once.pass_thru
+                                                .should_receive(:monitor_job).with(job, new_task: true)
+                                                .once.pass_thru
             Roby::Interface::Interface.new(app)
         end
     end
@@ -653,7 +653,7 @@ describe Roby::Interface::Interface do
             plan.add_mission_task(task = Roby::Tasks::Simple.new)
             task.planned_by job_task
             flexmock(interface).should_receive(:job_state).with(task)
-                .and_return(expected_state = flexmock)
+                               .and_return(expected_state = flexmock)
             job_state, placeholder_task, planning_task = interface.find_job_info_by_id(10)
             assert_equal expected_state, job_state
             assert_equal task, placeholder_task
@@ -680,8 +680,8 @@ describe Roby::Interface::Interface do
                 recorder.called(source, level, message)
             end
             recorder.should_receive(:called)
-                .with(source = flexmock, level = flexmock, message = flexmock)
-                .once
+                    .with(source = flexmock, level = flexmock, message = flexmock)
+                    .once
             app.notify(source, level, message)
         end
         it "#remove_notification_listener removes a registered notification handler" do

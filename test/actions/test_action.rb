@@ -77,13 +77,13 @@ module Roby
                 it "returns an empty array if all required arguments are set "\
                    "and some optional arguments are set" do
                     interface_m.describe("test_action")
-                        .required_arg("required_arg")
-                        .optional_arg("optional_arg")
-                        .optional_arg("unset_optional_arg")
+                               .required_arg("required_arg")
+                               .optional_arg("optional_arg")
+                               .optional_arg("unset_optional_arg")
                     interface_m.class_eval { def test_action(*args); end }
                     assert_equal [], interface_m
-                                     .test_action(required_arg: 10, optional_arg: 20)
-                                     .missing_required_arguments
+                        .test_action(required_arg: 10, optional_arg: 20)
+                        .missing_required_arguments
                 end
             end
             describe "#has_missing_required_arg?" do

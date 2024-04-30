@@ -6,7 +6,7 @@ module Roby
         attr_reader :superclass
 
         def __get(name, create_substruct = true, &update)
-            if result = super(name, false, &update)
+            if (result = super(name, false, &update))
                 result
             elsif superclass && (result = superclass.__get(name, false, &update))
                 if result.kind_of?(OpenStructModel)

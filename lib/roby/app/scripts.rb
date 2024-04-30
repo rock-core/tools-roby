@@ -20,8 +20,8 @@ module Roby
                 attr_reader :app
 
                 def initialize(app = Roby.app,
-                               default_host: app.shell_interface_host || "localhost",
-                               default_port: app.shell_interface_port || Interface::DEFAULT_PORT)
+                    default_host: app.shell_interface_host || "localhost",
+                    default_port: app.shell_interface_port || Interface::DEFAULT_PORT)
                     @app = app
                     @host_options = Hash[host: default_host, port: default_port]
                 end

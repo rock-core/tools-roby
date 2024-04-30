@@ -37,13 +37,13 @@ module Roby
                 # @param [Grape::API] api used to route requests.
                 # @param [String] prefix for routes. e.g. host:port/main_route/ping
                 def initialize(app,
-                               host: "0.0.0.0",
-                               port: Roby::Interface::DEFAULT_REST_PORT,
-                               api: REST::API,
-                               main_route: "/api",
-                               storage: {},
-                               middlewares: [Rack::CommonLogger, Rack::ShowExceptions],
-                               **thin_options)
+                    host: "0.0.0.0",
+                    port: Roby::Interface::DEFAULT_REST_PORT,
+                    api: REST::API,
+                    main_route: "/api",
+                    storage: {},
+                    middlewares: [Rack::CommonLogger, Rack::ShowExceptions],
+                    **thin_options)
 
                     @app = app
                     @host = host

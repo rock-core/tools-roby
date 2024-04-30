@@ -68,7 +68,8 @@ module Roby
                     bind_coordination_task_to_instance(
                         instance_for(model.root),
                         root_task,
-                        on_replace: options[:on_replace])
+                        on_replace: options[:on_replace]
+                    )
                     root_task.add_coordination_object(self)
 
                     attach_fault_response_tables_to(root_task)

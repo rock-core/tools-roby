@@ -122,7 +122,7 @@ module Roby
                 p = execution_engine.promise { raise e }
                 p.execute
                 flexmock(execution_engine).should_receive(:add_framework_error)
-                    .with(e, String).once
+                                          .with(e, String).once
                 execution_engine.join_all_waiting_work
                 refute execution_engine.waiting_work.include?(p)
             end
@@ -135,9 +135,9 @@ module Roby
                 p.on_error { raise f }
                 p.execute
                 flexmock(execution_engine).should_receive(:add_framework_error)
-                    .with(e, String).once
+                                          .with(e, String).once
                 flexmock(execution_engine).should_receive(:add_framework_error)
-                    .with(f, String).once
+                                          .with(f, String).once
                 execution_engine.join_all_waiting_work
 
                 refute_includes execution_engine.waiting_work, p
@@ -264,10 +264,10 @@ module Roby
             it "removes pending tasks" do
                 plan.add(task = Roby::Tasks::Simple.new)
                 expect_execution.garbage_collect(true)
-                    .to do
-                        not_emit task.start_event
-                        finalize task
-                    end
+                                .to do
+                    not_emit task.start_event
+                    finalize task
+                end
             end
 
             it "ignores finishing tasks" do
@@ -277,7 +277,7 @@ module Roby
                 end
                 plan.add(task = task_m.new)
                 expect_execution { task.start! }.garbage_collect(true)
-                    .to { achieve { task.finishing? } }
+                                                .to { achieve { task.finishing? } }
                 execute_one_cycle
                 execute { task.stop_event.emit }
             end
@@ -524,9 +524,9 @@ module Roby
             def assert_raises_error_with_trace(*trace, &block)
                 expect_execution(&block).to do
                     have_error_matching localized_error_m.match
-                        .with_origin(child)
-                        .to_execution_exception_matcher
-                        .with_trace(*trace)
+                                                         .with_origin(child)
+                                                         .to_execution_exception_matcher
+                                                         .with_trace(*trace)
                 end
             end
 
@@ -645,7 +645,7 @@ module Roby
             end
             it "converts the exception into an ExecutionException" do
                 flexmock(error.exception).should_receive(:to_execution_exception)
-                    .once.and_return(ee = flexmock)
+                                         .once.and_return(ee = flexmock)
                 errors = execution_engine.gather_errors do
                     plan.add_error(error.exception)
                 end
@@ -690,8 +690,8 @@ module Roby
 
             def match_exception(*edges, handled: nil)
                 localized_error_m.to_execution_exception_matcher
-                    .with_trace(*edges)
-                    .handled(handled)
+                                 .with_trace(*edges)
+                                 .handled(handled)
             end
 
             it "propagates a given exception up in the dependency graph and yields the exception and the task at each step, finishing by the plan" do
@@ -703,7 +703,8 @@ module Roby
                 recorder.should_receive(:call).once.with(exception, root).ordered
                 recorder.should_receive(:call).once.with(exception, plan).ordered
                 result = execution_engine.propagate_exception_in_plan(
-                    [exception]) { |*args| recorder.call(*args) }
+                    [exception]
+                ) { |*args| recorder.call(*args) }
                 assert_exception_propagation_result(result,
                                                     handled: [],
                                                     unhandled: [exception, Set[grandchild, child, root]])
@@ -717,27 +718,28 @@ module Roby
 
                 exception = localized_error_m.new(leaf).to_execution_exception
                 recorder.should_receive(:call).once
-                    .with(match_exception, leaf).ordered
+                        .with(match_exception, leaf).ordered
                 recorder.should_receive(:call).once
-                    .with(match_exception(leaf, grandchild1), grandchild1).ordered(:parallel)
+                        .with(match_exception(leaf, grandchild1), grandchild1).ordered(:parallel)
                 recorder.should_receive(:call).once
-                    .with(match_exception(leaf, grandchild2), grandchild2).ordered(:parallel)
+                        .with(match_exception(leaf, grandchild2), grandchild2).ordered(:parallel)
                 recorder.should_receive(:call).once
-                    .with(match_exception(grandchild1, child,
-                                          grandchild2, child,
-                                          leaf, grandchild1,
-                                          leaf, grandchild2), child).ordered
+                        .with(match_exception(grandchild1, child,
+                                              grandchild2, child,
+                                              leaf, grandchild1,
+                                              leaf, grandchild2), child).ordered
                 recorder.should_receive(:call).once
-                    .with(full_trace = match_exception(child, root,
-                                                       grandchild1, child,
-                                                       grandchild2, child,
-                                                       leaf, grandchild1,
-                                                       leaf, grandchild2), root).ordered
+                        .with(full_trace = match_exception(child, root,
+                                                           grandchild1, child,
+                                                           grandchild2, child,
+                                                           leaf, grandchild1,
+                                                           leaf, grandchild2), root).ordered
                 recorder.should_receive(:call).once
-                    .with(full_trace, plan).ordered
+                        .with(full_trace, plan).ordered
 
                 result = execution_engine.propagate_exception_in_plan(
-                    [exception]) { |*args| recorder.call(*args) }
+                    [exception]
+                ) { |*args| recorder.call(*args) }
                 assert_exception_propagation_result(result,
                                                     unhandled: [full_trace, Set[root, child, grandchild1, grandchild2, leaf]],
                                                     handled: [])
@@ -749,17 +751,18 @@ module Roby
 
                 exception = localized_error_m.new(child).to_execution_exception
                 recorder.should_receive(:call).once
-                    .with(match_exception, child).ordered
+                        .with(match_exception, child).ordered
                 recorder.should_receive(:call).once
-                    .with(match_exception(child, root), root).ordered(:parallel)
+                        .with(match_exception(child, root), root).ordered(:parallel)
                 recorder.should_receive(:call).once
-                    .with(match_exception(child, other_root), other_root).ordered(:parallel)
+                        .with(match_exception(child, other_root), other_root).ordered(:parallel)
                 recorder.should_receive(:call).once
-                    .with(full_trace = match_exception(child, root,
-                                                       child, other_root), plan).ordered
+                        .with(full_trace = match_exception(child, root,
+                                                           child, other_root), plan).ordered
 
                 result = execution_engine.propagate_exception_in_plan(
-                    [exception]) { |*args| recorder.call(*args) }
+                    [exception]
+                ) { |*args| recorder.call(*args) }
                 assert_exception_propagation_result(result,
                                                     handled: [],
                                                     unhandled: [full_trace, Set[root, other_root, child]])
@@ -773,21 +776,22 @@ module Roby
 
                 exception = localized_error_m.new(leaf).to_execution_exception
                 recorder.should_receive(:call).once
-                    .with(exception, leaf).ordered
+                        .with(exception, leaf).ordered
                 recorder.should_receive(:call).once
-                    .with(match_exception(leaf, grandchild1), grandchild1).ordered
+                        .with(match_exception(leaf, grandchild1), grandchild1).ordered
                 recorder.should_receive(:call).once
-                    .with(match_exception(leaf, grandchild1,
-                                          grandchild1, child), child).ordered
+                        .with(match_exception(leaf, grandchild1,
+                                              grandchild1, child), child).ordered
                 recorder.should_receive(:call).once
-                    .with(full_trace = match_exception(leaf, grandchild1,
-                                                       grandchild1, child,
-                                                       child, root), root).ordered
+                        .with(full_trace = match_exception(leaf, grandchild1,
+                                                           grandchild1, child,
+                                                           child, root), root).ordered
                 recorder.should_receive(:call).once
-                    .with(full_trace, plan).ordered
+                        .with(full_trace, plan).ordered
 
                 result = execution_engine.propagate_exception_in_plan(
-                    [[exception, [grandchild1]]]) { |*args| recorder.call(*args) }
+                    [[exception, [grandchild1]]]
+                ) { |*args| recorder.call(*args) }
                 assert_exception_propagation_result(result,
                                                     unhandled: [full_trace, Set[root, child, grandchild1, leaf]],
                                                     handled: [])
@@ -800,21 +804,22 @@ module Roby
 
                 exception = localized_error_m.new(leaf).to_execution_exception
                 recorder.should_receive(:call).once
-                    .with(match_exception, leaf).ordered
+                        .with(match_exception, leaf).ordered
                 recorder.should_receive(:call).once
-                    .with(match_exception(leaf, grandchild1), grandchild1).ordered
+                        .with(match_exception(leaf, grandchild1), grandchild1).ordered
                 recorder.should_receive(:call).once
-                    .with(match_exception(leaf, grandchild1,
-                                          grandchild1, child), child).ordered
+                        .with(match_exception(leaf, grandchild1,
+                                              grandchild1, child), child).ordered
                 recorder.should_receive(:call).once
-                    .with(full_trace = match_exception(leaf, grandchild1,
-                                                       grandchild1, child,
-                                                       child, root), root).ordered
+                        .with(full_trace = match_exception(leaf, grandchild1,
+                                                           grandchild1, child,
+                                                           child, root), root).ordered
                 recorder.should_receive(:call).once
-                    .with(full_trace, plan).ordered
+                        .with(full_trace, plan).ordered
 
                 result = execution_engine.propagate_exception_in_plan(
-                    [[exception, [grandchild1]]]) { |*args| recorder.call(*args) }
+                    [[exception, [grandchild1]]]
+                ) { |*args| recorder.call(*args) }
                 assert_exception_propagation_result(result,
                                                     unhandled: [full_trace, Set[root, child, grandchild1, leaf]],
                                                     handled: [])
@@ -825,15 +830,16 @@ module Roby
 
                 exception = localized_error_m.new(child).to_execution_exception
                 recorder.should_receive(:call).once
-                    .with(match_exception, child).ordered
+                        .with(match_exception, child).ordered
                 recorder.should_receive(:call).once
-                    .with(full_trace = match_exception(child, root), root).ordered
+                        .with(full_trace = match_exception(child, root), root).ordered
                 recorder.should_receive(:call).once
-                    .with(full_trace, plan).ordered
+                        .with(full_trace, plan).ordered
 
                 messages = capture_log(execution_engine, :warn) do
                     result = execution_engine.propagate_exception_in_plan(
-                        [[exception, [root, task]]]) { |*args| recorder.call(*args) }
+                        [[exception, [root, task]]]
+                    ) { |*args| recorder.call(*args) }
                     assert_exception_propagation_result(result,
                                                         unhandled: [full_trace, Set[root, child]],
                                                         handled: [])
@@ -850,15 +856,16 @@ module Roby
 
                 exception = localized_error_m.new(child).to_execution_exception
                 recorder.should_receive(:call).once
-                    .with(match_exception, child).ordered
+                        .with(match_exception, child).ordered
                 recorder.should_receive(:call).once
-                    .with(full_trace = match_exception(child, root), root).ordered
+                        .with(full_trace = match_exception(child, root), root).ordered
                 recorder.should_receive(:call).once
-                    .with(full_trace, plan).ordered
+                        .with(full_trace, plan).ordered
 
                 messages = capture_log(execution_engine, :warn) do
                     result = execution_engine.propagate_exception_in_plan(
-                        [[exception, [task]]]) { |*args| recorder.call(*args) }
+                        [[exception, [task]]]
+                    ) { |*args| recorder.call(*args) }
                     assert_exception_propagation_result(result,
                                                         unhandled: [full_trace, Set[root, child]],
                                                         handled: [])
@@ -872,12 +879,13 @@ module Roby
             it "only yields the exception origin if the parent set is empty" do
                 exception = localized_error_m.new(child).to_execution_exception
                 recorder.should_receive(:call).once
-                    .with(match_exception, child).ordered
+                        .with(match_exception, child).ordered
                 recorder.should_receive(:call).once
-                    .with(match_exception, plan).ordered
+                        .with(match_exception, plan).ordered
 
                 result = execution_engine.propagate_exception_in_plan(
-                    [[exception, []]]) { |*args| recorder.call(*args) }
+                    [[exception, []]]
+                ) { |*args| recorder.call(*args) }
                 assert_exception_propagation_result(result,
                                                     unhandled: [match_exception, Set[child]],
                                                     handled: [])
@@ -888,12 +896,13 @@ module Roby
 
                 exception = localized_error_m.new(grandchild).to_execution_exception
                 recorder.should_receive(:call).once
-                    .with(match_exception, grandchild).ordered
+                        .with(match_exception, grandchild).ordered
                 recorder.should_receive(:call).once
-                    .with(full_trace = match_exception(grandchild, child), child).ordered
-                    .and_return(true)
+                        .with(full_trace = match_exception(grandchild, child), child).ordered
+                        .and_return(true)
                 result = execution_engine.propagate_exception_in_plan(
-                    [exception]) { |*args| recorder.call(*args) }
+                    [exception]
+                ) { |*args| recorder.call(*args) }
                 assert_exception_propagation_result(result,
                                                     handled: [full_trace, Set[child]],
                                                     unhandled: [])
@@ -907,24 +916,25 @@ module Roby
 
                 exception = localized_error_m.new(leaf).to_execution_exception
                 recorder.should_receive(:call).once
-                    .with(match_exception, leaf).ordered
+                        .with(match_exception, leaf).ordered
                 recorder.should_receive(:call).once
-                    .with(match_exception(leaf, grandchild1), grandchild1).ordered(:parallel)
+                        .with(match_exception(leaf, grandchild1), grandchild1).ordered(:parallel)
                 recorder.should_receive(:call).once
-                    .with(match_exception(leaf, grandchild2), grandchild2).ordered(:parallel)
-                    .returns(true)
+                        .with(match_exception(leaf, grandchild2), grandchild2).ordered(:parallel)
+                        .returns(true)
                 recorder.should_receive(:call).once
-                    .with(match_exception(grandchild1, child,
-                                          leaf, grandchild1), child).ordered
+                        .with(match_exception(grandchild1, child,
+                                              leaf, grandchild1), child).ordered
                 recorder.should_receive(:call).once
-                    .with(full_trace = match_exception(child, root,
-                                                       grandchild1, child,
-                                                       leaf, grandchild1), root).ordered
+                        .with(full_trace = match_exception(child, root,
+                                                           grandchild1, child,
+                                                           leaf, grandchild1), root).ordered
                 recorder.should_receive(:call).once
-                    .with(full_trace, plan).ordered
+                        .with(full_trace, plan).ordered
 
                 result = execution_engine.propagate_exception_in_plan(
-                    [exception]) { |*args| recorder.call(*args) }
+                    [exception]
+                ) { |*args| recorder.call(*args) }
                 assert_exception_propagation_result(result,
                                                     unhandled: [full_trace, Set[root, child, grandchild1]],
                                                     handled: [match_exception(leaf, grandchild2), Set[grandchild2]])
@@ -933,15 +943,16 @@ module Roby
             it "reports exception handled by the plan as such" do
                 exception = localized_error_m.new(child).to_execution_exception
                 recorder.should_receive(:call).once
-                    .with(match_exception, child).ordered
+                        .with(match_exception, child).ordered
                 recorder.should_receive(:call).once
-                    .with(match_exception(child, root), root).ordered
+                        .with(match_exception(child, root), root).ordered
                 recorder.should_receive(:call).once
-                    .with(match_exception(child, root), plan).ordered
-                    .and_return(true)
+                        .with(match_exception(child, root), plan).ordered
+                        .and_return(true)
 
                 result = execution_engine.propagate_exception_in_plan(
-                    [exception]) { |*args| recorder.call(*args) }
+                    [exception]
+                ) { |*args| recorder.call(*args) }
                 assert_exception_propagation_result(result,
                                                     unhandled: [],
                                                     handled: [match_exception(child, root, handled: true), Set[plan]])
@@ -953,18 +964,19 @@ module Roby
 
                 exception = localized_error_m.new(child).to_execution_exception
                 recorder.should_receive(:call).once
-                    .with(match_exception, child).ordered
+                        .with(match_exception, child).ordered
                 recorder.should_receive(:call).once
-                    .with(match_exception(child, root), root).ordered
-                    .and_return(true)
+                        .with(match_exception(child, root), root).ordered
+                        .and_return(true)
                 recorder.should_receive(:call).once
-                    .with(match_exception(child, other_root), other_root).ordered
+                        .with(match_exception(child, other_root), other_root).ordered
                 recorder.should_receive(:call).once
-                    .with(match_exception(child, other_root), plan).ordered
-                    .and_return(true)
+                        .with(match_exception(child, other_root), plan).ordered
+                        .and_return(true)
 
                 result = execution_engine.propagate_exception_in_plan(
-                    [exception]) { |*args| recorder.call(*args) }
+                    [exception]
+                ) { |*args| recorder.call(*args) }
                 assert_exception_propagation_result(result,
                                                     unhandled: [],
                                                     handled: [match_exception(child, root, child, other_root, handled: true), Set[root, plan]])
@@ -984,8 +996,8 @@ module Roby
 
             def match_exception(*edges, handled: nil)
                 localized_error_m.to_execution_exception_matcher
-                    .with_trace(*edges)
-                    .handled(handled)
+                                 .with_trace(*edges)
+                                 .handled(handled)
             end
 
             it "does not inhibit unhandled exceptions" do
@@ -994,7 +1006,8 @@ module Roby
                 assert_exception_propagation_result(
                     result,
                     handled: [],
-                    unhandled: [match_exception(child, root), Set[root, child]])
+                    unhandled: [match_exception(child, root), Set[root, child]]
+                )
             end
 
             it "inhibits exceptions for which an object reports the ability to handle the error" do
@@ -1004,7 +1017,8 @@ module Roby
                 assert_exception_propagation_result(
                     result,
                     handled: [match_exception(child, root), Set[root]],
-                    unhandled: [])
+                    unhandled: []
+                )
             end
 
             it "inhibits exceptions that have been registered with #add_fatal_exceptions_for_inhibition" do
@@ -1014,7 +1028,8 @@ module Roby
                 assert_exception_propagation_result(
                     result,
                     handled: [match_exception(child, root), Set[root]],
-                    unhandled: [])
+                    unhandled: []
+                )
             end
         end
 
@@ -1031,8 +1046,8 @@ module Roby
 
             def match_exception(*edges, handled: nil)
                 localized_error_m.to_execution_exception_matcher
-                    .with_trace(*edges)
-                    .handled(handled)
+                                 .with_trace(*edges)
+                                 .handled(handled)
             end
 
             it "partitions task and free event exceptions" do
@@ -1044,21 +1059,23 @@ module Roby
                 assert_exception_propagation_result(
                     [unhandled, handled],
                     handled: [],
-                    unhandled: [match_exception, Set[root]])
+                    unhandled: [match_exception, Set[root]]
+                )
                 assert_equal [[event_e, Set[ev]]], free_events_exceptions
             end
 
             it "removes inhibited task exceptions and do not report them as handled" do
                 task_e = localized_error_m.new(root).to_execution_exception
                 flexmock(execution_engine).should_receive(:remove_inhibited_exceptions)
-                    .with([task_e]).and_return([[], flexmock])
+                                          .with([task_e]).and_return([[], flexmock])
 
                 unhandled, free_events_exceptions, handled =
                     execution_engine.propagate_exceptions([task_e])
                 assert_exception_propagation_result(
                     [unhandled, handled],
                     handled: [],
-                    unhandled: [])
+                    unhandled: []
+                )
                 assert_equal [], free_events_exceptions
             end
 
@@ -1066,64 +1083,68 @@ module Roby
                 root.depends_on(child = task_m.new)
                 task_e = localized_error_m.new(child).to_execution_exception
                 flexmock(execution_engine).should_receive(:remove_inhibited_exceptions)
-                    .with([[task_e, []]]).and_return([[[task_e, flexmock]], []])
+                                          .with([[task_e, []]]).and_return([[[task_e, flexmock]], []])
                 flexmock(execution_engine).should_receive(:propagate_exception_in_plan)
-                    .with([[task_e, []]], Proc).once.pass_thru
+                                          .with([[task_e, []]], Proc).once.pass_thru
                 flexmock(execution_engine).should_receive(:propagate_exception_in_plan)
-                    .pass_thru
+                                          .pass_thru
 
                 unhandled, free_events_exceptions, handled =
                     execution_engine.propagate_exceptions([[task_e, []]])
                 assert_exception_propagation_result(
                     [unhandled, handled],
                     handled: [],
-                    unhandled: [task_e, Set[child]])
+                    unhandled: [task_e, Set[child]]
+                )
                 assert_equal [], free_events_exceptions
             end
 
             it "propagates non-inhibited task exceptions and reports the propagation result" do
                 task_e = localized_error_m.new(root).to_execution_exception
                 flexmock(execution_engine).should_receive(:remove_inhibited_exceptions)
-                    .with([task_e]).pass_thru
+                                          .with([task_e]).pass_thru
                 flexmock(execution_engine).should_receive(:propagate_exception_in_plan)
-                    .with([[task_e, nil]], Proc).once.pass_thru
+                                          .with([[task_e, nil]], Proc).once.pass_thru
                 flexmock(execution_engine).should_receive(:propagate_exception_in_plan)
-                    .pass_thru
+                                          .pass_thru
 
                 unhandled, free_events_exceptions, handled =
                     execution_engine.propagate_exceptions([task_e])
                 assert_exception_propagation_result(
                     [unhandled, handled],
                     handled: [],
-                    unhandled: [task_e, Set[root]])
+                    unhandled: [task_e, Set[root]]
+                )
                 assert_equal [], free_events_exceptions
             end
 
             it "lets tasks handle the exception" do
                 task_e = localized_error_m.new(root).to_execution_exception
                 flexmock(root).should_receive(:handle_exception).with(task_e)
-                    .and_return(true)
+                              .and_return(true)
 
                 unhandled, free_events_exceptions, handled =
                     execution_engine.propagate_exceptions([task_e])
                 assert_exception_propagation_result(
                     [unhandled, handled],
                     handled: [task_e, Set[root]],
-                    unhandled: [])
+                    unhandled: []
+                )
                 assert_equal [], free_events_exceptions
             end
 
             it "lets plan-level handlers handle the exception" do
                 task_e = localized_error_m.new(root).to_execution_exception
                 flexmock(plan).should_receive(:handle_exception).with(task_e)
-                    .and_return(true)
+                              .and_return(true)
 
                 unhandled, free_events_exceptions, handled =
                     execution_engine.propagate_exceptions([task_e])
                 assert_exception_propagation_result(
                     [unhandled, handled],
                     handled: [task_e, Set[plan]],
-                    unhandled: [])
+                    unhandled: []
+                )
                 assert_equal [], free_events_exceptions
             end
         end
@@ -1158,8 +1179,8 @@ module Roby
 
             def match_exception(*edges, handled: nil)
                 localized_error_m.to_execution_exception_matcher
-                    .with_trace(*edges)
-                    .handled(handled)
+                                 .with_trace(*edges)
+                                 .handled(handled)
             end
 
             it "returns a disposable from on_exception" do
@@ -1186,7 +1207,8 @@ module Roby
                 end
                 assert_exception_and_object_set_matches(
                     [ChildFailedError, Set[child]],
-                    all_errors.each_handled_error.to_a)
+                    all_errors.each_handled_error.to_a
+                )
             end
 
             it "reports inhibited structure exceptions" do
@@ -1199,18 +1221,20 @@ module Roby
                 end
                 assert_exception_and_object_set_matches(
                     [ChildFailedError, Set[child]],
-                    all_errors.each_inhibited_error.to_a)
+                    all_errors.each_inhibited_error.to_a
+                )
             end
 
             it "raises a non-repaired structure exception even if a handler claims having handled it" do
                 root_e = localized_error_m.new(root).to_execution_exception
                 flexmock(plan).should_receive(:check_structure)
-                    .and_return([[root_e, []]])
+                              .and_return([[root_e, []]])
                 flexmock(root).should_receive(:handle_exception).and_return(true)
 
                 assert_exception_and_object_set_matches(
                     [match_exception, Set[root]],
-                    execution_engine.compute_errors([]).each_fatal_error)
+                    execution_engine.compute_errors([]).each_fatal_error
+                )
             end
 
             it "partitions the exceptions between fatal and non-fatal ones" do
@@ -1221,10 +1245,12 @@ module Roby
                 results = execution_engine.compute_errors([fatal_e, nonfatal_e])
                 assert_exception_and_object_set_matches(
                     [fatal_e, Set[root]],
-                    results.each_fatal_error)
+                    results.each_fatal_error
+                )
                 assert_exception_and_object_set_matches(
                     [nonfatal_e, Set[root]],
-                    results.each_nonfatal_error)
+                    results.each_nonfatal_error
+                )
             end
 
             it "reports the handled exceptions" do
@@ -1233,7 +1259,8 @@ module Roby
 
                 assert_exception_and_object_set_matches(
                     [match_exception, Set[root]],
-                    execution_engine.compute_errors([root_e]).each_handled_error)
+                    execution_engine.compute_errors([root_e]).each_handled_error
+                )
             end
 
             describe "tasks that are being forcefully killed" do
@@ -1287,12 +1314,12 @@ module Roby
                     results = ExecutionEngine::PropagationInfo.new
                     results.send(result_set) << [@error = flexmock(exception: RuntimeError.new), @involved_objects = flexmock(each: [Object.new])]
                     execution_engine.should_receive(:compute_errors)
-                        .and_return(results, ExecutionEngine::PropagationInfo.new)
+                                    .and_return(results, ExecutionEngine::PropagationInfo.new)
                 end
 
                 def assert_receives_notification(notification_type)
                     recorder.should_receive(:notified).once
-                        .with(notification_type, @error, @involved_objects)
+                            .with(notification_type, @error, @involved_objects)
                 end
 
                 it "notifies handled exceptions" do
@@ -1338,13 +1365,13 @@ module Roby
                     error.propagate(origin, root)
 
                     error_match = localized_error_m.match.with_origin(origin)
-                        .to_execution_exception_matcher
+                                                   .to_execution_exception_matcher
 
                     expect_execution { execution_engine.add_error(error) }
                         .to do
                             have_error_matching PermanentTaskError.match
-                                .with_origin(root)
-                                .with_original_exception(error_match)
+                                                                  .with_origin(root)
+                                                                  .with_original_exception(error_match)
                             have_error_matching error_match
                                 .with_trace(origin, root)
                         end
@@ -1371,16 +1398,16 @@ module Roby
                     error.propagate(origin, root)
 
                     error_matcher = localized_error_m.match
-                        .with_origin(origin)
-                        .to_execution_exception_matcher
+                                                     .with_origin(origin)
+                                                     .to_execution_exception_matcher
 
                     expect_execution { execution_engine.add_error(error) }
                         .to do
                             have_error_matching error_matcher
                                 .with_trace(origin, root)
                             have_error_matching MissionFailedError.match
-                                .with_origin(root)
-                                .with_original_exception(error_matcher)
+                                                                  .with_origin(root)
+                                                                  .with_original_exception(error_matcher)
                         end
                 end
 
@@ -1393,8 +1420,8 @@ module Roby
 
                     error = localized_error_m.new(origin).to_execution_exception
                     error_matcher = localized_error_m.match
-                        .with_origin(origin)
-                        .to_execution_exception_matcher
+                                                     .with_origin(origin)
+                                                     .to_execution_exception_matcher
 
                     expect_execution { execution_engine.add_error(error) }
                         .to do
@@ -1402,15 +1429,15 @@ module Roby
                                 .with_trace(origin, middle,
                                             middle, root)
                             have_error_matching MissionFailedError.match
-                                .with_origin(root)
-                                .with_original_exception(error_matcher)
-                                .to_execution_exception_matcher
-                                .with_empty_trace
+                                                                  .with_origin(root)
+                                                                  .with_original_exception(error_matcher)
+                                                                  .to_execution_exception_matcher
+                                                                  .with_empty_trace
                             have_error_matching MissionFailedError.match
-                                .with_origin(middle)
-                                .with_original_exception(error_matcher)
-                                .to_execution_exception_matcher
-                                .with_empty_trace
+                                                                  .with_origin(middle)
+                                                                  .with_original_exception(error_matcher)
+                                                                  .to_execution_exception_matcher
+                                                                  .with_empty_trace
                         end
                     execute { root.stop_event.emit }
                 end
@@ -1431,34 +1458,36 @@ module Roby
 
                 it "inhibits exceptions for which an error handling task is running" do
                     flexmock(root).should_receive(:handles_error?)
-                        .at_least.once.with(root_e).and_return(true)
+                                  .at_least.once.with(root_e).and_return(true)
 
                     result = execution_engine.remove_inhibited_exceptions([root_e])
                     assert_exception_propagation_result(
                         result,
                         handled: [match_exception, Set[root]],
-                        unhandled: [])
+                        unhandled: []
+                    )
                 end
 
                 it "does not inhibit an exception for which there is no active repair task" do
                     flexmock(root).should_receive(:handles_error?)
-                        .at_least.once.with(root_e).and_return(false)
+                                  .at_least.once.with(root_e).and_return(false)
 
                     result = execution_engine.remove_inhibited_exceptions([root_e])
                     assert_exception_propagation_result(
                         result,
                         handled: [],
-                        unhandled: [match_exception, Set[root]])
+                        unhandled: [match_exception, Set[root]]
+                    )
                 end
 
                 it "auto-starts a matching repair task" do
                     flexmock(root).should_receive(:find_all_matching_repair_tasks)
-                        .at_least.once.with(root_e).and_return([repair_task])
+                                  .at_least.once.with(root_e).and_return([repair_task])
 
                     expect_execution { execution_engine.add_error(root_e) }
                         .to do
                             have_handled_error_matching localized_error_m.match
-                                .with_origin(root.failed_event)
+                                                                         .with_origin(root.failed_event)
                             emit repair_task.start_event
                         end
                 end
@@ -1597,7 +1626,7 @@ module Roby
         end
 
         def assert_exception_and_object_set_matches(expected, actual,
-                message = "failed to match propagation result exception and/or involved objects")
+            message = "failed to match propagation result exception and/or involved objects")
             expected = expected.each_slice(2).flat_map do |match_e, tasks_e|
                 if match_e.respond_to?(:to_execution_exception_matcher)
                     match_e = match_e.to_execution_exception_matcher
@@ -1632,11 +1661,13 @@ module Roby
             assert_kind_of Array, result[1]
             if unhandled
                 assert_exception_and_object_set_matches(
-                    unhandled, result[0], "unhandled set mismatches")
+                    unhandled, result[0], "unhandled set mismatches"
+                )
             end
             if handled
                 assert_exception_and_object_set_matches(
-                    handled, result[1], "unhandled set mismatches")
+                    handled, result[1], "unhandled set mismatches"
+                )
             end
         end
 
@@ -1663,7 +1694,7 @@ module Roby
 
             it "sets running? to true before calling the event loop" do
                 execution_engine.should_receive(:event_loop).once
-                    .and_return { assert execution_engine.running? }
+                                .and_return { assert execution_engine.running? }
                 execution_engine.run
             end
 
@@ -1685,11 +1716,11 @@ module Roby
             it "terminates all waiting work on teardown and warns about it" do
                 ivar = Concurrent::IVar.new
                 flexmock(Roby).should_receive(:warn)
-                    .with("forcefully terminated #{ivar} on quit")
+                              .with("forcefully terminated #{ivar} on quit")
                 execution_engine.should_receive(:event_loop)
-                    .and_return do
-                        execution_engine.once(sync: ivar) {}
-                    end
+                                .and_return do
+                    execution_engine.once(sync: ivar) {}
+                end
                 execution_engine.run
                 assert ivar.complete?
             end
@@ -1699,9 +1730,9 @@ module Roby
                 ivar.set nil
                 flexmock(Roby).should_receive(:warn).never
                 execution_engine.should_receive(:event_loop)
-                    .and_return do
-                        execution_engine.once(sync: ivar) {}
-                    end
+                                .and_return do
+                    execution_engine.once(sync: ivar) {}
+                end
                 execution_engine.run
             end
 
@@ -1712,9 +1743,9 @@ module Roby
                 flexmock(ivar).should_receive(complete?: false)
                 flexmock(Roby).should_receive(:warn).never
                 execution_engine.should_receive(:event_loop)
-                    .and_return do
-                        execution_engine.once(sync: ivar) {}
-                    end
+                                .and_return do
+                    execution_engine.once(sync: ivar) {}
+                end
                 execution_engine.run
             end
 
@@ -1729,7 +1760,7 @@ module Roby
                 error_e = Class.new(RuntimeError).exception("test")
                 failed_finalizer = flexmock
                 failed_finalizer.should_receive(:call).once
-                    .and_raise(error_e)
+                                .and_raise(error_e)
                 successful_finalizer = flexmock
                 successful_finalizer.should_receive(:call).once
 
@@ -1752,7 +1783,7 @@ module Roby
 
             it "returns true if called from within #run" do
                 flexmock(execution_engine).should_receive(:event_loop)
-                    .and_return { assert execution_engine.inside_control? }
+                                          .and_return { assert execution_engine.inside_control? }
                 execution_engine.run
             end
 
@@ -1771,7 +1802,7 @@ module Roby
 
             it "returns false if called from within #run" do
                 flexmock(execution_engine).should_receive(:event_loop)
-                    .and_return { refute execution_engine.outside_control? }
+                                          .and_return { refute execution_engine.outside_control? }
                 execution_engine.run
             end
 
@@ -2097,7 +2128,7 @@ module Roby
                 it "ignores the errors" do
                     recorder.should_receive(:called).at_least.twice
                     flexmock(Roby).should_receive(:log_exception_with_backtrace)
-                        .with(exception_m, execution_engine, :warn).twice
+                                  .with(exception_m, execution_engine, :warn).twice
 
                     add_propagation_handler description: "test", on_error: :ignore do |plan|
                         recorder.called
@@ -2121,7 +2152,7 @@ module Roby
                 trigger_time = nil
                 execution_engine.delayed(5) { trigger_time = Time.now }
                 expect_execution.timeout(10).poll { Timecop.freeze(Time.now + 1) }
-                    .to { achieve { trigger_time } }
+                                .to { achieve { trigger_time } }
                 # NOTE: the delayed blocks are added within a once { } context
                 # NOTE: the usage of #poll above makes it so that the delay is
                 # NOTE: added only at base_time + 1, hence the base_time + 6
@@ -2168,7 +2199,8 @@ class TC_ExecutionEngine < Minitest::Test
         assert_equal(
             { e1 => [1, [], [nil, [1], nil, nil, [4], nil]],
               e2 => [3, [nil, [2], nil, nil, [3], nil], []],
-              e3 => [5, [nil, [6], nil], [nil, [5], nil]] }, set)
+              e3 => [5, [nil, [6], nil], [nil, [5], nil]] }, set
+        )
     end
 
     def test_prepare_propagation
@@ -2678,7 +2710,7 @@ class TC_ExecutionEngine < Minitest::Test
             end
         end.new
         flexmock(obj).should_receive(:stop).once
-            .pass_thru
+                     .pass_thru
 
         task_model = Class.new(Roby::Task) do
             argument :obj

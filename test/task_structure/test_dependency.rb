@@ -290,7 +290,7 @@ class TC_Dependency < Minitest::Test
         child = child_model.new(id: "child")
 
         options = { role: "child1", model: Task, failure: :start.never }
-            .merge(special_options)
+                  .merge(special_options)
         parent.depends_on child, options
 
         expected_info = { consider_in_pending: true,
@@ -506,9 +506,9 @@ class TC_Dependency < Minitest::Test
             grandchild.stop!
         end.to do
             have_error_matching ChildFailedError.match
-                .with_origin(child)
-                .to_execution_exception_matcher
-                .with_trace(child => parent)
+                                                .with_origin(child)
+                                                .to_execution_exception_matcher
+                                                .with_trace(child => parent)
         end
     end
 
@@ -523,9 +523,9 @@ class TC_Dependency < Minitest::Test
             child.start_event.unreachable!(grandchild.start_event.last)
         end.to do
             have_error_matching ChildFailedError.match
-                .with_origin(child.start_event)
-                .to_execution_exception_matcher
-                .with_trace(child => parent)
+                                                .with_origin(child.start_event)
+                                                .to_execution_exception_matcher
+                                                .with_trace(child => parent)
         end
     end
 end
@@ -700,9 +700,9 @@ module Roby
                         expect_execution { child.failed_to_start!(nil) }
                             .to do
                                 have_error_matching ChildFailedError.match
-                                    .with_origin(child)
-                                    .to_execution_exception_matcher
-                                    .with_trace(child => parent)
+                                                                    .with_origin(child)
+                                                                    .to_execution_exception_matcher
+                                                                    .with_trace(child => parent)
                             end
                     end
 
@@ -717,9 +717,9 @@ module Roby
                         expect_execution { child.start! }
                             .to do
                                 have_error_matching ChildFailedError.match
-                                    .with_origin(child)
-                                    .to_execution_exception_matcher
-                                    .with_trace(child => parent)
+                                                                    .with_origin(child)
+                                                                    .to_execution_exception_matcher
+                                                                    .with_trace(child => parent)
                             end
                     end
 
@@ -826,9 +826,9 @@ module Roby
                     decision_control.should_receive(pending_dependency_failed: true).at_least.once
                     expect_pending_relation.to do
                         have_error_matching ChildFailedError.match
-                            .with_origin(child)
-                            .to_execution_exception_matcher
-                            .with_trace(child => parent)
+                                                            .with_origin(child)
+                                                            .to_execution_exception_matcher
+                                                            .with_trace(child => parent)
                     end
                 end
 
@@ -872,8 +872,8 @@ module Roby
                     parent.depends_on(child = child_m.new(id: 10))
 
                     command_failed_matcher = CommandFailed.match
-                        .with_origin(child.start_event)
-                        .with_ruby_exception(error)
+                                                          .with_origin(child.start_event)
+                                                          .with_ruby_exception(error)
 
                     expect_execution { child.start! }
                         .to do
@@ -886,9 +886,9 @@ module Roby
                     parent.depends_on(child = Roby::Tasks::Simple.new, success: :start)
                     expect_execution { child.start_event.unreachable! }.to do
                         have_error_matching ChildFailedError.match
-                            .with_origin(child.start_event)
-                            .to_execution_exception_matcher
-                            .with_trace(child => parent)
+                                                            .with_origin(child.start_event)
+                                                            .to_execution_exception_matcher
+                                                            .with_trace(child => parent)
                     end
                 end
 
@@ -896,9 +896,9 @@ module Roby
                     parent.depends_on(child = child_m.new, success: :intermediate)
                     expect_execution { child.start!; child.stop_event.emit }.to do
                         have_error_matching ChildFailedError.match
-                            .with_origin(child.stop_event)
-                            .to_execution_exception_matcher
-                            .with_trace(child => parent)
+                                                            .with_origin(child.stop_event)
+                                                            .to_execution_exception_matcher
+                                                            .with_trace(child => parent)
                     end
                 end
 
@@ -906,9 +906,9 @@ module Roby
                     parent.depends_on(child = child_m.new, failure: :intermediate)
                     expect_execution { child.start!; child.intermediate_event.emit }.to do
                         have_error_matching ChildFailedError.match
-                            .with_origin(child.intermediate_event)
-                            .to_execution_exception_matcher
-                            .with_trace(child => parent)
+                                                            .with_origin(child.intermediate_event)
+                                                            .to_execution_exception_matcher
+                                                            .with_trace(child => parent)
                     end
                 end
 
@@ -918,9 +918,9 @@ module Roby
                     parent.depends_on(child, failure: :start)
                     expect_execution.to do
                         have_error_matching ChildFailedError.match
-                            .with_origin(child.start_event)
-                            .to_execution_exception_matcher
-                            .with_trace(child => parent)
+                                                            .with_origin(child.start_event)
+                                                            .to_execution_exception_matcher
+                                                            .with_trace(child => parent)
                     end
                 end
 
@@ -933,9 +933,9 @@ module Roby
                     parent.depends_on(child, success: :intermediate)
                     expect_execution.to do
                         have_error_matching ChildFailedError.match
-                            .with_origin(child.intermediate_event)
-                            .to_execution_exception_matcher
-                            .with_trace(child => parent)
+                                                            .with_origin(child.intermediate_event)
+                                                            .to_execution_exception_matcher
+                                                            .with_trace(child => parent)
                     end
                 end
 

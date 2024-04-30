@@ -43,7 +43,7 @@ class TC_EventGenerator < Minitest::Test
 
     def test_propagation_id
         e1, e2, e3 = (1..3).map { EventGenerator.new(true) }
-            .each { |e| plan.add(e) }
+                           .each { |e| plan.add(e) }
         e1.signals e2
         execute { e1.emit(nil) }
         assert_equal(e1.last.propagation_id, e2.last.propagation_id)
@@ -143,7 +143,7 @@ class TC_EventGenerator < Minitest::Test
 
     def test_simple_signal_handler_ordering
         e1, e2, e3 = (1..3).map { EventGenerator.new(true) }
-            .each { |e| plan.add(e) }
+                           .each { |e| plan.add(e) }
         e1.signals(e2)
         e1.on { |ev| e2.remove_signal(e3) }
         e2.signals(e3)
@@ -220,7 +220,7 @@ class TC_EventGenerator < Minitest::Test
 
     def test_and_unreachability
         a, b = (1..2).map { EventGenerator.new(true) }
-            .each { |e| plan.add(e) }
+                     .each { |e| plan.add(e) }
 
         # Test unreachability
         ## it is unreachable once emitted, but if_unreachable(true) blocks
@@ -248,7 +248,7 @@ class TC_EventGenerator < Minitest::Test
 
     def test_and_reset
         a, b = (1..2).map { EventGenerator.new(true) }
-            .each { |e| plan.add(e) }
+                     .each { |e| plan.add(e) }
         and_event = (a & b)
         execute { a.emit(nil) }
 
@@ -338,7 +338,7 @@ class TC_EventGenerator < Minitest::Test
 
     def test_related_events
         e1, e2 = (1..2).map { EventGenerator.new(true) }
-            .each { |ev| plan.add(ev) }
+                       .each { |ev| plan.add(ev) }
 
         assert_equal([].to_set, e1.related_events)
         e1.signals e2
@@ -348,7 +348,7 @@ class TC_EventGenerator < Minitest::Test
 
     def test_related_tasks
         e1, e2 = (1..2).map { EventGenerator.new(true) }
-            .each { |ev| plan.add(ev) }
+                       .each { |ev| plan.add(ev) }
         t1 = Tasks::Simple.new
 
         assert_equal([].to_set, e1.related_tasks)
@@ -755,7 +755,7 @@ module Roby
             end
             it "calls emit_failed if the block raises" do
                 flexmock(ev).should_receive(:emit_failed).once
-                    .with(proc { |e| e.kind_of?(ArgumentError) && Thread.current == main_thread })
+                            .with(proc { |e| e.kind_of?(ArgumentError) && Thread.current == main_thread })
                 ev.achieve_asynchronously { raise ArgumentError }
                 expect_execution.to_run
             end
@@ -763,8 +763,8 @@ module Roby
                 recorder, result = flexmock, flexmock
                 recorder.should_receive(:call).with(Thread.current, result)
                 promise = execution_engine
-                    .promise { result }
-                    .on_success { |result| recorder.call(Thread.current, result) }
+                          .promise { result }
+                          .on_success { |result| recorder.call(Thread.current, result) }
 
                 ev.achieve_asynchronously(promise)
                 expect_execution.to_run
@@ -796,23 +796,23 @@ module Roby
 
             it "calls emit_failed if the callback raises" do
                 flexmock(ev).should_receive(:emit_failed).once
-                    .with(proc { |e| e.kind_of?(ArgumentError) && Thread.current == main_thread })
+                            .with(proc { |e| e.kind_of?(ArgumentError) && Thread.current == main_thread })
                 promise = execution_engine.promise {}
-                    .on_success { raise ArgumentError }
+                                          .on_success { raise ArgumentError }
                 ev.achieve_asynchronously(promise)
                 expect_execution.to_run
             end
 
             it "emits if the callback raises and on_failure is :emit" do
                 promise = execution_engine.promise {}
-                    .on_success { raise ArgumentError }
+                                          .on_success { raise ArgumentError }
                 ev.achieve_asynchronously(promise, on_failure: :emit)
                 expect_execution.to { emit ev }
             end
 
             it "passes the context argument to the on_failure emission" do
                 promise = execution_engine.promise {}
-                    .on_success { raise ArgumentError }
+                                          .on_success { raise ArgumentError }
                 context = [flexmock]
                 ev.achieve_asynchronously(promise, on_failure: :emit, context: context)
                 emitted = expect_execution.to { emit ev }
@@ -821,7 +821,7 @@ module Roby
 
             it "does nothing if on_failure is :nothing" do
                 promise = execution_engine.promise {}
-                    .on_success { raise ArgumentError }
+                                          .on_success { raise ArgumentError }
                 ev.achieve_asynchronously(promise, on_failure: :nothing)
                 recorder = flexmock
                 recorder.should_receive(:called).once
@@ -837,7 +837,7 @@ module Roby
                 it "passes the context argument to the emission" do
                     context = [flexmock]
                     emitted = expect_execution { ev.achieve_asynchronously(Roby::Promise.null, context: context) }
-                        .to { emit ev }
+                              .to { emit ev }
                     assert_equal context, emitted.context
                 end
                 it "does nothing if emit_on_success if false" do
@@ -918,7 +918,7 @@ module Roby
             it "returns nil if #check_call_validity returns an error, and registers the error" do
                 error = Class.new(LocalizedError).new(generator)
                 generator.should_receive(:check_call_validity)
-                    .and_return(error).once
+                         .and_return(error).once
                 generator.should_receive(:calling).never
 
                 expect_execution { generator.call_without_propagation([]) }
@@ -928,7 +928,7 @@ module Roby
             it "reports an error if #executable? is false after #calling" do
                 generator.executable = true
                 flexmock(generator).should_receive(:calling)
-                    .and_return { generator.executable = false }
+                                   .and_return { generator.executable = false }
 
                 command_hook.should_receive(:call).never
                 expect_execution { generator.call_without_propagation([]) }
@@ -943,11 +943,11 @@ module Roby
 
             it "sets #command_emitted? if the command called #emit" do
                 command_hook.should_receive(:call)
-                    .and_return do
-                        refute generator.command_emitted?
-                        generator.emit
-                        assert generator.command_emitted?
-                    end
+                            .and_return do
+                    refute generator.command_emitted?
+                    generator.emit
+                    assert generator.command_emitted?
+                end
                 execute { generator.call_without_propagation([]) }
             end
 
@@ -992,7 +992,7 @@ module Roby
                 it "registers a CommandFailed error directly - without emit_failed" do
                     error = Class.new(RuntimeError)
                     command_hook.should_receive(:call)
-                        .and_return { generator.emit; raise error }
+                                .and_return { generator.emit; raise error }
                     generator.should_receive(:emit_failed).never
                     expect_execution { generator.call_without_propagation([]) }
                         .to { have_error_matching CommandFailed }
@@ -1001,7 +1001,7 @@ module Roby
                 it "reports a emission failure with the raised LocalizedError without emit_failed" do
                     error = Class.new(LocalizedError).new(generator)
                     command_hook.should_receive(:call)
-                        .and_return { generator.emit; raise error }
+                                .and_return { generator.emit; raise error }
                     generator.should_receive(:emit_failed).never
                     expect_execution { generator.call_without_propagation([]) }
                         .to { have_error_matching error.class }
@@ -1061,7 +1061,7 @@ module Roby
             it "returns nil if #check_emission_validity returns an error, and registers the error" do
                 error = Class.new(LocalizedError).new(generator)
                 generator.should_receive(:check_emission_validity)
-                    .and_return(error).once
+                         .and_return(error).once
                 generator.should_receive(:emitting).never
 
                 ret = nil
@@ -1146,14 +1146,14 @@ module Roby
 
             it "uses #new to create the new event object" do
                 generator.should_receive(:new).with(context = flexmock).once
-                    .and_return(event = flexmock(propagation_id: 0, context: 1, generator: 2, sources: 3, time: 4, add_sources: nil))
+                         .and_return(event = flexmock(propagation_id: 0, context: 1, generator: 2, sources: 3, time: 4, add_sources: nil))
                 emitted_event = execute { generator.emit_without_propagation(context) }
                 assert_equal event, emitted_event
             end
 
             it "validates that the value returned by #new is a valid event object" do
                 generator.should_receive(:new).once
-                    .and_return(flexmock)
+                         .and_return(flexmock)
                 execute do
                     assert_raises(TypeError) do
                         generator.emit_without_propagation([])
@@ -1210,8 +1210,8 @@ module Roby
             it "logs the exception" do
                 error = Class.new(RuntimeError).new
                 flexmock(execution_engine).should_receive(:log)
-                    .with(:generator_emit_failed, generator, EmissionFailed.match.with_original_exception(error.class))
-                    .once
+                                          .with(:generator_emit_failed, generator, EmissionFailed.match.with_original_exception(error.class))
+                                          .once
                 flexmock(execution_engine).should_receive(:log)
                 flexmock(execution_engine).should_receive(:add_error)
                 execute { generator.emit_failed(error) }
@@ -1220,10 +1220,10 @@ module Roby
             it "causes the event to become unreachable" do
                 error = Class.new(RuntimeError).new
                 execution_exception = expect_execution { generator.emit_failed(error) }
-                    .to do
-                        become_unreachable generator
-                        have_error_matching EmissionFailed
-                    end
+                                      .to do
+                    become_unreachable generator
+                    have_error_matching EmissionFailed
+                end
                 assert_equal execution_exception.exception, generator.unreachability_reason
             end
 
@@ -1232,7 +1232,7 @@ module Roby
                 execute { generator.call }
                 assert generator.pending?
                 execution_exception = expect_execution { generator.emit_failed }
-                    .to { have_error_matching EmissionFailed }
+                                      .to { have_error_matching EmissionFailed }
                 refute generator.pending?
             end
         end
@@ -1257,7 +1257,7 @@ module Roby
                 context = flexmock
                 execute { master.call }
                 event = expect_execution { slave.emit(context) }
-                    .to { emit master }
+                        .to { emit master }
                 assert_equal [context], event.context
             end
 
@@ -1270,7 +1270,7 @@ module Roby
                 plan.add(master)
                 execute { master.call }
                 event = expect_execution { slave.emit(slave_context) }
-                    .to { emit master }
+                        .to { emit master }
                 assert_equal [master_context], event.context
             end
 
@@ -1313,7 +1313,7 @@ module Roby
             end
             it "queues the call on the engine" do
                 execution_engine.should_receive(:queue_signal)
-                    .with([], generator, [context = flexmock], nil).once
+                                .with([], generator, [context = flexmock], nil).once
                 execute { generator.call(context) }
             end
             it "uses the engine's propagation sources as propagation sources" do
@@ -1344,7 +1344,7 @@ module Roby
             end
             it "queues the emission on the engine" do
                 execution_engine.should_receive(:queue_forward)
-                    .with([], generator, [context = flexmock], nil).once
+                                .with([], generator, [context = flexmock], nil).once
                 execute { generator.emit(context) }
             end
             it "uses the engine's propagation sources as propagation sources" do
@@ -1380,12 +1380,12 @@ module Roby
                 target = EventGenerator.new
                 source.forward_to target
                 execution_engine.should_receive(:queue_forward).once
-                    .with([], source, [context], nil).pass_thru
+                                .with([], source, [context], nil).pass_thru
                 execution_engine.should_receive(:queue_forward).once
-                    .with(->(sources) { sources == [source.last] }, target, [context], nil)
-                    .pass_thru
+                                .with(->(sources) { sources == [source.last] }, target, [context], nil)
+                                .pass_thru
                 event = expect_execution { source.emit(context) }
-                    .to { emit target }
+                        .to { emit target }
                 assert_equal source.last.context, event.context
             end
             it "returns true in forwarded_to?" do
@@ -1412,8 +1412,8 @@ module Roby
                 source.signals target
                 context = flexmock
                 execution_engine.should_receive(:queue_signal).once
-                    .with(->(sources) { sources == [source.last] }, target, [context], nil)
-                    .pass_thru
+                                .with(->(sources) { sources == [source.last] }, target, [context], nil)
+                                .pass_thru
                 expect_execution { source.emit(context) }
                     .to { emit target }
             end

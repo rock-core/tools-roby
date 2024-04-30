@@ -123,30 +123,30 @@ module Roby
                 end
                 it "defaults to #default_path for the file path" do
                     flexmock(debug).should_receive(:default_path)
-                        .and_return("/path/to/dump/file")
+                                   .and_return("/path/to/dump/file")
                     flexmock(FileUtils).should_receive(:mkdir_p)
-                        .with("/path/to/dump").once
+                                       .with("/path/to/dump").once
                     flexmock(File).should_receive(:open)
-                        .with("/path/to/dump/file", any, Proc)
-                        .once
+                                  .with("/path/to/dump/file", any, Proc)
+                                  .once
                     debug.stackprof_save
                 end
                 it "allows specifying another file path" do
                     flexmock(FileUtils).should_receive(:mkdir_p)
-                        .with("/path/to/dump").once
+                                       .with("/path/to/dump").once
                     flexmock(File).should_receive(:open)
-                        .with("/path/to/dump/file", any, Proc)
-                        .once
+                                  .with("/path/to/dump/file", any, Proc)
+                                  .once
                     debug.stackprof_save(path: "/path/to/dump/file")
                 end
                 it "expands a %s in the path to the results' mode" do
                     flexmock(StackProf).should_receive(:results)
-                        .and_return(mode: :cpu)
+                                       .and_return(mode: :cpu)
                     flexmock(FileUtils).should_receive(:mkdir_p)
-                        .with("/path/to/cpu").once
+                                       .with("/path/to/cpu").once
                     flexmock(File).should_receive(:open)
-                        .with("/path/to/cpu/file", any, Proc)
-                        .once
+                                  .with("/path/to/cpu/file", any, Proc)
+                                  .once
                     debug.stackprof_save(path: "/path/to/%s/file")
                 end
             end

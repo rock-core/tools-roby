@@ -105,15 +105,15 @@ module Roby
             def compute_depth(depth)
                 @depth = depth
                 child_depth = transactions
-                    .map { |trsc| trsc.compute_depth(depth + 1) }
-                    .max
+                              .map { |trsc| trsc.compute_depth(depth + 1) }
+                              .max
                 child_depth || depth
             end
 
             def apply_layout(bounding_rects, positions, display, max_depth = nil)
                 max_depth ||= compute_depth(0)
 
-                if rect = bounding_rects[dot_id]
+                if (rect = bounding_rects[dot_id])
                     item = display[self]
                     item.z_value = PLAN_LAYER + depth - max_depth
                     item.rect = rect
@@ -159,12 +159,12 @@ module Roby
             def apply_layout(bounding_rects, positions, display)
                 return unless display.displayed?(self)
 
-                if p = positions[dot_id]
-                    raise "no graphics for #{self}" unless graphics_item = display[self]
+                if (p = positions[dot_id])
+                    raise "no graphics for #{self}" unless (graphics_item = display[self])
 
                     graphics_item.pos = p
-                elsif b = bounding_rects[dot_id]
-                    raise "no graphics for #{self}" unless graphics_item = display[self]
+                elsif (b = bounding_rects[dot_id])
+                    raise "no graphics for #{self}" unless (graphics_item = display[self])
 
                     graphics_item.rect = b
                 else
@@ -206,8 +206,8 @@ module Roby
 
             def dot_label(display)
                 event_names = each_event.find_all { |ev| display.displayed?(ev) }
-                    .map { |ev| ev.dot_label(display) }
-                    .join(" ")
+                                        .map { |ev| ev.dot_label(display) }
+                                        .join(" ")
 
                 own = super
                 if own.size > event_names.size then own
@@ -245,7 +245,8 @@ module Roby
                 if bounding_rect.null? # no events, we need to take the bounding box from the fake task node
                     bounding_rect = Qt::RectF.new(
                         task.x - DEFAULT_TASK_WIDTH / 2,
-                        task.y - DEFAULT_TASK_HEIGHT / 2, DEFAULT_TASK_WIDTH, DEFAULT_TASK_HEIGHT)
+                        task.y - DEFAULT_TASK_HEIGHT / 2, DEFAULT_TASK_WIDTH, DEFAULT_TASK_HEIGHT
+                    )
                 else
                     bounding_rect.y -= 5
                 end
@@ -253,7 +254,8 @@ module Roby
 
                 text_pos = Qt::PointF.new(
                     bounding_rect.x + bounding_rect.width / 2 - graphics_item.text.bounding_rect.width / 2,
-                    bounding_rect.y + bounding_rect.height)
+                    bounding_rect.y + bounding_rect.height
+                )
                 graphics_item.text.pos = text_pos
             end
         end
@@ -400,7 +402,7 @@ module Roby
                     next unless display.displayed?(t)
 
                     bb = Qt::RectF.new
-                    if p = positions[t.dot_id]
+                    if (p = positions[t.dot_id])
                         bb |= Qt::RectF.new(p, p)
                     end
                     t.each_event do |ev|

@@ -39,7 +39,7 @@ module Roby
                     before do
                         flexmock(@client = connect)
                         flexmock(Roby).should_receive(:log_exception_with_backtrace)
-                            .by_default
+                                      .by_default
                     end
 
                     def self.common_behavior_on_poll_exception
@@ -87,8 +87,8 @@ module Roby
                         it "displays an exception that is not ComError" do
                             @client.should_receive(:poll).and_raise(RuntimeError)
                             flexmock(Roby).should_receive(:log_exception_with_backtrace)
-                                .with(RuntimeError, Roby::Interface, :warn)
-                                .once
+                                          .with(RuntimeError, Roby::Interface, :warn)
+                                          .once
                             @server.process_pending_requests
                         end
                         it "processes other clients after an exception that is not ComError" do

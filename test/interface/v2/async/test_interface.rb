@@ -139,12 +139,12 @@ module Roby
                                                       .and_return(1 => %w[a b c])
                             recorder
                                 .should_receive(:called).once
-                                .with(lambda { |jobs|
-                                          jobs.size == 1 &&
-                                          jobs.first.job_id == 1 &&
-                                          jobs.first.state == "a" &&
-                                          jobs.first.task == "c"
-                                      })
+                                                        .with(lambda { |jobs|
+                                                                  jobs.size == 1 &&
+                                                                  jobs.first.job_id == 1 &&
+                                                                  jobs.first.state == "a" &&
+                                                                  jobs.first.task == "c"
+                                                              })
                             connect(server) do |c|
                                 c.on_reachable { |jobs| recorder.called(jobs) }
                             end

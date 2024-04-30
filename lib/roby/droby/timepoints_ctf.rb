@@ -39,7 +39,7 @@ module Roby
                 end
 
                 def thread_id_of(thread_id)
-                    if id = thread_ids[thread_id]
+                    if (id = thread_ids[thread_id])
                         id
                     else
                         thread_ids[thread_id] = thread_ids.size

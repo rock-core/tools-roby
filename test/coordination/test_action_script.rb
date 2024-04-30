@@ -26,7 +26,7 @@ module Roby
                     script_model.start script_task
                     script_model.wait script_task.intermediate_event
                     script_task.should_receive(:instanciate)
-                        .and_return { @action_task = task_model.new }.by_default
+                               .and_return { @action_task = task_model.new }.by_default
                 end
 
                 def start_script
@@ -91,7 +91,8 @@ module Roby
                     execute { root_task.start! }
                     plan.force_replace(
                         child = root_task.test_child,
-                        new_child = Tasks::Simple.new)
+                        new_child = Tasks::Simple.new
+                    )
                     execute do
                         child.start!
                         child.success_event.emit
@@ -122,7 +123,7 @@ module Roby
             describe "#start" do
                 it "can start an action" do
                     script_task.should_receive(:instanciate)
-                        .and_return(action_task = task_model.new)
+                               .and_return(action_task = task_model.new)
                     script_model.start script_task
                     script = script_model.new(root_task)
                     execute { root_task.start! }
@@ -136,7 +137,7 @@ module Roby
             describe "#forward" do
                 it "can forward an event to the root task" do
                     script_task.should_receive(:instanciate)
-                        .and_return(action_task = task_model.new)
+                               .and_return(action_task = task_model.new)
                     script_model.forward script_task.intermediate_event, script_model.success_event
                     script_model.start script_task
                     script_model.new(root_task)

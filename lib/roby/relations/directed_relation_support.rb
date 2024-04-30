@@ -100,9 +100,9 @@ module Roby
 
             def sorted_relations
                 Relations.all_relations
-                    .find_all do |rel|
-                        (rel = relation_graphs.fetch(rel, nil)) && rel.has_vertex?(self)
-                    end
+                         .find_all do |rel|
+                    (rel = relation_graphs.fetch(rel, nil)) && rel.has_vertex?(self)
+                end
             end
 
             # Yields each relation this vertex is part of, starting with the most

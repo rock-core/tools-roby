@@ -13,11 +13,11 @@ class PrevNextTag
         siblings = node.parent.children.sort
         siblings.delete_if { |n| !n.meta_info["in_menu"] }
         prev, = siblings
-            .enum_for(:each_cons, 2)
-            .find { |prev, this| this == node }
+                .enum_for(:each_cons, 2)
+                .find { |prev, this| this == node }
         _, nxt = siblings
-            .enum_for(:each_cons, 2)
-            .find { |this, nxt| this == node }
+                 .enum_for(:each_cons, 2)
+                 .find { |this, nxt| this == node }
 
         content = if tag == "next" && nxt
                       node.link_to(nxt)

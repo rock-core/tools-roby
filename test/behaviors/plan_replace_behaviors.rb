@@ -69,7 +69,7 @@ module Roby
         def self.replace_task_common(context)
             context.it "calls the replaced hook" do
                 flexmock(replacement_plan).should_receive(:replaced)
-                    .with(replacement_plan[@replaced_task], replacement_plan[@replacing_task]).once
+                                          .with(replacement_plan[@replaced_task], replacement_plan[@replacing_task]).once
                 perform_replacement
             end
 
@@ -103,7 +103,7 @@ module Roby
 
             context.it "raises if the replacing task does not fullfill the replaced task" do
                 flexmock(replacement_plan[@replacing_task]).should_receive(:fullfills?)
-                    .and_return(false)
+                                                           .and_return(false)
                 assert_raises(InvalidReplace) do
                     perform_replacement
                 end
@@ -241,13 +241,13 @@ module Roby
         def self.replace_common(context)
             context.it "calls the replaced hook" do
                 flexmock(replacement_plan).should_receive(:replaced)
-                    .with(replacement_plan[@replaced_task], replacement_plan[@replacing_task]).once
+                                          .with(replacement_plan[@replaced_task], replacement_plan[@replacing_task]).once
                 perform_replacement
             end
 
             context.it "raises if the replacing task does not fullfill the replaced task" do
                 flexmock(replacement_plan[@replacing_task]).should_receive(:fullfills?)
-                    .and_return(false)
+                                                           .and_return(false)
                 assert_raises(InvalidReplace) do
                     perform_replacement
                 end
@@ -339,7 +339,7 @@ module Roby
 
             context.it "ignores out edges to free events" do
                 @replaced_task.start_event
-                    .forward_to(ev = Roby::EventGenerator.new)
+                              .forward_to(ev = Roby::EventGenerator.new)
                 perform_replacement
                 assert @replaced_task.start_event.child_object?(ev, EventStructure::Forwarding)
                 refute @replacing_task.start_event.child_object?(ev, EventStructure::Forwarding)

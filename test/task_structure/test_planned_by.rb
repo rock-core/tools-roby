@@ -51,8 +51,8 @@ module Roby
                 it "generates a PlanningFailedError error localized on the planned task if the planner fails" do
                     execute { planner.start! }
                     error = expect_execution { planner.failed! }
-                        .to { have_error_matching PlanningFailedError.match.with_origin(task) }
-                        .exception
+                            .to { have_error_matching PlanningFailedError.match.with_origin(task) }
+                            .exception
                     assert_equal planner, error.planning_task
                     assert_equal task, error.planned_task
                 end
@@ -67,8 +67,8 @@ module Roby
 
                     expect_execution { planner.failed! }.to do
                         have_error_matching PlanningFailedError.match.with_origin(task)
-                            .to_execution_exception_matcher
-                            .with_trace(task => root)
+                                                               .to_execution_exception_matcher
+                                                               .with_trace(task => root)
                     end
                 end
             end

@@ -273,7 +273,7 @@ module Roby
                 end
 
                 def resolve_job_id(job_id)
-                    if job_info = __jobs[job_id]
+                    if (job_info = __jobs[job_id])
                         job_info
                     else
                         STDERR.puts Roby.color("No job #{job_id}", :bold, :bright_red)
@@ -282,7 +282,7 @@ module Roby
 
                 def kill_job(job_id)
                     if safe?
-                        if @batch_job_info[job_id] = resolve_job_id(job_id)
+                        if (@batch_job_info[job_id] = resolve_job_id(job_id))
                             @batch.kill_job job_id
                             review
                         end
@@ -294,7 +294,7 @@ module Roby
 
                 def drop_job(job_id)
                     if safe?
-                        if @batch_job_info[job_id] = resolve_job_id(job_id)
+                        if (@batch_job_info[job_id] = resolve_job_id(job_id))
                             @batch.drop_job job_id
                             review
                         end
@@ -340,9 +340,9 @@ module Roby
                 end
 
                 def method_missing(m, *args)
-                    if sub = client.find_subcommand_by_name(m.to_s)
+                    if (sub = client.find_subcommand_by_name(m.to_s))
                         ShellSubcommand.new(self, m.to_s, sub.description, sub.commands)
-                    elsif act = client.find_action_by_name(m.to_s)
+                    elsif (act = client.find_action_by_name(m.to_s))
                         act
                     elsif @batch && m.to_s =~ /(.*)!$/
                         action_name = $1

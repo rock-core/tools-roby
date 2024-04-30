@@ -73,15 +73,15 @@ module Roby
                 end
                 it "parses a positive numerical value with unit" do
                     flexmock(CucumberHelpers).should_receive(:apply_unit)
-                        .with(10, "unit")
-                        .and_return(20)
+                                             .with(10, "unit")
+                                             .and_return(20)
                     assert_equal Hash[x: 20],
                                  CucumberHelpers.parse_arguments("x=10unit", strict: false)
                 end
                 it "parses a negative numerical value with unit" do
                     flexmock(CucumberHelpers).should_receive(:apply_unit)
-                        .with(-10, "unit")
-                        .and_return(20)
+                                             .with(-10, "unit")
+                                             .and_return(20)
                     assert_equal Hash[x: 20],
                                  CucumberHelpers.parse_arguments("x=-10unit", strict: false)
                 end
@@ -106,7 +106,7 @@ module Roby
                     end
                     it "validates that the unit and the quantity match" do
                         flexmock(CucumberHelpers).should_receive(:validate_unit)
-                            .with(:x, 20, "m", :angle).once
+                                                 .with(:x, 20, "m", :angle).once
                         CucumberHelpers.parse_arguments("x=20m", Hash[x: :angle], strict: false)
                     end
                     it "raises InvalidUnit if the value does not have a unit" do
@@ -176,9 +176,9 @@ module Roby
                         end
                         it "validates that the unit and the quantity match" do
                             flexmock(CucumberHelpers).should_receive(:validate_unit)
-                                .with(:x, 20.0, "m", :length).once
+                                                     .with(:x, 20.0, "m", :length).once
                             flexmock(CucumberHelpers).should_receive(:validate_unit)
-                                .with(:y, 20.0, "m", :angle).once
+                                                     .with(:y, 20.0, "m", :angle).once
                             CucumberHelpers.parse_arguments_respectively(%i[x y], "20m", Hash[x: :length, y: :angle], strict: false)
                         end
                         it "raises InvalidUnit if the value does not have a unit" do
@@ -205,9 +205,9 @@ module Roby
                         end
                         it "validates that the unit and the quantity match" do
                             flexmock(CucumberHelpers).should_receive(:validate_unit)
-                                .with("y", 20.0, "m", :angle).once
+                                                     .with("y", 20.0, "m", :angle).once
                             flexmock(CucumberHelpers).should_receive(:validate_unit)
-                                .with("x", 5.0, "m", :length).once
+                                                     .with("x", 5.0, "m", :length).once
                             CucumberHelpers.parse_arguments_respectively(%i[x y], "y=20m and x=5m", Hash[x: :length, y: :angle], strict: false)
                         end
                         it "raises InvalidUnit if the value does not have a unit" do
@@ -227,9 +227,9 @@ module Roby
                         end
                         it "raises InvalidUnit if the unit does not match the expected quantity" do
                             flexmock(CucumberHelpers).should_receive(:validate_unit)
-                                .with(:y, 5.0, "m", :angle).once
+                                                     .with(:y, 5.0, "m", :angle).once
                             flexmock(CucumberHelpers).should_receive(:validate_unit)
-                                .with(:x, 20.0, "m", :length).once
+                                                     .with(:x, 20.0, "m", :length).once
                             CucumberHelpers.parse_arguments_respectively(%i[x y], "20m and 5m", Hash[x: :length, y: :angle], strict: false)
                         end
                         it "raises InvalidUnit if the value does not have a unit" do
@@ -349,7 +349,7 @@ module Roby
                 end
                 it "applies a unit if present" do
                     flexmock(CucumberHelpers).should_receive(:apply_unit).with(1, "deg")
-                        .and_return(ret = flexmock)
+                                             .and_return(ret = flexmock)
                     assert_equal [ret, "deg"], CucumberHelpers.parse_numerical_value("1deg")
                 end
                 it "raises ArgumentError if the string is not a numerical value, with or without a unit" do

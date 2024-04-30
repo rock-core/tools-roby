@@ -476,7 +476,7 @@ module Roby
                     task.each_role do |parent, roles|
                         if parent == self
                             new_paths = roles.map { |r| [r] }
-                        elsif heads = role_paths(parent, false)
+                        elsif (heads = role_paths(parent, false))
                             heads.each do |h|
                                 roles.each do |t|
                                     result << (h.dup << t)
@@ -558,7 +558,7 @@ module Roby
                     end
 
                     roles = options[:roles] || Set.new
-                    if role = options.delete(:role)
+                    if (role = options.delete(:role))
                         roles << role.to_str
                     end
                     roles = roles.map(&:to_str)
@@ -568,15 +568,15 @@ module Roby
                         options[:success] = []
                     end
                     options[:success] = Array[*options[:success]]
-                        .map(&:to_unbound_task_predicate)
-                        .inject(&:or)
+                                        .map(&:to_unbound_task_predicate)
+                                        .inject(&:or)
 
                     if options[:failure].nil?
                         options[:failure] = []
                     end
                     options[:failure] = Array[*options[:failure]]
-                        .map(&:to_unbound_task_predicate)
-                        .inject(&:or)
+                                        .map(&:to_unbound_task_predicate)
+                                        .inject(&:or)
 
                     # options[:success] ||= false.to_unbound_task_predicate
                     # options[:failure] ||= false.to_unbound_task_predicate
@@ -584,7 +584,7 @@ module Roby
                     # Validate failure and success event names
                     if options[:success]
                         not_there = options[:success].required_events
-                            .find_all { |name| !task.has_event?(name) }
+                                                     .find_all { |name| !task.has_event?(name) }
                         unless not_there.empty?
                             raise ArgumentError, "#{task} does not have the following events: #{not_there.join(', ')}"
                         end
@@ -592,7 +592,7 @@ module Roby
 
                     if options[:failure]
                         not_there = options[:failure].required_events
-                            .find_all { |name| !task.has_event?(name) }
+                                                     .find_all { |name| !task.has_event?(name) }
                         unless not_there.empty?
                             raise ArgumentError, "#{task} does not have the following events: #{not_there.join(', ')}"
                         end
@@ -705,7 +705,7 @@ module Roby
                 # Beware that, for historical reasons, this is not the same format than
                 # {#fullfilled_model=}
                 def fullfilled_model
-                    if current_model = explicit_fullfilled_model
+                    if (current_model = explicit_fullfilled_model)
                         has_value = true
                     else
                         current_model = [Roby::Task, [], {}]
@@ -744,9 +744,9 @@ module Roby
                 #   the model in the same format as expected by {#fullfilled_model=}
                 #   (which is different than the value returned by {#fullfilled_model})
                 def explicit_fullfilled_model
-                    if explicit = @fullfilled_model
+                    if (explicit = @fullfilled_model)
                         explicit
-                    elsif explicit = self.model.explicit_fullfilled_model
+                    elsif (explicit = self.model.explicit_fullfilled_model)
                         tasks, tags = explicit.partition { |m| m <= Roby::Task }
                         [tasks.first || Roby::Task, tags, {}]
                     end
@@ -760,7 +760,7 @@ module Roby
                 # @return [Array<Models::Task,TaskService>]
                 # @see #fullfilled_model
                 def provided_models
-                    if model = explicit_fullfilled_model
+                    if (model = explicit_fullfilled_model)
                         [model[0]] + model[1]
                     else
                         models = self.model.fullfilled_model
@@ -797,12 +797,14 @@ module Roby
 
                 def has_through_method_missing?(m)
                     MetaRuby::DSLs.has_through_method_missing?(
-                        self, m, "_child" => :has_role?)
+                        self, m, "_child" => :has_role?
+                    )
                 end
 
                 def find_through_method_missing(m, args)
                     MetaRuby::DSLs.find_through_method_missing(
-                        self, m, args, "_child" => :find_child_from_role)
+                        self, m, args, "_child" => :find_child_from_role
+                    )
                 end
             end
 

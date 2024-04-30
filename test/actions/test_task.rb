@@ -26,19 +26,19 @@ class TC_Actions_Task < Minitest::Test
 
     def test_it_calls_the_action_and_adds_the_result_to_the_transaction
         flexmock(iface_m).new_instances
-            .should_receive(:test_action).once
-            .and_return(result_task = TaskModel.new)
+                         .should_receive(:test_action).once
+                         .and_return(result_task = TaskModel.new)
         flexmock(Transaction).new_instances
-            .should_receive(:add).once
-            .with(result_task).pass_thru
+                             .should_receive(:add).once
+                             .with(result_task).pass_thru
         flexmock(Transaction).new_instances
-            .should_receive(:add).with(any).pass_thru
+                             .should_receive(:add).with(any).pass_thru
         execute { task.start! }
     end
 
     def test_it_commits_the_transaction_if_the_action_is_successful
         flexmock(Transaction).new_instances
-            .should_receive(:commit_transaction).once.pass_thru
+                             .should_receive(:commit_transaction).once.pass_thru
         expect_execution { task.start! }
             .to { emit task.success_event }
     end
@@ -50,7 +50,7 @@ class TC_Actions_Task < Minitest::Test
 
     def test_it_emits_failed_and_raises_PlanningFailedError_if_the_action_raised
         flexmock(iface_m).new_instances
-            .should_receive(:test_action).and_raise(ArgumentError)
+                         .should_receive(:test_action).and_raise(ArgumentError)
         expect_execution { task.start! }.to do
             have_error_matching PlanningFailedError.match.with_origin(task.planned_task)
             emit task.failed_event
@@ -59,7 +59,7 @@ class TC_Actions_Task < Minitest::Test
 
     def test_it_emits_failed_if_the_transaction_failed_to_commit
         flexmock(Transaction).new_instances
-            .should_receive(:commit_transaction).and_raise(ArgumentError)
+                             .should_receive(:commit_transaction).and_raise(ArgumentError)
         expect_execution { task.start! }.to do
             have_error_matching PlanningFailedError.match.with_origin(task.planned_task)
             emit task.failed_event

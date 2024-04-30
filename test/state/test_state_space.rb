@@ -196,7 +196,7 @@ class TC_StateSpace < Minitest::Test
     def test_state_model_read
         source = flexmock
         source.should_receive(:read).once
-            .and_return(obj = Object.new)
+              .and_return(obj = Object.new)
 
         s = create_state_space("pose.position")
 
@@ -215,7 +215,7 @@ class TC_StateSpace < Minitest::Test
     def test_state_model_read_should_validate_type
         source = flexmock
         source.should_receive(:read).once
-            .and_return(obj = Object.new)
+              .and_return(obj = Object.new)
         field_type = Class.new
 
         s = create_state_space("pose.position")
@@ -225,7 +225,7 @@ class TC_StateSpace < Minitest::Test
         assert !s.pose.position?
         assert !s.last_known.pose.position?
         source.should_receive(:read).once
-            .and_return(field_type.new)
+              .and_return(field_type.new)
         s.pose.read
     end
 
@@ -239,11 +239,11 @@ class TC_StateSpace < Minitest::Test
     def test_state_model_resolve_data_sources
         source_model = flexmock
         source_model.should_receive(:to_state_variable_model)
-            .and_return do |field, name|
-                var = StateVariableModel.new(field, name)
-                var.data_source = source_model
-                var
-            end
+                    .and_return do |field, name|
+            var = StateVariableModel.new(field, name)
+            var.data_source = source_model
+            var
+        end
 
         model = StateModel.new
         model.pose.position = source_model
@@ -253,7 +253,7 @@ class TC_StateSpace < Minitest::Test
         obj = Object.new
         source = flexmock
         source_model.should_receive(:resolve).with(obj).once
-            .and_return(source)
+                    .and_return(source)
         model.resolve_data_sources(obj, state)
         assert_equal source, state.data_sources.pose.position
     end

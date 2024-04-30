@@ -57,7 +57,8 @@ module Roby
                     __getobj__.if_unreachable(
                         cancel_at_emission: cancel,
                         on_replace: on_replace,
-                        &h.block)
+                        &h.block
+                    )
                 end
             end
         end

@@ -88,7 +88,7 @@ module Roby
                         expectations.scheduler true
                         execution_engine.scheduler.enabled = false
                         execution_engine.should_receive(:process_events)
-                            .pass_thru { |ret| assert execution_engine.scheduler.enabled?; ret }
+                                        .pass_thru { |ret| assert execution_engine.scheduler.enabled?; ret }
                         expectations.verify
                     end
                     it "restores an enabled scheduler after the verification" do
@@ -101,14 +101,14 @@ module Roby
                     it "calls process_events with garbage_collect_pass: true if #garbage_collect is true" do
                         expectations.garbage_collect true
                         execution_engine.should_receive(:process_events)
-                            .with(hsh(garbage_collect_pass: true))
-                            .pass_thru
+                                        .with(hsh(garbage_collect_pass: true))
+                                        .pass_thru
                     end
                     it "calls process_events with garbage_collect_pass: false if #garbage_collect is false" do
                         expectations.garbage_collect false
                         execution_engine.should_receive(:process_events)
-                            .with(hsh(garbage_collect_pass: false))
-                            .pass_thru
+                                        .with(hsh(garbage_collect_pass: false))
+                                        .pass_thru
                     end
                 end
 
@@ -154,15 +154,15 @@ module Roby
 
                         it "continues looping if there is waiting work" do
                             execution_engine.should_receive(:has_waiting_work?)
-                                .and_return(true, false)
+                                            .and_return(true, false)
                             execution_engine.should_receive(:process_events).twice
-                                .and_return(ExecutionEngine::PropagationInfo.new)
+                                            .and_return(ExecutionEngine::PropagationInfo.new)
                             expectations.verify
                         end
 
                         it "executes the block only once" do
                             execution_engine.should_receive(:has_waiting_work?)
-                                .and_return(true, false)
+                                            .and_return(true, false)
                             recorder = flexmock
                             recorder.should_receive(:called).with(true).once
                             expectations.verify { recorder.called(execution_engine.in_propagation_context?) }
@@ -194,7 +194,7 @@ module Roby
 
                         it "executes the loop only once" do
                             execution_engine.should_receive(:process_events).once
-                                .pass_thru
+                                            .pass_thru
                             expectations.verify
                         end
 
@@ -252,21 +252,21 @@ module Roby
 
                     it "tests against the execution exception error" do
                         @predicate.should_receive(:relates_to_error?)
-                                .with(@execution_exception).once.and_return(true)
+                                  .with(@execution_exception).once.and_return(true)
                         @predicate.should_receive(:relates_to_error?)
                         refute @harness.unexpected_error?(@execution_exception)
                     end
 
                     it "tests against the original error" do
                         @predicate.should_receive(:relates_to_error?)
-                                .with(@localized_error).once.and_return(true)
+                                  .with(@localized_error).once.and_return(true)
                         @predicate.should_receive(:relates_to_error?)
                         refute @harness.unexpected_error?(@execution_exception)
                     end
 
                     it "tests against the original error's own original errors" do
                         @predicate.should_receive(:relates_to_error?)
-                                .with(@exception).once.and_return(true)
+                                  .with(@exception).once.and_return(true)
                         @predicate.should_receive(:relates_to_error?)
                         refute @harness.unexpected_error?(@execution_exception)
                     end
@@ -280,14 +280,14 @@ module Roby
 
                     it "tests against the error itself" do
                         @predicate.should_receive(:relates_to_error?)
-                                .with(@localized_error).once.and_return(true)
+                                  .with(@localized_error).once.and_return(true)
                         @predicate.should_receive(:relates_to_error?)
                         refute @harness.unexpected_error?(@localized_error)
                     end
 
                     it "tests against the original error" do
                         @predicate.should_receive(:relates_to_error?)
-                                .with(@exception).once.and_return(true)
+                                  .with(@exception).once.and_return(true)
                         @predicate.should_receive(:relates_to_error?)
                         refute @harness.unexpected_error?(@localized_error)
                     end
@@ -298,7 +298,7 @@ module Roby
                             .should_receive(:each_original_exception).explicitly
                             .and_yield(level2_e)
                         @predicate.should_receive(:relates_to_error?)
-                                .with(level2_e).once.and_return(true)
+                                  .with(level2_e).once.and_return(true)
                         @predicate.should_receive(:relates_to_error?)
                         refute @harness.unexpected_error?(@localized_error)
                     end
@@ -312,7 +312,7 @@ module Roby
 
                     it "tests against the error itself" do
                         @predicate.should_receive(:relates_to_error?)
-                                .with(@exception).once.and_return(true)
+                                  .with(@exception).once.and_return(true)
                         refute @harness.unexpected_error?(@exception)
                     end
                 end
@@ -331,8 +331,8 @@ module Roby
                     assert_equal 20, result
 
                     expectation = expectation_class.new([])
-                                  .filter_result_with { |a| a * 2 }
-                                  .filter_result_with { |a| a - 5 }
+                                                   .filter_result_with { |a| a * 2 }
+                                                   .filter_result_with { |a| a - 5 }
                     result = expect_execution.to { add_expectation(expectation) }
                     assert_equal 15, result
                 end
@@ -725,21 +725,21 @@ module Roby
 
                     it "validates when the exception has been raised and handled" do
                         @matcher.should_receive(:===)
-                            .with(->(e) { e.exception.failed_generator == @task.start_event })
-                            .and_return(true)
+                                .with(->(e) { e.exception.failed_generator == @task.start_event })
+                                .and_return(true)
                         expect_execution do
                             execution_engine.add_error(@error_m.new(@task.start_event))
                         end.to { have_handled_error_matching flexmock(to_execution_exception_matcher: matcher) }
                     end
                     it "fails if only non-matching exceptions have been raised" do
                         @matcher.should_receive(:===)
-                            .with(->(e) { e.exception.failed_generator == @task.start_event })
-                            .and_return(false)
+                                .with(->(e) { e.exception.failed_generator == @task.start_event })
+                                .and_return(false)
                         e = assert_raises(ExecutionExpectations::Unmet) do
                             expect_execution do
                                 execution_engine.add_error(@error_m.new(@task.start_event))
                             end.timeout(0)
-                            .to { have_handled_error_matching flexmock(to_execution_exception_matcher: matcher) }
+                               .to { have_handled_error_matching flexmock(to_execution_exception_matcher: matcher) }
                         end
                         assert_match(/^1 unmet expectations\nshould have handled an error matching #{matcher}/m, e.message)
                     end
@@ -754,8 +754,8 @@ module Roby
                     it "validates even if the exception causes other errors" do
                         plan.add(other_task = Roby::Task.new)
                         @matcher.should_receive(:===)
-                            .with(->(e) { e.exception.failed_generator == @task.start_event })
-                            .and_return(true)
+                                .with(->(e) { e.exception.failed_generator == @task.start_event })
+                                .and_return(true)
                         expect_execution do
                             execution_engine.add_error(error = @error_m.new(@task.start_event))
                             other_error = @error_m.new(other_task.start_event)
@@ -810,10 +810,10 @@ module Roby
                             other_error_m = Class.new(RuntimeError)
                             assert_raises(ExecutionExpectations::Unmet) do
                                 expect_execution { task.start! }.timeout(0)
-                                    .to do
-                                        have_internal_error task, error_m
-                                        have_internal_error task, other_error_m
-                                    end
+                                                                .to do
+                                    have_internal_error task, error_m
+                                    have_internal_error task, other_error_m
+                                end
                             end
                         end
                     end
@@ -822,7 +822,7 @@ module Roby
                         plan.add(task = @task_m.new)
                         assert_raises(ExecutionExpectations::Unmet) do
                             expect_execution.timeout(0)
-                                .to { have_internal_error task, error_m }
+                                            .to { have_internal_error task, error_m }
                         end
                     end
                     it "does not match a plain internal_error_event emission" do
@@ -830,7 +830,7 @@ module Roby
                         execute { task.start! }
                         assert_raises(ExecutionExpectations::Unmet) do
                             expect_execution { task.internal_error_event.emit }.timeout(0)
-                                .to { have_internal_error task, error_m }
+                                                                               .to { have_internal_error task, error_m }
                         end
                     end
                     it "ignores non-LocalizedError exceptions" do
@@ -863,7 +863,7 @@ module Roby
                     end
                     it "returns the failure reason" do
                         ret = expect_execution { task.failed_to_start!(CodeError.new(error_m.new, task)) }
-                            .to { fail_to_start task, reason: error_m }
+                              .to { fail_to_start task, reason: error_m }
                         assert_equal task.failure_reason, ret
                     end
                     it "does not match if the given reason matcher does not match the failure reason" do
@@ -1125,14 +1125,14 @@ module Roby
                         error_m = Class.new(RuntimeError)
                         plan.add(generator = Roby::EventGenerator.new)
                         reason = expect_execution { generator.unreachable!(error_m.new) }
-                            .to { become_unreachable generator }
+                                 .to { become_unreachable generator }
                         assert_kind_of error_m, reason
                     end
                     it "fails if the generator does not become unreachable" do
                         plan.add(generator = Roby::EventGenerator.new)
                         assert_raises(ExecutionExpectations::Unmet) do
                             expect_execution.timeout(0)
-                                .to { become_unreachable generator }
+                                            .to { become_unreachable generator }
                         end
                     end
                     it "ignores non-LocalizedError exceptions" do

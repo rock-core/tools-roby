@@ -191,7 +191,7 @@ module Roby
                     end
                     task = start_machine(action_m.test)
                     flexmock(task.each_coordination_object.first).should_receive(:instanciate_state_transition)
-                        .once.pass_thru
+                                                                 .once.pass_thru
                     execute do
                         task.monitor_child.start!
                         task.monitor_child.success_event.emit
@@ -284,7 +284,7 @@ module Roby
                     task = start_machine(action_m.test)
                     state_machine = task.each_coordination_object.first
                     flexmock(state_machine).should_receive(:instanciate_state_transition)
-                        .and_raise(error_m = Class.new(RuntimeError))
+                                           .and_raise(error_m = Class.new(RuntimeError))
 
                     expect_execution do
                         task.current_task_child.start!
@@ -328,7 +328,7 @@ module Roby
                 end
                 task = start_machine(action_m.test)
                 event = expect_execution { task.start_state_child.start! }
-                    .to { emit task.success_event }
+                        .to { emit task.success_event }
                 assert_equal [10], event.context
             end
 
@@ -419,7 +419,7 @@ module Roby
                     start_machine_child(test_task)
                     execute { test_task.current_task_child.stop! }
                     assert_equal 42, test_task.current_task_child.planning_task
-                        .action_arguments[:arg]
+                                              .action_arguments[:arg]
                 end
 
                 it "can capture a root event's context" do
@@ -439,7 +439,7 @@ module Roby
                         test_task.current_task_child.stop!
                     end
                     assert_equal 42, test_task.current_task_child.planning_task
-                        .action_arguments[:arg]
+                                              .action_arguments[:arg]
                 end
 
                 it "allows to filter the context with a block" do
@@ -457,7 +457,7 @@ module Roby
                     start_machine_child(test_task)
                     execute { test_task.current_task_child.stop! }
                     assert_equal 21, test_task.current_task_child.planning_task
-                        .action_arguments[:arg]
+                                              .action_arguments[:arg]
                 end
 
                 it "raises Unbound on transitions using an unbound capture" do
@@ -479,8 +479,8 @@ module Roby
                         expect_execution { test_task.current_task_child.stop! }
                         .to do
                             have_error_matching ActionStateTransitionFailed.match
-                                .with_origin(test_task)
-                                .with_original_exception(Models::Capture::Unbound)
+                                                                           .with_origin(test_task)
+                                                                           .with_original_exception(Models::Capture::Unbound)
                         end
 
                     assert_equal(

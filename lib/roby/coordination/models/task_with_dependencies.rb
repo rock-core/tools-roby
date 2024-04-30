@@ -31,7 +31,7 @@ module Roby
                 end
 
                 def find_child_model(name)
-                    if d = dependencies.find { |_, role| role == name }
+                    if (d = dependencies.find { |_, role| role == name })
                         d[0].model
                     else
                         super

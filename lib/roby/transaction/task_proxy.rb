@@ -65,7 +65,7 @@ module Roby
             end
 
             def event(name)
-                if ev = find_event(name)
+                if (ev = find_event(name))
                     ev
                 else
                     ev = __getobj__.event(name)

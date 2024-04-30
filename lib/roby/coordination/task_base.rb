@@ -28,20 +28,20 @@ module Roby
                 unless child_model
                     begin
                         task = self.resolve
-                        if child_task = task.find_child_from_role(role)
+                        if (child_task = task.find_child_from_role(role))
                             child_model = child_task.model
                         end
                     rescue ResolvingUnboundObject
                     end
                 end
 
-                if child = model.find_child(role, child_model)
+                if (child = model.find_child(role, child_model))
                     execution_context.instance_for(child)
                 end
             end
 
             def find_event(symbol)
-                if event = model.find_event(symbol)
+                if (event = model.find_event(symbol))
                     execution_context.instance_for(event)
                 end
             end
@@ -51,7 +51,8 @@ module Roby
                     self, m, args,
                     "_child" => :find_child,
                     "_port" => :find_port,
-                    "_event" => :find_event) || super
+                    "_event" => :find_event
+                ) || super
             end
 
             def has_through_method_missing?(m)
@@ -59,7 +60,8 @@ module Roby
                     self, m,
                     "_child" => :has_child?,
                     "_port" => :has_port?,
-                    "_event" => :has_event?) || super
+                    "_event" => :has_event?
+                ) || super
             end
 
             include MetaRuby::DSLs::FindThroughMethodMissing

@@ -777,7 +777,7 @@ module Roby
 
         # Whether a forward matching this signature is currently pending
         def has_pending_forward?(from, to, expected_context)
-            if pending = @propagation[to]
+            if (pending = @propagation[to])
                 pending[PENDING_PROPAGATION_FORWARD].each_slice(3).any? do |event, context, timespec|
                     (from === event.generator) && (expected_context === context)
                 end
@@ -786,7 +786,7 @@ module Roby
 
         # Whether a signal matching this signature is currently pending
         def has_pending_signal?(from, to, expected_context)
-            if pending = @propagation[to]
+            if (pending = @propagation[to])
                 pending[PENDING_PROPAGATION_SIGNAL].each_slice(3).any? do |event, context, timespec|
                     (from === event.generator) && (expected_context === context)
                 end
@@ -987,8 +987,8 @@ module Roby
         #
         # See validate_timespec for more information
         def self.make_delay(timeref, source, target, timespec)
-            if delay = timespec[:delay] then timeref + delay
-            elsif at = timespec[:at] then at
+            if (delay = timespec[:delay]) then timeref + delay
+            elsif (at = timespec[:at]) then at
             else
                 raise ArgumentError, "invalid timespec #{timespec}"
             end
@@ -1160,7 +1160,7 @@ module Roby
                         next_step = gather_propagation(current_step) do
                             propagation_context(source_events | source_generators) do
                                 begin
-                                    if event = signalled.emit_without_propagation(context)
+                                    if (event = signalled.emit_without_propagation(context))
                                         propagation_info.add_event_emission(event)
                                         emitted_events << event
                                     end
@@ -1227,7 +1227,7 @@ module Roby
                 e = vertex_to_object.fetch(u)
                 return unless e
 
-                if e.handled = exception_handler[e, u]
+                if (e.handled = exception_handler[e, u])
                     handled_exceptions << e
                 elsif out_degree[u] == 0
                     unhandled_exceptions << e
@@ -1306,7 +1306,7 @@ module Roby
             unhandled_exceptions  = []
             handled_unhandled.each do |handled, e|
                 if e
-                    if e.handled = yield(e, plan)
+                    if (e.handled = yield(e, plan))
                         if handled
                             handled_by = (handled.propagation_leafs.to_set << plan)
                             exceptions_handled_by << [handled.merge(e), handled_by]
@@ -1555,14 +1555,14 @@ module Roby
             :handled_errors, :inhibited_errors, :framework_errors
         ) do
             def initialize(called_generators = Set.new,
-                           emitted_events = Set.new,
-                           kill_tasks = Set.new,
-                           fatal_errors = [],
-                           nonfatal_errors = [],
-                           free_events_errors = [],
-                           handled_errors = [],
-                           inhibited_errors = [],
-                           framework_errors = [])
+                emitted_events = Set.new,
+                kill_tasks = Set.new,
+                fatal_errors = [],
+                nonfatal_errors = [],
+                free_events_errors = [],
+                handled_errors = [],
+                inhibited_errors = [],
+                framework_errors = [])
 
                 self.called_generators  = called_generators.to_set
                 self.emitted_events     = emitted_events.to_set

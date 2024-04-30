@@ -27,7 +27,7 @@ module Roby
 
                 def transfer(obj)
                     ::Marshal.load(::Marshal.dump(marshaller.dump(obj)))
-                        .proxy(demarshaller)
+                             .proxy(demarshaller)
                 end
 
                 describe Builtins::ClassDumper do
@@ -48,9 +48,11 @@ module Roby
                         end
                         marshaller_object_manager.register_model(
                             local_base_class,
-                            { remote_id => remote_base_class.droby_id })
+                            { remote_id => remote_base_class.droby_id }
+                        )
                         demarshaller_object_manager.register_model(
-                            remote_base_class)
+                            remote_base_class
+                        )
                         @parent = Class.new(local_base_class)
                         def parent.name
                             "Parent"

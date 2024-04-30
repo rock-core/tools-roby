@@ -123,7 +123,7 @@ module Roby
                 width, height = 0, 0
                 events = self.each_event.map do |e|
                     next unless display.displayed?(e)
-                    next unless circle = display[e]
+                    next unless (circle = display[e])
 
                     br = (circle.bounding_rect | circle.children_bounding_rect)
                     [e, circle, br]
@@ -274,7 +274,7 @@ module Roby
                 scene = display.scene
 
                 svg = Qt::SvgGenerator.new
-                if path = options[:path]
+                if (path = options[:path])
                     svg.file_name = path
                 else
                     buffer = svg.output_device = Qt::Buffer.new
@@ -551,7 +551,7 @@ module Roby
             end
 
             def apply_options(options)
-                if enabled_relations = options["enabled_relations"]
+                if (enabled_relations = options["enabled_relations"])
                     enabled_relations.each do |name|
                         rel = constant(name)
                         enable_relation(rel)
@@ -611,7 +611,7 @@ module Roby
             def arrow(from, to, rel, info, base_layer)
                 id = [from, to, rel]
                 unless (item = arrows[id])
-                    if item = last_arrows.delete(id)
+                    if (item = last_arrows.delete(id))
                         arrows[id] = item
                     else
                         item = arrows[id] = (free_arrows.pop || scene.add_arrow(ARROW_SIZE))
@@ -652,7 +652,7 @@ module Roby
 
                 # Find the graphics items
                 bb = objects.inject(Qt::RectF.new) do |bb, object|
-                    if item = self[object]
+                    if (item = self[object])
                         item.selected = true
                         bb | item.scene_bounding_rect | item.map_to_scene(item.children_bounding_rect).bounding_rect
                     else
@@ -854,7 +854,7 @@ module Roby
                 end
 
                 removed_objects.each do |object|
-                    if item = graphics[object]
+                    if (item = graphics[object])
                         item.visible = displayed?(object)
                     end
                 end
@@ -904,7 +904,7 @@ module Roby
                     # Make sure that the event's tasks are added to
                     # visible_objects as well
                     visible_objects.dup.each do |obj|
-                        if parent = obj.display_parent
+                        if (parent = obj.display_parent)
                             visible_objects << parent
                         end
                     end
@@ -1065,15 +1065,15 @@ module Roby
 
                 # Layout the graph
                 layouts = plans.find_all(&:root_plan?)
-                    .map do |p|
-                        dot = PlanDotLayout.new
-                        begin
-                            dot.layout(self, p, layout_options)
-                            dot
-                        rescue Exception => e
-                            puts "Failed to lay out the plan: #{e}"
-                        end
-                    end.compact
+                               .map do |p|
+                    dot = PlanDotLayout.new
+                    begin
+                        dot.layout(self, p, layout_options)
+                        dot
+                    rescue Exception => e
+                        puts "Failed to lay out the plan: #{e}"
+                    end
+                end.compact
                 layouts.each(&:apply)
 
                 # Display the signals

@@ -41,7 +41,7 @@ module Roby
 
                         menu = Qt::Menu.new
                         inspect_cycle = menu.add_action("Step-by-step from there")
-                        if action = menu.exec(event.globalPos)
+                        if (action = menu.exec(event.globalPos))
                             cycle_index = currentItem.data(Qt::UserRole).toInt
 
                             rebuilder_widget = self.parentWidget
@@ -49,7 +49,8 @@ module Roby
                                 rebuilder_widget,
                                 rebuilder_widget.current_plan,
                                 rebuilder_widget.logfile.dup,
-                                cycle_index)
+                                cycle_index
+                            )
                             stepping.exec
                         end
                     end

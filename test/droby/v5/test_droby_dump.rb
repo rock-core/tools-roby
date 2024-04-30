@@ -432,7 +432,7 @@ module Roby
                         e = LocalizedError.new(local_task.start_event)
                         e.original_exceptions << flexmock(droby_dump: 42)
                         flexmock(demarshaller).should_receive(:local_object).with(42)
-                            .and_return(r_exceptions = flexmock)
+                                              .and_return(r_exceptions = flexmock)
                         flexmock(demarshaller).should_receive(:local_object).pass_thru
                         e = transfer(e)
                         assert_equal [r_exceptions], e.original_exceptions
@@ -519,7 +519,8 @@ module Roby
                             loaded = transfer(action)
                             assert_same action.model, loaded.model
                             assert_equal task_m.droby_id, demarshaller_object_manager.known_sibling_on(
-                                loaded.arguments[:test], local_id)
+                                loaded.arguments[:test], local_id
+                            )
                         end
                     end
 
@@ -593,7 +594,7 @@ module Roby
                             flexmock(marshaller).should_receive(:dump).with(q).and_return(42).once
                             flexmock(demarshaller).should_receive(:local_object).with(Queries::NotMatcherDumper::DRoby).pass_thru
                             flexmock(demarshaller).should_receive(:local_object).with(42)
-                                .and_return(q).once
+                                                  .and_return(q).once
                             unmarshalled = transfer(not_q)
                             assert_kind_of Roby::Queries::NotMatcher, unmarshalled
                             assert_equal q, unmarshalled.instance_variable_get(:@op)

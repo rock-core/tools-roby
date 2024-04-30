@@ -74,7 +74,7 @@ module Roby
 
                 if original_exception_model
                     original_exception = exception.original_exceptions
-                        .find { |e| original_exception_model === e }
+                                                  .find { |e| original_exception_model === e }
                     unless original_exception
                         return false
                     end
@@ -99,7 +99,7 @@ module Roby
 
                 if original_exception_model
                     original_exception = exception.original_exceptions
-                        .find { |e| original_exception_model === e }
+                                                  .find { |e| original_exception_model === e }
                     unless original_exception
                         if exception.original_exceptions.empty?
                             return "expected one of the original exceptions "\

@@ -20,7 +20,7 @@ describe Roby::Queries::LocalizedErrorMatcher do
             error = Roby::LocalizedError.new(task)
             model_match = flexmock
             model_match.should_receive(:===).with(error.class).and_return(true)
-            assert (Roby::LocalizedError.match.with_model(model_match) === error)
+            assert(Roby::LocalizedError.match.with_model(model_match) === error)
         end
         it "should return false if the error type does not match" do
             error = Roby::LocalizedError.new(task)
@@ -34,7 +34,7 @@ describe Roby::Queries::LocalizedErrorMatcher do
             origin_match.should_receive(:task_matcher).and_return(origin_match)
             origin_match.should_receive(:match).and_return(origin_match)
             origin_match.should_receive(:===).with(task.success_event).and_return(true).once
-            assert (Roby::LocalizedError.match.with_origin(origin_match) === error)
+            assert(Roby::LocalizedError.match.with_origin(origin_match) === error)
         end
         it "does not match a generator if emitted is set" do
             error = Roby::LocalizedError.new(task.success_event)
@@ -42,7 +42,7 @@ describe Roby::Queries::LocalizedErrorMatcher do
             origin_match.should_receive(:task_matcher).and_return(origin_match)
             origin_match.should_receive(:match).and_return(origin_match)
             origin_match.should_receive(:===).with(task.success_event).and_return(true)
-            refute (Roby::LocalizedError.match.with_origin(origin_match).emitted === error)
+            refute(Roby::LocalizedError.match.with_origin(origin_match).emitted === error)
         end
         it "matches an event from a matching generator if emitted is set" do
             error = Roby::LocalizedError.new(task.success_event.new([]))
@@ -50,7 +50,7 @@ describe Roby::Queries::LocalizedErrorMatcher do
             origin_match.should_receive(:task_matcher).and_return(origin_match)
             origin_match.should_receive(:match).and_return(origin_match)
             origin_match.should_receive(:===).with(task.success_event).and_return(true).once
-            assert (Roby::LocalizedError.match.with_origin(origin_match).emitted === error)
+            assert(Roby::LocalizedError.match.with_origin(origin_match).emitted === error)
         end
         it "should return false if given a generator matcher and the error originates only from a task" do
             error = Roby::LocalizedError.new(task)
@@ -64,7 +64,7 @@ describe Roby::Queries::LocalizedErrorMatcher do
             origin_match = flexmock
             origin_match.should_receive(:match).and_return(origin_match)
             origin_match.should_receive(:===).with(task).and_return(true).once
-            assert (Roby::LocalizedError.match.with_origin(origin_match) === error)
+            assert(Roby::LocalizedError.match.with_origin(origin_match) === error)
         end
         it "should make event generator matchers generalized by default" do
             origin = Roby::Task.success_event

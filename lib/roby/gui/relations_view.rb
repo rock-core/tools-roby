@@ -109,7 +109,7 @@ class Ui::RelationsView
             hide_this = menu.add_action("Hide")
             hide_children = menu.add_action("Hide children")
             show_children = menu.add_action("Show children")
-            return unless action = menu.exec(event.globalPos)
+            return unless (action = menu.exec(event.globalPos))
 
             case action.text
             when "Hide"
@@ -258,7 +258,7 @@ class Ui::RelationsView
         @actionSVGExport.connect(SIGNAL(:triggered)) do
             return unless scene
 
-            if path = Qt::FileDialog.get_save_file_name(nil, "SVG Export")
+            if (path = Qt::FileDialog.get_save_file_name(nil, "SVG Export"))
                 svg = Qt::SvgGenerator.new
                 svg.file_name = path
                 svg.size = Qt::Size.new(Integer(scene.width * 0.8), Integer(scene.height * 0.8))

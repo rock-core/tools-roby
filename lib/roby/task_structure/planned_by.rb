@@ -27,7 +27,7 @@ module Roby::TaskStructure
                     task = task.as_plan
                 end
 
-                if old = planning_task
+                if (old = planning_task)
                     if replace
                         remove_planning_task(old)
                     else

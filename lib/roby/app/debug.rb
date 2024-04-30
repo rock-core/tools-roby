@@ -103,7 +103,7 @@ module Roby
             #
             # @param [String]
             def stackprof_save(path: default_path("stackprof-%s"))
-                if results = StackProf.results
+                if (results = StackProf.results)
                     path = format(path, results[:mode])
                     FileUtils.mkdir_p(File.dirname(path))
                     File.open(path, "wb") do |f|

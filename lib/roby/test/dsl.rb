@@ -166,7 +166,7 @@ module Roby
                     end
                 else
                     target_blocks = (target.instance_variable_get(:@__describe_blocks) || [])
-                        .concat(@__describe_blocks)
+                                    .concat(@__describe_blocks)
                     target.instance_variable_set(:@__describe_blocks, target_blocks)
                 end
             end

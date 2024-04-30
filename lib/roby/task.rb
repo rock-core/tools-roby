@@ -361,14 +361,14 @@ module Roby
 
         # Returns when this task has been started
         def start_time
-            if ev = start_event.last
+            if (ev = start_event.last)
                 ev.time
             end
         end
 
         # Returns when this task has finished
         def end_time
-            if ev = stop_event.last
+            if (ev = stop_event.last)
                 ev.time
             end
         end
@@ -399,7 +399,7 @@ module Roby
             @bound_events = {}
             @execute_handlers = old.execute_handlers.dup
             @poll_handlers = old.poll_handlers.dup
-            if m = old.instance_variable_get(:@fullfilled_model)
+            if (m = old.instance_variable_get(:@fullfilled_model))
                 @fullfilled_model = m.dup
             end
         end
@@ -742,7 +742,7 @@ module Roby
             end
 
             result.reject { |ev| ev.respond_to?(:task) && ev.task == self }
-                .to_set
+                  .to_set
         end
 
         # This method is called by TaskEventGenerator#fire just before the event handlers
@@ -1221,13 +1221,13 @@ module Roby
             return if event(:internal_error).emitted?
 
             begin
-                while execute_block = @execute_handlers.pop
+                while (execute_block = @execute_handlers.pop)
                     execute_block.block.call(self)
                 end
 
                 poll_handler
 
-                if machine = state_machine
+                if (machine = state_machine)
                     machine.do_poll(self)
                 end
 
@@ -1452,11 +1452,11 @@ module Roby
             event_pairs = []
             model.each_event do |_, event|
                 event = transaction_stack
-                    .find { |_, o| o.find_event(event.symbol) }
-                    .last.event(event.symbol)
+                        .find { |_, o| o.find_event(event.symbol) }
+                        .last.event(event.symbol)
                 object_event = object_transaction_stack
-                    .find { |_, o| o.find_event(event.symbol) }
-                    .last.event(event.symbol)
+                               .find { |_, o| o.find_event(event.symbol) }
+                               .last.event(event.symbol)
                 event_pairs << [event, object_event]
             end
 
@@ -1775,7 +1775,7 @@ module Roby
         # defined from explicit action objects
         def action_state_machine(&block)
             model = Coordination::ActionStateMachine
-                .new_submodel(action_interface: nil, root: self.model)
+                    .new_submodel(action_interface: nil, root: self.model)
             model.parse(&block)
             model.new(self)
         end

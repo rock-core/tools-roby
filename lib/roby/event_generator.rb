@@ -163,20 +163,20 @@ module Roby
         def check_call_validity
             if !plan
                 EventNotExecutable.new(self)
-                    .exception("#emit called on #{self} which has been removed from its plan")
+                                  .exception("#emit called on #{self} which has been removed from its plan")
             elsif !plan.executable?
                 EventNotExecutable.new(self)
-                    .exception("#emit called on #{self} which is not in an executable plan")
+                                  .exception("#emit called on #{self} which is not in an executable plan")
             elsif !controlable?
                 EventNotControlable.new(self)
-                    .exception("#call called on a non-controlable event")
+                                   .exception("#call called on a non-controlable event")
             elsif unreachable?
                 if unreachability_reason
                     UnreachableEvent.new(self, unreachability_reason)
-                        .exception("#call called on #{self} which has been made unreachable because of #{unreachability_reason}")
+                                    .exception("#call called on #{self} which has been made unreachable because of #{unreachability_reason}")
                 else
                     UnreachableEvent.new(self, unreachability_reason)
-                        .exception("#call called on #{self} which has been made unreachable")
+                                    .exception("#call called on #{self} which has been made unreachable")
                 end
             elsif !execution_engine.allow_propagation?
                 PhaseMismatch.exception("call to #emit is not allowed in this context")
@@ -188,7 +188,7 @@ module Roby
         def check_call_validity_after_calling
             unless executable?
                 EventNotExecutable.new(self)
-                    .exception("#call called on #{self} which is a non-executable event")
+                                  .exception("#call called on #{self} which is a non-executable event")
             end
         end
 
@@ -197,20 +197,20 @@ module Roby
         def check_emission_validity
             if !plan
                 EventNotExecutable.new(self)
-                    .exception("#emit called on #{self} which has been removed from its plan")
+                                  .exception("#emit called on #{self} which has been removed from its plan")
             elsif !plan.executable?
                 EventNotExecutable.new(self)
-                    .exception("#emit called on #{self} which is not in an executable plan")
+                                  .exception("#emit called on #{self} which is not in an executable plan")
             elsif !executable?
                 EventNotExecutable.new(self)
-                    .exception("#emit called on #{self} which is a non-executable event")
+                                  .exception("#emit called on #{self} which is a non-executable event")
             elsif unreachable?
                 if unreachability_reason
                     UnreachableEvent.new(self, unreachability_reason)
-                        .exception("#emit called on #{self} which has been made unreachable because of #{unreachability_reason}")
+                                    .exception("#emit called on #{self} which has been made unreachable because of #{unreachability_reason}")
                 else
                     UnreachableEvent.new(self, unreachability_reason)
-                        .exception("#emit called on #{self} which has been made unreachable")
+                                    .exception("#emit called on #{self} which has been made unreachable")
                 end
             elsif !execution_engine.allow_propagation?
                 PhaseMismatch.exception("call to #emit is not allowed in this context")
@@ -221,7 +221,7 @@ module Roby
 
         # Calls the command from within the event propagation code
         def call_without_propagation(context)
-            if error = check_call_validity
+            if (error = check_call_validity)
                 clear_pending
                 execution_engine.add_error(error)
                 return
@@ -275,7 +275,7 @@ module Roby
                 return
             end
 
-            if error = check_call_validity
+            if (error = check_call_validity)
                 clear_pending
                 raise error
             end
@@ -691,7 +691,7 @@ module Roby
         #
         # This is used by event propagation. Do not call directly: use #call instead
         def emit_without_propagation(context)
-            if error = check_emission_validity
+            if (error = check_emission_validity)
                 execution_engine.add_error(error)
                 return
             end
@@ -741,7 +741,8 @@ module Roby
             end
 
             engine.queue_forward(
-                engine.propagation_sources, self, context, nil)
+                engine.propagation_sources, self, context, nil
+            )
         end
 
         # Set this generator up so that it "delegates" its emission to another

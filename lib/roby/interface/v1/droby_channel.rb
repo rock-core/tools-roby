@@ -106,7 +106,7 @@ module Roby
                     deadline       = Time.now + timeout if timeout
                     remaining_time = timeout
 
-                    if packet = @incoming.next
+                    if (packet = @incoming.next)
                         return unmarshal_packet(packet)
                     end
 
@@ -120,7 +120,7 @@ module Roby
                             end
                         end
 
-                        if packet = @incoming.next
+                        if (packet = @incoming.next)
                             return unmarshal_packet(packet)
                         end
 

@@ -20,13 +20,15 @@ module Roby
 
                 it "starts a webserver with our API on start" do
                     assert Server.server_alive?(
-                        "127.0.0.1", rest_task.actual_port)
+                        "127.0.0.1", rest_task.actual_port
+                    )
                 end
 
                 it "shuts down the server on stop" do
                     expect_execution { rest_task.stop! }.to { emit rest_task.stop_event }
                     refute Server.server_alive?(
-                        "127.0.0.1", rest_task.actual_port)
+                        "127.0.0.1", rest_task.actual_port
+                    )
                 end
 
                 it "can be configured with a different mounting point" do
@@ -36,10 +38,12 @@ module Roby
                         .to { emit rest_task.start_event }
 
                     assert Server.server_alive?(
-                        "127.0.0.1", rest_task.actual_port, main_route: "/root")
+                        "127.0.0.1", rest_task.actual_port, main_route: "/root"
+                    )
                     assert_raises(REST::Server::InvalidServer) do
                         Server.server_alive?(
-                            "127.0.0.1", rest_task.actual_port, main_route: "/api")
+                            "127.0.0.1", rest_task.actual_port, main_route: "/api"
+                        )
                     end
                 end
 

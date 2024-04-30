@@ -151,7 +151,8 @@ module Roby
                     MetaRuby::DSLs.find_through_method_missing(
                         self, m, args,
                         "_event" => :find_event,
-                        "_child" => :find_child) ||
+                        "_child" => :find_child
+                    ) ||
                         super
                 end
 
@@ -159,7 +160,8 @@ module Roby
                     MetaRuby::DSLs.has_through_method_missing?(
                         self, m,
                         "_event" => :has_event?,
-                        "_child" => :has_child?) ||
+                        "_child" => :has_child?
+                    ) ||
                         super
                 end
 

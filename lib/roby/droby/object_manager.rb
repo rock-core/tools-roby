@@ -31,13 +31,13 @@ module Roby
             end
 
             def find_by_id(peer_id, droby_id)
-                if object_siblings = siblings_by_peer.fetch(peer_id, nil)
+                if (object_siblings = siblings_by_peer.fetch(peer_id, nil))
                     object_siblings[droby_id]
                 end
             end
 
             def fetch_by_id(peer_id, droby_id)
-                if local_object = find_by_id(peer_id, droby_id)
+                if (local_object = find_by_id(peer_id, droby_id))
                     local_object
                 else
                     raise UnknownSibling, "there is no known object for #{droby_id}@#{peer_id.inspect} on #{self}"
@@ -64,7 +64,7 @@ module Roby
             # @return [DRobyID,nil]
             def known_sibling_on(local_object, peer_id)
                 if local_object.respond_to?(:droby_id)
-                    if siblings = siblings_by_local_object_id.fetch(local_object.droby_id, nil)
+                    if (siblings = siblings_by_local_object_id.fetch(local_object.droby_id, nil))
                         siblings[peer_id]
                     elsif peer_id == local_id
                         local_object.droby_id
@@ -84,7 +84,7 @@ module Roby
             #   it is not DRoby-addressable
             def known_siblings_for(object)
                 if object.respond_to?(:droby_id)
-                    if siblings = siblings_by_local_object_id.fetch(object.droby_id, nil)
+                    if (siblings = siblings_by_local_object_id.fetch(object.droby_id, nil))
                         siblings
                     else
                         Hash[local_id => object.droby_id]
@@ -121,7 +121,7 @@ module Roby
                 object_siblings = siblings_by_local_object_id[local_object_id]
 
                 siblings.each do |peer_id, droby_id|
-                    if actual_droby_id = object_siblings.delete(peer_id)
+                    if (actual_droby_id = object_siblings.delete(peer_id))
                         if actual_droby_id != droby_id
                             raise ArgumentError,
                                   "DRobyID of #{local_object} on #{peer_id} mismatches "\

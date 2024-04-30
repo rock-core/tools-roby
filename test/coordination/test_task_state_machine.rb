@@ -62,7 +62,7 @@ module Roby
                 end
                 plan.add(task = task_m.new)
                 yield_task = expect_execution { task.start! }
-                    .to { achieve { running_task } }
+                             .to { achieve { running_task } }
                 assert_equal task, yield_task
             end
         end

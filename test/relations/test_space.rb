@@ -166,7 +166,8 @@ module Roby
                         it "sets the accessors to nil if the relation is removed" do
                             @planned_task.planned_by(@planning_task)
                             @trsc[@planned_task].remove_planning_task(
-                                @trsc[@planning_task])
+                                @trsc[@planning_task]
+                            )
                             @trsc.commit_transaction
                             assert_nil @planned_task.planning_task
                         end
@@ -174,9 +175,11 @@ module Roby
                         it "updates the accessors if updated in the transaction" do
                             @planned_task.planned_by(@planning_task)
                             @trsc[@planned_task].remove_planning_task(
-                                @trsc[@planning_task])
+                                @trsc[@planning_task]
+                            )
                             @trsc[@planned_task].planned_by(
-                                new_planning_task = Roby::Task.new)
+                                new_planning_task = Roby::Task.new
+                            )
                             @trsc.commit_transaction
                             assert_equal new_planning_task, @planned_task.planning_task
                         end
@@ -185,9 +188,11 @@ module Roby
                             @planned_task.planned_by(@planning_task)
                             new_planned_task = Roby::Task.new
                             @trsc[@planned_task].remove_planning_task(
-                                @trsc[@planning_task])
+                                @trsc[@planning_task]
+                            )
                             new_planned_task.planned_by(
-                                @trsc[@planning_task])
+                                @trsc[@planning_task]
+                            )
                             @trsc.commit_transaction
                             assert_equal @planning_task, new_planned_task.planning_task
                         end
@@ -196,9 +201,11 @@ module Roby
                             @planned_task.planned_by(@planning_task)
                             @plan.add(new_planned_task = Roby::Task.new)
                             @trsc[@planned_task].remove_planning_task(
-                                @trsc[@planning_task])
+                                @trsc[@planning_task]
+                            )
                             @trsc[new_planned_task].planned_by(
-                                @trsc[@planning_task])
+                                @trsc[@planning_task]
+                            )
                             @trsc.commit_transaction
                             assert_equal @planning_task, new_planned_task.planning_task
                         end

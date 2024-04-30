@@ -64,7 +64,7 @@ module Roby
                 rescue ::Exception => root_e # rubocop:disable Naming/RescuedExceptionsVariableName
                     assert_exception_can_be_pretty_printed(root_e)
                     all = Roby.flatten_exception(root_e)
-                    if actual_e = all.find { |e| matchers.any? { |expected_e| expected_e === e } }
+                    if (actual_e = all.find { |e| matchers.any? { |expected_e| expected_e === e } })
                         if return_original_exception
                             return actual_e, root_e
                         else
@@ -85,7 +85,7 @@ module Roby
             def roby_exception_to_string(*queue)
                 msg = String.new
                 seen = Set.new
-                while e = queue.shift
+                while (e = queue.shift)
                     next if seen.include?(e)
 
                     seen << e

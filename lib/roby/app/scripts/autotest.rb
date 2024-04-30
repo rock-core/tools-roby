@@ -87,14 +87,15 @@ Roby.display_exception do
             spawner.add_slave(
                 Gem.ruby, "-S", $0,
                 "autotest", "--robot=#{name}", *modes, *cmdline_args, *test_files,
-                name: process_id.merge(robot: name))
+                name: process_id.merge(robot: name)
+            )
         end
         reporter.discovery_finished
         manager.run
         exit 0
     end
 
-    if robot_name = robots.first
+    if (robot_name = robots.first)
         process_id = process_id.merge(robot: robot_name)
         cmdline_args << "--robot=#{robot_name}"
     end
@@ -103,14 +104,15 @@ Roby.display_exception do
         reporter.discovery_start
         modes.each do |m|
             manager.add_slave(
-                Gem.ruby, "-S", $0, "autotest", m, *cmdline_args, *test_files)
+                Gem.ruby, "-S", $0, "autotest", m, *cmdline_args, *test_files
+            )
         end
         reporter.discovery_finished
         manager.run
         exit 0
     end
 
-    if m = modes.first
+    if (m = modes.first)
         Roby.app.simulation = (m != "--live")
         process_id = process_id.merge(mode: m.gsub(/^--/, ""))
         cmdline_args << m
@@ -137,7 +139,8 @@ Roby.display_exception do
 
                 manager.add_slave(
                     Gem.ruby, "-S", $0, "autotest", *cmdline_args, path,
-                    name: process_id.merge(path: path))
+                    name: process_id.merge(path: path)
+                )
             end
             reporter.discovery_finished
             manager.run

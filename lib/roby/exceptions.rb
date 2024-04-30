@@ -106,11 +106,11 @@ module Roby
             @exception = exception
             @trace = Relations::BidirectionalDirectedAdjacencyGraph.new
 
-            if task = exception.failed_task
+            if (task = exception.failed_task)
                 @origin = task
                 @trace.add_vertex(task)
             end
-            if generator = exception.failed_generator
+            if (generator = exception.failed_generator)
                 @generator = exception.failed_generator
             end
 
@@ -365,7 +365,7 @@ module Roby
                            logger.level
                        end
 
-        if numeric_level = LOG_SYMBOLIC_TO_NUMERIC.index(level.to_sym)
+        if (numeric_level = LOG_SYMBOLIC_TO_NUMERIC.index(level.to_sym))
             logger_level <= numeric_level
         else
             raise ArgumentError, "#{level} is not a valid log level, log levels are #{LOG_SYMBOLIC_TO_NUMERIC.map(&:inspect).join(', ')}"

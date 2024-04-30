@@ -14,7 +14,7 @@ describe Roby::TaskArguments do
     describe "#[]=" do
         it "sets the argument if writable? returns true" do
             flexmock(task.arguments).should_receive(:writable?)
-                .with(:arg, "A").once.and_return(true)
+                                    .with(:arg, "A").once.and_return(true)
             task.arguments[:arg] = "A"
             assert_equal("A", task.arg)
             assert_equal({ arg: "A" }, task.arguments)
@@ -22,7 +22,7 @@ describe Roby::TaskArguments do
 
         it "raises if writable? returns false" do
             flexmock(task.arguments).should_receive(:writable?)
-                .with(:arg, "A").once.and_return(false)
+                                    .with(:arg, "A").once.and_return(false)
             assert_raises(ArgumentError) do
                 task.arguments[:arg] = "A"
             end
@@ -256,10 +256,11 @@ describe Roby::TaskArguments do
 
         it "logs a :task_arguments_updated event if the value has been changed" do
             @left[:arg] = flexmock(
-                evaluate_delayed_argument: nil, strong?: true, merge: 42)
+                evaluate_delayed_argument: nil, strong?: true, merge: 42
+            )
             @right[:arg] = 42
             flexmock(@left.task.plan).should_receive(:log)
-                .once.with(:task_arguments_updated, @left.task, :arg, 42)
+                                     .once.with(:task_arguments_updated, @left.task, :arg, 42)
             @left.semantic_merge!(@right)
         end
 
@@ -273,7 +274,7 @@ describe Roby::TaskArguments do
         it "logs a :task_arguments_updated event for new arguments" do
             @right[:something] = 42
             flexmock(@left.task.plan).should_receive(:log).once
-                .with(:task_arguments_updated, @left.task, :something, 42)
+                                     .with(:task_arguments_updated, @left.task, :something, 42)
             @left.semantic_merge!(@right)
         end
 
@@ -301,36 +302,36 @@ describe Roby::TaskArguments do
 
             it "can merge if can_merge? returns true" do
                 @left.values[:arg].should_receive(:can_merge?)
-                    .with(@left_t, @right_t,
-                          ->(a) { a.evaluate_delayed_argument(nil) == 42 })
-                    .twice.and_return(true)
+                     .with(@left_t, @right_t,
+                           ->(a) { a.evaluate_delayed_argument(nil) == 42 })
+                     .twice.and_return(true)
                 assert @left.can_semantic_merge?(@right)
                 assert @right.can_semantic_merge?(@left)
             end
 
             it "uses the value returned by merge" do
                 @left.values[:arg].should_receive(:merge)
-                    .with(@left_t, @right_t,
-                          ->(a) { a.evaluate_delayed_argument(nil) == 42 })
-                    .once.and_return(10)
+                     .with(@left_t, @right_t,
+                           ->(a) { a.evaluate_delayed_argument(nil) == 42 })
+                     .once.and_return(10)
                 @left.semantic_merge!(@right)
                 assert_equal 10, @left[:arg]
             end
 
             it "behaves identically if the delayed argument is passed as argument" do
                 @left.values[:arg].should_receive(:merge)
-                    .with(@left_t, @right_t,
-                          ->(a) { a.evaluate_delayed_argument(nil) == 42 })
-                    .once.and_return(10)
+                     .with(@left_t, @right_t,
+                           ->(a) { a.evaluate_delayed_argument(nil) == 42 })
+                     .once.and_return(10)
                 @right.semantic_merge!(@left)
                 assert_equal 10, @right.values[:arg]
             end
 
             it "returns false if can_merge? returns false" do
                 @left.values[:arg].should_receive(:can_merge?)
-                    .with(@left_t, @right_t,
-                          ->(a) { a.evaluate_delayed_argument(nil) == 42 })
-                    .twice.and_return(false)
+                     .with(@left_t, @right_t,
+                           ->(a) { a.evaluate_delayed_argument(nil) == 42 })
+                     .twice.and_return(false)
                 refute @left.can_semantic_merge?(@right)
                 refute @right.can_semantic_merge?(@left)
             end
@@ -366,23 +367,23 @@ describe Roby::TaskArguments do
 
             it "can merge if can_merge? returns true" do
                 @left.values[:arg].should_receive(:can_merge?)
-                    .with(@left_t, @right_t, @right.values[:arg])
-                    .once.and_return(true)
+                     .with(@left_t, @right_t, @right.values[:arg])
+                     .once.and_return(true)
                 assert @left.can_semantic_merge?(@right)
             end
 
             it "sets using the value returned by merge" do
                 @left.values[:arg].should_receive(:merge)
-                    .with(@left_t, @right_t, @right.values[:arg])
-                    .once.and_return(42)
+                     .with(@left_t, @right_t, @right.values[:arg])
+                     .once.and_return(42)
                 @left.semantic_merge!(@right)
                 assert_equal 42, @left.values[:arg]
             end
 
             it "returns false if can_merge? returns false" do
                 @left.values[:arg].should_receive(:can_merge?)
-                    .with(@left_t, @right_t, @right.values[:arg])
-                    .once.and_return(false)
+                     .with(@left_t, @right_t, @right.values[:arg])
+                     .once.and_return(false)
                 refute @left.can_semantic_merge?(@right)
             end
         end
@@ -415,23 +416,23 @@ describe Roby::TaskArguments do
 
             it "can merge if can_merge? returns true" do
                 @left.values[:arg].should_receive(:can_merge?)
-                    .with(@left_t, @right_t, @right.values[:arg])
-                    .once.and_return(true)
+                     .with(@left_t, @right_t, @right.values[:arg])
+                     .once.and_return(true)
                 assert @left.can_semantic_merge?(@right)
             end
 
             it "sets using the value returned by merge" do
                 @left.values[:arg].should_receive(:merge)
-                    .with(@left_t, @right_t, @right.values[:arg])
-                    .once.and_return(42)
+                     .with(@left_t, @right_t, @right.values[:arg])
+                     .once.and_return(42)
                 @left.semantic_merge!(@right)
                 assert_equal 42, @left.values[:arg]
             end
 
             it "returns false if can_merge? returns false" do
                 @left.values[:arg].should_receive(:can_merge?)
-                    .with(@left_t, @right_t, @right.values[:arg])
-                    .once.and_return(false)
+                     .with(@left_t, @right_t, @right.values[:arg])
+                     .once.and_return(false)
                 refute @left.can_semantic_merge?(@right)
             end
         end

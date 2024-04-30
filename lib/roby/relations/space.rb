@@ -48,7 +48,7 @@ module Roby
                             raise ArgumentError,
                                   "#{k} is not a known relation (known relations "\
                                   "are #{known_relations})"
-                        elsif known_graph = h.fetch(k.class, nil)
+                        elsif (known_graph = h.fetch(k.class, nil))
                             raise ArgumentError,
                                   "it seems that you're trying to use the relation API "\
                                   "to access a graph that is not part of this "\
@@ -199,20 +199,20 @@ module Roby
             # Finally, if a block is given, it gets included in the target class
             # (i.e. for a TaskStructure relation, Roby::Task)
             def relation(relation_name,
-                            child_name:  relation_name.to_s.snakecase,
-                            const_name:  relation_name,
-                            parent_name: nil,
-                            graph:       default_graph_class,
-                            single_child: false,
+                child_name:  relation_name.to_s.snakecase,
+                const_name:  relation_name,
+                parent_name: nil,
+                graph:       default_graph_class,
+                single_child: false,
 
-                            distribute:  true,
-                            dag:         true,
-                            weak:        false,
-                            strong:      false,
-                            copy_on_replace: false,
-                            noinfo:      false,
-                            subsets:     Set.new,
-                            **submodel_options)
+                distribute:  true,
+                dag:         true,
+                weak:        false,
+                strong:      false,
+                copy_on_replace: false,
+                noinfo:      false,
+                subsets:     Set.new,
+                **submodel_options)
 
                 if block_given?
                     raise ArgumentError, "calling relation with a block is not supported anymore. Reopen #{const_name}::Extension after the relation call to add helper methods"
@@ -226,7 +226,8 @@ module Roby
                     klass = graph.new_submodel(
                         distribute: distribute, dag: dag, weak: weak, strong: strong,
                         copy_on_replace: copy_on_replace, noinfo: noinfo, subsets: subsets,
-                        child_name: child_name, **submodel_options)
+                        child_name: child_name, **submodel_options
+                    )
                     synthetized_methods = Module.new do
                         define_method("__r_#{relation_name}__") { self.relation_graphs[klass] }
                     end
@@ -336,7 +337,7 @@ module Roby
                 if single_child
                     synthetized_methods.class_eval do
                         define_method child_name do
-                            if task = instance_variable_get("@#{child_name}")
+                            if (task = instance_variable_get("@#{child_name}"))
                                 plan[task]
                             end
                         end

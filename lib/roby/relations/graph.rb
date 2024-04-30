@@ -172,7 +172,7 @@ module Roby
             def copy_subgraph_to(graph, mappings)
                 mappings.each do |v, mapped_v|
                     each_out_neighbour(v) do |child|
-                        if mapped_child = mappings[child]
+                        if (mapped_child = mappings[child])
                             graph.add_edge(mapped_v, mapped_child,
                                            edge_info(v, child))
                         end

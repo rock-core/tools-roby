@@ -111,9 +111,9 @@ module Roby
                         @parent_task_m = Roby::Task.new_submodel
                         @task_m = @parent_task_m.new_submodel
                         flexmock(interface_m).new_instances
-                            .should_receive(:test)
-                            .explicitly
-                            .and_return(@task = @task_m.new).by_default
+                                             .should_receive(:test)
+                                             .explicitly
+                                             .and_return(@task = @task_m.new).by_default
                     end
                     it "accepts a task of the expected returned task model" do
                         @action_m.returns(@task_m)
@@ -165,9 +165,9 @@ module Roby
                         @action_m.returns(@task_m)
                         task = @task_m.new
                         flexmock(interface_m).new_instances
-                            .should_receive(:test)
-                            .explicitly
-                            .and_return(flexmock(as_plan: task))
+                                             .should_receive(:test)
+                                             .explicitly
+                                             .and_return(flexmock(as_plan: task))
 
                         assert_equal task, @action_m.instanciate(plan)
                     end
@@ -212,10 +212,10 @@ module Roby
                         it "registers the return type model even if the action already exists" do
                             droby_remote = droby_to_remote(@action_m)
                             flexmock(droby_remote_marshaller).should_receive(:local_object)
-                                .with(droby_remote.returned_type, any).once
-                                .pass_thru
+                                                             .with(droby_remote.returned_type, any).once
+                                                             .pass_thru
                             flexmock(droby_remote_marshaller).should_receive(:local_object)
-                                .pass_thru
+                                                             .pass_thru
                             droby_remote_marshaller.local_object(droby_remote)
                         end
                     end

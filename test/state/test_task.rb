@@ -19,16 +19,16 @@ class TC_StateInTask < Minitest::Test
         task_model = Roby::Task.new_submodel
         source_model = flexmock
         source_model.should_receive(:to_state_variable_model)
-            .and_return do |field, name|
-                result = Roby::StateVariableModel.new(field, name)
-                result.data_source = source_model
-                result
-            end
+                    .and_return do |field, name|
+            result = Roby::StateVariableModel.new(field, name)
+            result.data_source = source_model
+            result
+        end
         task_model.state.pose.position = source_model
 
         task = task_model.new
         source_model.should_receive(:resolve).with(task).once
-            .and_return(source = Object.new)
+                    .and_return(source = Object.new)
         task.resolve_state_sources
         assert_same source, task.state.data_sources.pose.position
     end

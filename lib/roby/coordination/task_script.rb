@@ -217,7 +217,7 @@ module Roby
             # @see timeout
             def timeout_start(seconds, options = {})
                 options, timeout_options = Kernel.filter_options options, emit: nil
-                if event = options[:emit]
+                if (event = options[:emit])
                     _, model_event = resolve_event(event)
                 end
                 model.timeout_start(seconds, timeout_options.merge(emit: model_event))

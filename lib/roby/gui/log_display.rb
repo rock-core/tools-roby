@@ -200,7 +200,7 @@ module Roby
             end
 
             def load_options(path)
-                if new_options = YAML.load(File.read(path))
+                if (new_options = YAML.load(File.read(path)))
                     apply_options(new_options)
                 end
             end
@@ -236,7 +236,7 @@ module Roby
             end
 
             def apply_widget_state(options, widget)
-                if geom = options["geometry"]
+                if (geom = options["geometry"])
                     widget.set_geometry(*geom)
                 end
             end
@@ -258,7 +258,7 @@ module Roby
                 (options["views"] || []).each do |view_options|
                     id = view_options["id"]
                     klass_name = view_options["class"]
-                    if w = display_from_id(klass_name, id)
+                    if (w = display_from_id(klass_name, id))
                         if w.class.name != klass_name
                             next
                         end

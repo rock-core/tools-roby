@@ -26,7 +26,7 @@ module Roby
             or_aggregate = spec.delete(:or)
 
             events = spec.map do |name, value|
-                unless klass = DeltaEvent.event_types[name]
+                unless (klass = DeltaEvent.event_types[name])
                     raise "unknown delta type #{name}. Known types are #{DeltaEvent.event_types.keys}"
                 end
 
@@ -94,7 +94,7 @@ module Roby
         # See TimePointEvent
         def at(options)
             options = validate_options options, t: nil
-            if time = options[:t]
+            if (time = options[:t])
                 trigger_when { Time.now >= time }
             end
         end

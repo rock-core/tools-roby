@@ -253,7 +253,7 @@ module Roby
             # If a parent_model exists, prepare the proxy class accordingly
             # The proxy allows us to use the state_machine library even
             # with instances
-            if parent_model = self.superclass.state_machine
+            if (parent_model = self.superclass.state_machine)
                 proxy_model = Class.new(parent_model.owner_class)
             else
                 proxy_model = Class.new(Proxy)

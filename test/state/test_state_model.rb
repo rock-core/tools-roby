@@ -10,7 +10,7 @@ class TC_StateModel < Minitest::Test
     def test_assign_on_state_field_model_calls_to_state_variable_model
         klass = flexmock
         klass.should_receive(:to_state_variable_model).once
-            .and_return(obj = Object.new)
+             .and_return(obj = Object.new)
 
         m = StateModel.new
         m.position = klass

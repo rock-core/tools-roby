@@ -41,7 +41,7 @@ module Roby
                 file = handle_file_argument(file)
                 require "roby/droby/logfile/reader"
                 Roby::DRoby::Logfile::Reader.open(file)
-                   .rebuild_index
+                                            .rebuild_index
             end
 
             desc "timepoints", "extract timepoint information from the log file"
@@ -68,7 +68,7 @@ module Roby
 
                 if options[:raw]
                     current_context = {}
-                    while data = stream.load_one_cycle
+                    while (data = stream.load_one_cycle)
                         data.each_slice(4) do |m, sec, usec, args|
                             thread_id, thread_name, timepoint_name = *args
                             path = (current_context[thread_id] ||= [thread_name])
@@ -97,7 +97,7 @@ module Roby
                 else
                     analyzer = Roby::DRoby::Timepoints::Analysis.new
                 end
-                while data = stream.load_one_cycle
+                while (data = stream.load_one_cycle)
                     data.each_slice(4) do |m, sec, usec, args|
                         case m
                         when :timepoint
@@ -244,12 +244,12 @@ module Roby
                 require "roby/droby/plan_rebuilder"
 
                 stream = Roby::DRoby::Logfile::Reader.open(file)
-                if replay = options[:replay]
+                if (replay = options[:replay])
                     replay_debug = (replay == "debug")
                     rebuilder = Roby::DRoby::PlanRebuilder.new
                 end
 
-                while data = stream.load_one_cycle
+                while (data = stream.load_one_cycle)
                     data.each_slice(4) do |m, sec, usec, args|
                         header = "#{Time.at(sec, usec)} #{m} "
                         puts "#{header} #{args.map(&:to_s).join('  ')}"

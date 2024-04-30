@@ -114,9 +114,9 @@ module Roby
                     def assert_can_transmit(source, destination)
                         obj_send, obj_receive = flexmock, flexmock
                         flexmock(source.marshaller).should_receive(:dump).with(obj_send)
-                            .and_return(10)
+                                                   .and_return(10)
                         flexmock(destination.marshaller).should_receive(:local_object).with(10)
-                            .and_return(obj_receive)
+                                                        .and_return(obj_receive)
                         source.write_packet(obj_send)
                         assert_equal obj_receive, destination.read_packet(1)
                     end

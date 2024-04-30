@@ -377,7 +377,8 @@ module Roby
                 mapping = Hash[child => child_target]
                 resolver = ->(t) { mapping[t] }
                 new, removed = plan.compute_subplan_replacement(
-                    Hash[child => [nil, resolver]], [graph])
+                    Hash[child => [nil, resolver]], [graph]
+                )
                 assert_equal [[graph, parent, child_target, info]], new
                 assert_equal [[graph, parent, child]], removed
             end
@@ -387,7 +388,8 @@ module Roby
                 plan.add(parent_target = Roby::Task.new)
                 graph.add_edge(parent, child, flexmock)
                 new, removed = plan.compute_subplan_replacement(
-                    Hash[parent => parent_target], [graph], child_objects: false)
+                    Hash[parent => parent_target], [graph], child_objects: false
+                )
                 assert_equal [], new
                 assert_equal [], removed
             end

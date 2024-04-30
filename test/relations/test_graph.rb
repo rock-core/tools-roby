@@ -142,7 +142,7 @@ module Roby
                 it "calls #merge_info to merge the info" do
                     graph.add_edge(a, b, old_info = Object.new)
                     flexmock(graph).should_receive(:merge_info).with(a, b, old_info, new_info = Object.new)
-                        .once.and_return(info = flexmock)
+                                   .once.and_return(info = flexmock)
                     assert graph.try_updating_existing_edge_info(a, b, new_info)
                     assert_same info, graph.edge_info(a, b)
                 end
@@ -285,8 +285,8 @@ module Roby
                 it "uses the merge_info method if updating a non-nil to a non-nil value" do
                     parent.add_child_object(child, graph_m, false)
                     flexmock(subject).should_receive(:merge_info)
-                        .with(parent, child, false, true)
-                        .and_return(2)
+                                     .with(parent, child, false, true)
+                                     .and_return(2)
                     parent.add_child_object(child, graph_m, true)
                     assert_equal 2, parent[child, graph_m]
                 end
@@ -366,22 +366,22 @@ module Roby
                     observer.should_receive(:added_edge)
                     parent.add_relation(a, b, nil)
                     observer.should_receive(:removing_edge).with(a, b, [parent.class, grandparent.class])
-                        .once.globally.ordered
-                        .and_return { assert parent.has_edge?(a, b) }
+                            .once.globally.ordered
+                            .and_return { assert parent.has_edge?(a, b) }
                     observer.should_receive(:removed_edge).with(a, b, [parent.class, grandparent.class])
-                        .once.globally.ordered
-                        .and_return { refute parent.has_edge?(a, b) }
+                            .once.globally.ordered
+                            .and_return { refute parent.has_edge?(a, b) }
                     parent.remove_relation(a, b)
                 end
 
                 it "calls the add*edge methods with the list of graphs that have been updated in the hierarchy" do
                     grandparent.add_edge(a, b, nil)
                     observer.should_receive(:adding_edge).with(a, b, [graph.class, parent.class], nil)
-                        .once.globally.ordered
-                        .and_return { refute graph.has_edge?(a, b) }
+                            .once.globally.ordered
+                            .and_return { refute graph.has_edge?(a, b) }
                     observer.should_receive(:added_edge).with(a, b, [graph.class, parent.class], nil)
-                        .once.globally.ordered
-                        .and_return { assert graph.has_edge?(a, b) }
+                            .once.globally.ordered
+                            .and_return { assert graph.has_edge?(a, b) }
                     graph.add_relation(a, b, nil)
                 end
 
@@ -393,11 +393,11 @@ module Roby
                     new_info = flexmock
                     graph.add_relation(a, b, old_info)
                     observer.should_receive(:updating_edge_info).with(a, b, graph.class, new_info)
-                        .once.globally.ordered
-                        .and_return { assert_same old_info, graph.edge_info(a, b) }
+                            .once.globally.ordered
+                            .and_return { assert_same old_info, graph.edge_info(a, b) }
                     observer.should_receive(:updated_edge_info).with(a, b, graph.class, new_info)
-                        .once.globally.ordered
-                        .and_return { assert_same new_info, graph.edge_info(a, b) }
+                            .once.globally.ordered
+                            .and_return { assert_same new_info, graph.edge_info(a, b) }
                     graph.set_edge_info(a, b, new_info)
                 end
             end

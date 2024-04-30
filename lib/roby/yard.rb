@@ -23,16 +23,19 @@ module Roby
                     register(object)
                     object.docstring.replace(
                         YARD::Docstring.new("The set of #{name}s defined at this level of the model hierarchy") +
-                        object.docstring)
+                        object.docstring
+                    )
                     object.docstring.add_tag(
-                        *YARD::Docstring.parser.create_tag("return", "[Hash<Symbol,Set<Symbol>>]"))
+                        *YARD::Docstring.parser.create_tag("return", "[Hash<Symbol,Set<Symbol>>]")
+                    )
 
                     object = YARD::CodeObjects::MethodObject.new(namespace, "each_#{name}_set", scope)
                     object.dynamic = true
                     register(object)
                     object.docstring.add_tag(
                         *YARD::Docstring.parser.create_tag("yieldparam", "[Symbol] source_name"),
-                        *YARD::Docstring.parser.create_tag("yieldparam", "[Set<Symbol>] target_names"))
+                        *YARD::Docstring.parser.create_tag("yieldparam", "[Set<Symbol>] target_names")
+                    )
 
                     object = YARD::CodeObjects::MethodObject.new(namespace, "#{name}s", scope)
                     object.dynamic = true
@@ -40,7 +43,8 @@ module Roby
                     object.parameters << ["model", nil]
                     object.docstring.add_tag(
                         *YARD::Docstring.parser.create_tag("param", "[Symbol] event_name"),
-                        *YARD::Docstring.parser.create_tag("return", "[Set<Symbol>] target #{name}s"))
+                        *YARD::Docstring.parser.create_tag("return", "[Set<Symbol>] target #{name}s")
+                    )
 
                     object = YARD::CodeObjects::MethodObject.new(namespace, "each_#{name}", scope)
                     object.dynamic = true
@@ -48,7 +52,8 @@ module Roby
                     object.parameters << ["model", nil]
                     object.docstring.add_tag(
                         *YARD::Docstring.parser.create_tag("param", "[Symbol] event_name"),
-                        *YARD::Docstring.parser.create_tag("yieldparam", "[Symbol] target_name"))
+                        *YARD::Docstring.parser.create_tag("yieldparam", "[Symbol] target_name")
+                    )
 
                     object = YARD::CodeObjects::MethodObject.new(namespace, "all_#{name}s", scope)
                     object.dynamic = true
@@ -56,9 +61,11 @@ module Roby
                     object.parameters << ["model", nil]
                     object.docstring.replace(
                         YARD::Docstring.new("The set of #{name}s that will be applied on all instances of this model") +
-                        object.docstring)
+                        object.docstring
+                    )
                     object.docstring.add_tag(
-                        *YARD::Docstring.parser.create_tag("return", "[Hash<Symbol,Set<Symbol>>]"))
+                        *YARD::Docstring.parser.create_tag("return", "[Hash<Symbol,Set<Symbol>>]")
+                    )
                 end
             end
         end
@@ -142,13 +149,15 @@ module Roby
                 register(accessor)
                 register_group(accessor, "Task Events")
                 accessor.docstring.add_tag(
-                    *YARD::Docstring.parser.create_tag("return", "[EventGenerator<#{name.camelcase(true)}>]"))
+                    *YARD::Docstring.parser.create_tag("return", "[EventGenerator<#{name.camelcase(true)}>]")
+                )
 
                 happened = YARD::CodeObjects::MethodObject.new(namespace, "#{name}?")
                 register(happened)
                 register_group(happened, "Task Events")
                 happened.docstring.add_tag(
-                    *YARD::Docstring.parser.create_tag("return", "[Boolean]"))
+                    *YARD::Docstring.parser.create_tag("return", "[Boolean]")
+                )
 
                 if controlable
                     command = YARD::CodeObjects::MethodObject.new(namespace, "#{name}!")
@@ -165,7 +174,8 @@ module Roby
                     register(event_class)
                     event_class.docstring.replace(
                         YARD::Docstring.new("Event class used to represent the events emitted by {#{namespace}##{name}_event}\n\n") +
-                        event_class.docstring)
+                        event_class.docstring
+                    )
                 end
             end
         end

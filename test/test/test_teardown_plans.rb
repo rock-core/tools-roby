@@ -31,7 +31,8 @@ module Roby
                         "trying to shut down #{plan} for \\d+s "\
                         "after .*teardown_registered_plans#test_\\d+_warns about "\
                         "tasks that block the plan after teardown_warn "\
-                        "seconds, quarantine=0 tasks, tasks=1 tasks")
+                        "seconds, quarantine=0 tasks, tasks=1 tasks"
+                    )
                     assert_match matcher, messages[0]
 
                     assert_equal "  #{task} running=true finishing=true", messages[2]

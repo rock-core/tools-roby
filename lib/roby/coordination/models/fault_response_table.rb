@@ -55,7 +55,7 @@ module Roby
 
                     super
                     each_fault_handler do |handler|
-                        if task = handler.replacement
+                        if (task = handler.replacement)
                             yield(task)
                         end
                     end

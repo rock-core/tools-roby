@@ -21,7 +21,7 @@ module Roby
                     it "creates a description object with #describe" do
                         doc = "this is an action"
                         flexmock(Actions::Models::Action).should_receive(:new).once
-                            .with(doc).and_return(stub = Object.new)
+                                                         .with(doc).and_return(stub = Object.new)
 
                         assert_same stub, interface_m.describe(doc)
                     end
@@ -77,7 +77,7 @@ module Roby
 
                         def expect_arguments(args)
                             flexmock(interface_m).new_instances
-                                .should_receive(:an_action).with(args).pass_thru.once
+                                                 .should_receive(:an_action).with(args).pass_thru.once
                         end
 
                         it "sets up default arguments" do
@@ -226,7 +226,7 @@ module Roby
                             start state(Roby::Task)
                         end
                         assert_same machine_m, interface_m.find_action_by_name("test")
-                            .coordination_model
+                                                          .coordination_model
 
                         action = interface_m.new(plan)
                         root_task = action.test
@@ -271,7 +271,7 @@ module Roby
                         _, script_m = interface_m.action_script("test") do
                         end
                         assert_equal script_m, interface_m.find_action_by_name("test")
-                            .coordination_model
+                                                          .coordination_model
                         root_task = interface_m.new(plan).test
                         assert_kind_of script_m, root_task.each_coordination_object.first
                     end

@@ -669,14 +669,14 @@ module Roby
                         end
                     end
 
-                    if start_time = task.start_time
+                    if (start_time = task.start_time)
                         @time_first_event = start_time
                         @start_point = time_to_pixel * (start_time - base_time)
                     end
                     if end_time
                         @end_point = time_to_pixel * (end_time - base_time)
                     end
-                    if finalization_time = task.finalization_time
+                    if (finalization_time = task.finalization_time)
                         @finalization_point = time_to_pixel * (finalization_time - base_time)
                     end
 
@@ -725,7 +725,7 @@ module Roby
                 end
 
                 def height(display_start_time, display_end_time)
-                    if events = events_in_range(display_start_time, display_end_time)
+                    if (events = events_in_range(display_start_time, display_end_time))
                         max_event_y = events.max_by { |_, _, y, _| y }
                         max_event_y = max_event_y[2]
                     end
@@ -762,7 +762,7 @@ module Roby
                     event_height = task_layout.event_height
 
                     task_line_height = event_height
-                    if events = task_layout.events_in_range(display_start_time, display_end_time)
+                    if (events = task_layout.events_in_range(display_start_time, display_end_time))
                         task_line_height += events.max_by { |_, _, y, _| y }[2]
                     end
                     if task_height > task_line_height
@@ -775,14 +775,16 @@ module Roby
                     painter.pen   = TASK_PENS[:pending]
                     painter.drawRect(
                         add_point + display_offset, top_task_line,
-                        (start_point || finalization_point || current_point) - add_point, task_line_height)
+                        (start_point || finalization_point || current_point) - add_point, task_line_height
+                    )
 
                     if start_point
                         painter.brush = TASK_BRUSHES[:running]
                         painter.pen   = TASK_PENS[:running]
                         painter.drawRect(
                             start_point + display_offset, top_task_line,
-                            (end_point || current_point) - start_point, task_line_height)
+                            (end_point || current_point) - start_point, task_line_height
+                        )
 
                         if state && state != :running
                             # Final state is shown by "eating" a few pixels at the task
@@ -790,7 +792,8 @@ module Roby
                             painter.pen   = TASK_PENS[state]
                             painter.drawRect(
                                 end_point - 2 + display_offset, top_task_line,
-                                4, task_height)
+                                4, task_height
+                            )
                         end
                     end
 

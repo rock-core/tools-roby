@@ -12,7 +12,7 @@ module Roby
                     raise ArgumentError, "dt is reserved by #sampling"
                 end
 
-                if compute_time = !fields.include?(:t)
+                if (compute_time = !fields.include?(:t))
                     fields << :t
                 end
                 fields << :dt
@@ -86,8 +86,8 @@ module Roby
 
                 # Initialize the result value
                 fields = type.members
-                    .find_all { |n| spec[n.to_sym] != :exclude }
-                    .map(&:to_sym)
+                             .find_all { |n| spec[n.to_sym] != :exclude }
+                             .map(&:to_sym)
                 result = Struct.new(*fields).new
                 fields.each do |name|
                     result[name] = Stat.new(0, 0, 0, 0, nil, nil)
@@ -98,7 +98,7 @@ module Roby
                 samples = samples.map do |original_sample|
                     sample = original_sample.dup
                     fields.each do |name|
-                        next unless value = sample[name]
+                        next unless (value = sample[name])
 
                         unless spec[name] == :absolute || spec[name] == :absolute_rate
                             if last_sample && last_sample[name]
@@ -116,7 +116,7 @@ module Roby
                 # Compute the rates if needed
                 samples = samples.map do |sample|
                     fields.each do |name|
-                        next unless value = sample[name]
+                        next unless (value = sample[name])
 
                         if spec[name] == :rate || spec[name] == :absolute_rate
                             if sample.dt
@@ -132,7 +132,7 @@ module Roby
 
                 samples.each do |sample|
                     fields.each do |name|
-                        next unless value = sample[name]
+                        next unless (value = sample[name])
 
                         if !result[name].max || value > result[name].max
                             result[name].max = value
@@ -153,7 +153,7 @@ module Roby
 
                 samples.each do |sample|
                     fields.each do |name|
-                        next unless value = sample[name]
+                        next unless (value = sample[name])
 
                         result[name].stddev += (value - result[name].mean)**2
                     end

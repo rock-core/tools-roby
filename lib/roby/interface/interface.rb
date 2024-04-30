@@ -128,8 +128,8 @@ module Roby
                 end
                 execution_engine.on_exception(on_error: :raise) do |kind, exception, tasks|
                     involved_job_ids = tasks
-                        .flat_map { |t| job_ids_of_task(t) if t.plan }
-                        .compact.to_set
+                                       .flat_map { |t| job_ids_of_task(t) if t.plan }
+                                       .compact.to_set
                     @exception_notifications << [kind, exception, tasks, involved_job_ids]
                 end
                 execution_engine.at_cycle_end do
@@ -186,7 +186,7 @@ module Roby
             #   false otherwise
             # @see drop_job
             def kill_job(job_id)
-                if task = find_job_placeholder_by_id(job_id)
+                if (task = find_job_placeholder_by_id(job_id))
                     plan.unmark_mission_task(task)
                     task.stop! if task.running?
                     true
@@ -402,7 +402,8 @@ module Roby
                 # running an action that returns another planning pair
                 if planning_task && (state = @job_monitoring_state[job_id])
                     track_planning_state(
-                        state.job_id, state.job_name, state.service, planning_task)
+                        state.job_id, state.job_name, state.service, planning_task
+                    )
                     return
                 end
 

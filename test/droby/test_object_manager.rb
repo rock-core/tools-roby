@@ -166,13 +166,13 @@ module Roby
                 it "returns the object's known sibling on the peer" do
                     peer_id, sibling_id = flexmock, flexmock
                     flexmock(subject).should_receive(:find_by_id).with(peer_id, sibling_id)
-                        .and_return(obj = flexmock)
+                                     .and_return(obj = flexmock)
                     assert_equal obj, subject.fetch_by_id(peer_id, sibling_id)
                 end
 
                 it "raises UnknownSibling for an object that cannot be resolved" do
                     flexmock(subject).should_receive(:find_by_id)
-                        .and_return(nil)
+                                     .and_return(nil)
                     assert_raises(UnknownSibling) do
                         subject.fetch_by_id(flexmock, flexmock)
                     end

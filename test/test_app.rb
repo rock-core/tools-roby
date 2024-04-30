@@ -170,11 +170,11 @@ module Roby
                 it "handles concurrent path creation properly" do
                     FileUtils.mkdir_p app.log_base_dir
                     flexmock(FileUtils).should_receive(:mkdir)
-                        .with(File.join(app.log_base_dir, "tag"))
-                        .pass_thru { raise Errno::EEXIST }
+                                       .with(File.join(app.log_base_dir, "tag"))
+                                       .pass_thru { raise Errno::EEXIST }
                     flexmock(FileUtils).should_receive(:mkdir)
-                        .with(File.join(app.log_base_dir, "tag.1"))
-                        .pass_thru
+                                       .with(File.join(app.log_base_dir, "tag.1"))
+                                       .pass_thru
                     existing_dirs = app.created_log_dirs.to_set
                     created = app.find_and_create_log_dir("tag")
                     assert_equal File.join(app.log_base_dir, "tag.1"), created
@@ -343,17 +343,17 @@ module Roby
 
             it "raises ArgumentError if there are no matches" do
                 planner.should_receive(:find_all_actions_by_type).once
-                    .with(task_m).and_return([])
+                       .with(task_m).and_return([])
                 assert_raises(ArgumentError) { app.action_from_model(task_m) }
             end
             it "returns the action if there is a single match" do
                 planner.should_receive(:find_all_actions_by_type).once
-                    .with(task_m).and_return([action = flexmock(name: "A")])
+                       .with(task_m).and_return([action = flexmock(name: "A")])
                 assert_equal [planner, action], app.action_from_model(task_m)
             end
             it "raises if there are more than one match" do
                 planner.should_receive(:find_all_actions_by_type).once
-                    .with(task_m).and_return([flexmock(name: "A"), flexmock(name: "B")])
+                       .with(task_m).and_return([flexmock(name: "A"), flexmock(name: "B")])
                 assert_raises(ArgumentError) { app.action_from_model(task_m) }
             end
         end
@@ -582,10 +582,10 @@ module Roby
                 before do
                     @task_m = Roby::Task.new_submodel(name: "Test")
                     flexmock(app).should_receive(:test_files_for)
-                        .with(task_m).once
-                        .and_return([@path = flexmock])
+                                 .with(task_m).once
+                                 .and_return([@path = flexmock])
                     flexmock(app).should_receive(:test_files_for)
-                        .and_return([])
+                                 .and_return([])
                 end
 
                 it "registers models using #test_files_for" do
@@ -593,7 +593,7 @@ module Roby
                 end
                 it "registers models that private_specializations? defined but are not specialized" do
                     flexmock(task_m).should_receive(:private_specialization?).explicitly
-                        .and_return(false)
+                                    .and_return(false)
                     assert_equal [[path, Set[task_m].to_set]], app.each_test_file_for_loaded_models.to_a
                 end
             end
@@ -604,9 +604,9 @@ module Roby
                 before do
                     @task_m = Roby::Task.new_submodel(name: "Test")
                     flexmock(app).should_receive(:test_files_for)
-                        .with(task_m).never
+                                 .with(task_m).never
                     flexmock(app).should_receive(:test_files_for)
-                        .and_return([])
+                                 .and_return([])
                 end
 
                 it "ignores models that have no names" do
@@ -616,13 +616,13 @@ module Roby
 
                 it "ignores event models" do
                     flexmock(task_m).should_receive(:has_ancestor?)
-                        .with(Roby::Event).and_return(true)
+                                    .with(Roby::Event).and_return(true)
                     assert_equal [], app.each_test_file_for_loaded_models.to_a
                 end
 
                 it "ignores private specializations" do
                     flexmock(task_m).should_receive(:private_specialization?)
-                        .explicitly.and_return(true)
+                                    .explicitly.and_return(true)
                     assert_equal [], app.each_test_file_for_loaded_models.to_a
                 end
             end
@@ -704,7 +704,7 @@ module Roby
                 end
                 it "parses the value in YAML" do
                     flexmock(YAML).should_receive(:load)
-                        .with("random_string").and_return(value = flexmock)
+                                  .with("random_string").and_return(value = flexmock)
                     parser.parse(["--set=a.deep.value=random_string"])
                     assert_equal value, Conf.a.deep.value
                 end
@@ -878,7 +878,7 @@ module Roby
                 capture_log(Robot, :info) { server = @app.setup_rest_interface }
                 server.wait_start
                 returned_value = RestClient
-                    .get("http://localhost:#{server.port}/api/extended")
+                                 .get("http://localhost:#{server.port}/api/extended")
                 assert_equal 42, Integer(returned_value)
             end
         end
@@ -1006,7 +1006,7 @@ module Roby
             it "handles properly if the engine's run method raises unexpectedly" do
                 error = Class.new(RuntimeError).exception("test")
                 flexmock(@app.execution_engine).should_receive(:run)
-                    .and_raise(error)
+                                               .and_raise(error)
                 run_thread = Thread.new do
                     if (t = Thread.current).respond_to?(:report_on_exception=)
                         t.report_on_exception = false

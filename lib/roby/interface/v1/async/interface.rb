@@ -218,10 +218,10 @@ module Roby
                             @connection_future = nil
                             @log_server_port = @client.handshake_results[:log_server_port]
                             jobs = @client.handshake_results[:jobs]
-                                .map do |job_id, (job_state, placeholder_task, job_task)|
-                                    JobMonitor.new(self, job_id, state: job_state,
-                                                                 placeholder_task: placeholder_task, task: job_task)
-                                end
+                                          .map do |job_id, (job_state, placeholder_task, job_task)|
+                                JobMonitor.new(self, job_id, state: job_state,
+                                                             placeholder_task: placeholder_task, task: job_task)
+                            end
                             run_hook :on_reachable, jobs
                             new_job_listeners.each do |listener|
                                 listener.reset
@@ -277,7 +277,8 @@ module Roby
                                             self, job_id,
                                             state: job_state,
                                             placeholder_task: args[0],
-                                            task: args[1])
+                                            task: args[1]
+                                        )
                                     else
                                         monitor_job(job_id, start: false)
                                     end
@@ -530,7 +531,7 @@ module Roby
                     end
 
                     def remove_job_monitor(job)
-                        if set = job_monitors[job.job_id]
+                        if (set = job_monitors[job.job_id])
                             set.delete(job)
                             if set.empty?
                                 job_monitors.delete(job.job_id)
@@ -539,7 +540,7 @@ module Roby
                     end
 
                     def active_job_monitor?(job)
-                        if set = job_monitors[job.job_id]
+                        if (set = job_monitors[job.job_id])
                             set.include?(job)
                         end
                     end
