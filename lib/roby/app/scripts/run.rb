@@ -17,6 +17,7 @@ MetaRuby.keep_definition_location = false
 
 run_controller = false
 wait_shell_connection = false
+has_v2_port = false
 options = OptionParser.new do |opt|
     opt.banner = <<~BANNER_TEXT
         roby run [-r ROBOT] [-c] action action action...
@@ -39,11 +40,41 @@ options = OptionParser.new do |opt|
            "file descriptor to use for the interface server" do |fd|
         app.shell_interface_fd = fd
     end
-    opt.on "--port=PORT", Integer, "the interface port" do |port|
+    opt.on "--interface-v2-fd=FD", Integer,
+           "file descriptor to use for the v2 interface server "\
+           "(automatically enables it)" do |fd|
+        app.shell_interface_v2_fd = fd
+        app.public_shell_interface_v2 = true
+    end
+    opt.on "--interface-versions=VERSIONS", Array,
+           "which remote interface versions should be available" do |versions|
+        app.public_shell_interface = versions.include?("1")
+        app.public_shell_interface_v2 = versions.include?("2")
+    end
+    opt.on "--[no-]v2", "control whether the v2 remote interface is enabled" do |flag|
+        app.public_shell_interface_v2 = flag
+    end
+    opt.on "--port=PORT", Integer,
+           "the interface port. This sets the v2 port to PORT+2 unless "\
+           "--port-v2 is also used" do |port|
         app.shell_interface_port = port
+        app.shell_interface_v2_port = port + 2 unless has_v2_port
+    end
+    opt.on "--port-v1=PORT", Integer,
+           "the v1 remote interface port. Unlike --port, "\
+           "it never sets the v2 port" do |port|
+        app.shell_interface_port = port
+    end
+    opt.on "--port-v2=PORT", Integer,
+           "the interface port for the v2 interface. "\
+           "This enables the interface automatically" do |port|
+        app.public_shell_interface_v2 = true
+        app.shell_interface_v2_port = port
+        has_v2_port = true
     end
     opt.on "--no-interface", "disable the shell interface" do
         app.public_shell_interface = false
+        app.public_shell_interface_v2 = false
     end
     opt.on "--no-logs", "treat the log directory as ephemeral" do
         app.public_logs = false
@@ -120,6 +151,8 @@ remaining_arguments.each do |arg|
 end
 Roby.app.additional_model_files.concat(additional_model_files)
 
+WAIT_SHELL_CONNECTION_WARNING_PERIOD = 5
+wait_shell_connection_warning = Time.now - WAIT_SHELL_CONNECTION_WARNING_PERIOD
 error = Roby.display_exception(STDERR) do
     begin
         app.setup
@@ -139,8 +172,12 @@ error = Roby.display_exception(STDERR) do
         end
 
         handler = Roby.plan.execution_engine.each_cycle(description: "roby run bootup") do
-            if wait_shell_connection &&
-               Roby.app.shell_interface.client_count(handshake: true) == 0
+            if wait_shell_connection && !Roby.app.shell_interface_has_clients?
+                if (Time.now - wait_shell_connection_warning) >
+                   WAIT_SHELL_CONNECTION_WARNING_PERIOD
+                    Robot.info "Waiting for a shell connection before continuing ..."
+                    wait_shell_connection_warning = Time.now
+                end
                 next
             end
 

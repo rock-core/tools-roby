@@ -47,10 +47,46 @@ module Roby
                     end
                 end
 
-                def setup_interface(app = Roby.app, retry_connection: false, timeout: nil)
+                def require_interface
+                    return unless options[:interface_version]
+
+                    require "roby/interface/v#{options[:interface_version]}"
+                end
+
+                def interface_default_host(app)
+                    if options[:interface_version] == 1
+                        app.shell_interface_host || "localhost"
+                    else
+                        app.shell_interface_v2_host || "localhost"
+                    end
+                end
+
+                def interface_default_port(app)
+                    if options[:interface_version] == 1
+                        app.shell_interface_port || Interface::DEFAULT_PORT
+                    else
+                        app.shell_interface_v2_port || Interface::DEFAULT_PORT_V2
+                    end
+                end
+
+                def interface_host_port_and_namespace(app)
+                    require_interface
+
                     host_port = parse_host_option
-                    host = host_port[:host] || app.shell_interface_host || "localhost"
-                    port = host_port[:port] || app.shell_interface_port || Interface::DEFAULT_PORT
+                    host = host_port[:host] || interface_default_host(app)
+                    port = host_port[:port] || interface_default_port(app)
+
+                    namespace =
+                        app.enable_remote_interface_version(options[:interface_version])
+
+                    [host, port, namespace]
+                end
+
+                def setup_interface(app = Roby.app, retry_connection: false, timeout: nil)
+                    interface_version = options[:interface_version] || 1
+
+                    host_port = parse_host_option
+                    host, port, namespace = interface_host_port_and_namespace(app)
 
                     app.guess_app_dir
                     app.shell
@@ -58,15 +94,15 @@ module Roby
                     app.load_base_config
 
                     interface = nil
-                    if retry_connection && timeout
-                        deadline = Time.now + timeout
-                    end
+                    deadline = Time.now + timeout if retry_connection && timeout
+
                     loop do
                         begin
-                            return Roby::Interface.connect_with_tcp_to(host, port)
+                            return namespace.connect_with_tcp_to(host, port)
                         rescue Roby::Interface::ConnectionError => e
                             if deadline && deadline > Time.now
-                                Robot.warn "failed to connect to #{host}:#{port}: #{e.message}, retrying"
+                                Robot.warn "failed to connect to #{host}:#{port}: "\
+                                           "#{e.message}, retrying"
                                 sleep 0.05
                             elsif !retry_connection || deadline
                                 raise
@@ -96,6 +132,9 @@ module Roby
             desc "quit", "quits a running Roby application to be available"
             option :host, desc: "the host[:port] to connect to",
                           type: :string
+            option :interface_version,
+                   desc: "which remote interface to use", type: :numeric,
+                   default: Integer(ENV["ROBY_DEFAULT_INTERFACE_VERSION"] || 1)
             option :retry,
                    desc: "retry to connect instead of failing right away",
                    long_desc: "The argument is an optional timeout in seconds.\nThe command will retry forever if not given",
@@ -123,6 +162,9 @@ module Roby
 
             desc "wait", "waits for a running Roby application to be available",
                  hide: true
+            option :interface_version,
+                   desc: "which remote interface to use", type: :numeric,
+                   default: Integer(ENV["ROBY_DEFAULT_INTERFACE_VERSION"] || 1)
             option :host, desc: "the host[:port] to connect to",
                           type: :string
             option :timeout,

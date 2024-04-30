@@ -7,6 +7,11 @@ module Roby
             attr_reader :app, :app_dir
 
             def setup
+                @roby_app_interface_version ||= 1
+                @roby_plugin_path = []
+
+                require "roby/interface/v#{@roby_app_interface_version}"
+
                 @spawned_pids = []
                 super
                 @app = Roby::Application.new
@@ -81,6 +86,18 @@ module Roby
                 end
             end
 
+            def roby_app_interface_module(version: @roby_app_interface_version)
+                require "roby/interface/v#{version}"
+
+                if version == 1
+                    Roby::Interface::V1
+                elsif version == 2
+                    Roby::Interface::V2
+                else
+                    raise ArgumentError, "invalid interface version #{version}"
+                end
+            end
+
             def assert_roby_app_is_running(
                 pid, timeout: 20, host: "localhost", port: Interface::DEFAULT_PORT
             )
@@ -91,7 +108,7 @@ module Roby
                     end
 
                     begin
-                        return Roby::Interface.connect_with_tcp_to(host, port)
+                        return roby_app_interface_module.connect_with_tcp_to(host, port)
                     rescue Roby::Interface::ConnectionError # rubocop:disable Lint/SuppressedException
                     end
                     sleep 0.01
@@ -187,7 +204,11 @@ module Roby
             end
 
             ROBY_PORT_COMMANDS = %w[run].freeze
-            ROBY_NO_INTERFACE_COMMANDS = %w[check test].freeze
+            ROBY_NO_INTERFACE_COMMANDS = %w[wait check test].freeze
+
+            def register_roby_plugin(path)
+                @roby_plugin_path << path
+            end
 
             # Spawn the roby app process
             #
@@ -200,11 +221,14 @@ module Roby
                 port ||= roby_app_allocate_interface_port
                 port_args =
                     if ROBY_PORT_COMMANDS.include?(command)
-                        ["--port", port.to_s]
+                        ["--interface-versions=#{@roby_app_interface_version}",
+                         "--port-v#{@roby_app_interface_version}", port.to_s]
                     elsif !ROBY_NO_INTERFACE_COMMANDS.include?(command)
-                        ["--host", "localhost:#{port}"]
+                        ["--interface-version=#{@roby_app_interface_version}",
+                         "--host", "localhost:#{port}"]
                     end
                 pid = spawn(
+                    { "ROBY_PLUGIN_PATH" => @roby_plugin_path.join(":") },
                     roby_bin, command, *port_args, *args, chdir: app_dir, **options
                 )
                 @spawned_pids << pid
@@ -248,10 +272,18 @@ module Roby
             def roby_app_call_remote_interface(
                 host: "localhost", port: Interface::DEFAULT_PORT
             )
-                interface = Interface.connect_with_tcp_to(host, port)
+                interface = roby_app_interface_module.connect_with_tcp_to(host, port)
                 yield(interface) if block_given?
             ensure
                 interface&.close
+            end
+
+            def roby_app_shell_interface(version: @roby_app_interface_version)
+                if version == 1
+                    app.shell_interface
+                else
+                    app.shell_interface_v2
+                end
             end
 
             # Create a client to the interface running in the test's current app
@@ -260,17 +292,25 @@ module Roby
             #
             # @yieldparam [Roby::Interface::Client] client the interface client
             # @yieldreturn [Object] object returned by the method
-            def roby_app_call_interface(host: "localhost", port: Interface::DEFAULT_PORT)
+            def roby_app_call_interface(
+                version: @roby_app_interface_version,
+                host: "localhost", port: Interface::DEFAULT_PORT
+            )
                 client_thread = Thread.new do
                     begin
-                        interface = Interface.connect_with_tcp_to(host, port)
+                        interface =
+                            roby_app_interface_module(version: version)
+                            .connect_with_tcp_to(host, port)
                         result = yield(interface) if block_given?
                     rescue Exception => e # rubocop:disable Lint/RescueException
                         error = e
                     end
                     [interface, result, error]
                 end
-                app.shell_interface.process_pending_requests while client_thread.alive?
+                while client_thread.alive?
+                    roby_app_shell_interface(version: version)
+                        .process_pending_requests
+                end
                 begin
                     interface, result, error = client_thread.value
                 rescue Exception => e # rubocop:disable Lint/RescueException

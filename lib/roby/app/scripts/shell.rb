@@ -12,22 +12,34 @@ app.single
 app.load_base_config
 
 silent = false
+interface_version = 1
 opt = OptionParser.new do |opt|
+    opt.on "--interface-version=VERSION", Integer, "which interface version to use" do |v|
+        interface_version = v
+    end
     opt.on "--silent", "disable notifications (can also be controlled in the shell itself)" do
         silent = true
     end
 end
 
 host_options = {}
-Roby::Application.host_options(opt, host_options)
+Roby::Application.host_options(opt, host_options, interface_versions: true)
 opt.parse! ARGV
+Roby::Application.host_options_set_defaults(host_options)
 
-host, port = host_options.values_at(:host, :port)
+host, port, interface_version = host_options.values_at(:host, :port, :interface_version)
 
 require "irb"
 require "irb/ext/save-history"
+
+interface_m = Roby.app.enable_remote_interface_version(interface_version)
+
+IRB::Inspector.def_inspector([:roby_pp], proc { require "irb/color_printer" }) do |v|
+    IRB::ColorPrinter.pp(v, +"", 0).chomp
+end
+
 IRB.setup("#{host}:#{port}")
-IRB.conf[:INSPECT_MODE] = false
+IRB.conf[:INSPECT_MODE] = :roby_pp
 IRB.conf[:IRB_NAME]     = "#{host}:#{port}"
 IRB.conf[:USE_READLINE] = true
 IRB.conf[:PROMPT_MODE]  = :ROBY
@@ -46,8 +58,8 @@ IRB.conf[:PROMPT][:ROBY] = {
 
 main_remote_interface__ =
     begin
-        Roby::Interface::ShellClient.new("#{host}:#{port}") do
-            Roby::Interface.connect_with_tcp_to(host, port)
+        interface_m::ShellClient.new("#{host}:#{port}") do
+            interface_m.connect_with_tcp_to(host, port)
         end
     rescue Interrupt
         Roby::Interface.warn "Interrupted by user"
@@ -106,8 +118,9 @@ class ShellEvalContext
     WHITELISTED_METHODS = %i[actions wtf? cancel safe unsafe safe? help]
         .freeze
 
-    def initialize(interface, send_q: ::Queue.new, results_q: ::Queue.new)
+    def initialize(interface, interface_m, send_q: ::Queue.new, results_q: ::Queue.new)
         @__interface = interface
+        @__interface_m = interface_m
         @__send = send_q
         @__results = results_q
     end
@@ -127,8 +140,10 @@ class ShellEvalContext
         result, error = @__results.pop
         if error
             raise error
-        elsif result.kind_of?(::Roby::Interface::ShellSubcommand)
-            ::ShellEvalContext.new(result, send_q: @__send, results_q: @__results)
+        elsif result.kind_of?(@__interface_m::ShellSubcommand)
+            ::ShellEvalContext.new(
+                result, @__interface_m, send_q: @__send, results_q: @__results
+            )
         else
             result
         end
@@ -153,7 +168,7 @@ end
 
 begin
     # Make main_remote_interface__ the top-level object
-    shell_context__ = ShellEvalContext.new(main_remote_interface__)
+    shell_context__ = ShellEvalContext.new(main_remote_interface__, interface_m)
     ws = IRB::WorkSpace.new(shell_context__)
     irb = IRB::Irb.new(ws)
 

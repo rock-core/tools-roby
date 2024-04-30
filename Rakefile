@@ -46,7 +46,7 @@ has_gui =
         end
     end
 
-Rake::TestTask.new(:test) do |t|
+Rake::TestTask.new("test:core") do |t|
     t.libs << "."
     t.libs << "lib"
     minitest_set_options(t, "core")
@@ -64,6 +64,25 @@ Rake::TestTask.new(:test) do |t|
     t.test_files = test_files
     t.warning = false
 end
+
+Rake::TestTask.new("test:interface:v1") do |t|
+    t.libs << "."
+    t.libs << "lib"
+    minitest_set_options(t, "interface:v1")
+    t.test_files = FileList["test/interface/v1/**/test_*.rb"]
+    t.warning = false
+end
+
+Rake::TestTask.new("test:interface:v2") do |t|
+    t.libs << "."
+    t.libs << "lib"
+    minitest_set_options(t, "interface:v2")
+    t.test_files = FileList["test/interface/v2/**/test_*.rb"]
+    t.warning = false
+end
+
+task "test" => "test:core"
+task "test" => "test:interface:v2"
 
 if USE_RUBOCOP
     begin
@@ -108,7 +127,7 @@ task :uic do
     raise "uic generation failed" if failed
 end
 task "compile" => "uic"
-task "test" => "uic" if has_gui
+task "test:core" => "uic" if has_gui
 
 YARD::Rake::YardocTask.new
 task "doc" => "yard"
