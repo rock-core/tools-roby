@@ -1028,7 +1028,7 @@ module Roby
                         .find_all { |error| @matcher === error }
                     matched_exceptions =
                         @matched_execution_exceptions
-                        .map(&:exception).to_set
+                        .to_set(&:exception)
 
                     emitted_events.each do |ev|
                         next unless ev.generator.respond_to?(:symbol) &&

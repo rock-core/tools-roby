@@ -18,7 +18,7 @@ module Roby
             def each_in_plan(plan, &block)
                 if plan != @stack.last.plan
                     raise ArgumentError,
-                          "attempting to enumerate results of a query ran "\
+                          "attempting to enumerate results of a query ran " \
                           "in #{@stack.first.plan} from #{plan}"
                 end
 

@@ -74,7 +74,7 @@ module Roby
                         assert_equal "", err
                     end
 
-                    it "installs both the logger and error reporting middlewares if "\
+                    it "installs both the logger and error reporting middlewares if " \
                        "verbose is true" do
                         plan.add(task = @task_m.new(port: 0, verbose: true))
                         expect_execution { task.start! }.to { emit task.start_event }

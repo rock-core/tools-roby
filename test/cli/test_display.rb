@@ -20,8 +20,8 @@ module Roby
                             .should_receive(:warn_deprecated)
                             .once
                             .with(
-                                "roby-display --client=HOST is now roby-display "\
-                                "client HOST, run roby-display help for more "\
+                                "roby-display --client=HOST is now roby-display " \
+                                "client HOST, run roby-display help for more " \
                                 "information"
                             )
                     end
@@ -46,7 +46,7 @@ module Roby
                             .should_receive(:warn_deprecated)
                             .once
                             .with(
-                                "--host is deprecated, use 'roby-display client' "\
+                                "--host is deprecated, use 'roby-display client' " \
                                 "instead, run roby-display help for more information"
                             )
                         flexmock(cli).should_receive(:client).with("host:port").once
@@ -59,7 +59,7 @@ module Roby
                             .should_receive(:warn_deprecated)
                             .once
                             .with(
-                                "roby-display --server PATH is now roby-display "\
+                                "roby-display --server PATH is now roby-display " \
                                 "server PATH, run roby-display help for more information"
                             )
                     end
@@ -130,7 +130,7 @@ module Roby
                         Display.start(["server", logfile_path])
                     end
                 end
-                it "allows to override the port to a non-default one "\
+                it "allows to override the port to a non-default one " \
                    "via the command line" do
                     start_log_server_thread do
                         Display.start(["server", logfile_path, "--port=20250"])

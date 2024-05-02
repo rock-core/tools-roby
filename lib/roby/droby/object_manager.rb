@@ -124,8 +124,8 @@ module Roby
                     if (actual_droby_id = object_siblings.delete(peer_id))
                         if actual_droby_id != droby_id
                             raise ArgumentError,
-                                  "DRobyID of #{local_object} on #{peer_id} mismatches "\
-                                  "between provided #{droby_id} and registered "\
+                                  "DRobyID of #{local_object} on #{peer_id} mismatches " \
+                                  "between provided #{droby_id} and registered " \
                                   "#{actual_droby_id}"
                         end
 

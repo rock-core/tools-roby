@@ -18,7 +18,7 @@ module Roby
                         local_m
                     elsif !supermodel
                         raise NoLocalObject,
-                              "#{name}, at the root of a model hierarchy, was expected "\
+                              "#{name}, at the root of a model hierarchy, was expected " \
                               "to be explicitely registered but is not"
                     else
                         create_new_proxy_model(peer)

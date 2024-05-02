@@ -33,9 +33,9 @@ module Roby
 
                 if (flags & EVENT_CALLED) == EVENT_CALLED
                     if (flags & EVENT_CONTROLABLE) != EVENT_CONTROLABLE
-                        STDERR.puts "WARN: inconsistency in replayed logs. Found "\
-                                    "event call on #{object} #{object.object_id} "\
-                                    "which is marked as contingent "\
+                        STDERR.puts "WARN: inconsistency in replayed logs. Found " \
+                                    "event call on #{object} #{object.object_id} " \
+                                    "which is marked as contingent " \
                                     "(#{object.controlable?}"
                     end
                     flags |= EVENT_CONTROLABLE
@@ -43,7 +43,7 @@ module Roby
 
                 unless styles.has_key?(flags)
                     raise ArgumentError,
-                          "event #{object} has flags #{flags}, which has no "\
+                          "event #{object} has flags #{flags}, which has no " \
                           "defined style (controlable=#{object.controlable?})"
                 end
 
@@ -79,10 +79,10 @@ module Roby
             def display_time_end(circle, pos); end
 
             def display_name(display)
-                name = if model.ancestors[0].name != "Roby::EventGenerator"
-                           [display.filter_prefixes(model.ancestors[0].name.dup)]
-                       else
+                name = if model.ancestors[0].name == "Roby::EventGenerator"
                            []
+                       else
+                           [display.filter_prefixes(model.ancestors[0].name.dup)]
                        end
 
                 if display.show_ownership
@@ -139,10 +139,10 @@ module Roby
                 width  += TASK_EVENT_SPACING * (events.size + 1)
                 height += TASK_EVENT_SPACING
 
-                x = -width / 2 + TASK_EVENT_SPACING
+                x = (-width / 2) + TASK_EVENT_SPACING
                 events.each do |e, circle, br|
                     w = br.width
-                    circle.set_pos(x + w / 2, -br.height / 2 + EVENT_CIRCLE_RADIUS + TASK_EVENT_SPACING)
+                    circle.set_pos(x + (w / 2), (-br.height / 2) + EVENT_CIRCLE_RADIUS + TASK_EVENT_SPACING)
                     x += w + TASK_EVENT_SPACING
                 end
 
@@ -156,7 +156,7 @@ module Roby
                 end
 
                 text = graphics_item.text
-                text.set_pos(- text.bounding_rect.width / 2, height / 2 + TASK_EVENT_SPACING)
+                text.set_pos(- text.bounding_rect.width / 2, (height / 2) + TASK_EVENT_SPACING)
             end
 
             def display_create(display)
@@ -440,7 +440,7 @@ module Roby
             dy = to[1] - from[1]
             dx = to[0] - from[0]
             alpha = Math.atan2(dy, dx)
-            length = Math.sqrt(dx**2 + dy**2)
+            length = Math.sqrt((dx**2) + (dy**2))
 
             # arrow.line.set_line from[0], from[1], to[0], to[1]
             arrow.resetMatrix
@@ -785,7 +785,7 @@ module Roby
             def display_policy=(policy)
                 unless DISPLAY_POLICIES.include?(policy)
                     raise ArgumentError,
-                          "got #{policy.inspect} as a display policy, accepted "\
+                          "got #{policy.inspect} as a display policy, accepted " \
                           "values are #{DISPLAY_POLICIES.map(&:inspect).join(', ')}"
                 end
 

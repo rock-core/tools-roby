@@ -26,7 +26,7 @@ module Roby
                     if vagrant_name == id || vagrant_name == name
                         if state != "running"
                             raise NotRunning,
-                                  "cannot connect to vagrant VM #{vagrant_name}: "\
+                                  "cannot connect to vagrant VM #{vagrant_name}: " \
                                   "in state #{state} (requires running)"
                         end
 
@@ -34,7 +34,7 @@ module Roby
                     end
                 end
                 raise NotFound,
-                      "cannot find a vagrant VM called #{vagrant_name}, "\
+                      "cannot find a vagrant VM called #{vagrant_name}, " \
                       "run vagrant global-status to check vagrant's status"
             end
 
@@ -47,8 +47,8 @@ module Roby
                     end
                 end
                 raise CannotResolveHostname,
-                      "did not find a Hostname in the ssh-config of vagrant VM "\
-                      "#{vagrant_name} (with id #{id}). Check the result of "\
+                      "did not find a Hostname in the ssh-config of vagrant VM " \
+                      "#{vagrant_name} (with id #{id}). Check the result of " \
                       "vagrant ssh-config #{id}"
             end
         end

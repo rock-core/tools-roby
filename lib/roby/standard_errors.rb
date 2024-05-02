@@ -228,7 +228,7 @@ module Roby
         end
 
         def pretty_print(pp)
-            pp.text "The following task is being terminated because of "\
+            pp.text "The following task is being terminated because of " \
                     "an internal error"
             pp.breakable
             if quarantined?

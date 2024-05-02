@@ -167,7 +167,7 @@ module Roby
                             end
                             run_hook :on_data, data
                         end
-                        Logfile.debug "processed #{data_size} bytes of data, "\
+                        Logfile.debug "processed #{data_size} bytes of data, " \
                                       "#{@buffer.size} remaining in buffer"
                         true
                     end

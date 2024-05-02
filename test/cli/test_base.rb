@@ -141,7 +141,7 @@ module Roby
                         end
                     end
 
-                    it "retries and then fails if retry_connection is set and "\
+                    it "retries and then fails if retry_connection is set and " \
                        "there is a timeout" do
                         flexmock(Robot)
                             .should_receive(:warn)
@@ -160,7 +160,7 @@ module Roby
                                 )
                         end
                         assert_operator Time.now - tic, :>, 1.5,
-                                        "#{e} received after #{Time.now - tic} "\
+                                        "#{e} received after #{Time.now - tic} " \
                                         "seconds, expected a timeout of 2s"
                     end
                 end

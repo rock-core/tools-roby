@@ -255,8 +255,8 @@ module Roby
             # This is the main call that performs this compilation
             def compile
                 prelude = required_events.map do |event_name|
-                    "    task_event_#{event_name} = task.event(:#{event_name})\n" \
-                    "    task_#{event_name} = task_event_#{event_name}.last"
+                    "    task_event_#{event_name} = task.event(:#{event_name})\n    " \
+                        "task_#{event_name} = task_event_#{event_name}.last"
                 end.join("\n")
 
                 @compiled_predicate
@@ -351,7 +351,7 @@ module Roby
                             if value.nil?
                                 pp.text "the following event is unreachable:"
                             elsif value == true
-                                pp.text "the following event is reachable, "\
+                                pp.text "the following event is reachable, " \
                                         "but has not been emitted:"
                             else
                                 pp.text "the following event has been emitted:"
@@ -541,8 +541,8 @@ module Roby
             end
 
             def code
-                "(!task_#{predicate.event_name} && "\
-                "task_event_#{predicate.event_name}.unreachable?)"
+                "(!task_#{predicate.event_name} && " \
+                    "task_event_#{predicate.event_name}.unreachable?)"
             end
 
             def static?(task)
@@ -667,9 +667,9 @@ module Roby
             def static?(task)
                 static0 = predicates[0].static?(task)
                 static1 = predicates[1].static?(task)
-                static0 && static1 ||
-                    (static0 && !predicates[0].evaluate(task) ||
-                     static1 && !predicates[1].evaluate(task))
+                (static0 && static1) ||
+                    ((static0 && !predicates[0].evaluate(task)) ||
+                     (static1 && !predicates[1].evaluate(task)))
             end
 
             def explain_static(task)
@@ -719,9 +719,9 @@ module Roby
             def static?(task)
                 static0 = predicates[0].static?(task)
                 static1 = predicates[1].static?(task)
-                static0 && static1 ||
-                    (static0 && predicates[0].evaluate(task) ||
-                     static1 && predicates[1].evaluate(task))
+                (static0 && static1) ||
+                    ((static0 && predicates[0].evaluate(task)) ||
+                     (static1 && predicates[1].evaluate(task)))
             end
 
             def explain_static(task)
@@ -759,10 +759,10 @@ module Roby
 
                 this_generator  = task.event(predicates[0].event_name)
                 other_generator = task.event(predicates[1].event_name)
-                if !this_generator.last
-                    Explanation.new(false, self, [this_generator])
-                else
+                if this_generator.last
                     Explanation.new(false, self, [other_generator])
+                else
+                    Explanation.new(false, self, [this_generator])
                 end
             end
 
@@ -799,8 +799,8 @@ module Roby
             def code
                 this_event  = predicates[0].event_name
                 other_event = predicates[1].event_name
-                "(task_#{this_event} && task_#{other_event} && "\
-                "(task_#{other_event}.time > task_#{this_event}.time))"
+                "(task_#{this_event} && task_#{other_event} && " \
+                    "(task_#{other_event}.time > task_#{this_event}.time))"
             end
 
             def to_s
@@ -826,11 +826,11 @@ module Roby
                 return if evaluate(task)
 
                 this_generator = task.event(predicates[0].event_name)
-                if !this_generator.last
-                    Explanation.new(false, self, [this_generator])
-                else
+                if this_generator.last
                     other_generator = task.event(predicates[1].event_name)
                     Explanation.new(false, self, [other_generator.last])
+                else
+                    Explanation.new(false, self, [this_generator])
                 end
             end
 
@@ -880,14 +880,14 @@ module Roby
             def code
                 this_event  = predicates[0].event_name
                 other_event = predicates[1].event_name
-                "(task_#{this_event} && ("\
-                    "!task_#{other_event} || task_#{other_event}.time <"\
-                    "task_#{this_event}.time"\
-                "))"
+                "(task_#{this_event} && (" \
+                    "!task_#{other_event} || task_#{other_event}.time <" \
+                    "task_#{this_event}.time" \
+                    "))"
             end
 
             def to_s
-                "#{predicates[0].event_name}"\
+                "#{predicates[0].event_name}" \
                     ".not_followed_by(#{predicates[1].event_name})"
             end
         end
@@ -917,9 +917,9 @@ module Roby
             # Code generation to create the overall evaluated predicate
             def code
                 if @deadline
-                    "task_#{event_name} && ("\
-                        "task_#{event_name}.time.to_f > #{@deadline.to_f}"\
-                    ")"
+                    "task_#{event_name} && (" \
+                        "task_#{event_name}.time.to_f > #{@deadline.to_f}" \
+                        ")"
                 else
                     "!!task_#{event_name}"
                 end

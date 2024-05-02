@@ -46,18 +46,18 @@ module Roby
                             known_relations = h.each_key.find_all { |rel| rel.kind_of?(Class) }
                                                .map { |o| o.name.to_s }.join(", ")
                             raise ArgumentError,
-                                  "#{k} is not a known relation (known relations "\
+                                  "#{k} is not a known relation (known relations " \
                                   "are #{known_relations})"
                         elsif (known_graph = h.fetch(k.class, nil))
                             raise ArgumentError,
-                                  "it seems that you're trying to use the relation API "\
-                                  "to access a graph that is not part of this "\
-                                  "object's current plan. Given graph was "\
-                                  "#{k.object_id}, and the current graph for "\
+                                  "it seems that you're trying to use the relation API " \
+                                  "to access a graph that is not part of this " \
+                                  "object's current plan. Given graph was " \
+                                  "#{k.object_id}, and the current graph for " \
                                   "#{k.class} is #{known_graph.object_id}"
                         else
                             raise ArgumentError,
-                                  "graph object #{known_graph} is not a known "\
+                                  "graph object #{known_graph} is not a known " \
                                   "relation graph"
                         end
                     end

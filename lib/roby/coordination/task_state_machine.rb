@@ -147,9 +147,7 @@ module Roby
                     # Get transitions that match event
                     if current_event == transition.event
                         # expand first set of transactions
-                        if !initialized
-                            new_paths << [transition]
-                        else
+                        if initialized
                             # find transitions that lead to the last transition
                             paths.each do |path|
                                 if path.last.from_name == transition.to_name
@@ -157,6 +155,8 @@ module Roby
                                     new_paths << path
                                 end
                             end
+                        else
+                            new_paths << [transition]
                         end
                     end
                 end

@@ -74,7 +74,7 @@ module Roby
                     assert_equal [], interface_m.test_action(arg: 10)
                                                 .missing_required_arguments
                 end
-                it "returns an empty array if all required arguments are set "\
+                it "returns an empty array if all required arguments are set " \
                    "and some optional arguments are set" do
                     interface_m.describe("test_action")
                                .required_arg("required_arg")
@@ -124,7 +124,7 @@ module Roby
                     action.with_example_arguments
                     assert_equal 20, action.arguments[:t]
                 end
-                it "does not change unset required arguments "\
+                it "does not change unset required arguments " \
                    "if they do not have an example" do
                     @interface_m.describe("test_action")
                                 .required_arg("t", "")

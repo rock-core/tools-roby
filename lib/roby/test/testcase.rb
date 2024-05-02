@@ -70,8 +70,8 @@ module Roby
 
                 name, kind, block = app_setup
                 # Ignore the test suites which use a different robot
-                if name || kind && (app.robot_name &&
-                    (app.robot_name != name || app.robot_type != kind))
+                if name || (kind && (app.robot_name &&
+                    (app.robot_name != name || app.robot_type != kind)))
                     Test.info "ignoring #{self} as it is for robot #{name} and we are running for #{app.robot_name}:#{app.robot_type}"
                     return
                 end

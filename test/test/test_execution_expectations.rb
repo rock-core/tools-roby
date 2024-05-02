@@ -351,7 +351,7 @@ module Roby
                                 .to { emit generator }
                         end
                         assert_equal(
-                            "1 unmet expectations\n#{generator} "\
+                            "1 unmet expectations\n#{generator} " \
                             "should be emitted", e.message
                         )
                     end
@@ -375,8 +375,8 @@ module Roby
                                 .timeout(0).to { emit generator }
                         end
                         assert_equal(
-                            "1 unmet expectations\n#{generator} "\
-                            "should be emitted, but it did not because of "\
+                            "1 unmet expectations\n#{generator} " \
+                            "should be emitted, but it did not because of " \
                             "#{PP.pp(cause, ''.dup, 0).chomp}",
                             e.message
                         )
@@ -467,7 +467,7 @@ module Roby
                                 .to { emit find_tasks(task_m).start_event }
                         end
                         assert_equal(
-                            "1 unmet expectations\nat least one event matching "\
+                            "1 unmet expectations\nat least one event matching " \
                             "#{task_m}.start should be emitted",
                             e.message
                         )
@@ -479,7 +479,7 @@ module Roby
                             end.timeout(0).to { emit find_tasks(task_m).start_event }
                         end
                         assert_equal(
-                            "1 unmet expectations\nat least one event matching "\
+                            "1 unmet expectations\nat least one event matching " \
                             "#{task_m}.start should be emitted",
                             e.message
                         )
@@ -557,7 +557,7 @@ module Roby
                                 .to { not_emit generator }
                         end
                         assert e.message.start_with?(
-                            "1 unmet expectations\n#{generator} "\
+                            "1 unmet expectations\n#{generator} " \
                             "should not be emitted, but it was:"
                         )
                     end
@@ -597,7 +597,7 @@ module Roby
                                 .to { not_emit query }
                         end
                         assert e.message.start_with?(
-                            "1 unmet expectations\nno events matching #{query} should "\
+                            "1 unmet expectations\nno events matching #{query} should " \
                             "be emitted, but one was:"
                         ), e.message
                     end
@@ -1190,7 +1190,7 @@ module Roby
                         end
                     end
 
-                    it "calls update_match on the underlying predicates "\
+                    it "calls update_match on the underlying predicates " \
                        "and ignores the result" do
                         plan.add_mission_task(task = Roby::Task.new)
                         expect_execution { task.quarantined! }.to do

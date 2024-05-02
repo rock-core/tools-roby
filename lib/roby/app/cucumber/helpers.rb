@@ -58,7 +58,7 @@ module Roby
                     apply_unit(*value_with_unit)
                 elsif expected
                     raise InvalidUnit,
-                          "expected #{key}=#{value} to be a #{expected}, "\
+                          "expected #{key}=#{value} to be a #{expected}, " \
                           "but it got no unit"
                 else
                     begin
@@ -85,7 +85,7 @@ module Roby
             def self.validate_unit(name, value, unit, quantity)
                 unless (valid_units = KNOWN_UNITS[quantity])
                     raise ArgumentError,
-                          "unknown quantity definition '#{quantity}', "\
+                          "unknown quantity definition '#{quantity}', " \
                           "expected one of #{KNOWN_UNITS.keys.map(&:inspect).join(', ')}"
                 end
 
@@ -105,7 +105,7 @@ module Roby
                     arg_name = scanner.scan_until(/=/)
                     unless arg_name
                         raise InvalidSyntax,
-                              "expected to find '=' in #{raw_arguments}\n"\
+                              "expected to find '=' in #{raw_arguments}\n" \
                               "#{' ' * (24 + scanner.pos)}^"
                     end
                     arg_name = arg_name[0, arg_name.size - 1].to_sym
@@ -192,7 +192,7 @@ module Roby
                                       "but it is not even a number"
                                   end
                             raise InvalidUnit,
-                                  "expected #{key}=#{arg_value} to be "\
+                                  "expected #{key}=#{arg_value} to be " \
                                   "a #{expectation}, #{msg}"
                         end
                     end
@@ -220,7 +220,7 @@ module Roby
                         arg_name = reference[arg_i]
                         unless arg_name
                             raise UnexpectedArgument,
-                                  "too many implicit values given, expected "\
+                                  "too many implicit values given, expected " \
                                   "#{reference.size} (#{reference.join(', ')})"
                         end
                         has_implicit = true
@@ -236,13 +236,13 @@ module Roby
                         arg_value = apply_unit(*value_with_unit)
                     elsif expected_quantity
                         raise InvalidUnit,
-                              "expected #{arg_name}=#{arg_value} to be "\
+                              "expected #{arg_name}=#{arg_value} to be " \
                               "a #{expected_quantity}"
                     end
 
                     unless reference.include?(arg_name.to_sym)
                         raise UnexpectedArgument,
-                              "got '#{arg_name}' but was expecting one of "\
+                              "got '#{arg_name}' but was expecting one of " \
                               "#{reference.map(&:to_s).sort.join(', ')}"
                     end
                     arguments[arg_name.to_sym] = arg_value
@@ -251,7 +251,7 @@ module Roby
                 if arguments.keys.to_set != reference.to_set
                     missing = reference.to_set - arguments.keys
                     raise MissingArgument,
-                          "missing #{missing.size} argument(s) "\
+                          "missing #{missing.size} argument(s) " \
                           "(for #{missing.map(&:to_s).sort.join(', ')})"
                 end
                 arguments
@@ -307,7 +307,7 @@ module Roby
                     value
                 else
                     raise InvalidUnit,
-                          "unknown unit #{unit}, known units are deg, m (meters), "\
+                          "unknown unit #{unit}, known units are deg, m (meters), " \
                           "h (hour), min (minute) and s (seconds)"
                 end
             end

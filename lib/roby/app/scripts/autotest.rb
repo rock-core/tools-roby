@@ -57,7 +57,10 @@ end
 
 test_files = parser.parse(ARGV)
 
-if !server_pid
+if server_pid
+    DRb.start_service
+    manager = Autorespawn.new
+else
     require "roby/app/test_server"
     require "roby/app/autotest_console_reporter"
     manager = Autorespawn::Manager.new(name: { cmdline: "#{$0} #{ARGV.join(' ')}" })
@@ -65,9 +68,6 @@ if !server_pid
     server = Roby::App::TestServer.start(Process.pid)
     Roby::App::AutotestConsoleReporter.new(server, manager)
     cmdline_args << "--server" << server_pid.to_s
-else
-    DRb.start_service
-    manager = Autorespawn.new
 end
 
 require "roby/app/test_reporter"

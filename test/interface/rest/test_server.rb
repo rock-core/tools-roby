@@ -45,7 +45,7 @@ module Roby
                         @server.start(wait_timeout: 0)
                     end
 
-                    it "raises if the thread is not functional after "\
+                    it "raises if the thread is not functional after " \
                        "the alloted timeout" do
                         @server = REST::Server.new(@app, port: 0)
                         flexmock(@server).should_receive(:create_thin_thread)
@@ -86,12 +86,12 @@ module Roby
                         end
 
                         describe "#port" do
-                            it "returns the port right away if the server is started "\
+                            it "returns the port right away if the server is started " \
                                "and synchronized" do
                                 @server.start
                                 refute_equal 0, @server.port(timeout: 0)
                             end
-                            it "waits for the port to be available "\
+                            it "waits for the port to be available " \
                                "if the server is started" do
                                 @server.start(wait_timeout: 0)
                                 refute_equal 0, @server.port(timeout: 1)
@@ -101,7 +101,7 @@ module Roby
                                     @server.port
                                 end
                             end
-                            it "returns the actual port if the server has been started "\
+                            it "returns the actual port if the server has been started " \
                                "and then stopped" do
                                 @server.start
                                 @server.stop
@@ -128,13 +128,13 @@ module Roby
                                 assert_equal @port, @server.port
                             end
 
-                            it "returns the port if the server is started but we did "\
+                            it "returns the port if the server is started but we did " \
                                "not synchronize" do
                                 @server.start(wait_timeout: 0)
                                 assert_equal @port, @server.port
                             end
 
-                            it "returns the port if the server is started "\
+                            it "returns the port if the server is started " \
                                "and synchronized" do
                                 @server.start
                                 assert_equal @port, @server.port

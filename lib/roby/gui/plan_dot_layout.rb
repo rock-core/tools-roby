@@ -81,8 +81,8 @@ module Roby
                         io << "  #{from_id} -> #{to_id}\n"
                     else
                         DRoby::Logfile.warn(
-                            "ignoring #{from}(#{from.object_id} #{from_id}) -> "\
-                            "#{to}(#{to.object_id} #{to_id}) in #{graph.class} "\
+                            "ignoring #{from}(#{from.object_id} #{from_id}) -> " \
+                            "#{to}(#{to.object_id} #{to_id}) in #{graph.class} " \
                             "in #{caller(1).join("\n  ")}"
                         )
                     end
@@ -151,7 +151,7 @@ module Roby
                 end
 
                 label = dot_label(display).split("\n").join('\n')
-                io << "  #{dot_id}[label=\"#{label}\",width=#{bounding_rect.width},"\
+                io << "  #{dot_id}[label=\"#{label}\",width=#{bounding_rect.width}," \
                       "height=#{bounding_rect.height},fixedsize=true];\n"
             end
 
@@ -195,10 +195,12 @@ module Roby
                         has_event = true
                     end
                 end
-                task_height = if !has_event then DEFAULT_TASK_HEIGHT + text_bb.height
-                              else
-                                  text_bb.height
-                              end
+                task_height =
+                    if has_event
+                        text_bb.height
+                    else
+                        DEFAULT_TASK_HEIGHT + text_bb.height
+                    end
 
                 io << "  #{dot_id}[width=#{[DEFAULT_TASK_WIDTH, text_bb.width].max},height=#{task_height},fixedsize=true];\n"
                 io << "}\n"
@@ -244,8 +246,8 @@ module Roby
 
                 if bounding_rect.null? # no events, we need to take the bounding box from the fake task node
                     bounding_rect = Qt::RectF.new(
-                        task.x - DEFAULT_TASK_WIDTH / 2,
-                        task.y - DEFAULT_TASK_HEIGHT / 2, DEFAULT_TASK_WIDTH, DEFAULT_TASK_HEIGHT
+                        task.x - (DEFAULT_TASK_WIDTH / 2),
+                        task.y - (DEFAULT_TASK_HEIGHT / 2), DEFAULT_TASK_WIDTH, DEFAULT_TASK_HEIGHT
                     )
                 else
                     bounding_rect.y -= 5
@@ -253,7 +255,7 @@ module Roby
                 graphics_item.rect = bounding_rect
 
                 text_pos = Qt::PointF.new(
-                    bounding_rect.x + bounding_rect.width / 2 - graphics_item.text.bounding_rect.width / 2,
+                    bounding_rect.x + (bounding_rect.width / 2) - (graphics_item.text.bounding_rect.width / 2),
                     bounding_rect.y + bounding_rect.height
                 )
                 graphics_item.text.pos = text_pos

@@ -102,7 +102,7 @@ module Roby
                 service.on_plan_status_change { |state| spy.called(state) }
                 plan.unmark_mission_task(task)
             end
-            it "is not called when Plan#add_mission_task is called on a task that "\
+            it "is not called when Plan#add_mission_task is called on a task that " \
                "is already a mission" do
                 spy.should_receive(:called).with(:normal).once.ordered
                 spy.should_receive(:called).with(:mission).once.ordered
@@ -110,7 +110,7 @@ module Roby
                 plan.add_mission_task(task)
                 plan.add_mission_task(task)
             end
-            it "is not called when Plan#unmark_mission_task is called on a task "\
+            it "is not called when Plan#unmark_mission_task is called on a task " \
                "that is not a mission" do
                 spy.should_receive(:called).with(:normal).once.ordered
                 service.on_plan_status_change { |state| spy.called(state) }
@@ -129,7 +129,7 @@ module Roby
                 service.on_plan_status_change { |state| spy.called(state) }
                 plan.unmark_permanent_task(task)
             end
-            it "is not called when Plan#add_permanent_task is called on a task "\
+            it "is not called when Plan#add_permanent_task is called on a task " \
                "that is already permanent" do
                 spy.should_receive(:called).with(:normal).once.ordered
                 spy.should_receive(:called).with(:permanent).once.ordered
@@ -137,7 +137,7 @@ module Roby
                 plan.add_permanent_task(task)
                 plan.add_permanent_task(task)
             end
-            it "is not called when Plan#unmark_permanent_task is called on a task "\
+            it "is not called when Plan#unmark_permanent_task is called on a task " \
                "that is not permanent" do
                 spy.should_receive(:called).with(:normal).once.ordered
                 service.on_plan_status_change { |state| spy.called(state) }
@@ -203,7 +203,7 @@ module Roby
                 end
             end
 
-            it "does not call replacement handlers for replacements "\
+            it "does not call replacement handlers for replacements " \
                "happening in the transaction" do
                 spy.should_receive(:called).never
                 service.on_replacement do
@@ -229,7 +229,7 @@ module Roby
                     trsc.commit_transaction
                 end
             end
-            it "calls new replacement handlers for replacements "\
+            it "calls new replacement handlers for replacements " \
                "happening at commit time" do
                 spy.should_receive(:called).with(t1, t2).once
 

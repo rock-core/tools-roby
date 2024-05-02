@@ -295,8 +295,8 @@ module Roby
                         e = assert_raises(ArgumentError) do
                             interface_m.register_action("name", not_action)
                         end
-                        assert_equal "register_action expects an action model, "\
-                            "got #{not_action.class} instead", e.message
+                        assert_equal "register_action expects an action model, " \
+                                     "got #{not_action.class} instead", e.message
                     end
                 end
 

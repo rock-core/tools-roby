@@ -306,7 +306,7 @@ module Roby
 
                 def review
                     if safe?
-                        puts "#{@batch.__calls.size} actions queued in the current batch, "\
+                        puts "#{@batch.__calls.size} actions queued in the current batch, " \
                              "use #process to send, #cancel to delete"
                         @batch.__calls.each do |context, m, *args|
                             if %i[drop_job kill_job].include?(m)

@@ -343,7 +343,7 @@ module Roby
                                  plan.find_tasks.roots(TaskStructure::Dependency).to_set
                 end
 
-                it "handles having a child in the transaction and the parent "\
+                it "handles having a child in the transaction and the parent " \
                    "in the plan for a relation in the plan" do
                     plan.add(parent = Tasks::Simple.new)
                     plan.add(child = Tasks::Simple.new)
@@ -355,7 +355,7 @@ module Roby
                     assert_equal [@trsc[parent]], query_results
                 end
 
-                it "handles having a parent in the transaction and the child "\
+                it "handles having a parent in the transaction and the child " \
                    "in the plan" do
                     plan.add(parent = Tasks::Simple.new)
                     plan.add(child = Tasks::Simple.new)

@@ -71,7 +71,7 @@ module Roby
                           type: :numeric, default: Server::DEFAULT_PORT
             option :sampling, type: :numeric,
                               default: Server::DEFAULT_SAMPLING_PERIOD,
-                              desc: "period in seconds at which the server "\
+                              desc: "period in seconds at which the server " \
                                     "should poll the log file"
             def server(path, port: options[:port])
                 # NOTE: the 'port' argument is here so that it can be overriden
@@ -87,7 +87,7 @@ module Roby
                         # Workaround for https://bugs.ruby-lang.org/issues/10203
                         rescue TypeError
                             raise Errno::EADDRINUSE,
-                                  "Address already in use - bind(2) for "\
+                                  "Address already in use - bind(2) for " \
                                   "\"0.0.0.0\" port #{port}"
                         end
                 end
@@ -96,7 +96,7 @@ module Roby
                     path, options[:sampling], server_io
                 )
                 port = server_io.local_address.ip_port
-                Server.info "Roby log server listening on port #{port}, "\
+                Server.info "Roby log server listening on port #{port}, " \
                             "sampling period=#{options[:sampling]}"
                 Server.info "watching #{path}"
                 server.exec
@@ -148,10 +148,10 @@ module Roby
                     end
                     port ||= Interface::DEFAULT_PORT.to_s
 
-                    if port[0, 1] != "!"
-                        port = discover_log_server_port(host, Integer(port) || Interface::DEFAULT_PORT)
-                    else
+                    if port[0, 1] == "!"
                         port = Integer(port[1..-1] || Server::DEFAULT_PORT)
+                    else
+                        port = discover_log_server_port(host, Integer(port) || Interface::DEFAULT_PORT)
                     end
                     [host, port]
                 end

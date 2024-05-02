@@ -4,7 +4,7 @@ require "roby"
 require "benchmark"
 
 def pick_index_in_group(group)
-    group * 10 + rand(10)
+    (group * 10) + rand(10)
 end
 
 def pick_from_to(tasks)
@@ -85,7 +85,7 @@ Benchmark.bm(30) do |x|
         end
     end
 
-    x.report "modifies and commits an executable plan "\
+    x.report "modifies and commits an executable plan " \
              "using a transaction (#{COUNT} times)" do
         plan = Roby::ExecutablePlan.new
         Roby::ExecutionEngine.new(plan)

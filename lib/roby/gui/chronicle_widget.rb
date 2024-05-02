@@ -254,7 +254,7 @@ module Roby
                 horizontal_scroll_bar.connect(SIGNAL("sliderMoved(int)")) do
                     value = horizontal_scroll_bar.value
                     self.track_current_time = live? && (value == horizontal_scroll_bar.maximum)
-                    time = base_time + Float(value) * pixel_to_time
+                    time = base_time + (Float(value) * pixel_to_time)
                     update_display_time(time)
                     emit timeChanged(time - base_time)
                 end
@@ -368,7 +368,7 @@ module Roby
                 height = current_tasks.inject(0) do |h, t|
                     h + lay_out_task(fm, t).height(display_start, display_end)
                 end
-                height + current_tasks.size * task_separation + timeline_height
+                height + (current_tasks.size * task_separation) + timeline_height
             end
 
             # @api private
@@ -426,7 +426,7 @@ module Roby
 
             def update_display_point
                 display_point = viewport.size.width - live_update_margin -
-                                (current_time - display_time) * time_to_pixel
+                                ((current_time - display_time) * time_to_pixel)
                 display_point_min = viewport.size.width / 2
                 if display_point < display_point_min
                     display_point = display_point_min
@@ -451,8 +451,8 @@ module Roby
                 if display_time
                     display_point = self.display_point
                     window_width  = viewport.size.width
-                    start_time = display_time - display_point * pixel_to_time
-                    end_time   = start_time + window_width * pixel_to_time
+                    start_time = display_time - (display_point * pixel_to_time)
+                    end_time   = start_time + (window_width * pixel_to_time)
                     @displayed_time_range = [start_time, end_time]
                 end
             end
@@ -586,7 +586,7 @@ module Roby
                 # Display the current cycle time
                 central_label = Roby.format_time(display_time)
                 central_label_width = fm.width(central_label)
-                central_time_max = display_point + central_label_width / 2
+                central_time_max = display_point + (central_label_width / 2)
                 if central_time_max + 3 > window_size.width
                     central_time_max = window_size.width - 3
                 end
@@ -614,12 +614,12 @@ module Roby
                 ruler_base_x    = (ruler_base_time - start_time.to_f) * time_to_pixel
                 step_count = ((end_time.to_f - ruler_base_time) / step_size).ceil
                 step_count.times do |i|
-                    time = step_size * i + ruler_base_time
-                    pos  = step_size * i * time_to_pixel + ruler_base_x
+                    time = (step_size * i) + ruler_base_time
+                    pos  = (step_size * i * time_to_pixel) + ruler_base_x
                     time_as_text = Roby.format_time(Time.at(time))
                     time_as_text_width = fm.width(time_as_text)
-                    min_x = pos - time_as_text_width / 2
-                    max_x = pos + time_as_text_width / 2
+                    min_x = pos - (time_as_text_width / 2)
+                    max_x = pos + (time_as_text_width / 2)
                     if central_time_min > max_x || central_time_max < min_x
                         painter.drawText(min_x, text_height, time_as_text)
                     end
@@ -658,14 +658,14 @@ module Roby
                     return if !task.finalization_time && task.history.size == history_size
 
                     last_event = task.last_event
-                    if !last_event
-                        @state = :pending
-                    else
+                    if last_event
                         @state = GUI.task_state_at(task, last_event.time)
                         @time_last_event = last_event.time
                         if state != :running
                             end_time = last_event.time
                         end
+                    else
+                        @state = :pending
                     end
 
                     if (start_time = task.start_time)
@@ -696,7 +696,7 @@ module Roby
                     event_current_level ||= event_max_x.size
 
                     event_y = event_current_level * event_height
-                    event_max_x[event_current_level] = event_x + 2 * EVENT_CIRCLE_RADIUS + fm.width(event.symbol.to_s)
+                    event_max_x[event_current_level] = event_x + (2 * EVENT_CIRCLE_RADIUS) + fm.width(event.symbol.to_s)
                     events << [event.time, event_x, event_y, event.symbol.to_s]
                 end
 
@@ -728,7 +728,7 @@ module Roby
                         max_event_y = events.max_by { |_, _, y, _| y }
                         max_event_y = max_event_y[2]
                     end
-                    (max_event_y || 0) + (messages.size + 1) * fm.height
+                    (max_event_y || 0) + ((messages.size + 1) * fm.height)
                 end
             end
 
@@ -741,7 +741,7 @@ module Roby
 
             def paint_tasks(painter, fm, layout, top_y)
                 current_point  = Integer((current_time - base_time) * time_to_pixel)
-                display_offset = Integer(display_point - (display_time - base_time) * time_to_pixel)
+                display_offset = Integer(display_point - ((display_time - base_time) * time_to_pixel))
                 display_start_time, display_end_time = displayed_time_range
                 view_height = viewport.size.height
 
@@ -797,7 +797,7 @@ module Roby
                     end
 
                     # Display the emitted events
-                    event_baseline = top_task_line + event_height / 2
+                    event_baseline = top_task_line + (event_height / 2)
                     events&.each do |_, x, y, text|
                         x += display_offset
                         y += event_baseline
@@ -805,7 +805,7 @@ module Roby
                         painter.drawEllipse(Qt::Point.new(x, y),
                                             EVENT_CIRCLE_RADIUS, EVENT_CIRCLE_RADIUS)
                         painter.pen = EVENT_NAME_PEN
-                        painter.drawText(Qt::Point.new(x + 2 * EVENT_CIRCLE_RADIUS, y), text)
+                        painter.drawText(Qt::Point.new(x + (2 * EVENT_CIRCLE_RADIUS), y), text)
                     end
 
                     # Add the title

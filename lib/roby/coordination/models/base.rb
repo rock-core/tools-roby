@@ -137,8 +137,8 @@ module Roby
                     if has_argument?(m)
                         unless args.empty? && kw.empty?
                             raise ArgumentError,
-                                  "expected zero arguments to #{m}, "\
-                                  "got #{args.size} positional arguments (#{args}) and "\
+                                  "expected zero arguments to #{m}, " \
+                                  "got #{args.size} positional arguments (#{args}) and " \
                                   "#{kw.size} keyword arguments (#{kw})"
                         end
 
@@ -153,8 +153,8 @@ module Roby
                 def validate_task(object)
                     unless object.kind_of?(Coordination::Models::Task)
                         raise ArgumentError,
-                              "expected a state object, got #{object}. States "\
-                              "need to be created from e.g. actions by calling "\
+                              "expected a state object, got #{object}. States " \
+                              "need to be created from e.g. actions by calling " \
                               "#state before they can be used in the state machine"
                     end
 
@@ -162,18 +162,18 @@ module Roby
                 end
 
                 def validate_or_create_task(task)
-                    if !task.kind_of?(Coordination::Models::Task)
-                        task(task)
-                    else
+                    if task.kind_of?(Coordination::Models::Task)
                         task
+                    else
+                        task(task)
                     end
                 end
 
                 def validate_event(object)
                     unless object.kind_of?(Coordination::Models::Event)
                         raise ArgumentError,
-                              "expected an action-event object, got #{object}. "\
-                              "Acceptable events need to be created from e.g. "\
+                              "expected an action-event object, got #{object}. " \
+                              "Acceptable events need to be created from e.g. " \
                               "actions by calling #task(action).my_event"
                     end
 

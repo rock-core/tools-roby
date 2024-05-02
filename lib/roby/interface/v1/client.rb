@@ -132,17 +132,17 @@ module Roby
                         @cycle_index, @cycle_start_time = *args
                         return true
                     when :bad_call
-                        if !pending_async_calls.empty?
-                            process_pending_async_call(args.first, nil)
-                        else
+                        if pending_async_calls.empty?
                             e = args.first
                             raise e, e.message, (e.backtrace + caller)
+                        else
+                            process_pending_async_call(args.first, nil)
                         end
                     when :reply
-                        if !pending_async_calls.empty?
-                            process_pending_async_call(nil, args.first)
-                        else
+                        if pending_async_calls.empty?
                             yield args.first
+                        else
+                            process_pending_async_call(nil, args.first)
                         end
                     when :job_progress
                         queue_job_progress(*args)
@@ -154,7 +154,7 @@ module Roby
                         queue_exception(*args)
                     else
                         raise ProtocolError,
-                              "unexpected reply from #{io}: #{m} "\
+                              "unexpected reply from #{io}: #{m} " \
                               "(#{args.map(&:to_s).join(',')})"
                     end
                     false
@@ -443,7 +443,7 @@ module Roby
                             __push([], :start_job, action_name, *args)
                         else
                             ::Kernel.raise ::Roby::Interface::V1::Client::NoSuchAction,
-                                           "there is no action called #{action_name} "\
+                                           "there is no action called #{action_name} " \
                                            "on #{@context}"
                         end
                     end
@@ -475,8 +475,8 @@ module Roby
                         end
 
                         ::Kernel.raise ::NoMethodError.new(m),
-                                       "#{m} either does not exist, or is not "\
-                                       "supported in batch context (only "\
+                                       "#{m} either does not exist, or is not " \
+                                       "supported in batch context (only " \
                                        "starting and killing jobs is)"
                     end
 

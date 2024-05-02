@@ -218,12 +218,12 @@ module Roby
                     assert_equal "extra_event expected zero arguments, got 1",
                                  e.message
                 end
-                it "raises NoMethodError if the event does not exist "\
+                it "raises NoMethodError if the event does not exist " \
                    "in the selected models" do
                     e = assert_raises(NoMethodError) do
                         task_m.match.does_not_exist_event
                     end
-                    assert_equal "no event 'does_not_exist' in match model #{task_m}, "\
+                    assert_equal "no event 'does_not_exist' in match model #{task_m}, " \
                                  "use #which_fullfills to narrow the task model",
                                  e.message
                 end
@@ -619,7 +619,7 @@ module Roby
                                  plan.find_tasks.roots(TaskStructure::Dependency).to_set
                 end
 
-                it "handles having a child in the transaction and the parent "\
+                it "handles having a child in the transaction and the parent " \
                    "in the plan for a relation in the plan" do
                     plan.add(parent = Tasks::Simple.new)
                     plan.add(child = Tasks::Simple.new)
@@ -631,7 +631,7 @@ module Roby
                     assert_equal [@trsc[parent]], query_results
                 end
 
-                it "handles having a parent in the transaction and the child "\
+                it "handles having a parent in the transaction and the child " \
                    "in the plan" do
                     plan.add(parent = Tasks::Simple.new)
                     plan.add(child = Tasks::Simple.new)

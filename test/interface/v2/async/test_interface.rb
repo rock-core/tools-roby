@@ -23,7 +23,7 @@ module Roby
                     end
 
                     describe "connection handling" do
-                        it "#poll retries connecting if the connection "\
+                        it "#poll retries connecting if the connection " \
                            "method raised ConnectionError" do
                             interface = Interface.new { raise ConnectionError }
                             interface.connection_future.wait
@@ -31,7 +31,7 @@ module Roby
                                 .should_receive(:attempt_connection).once
                             interface.poll
                         end
-                        it "#poll retries connecting if the connection "\
+                        it "#poll retries connecting if the connection " \
                            "method raised ComError" do
                             interface = Interface.new { raise ComError }
                             interface.connection_future.wait
@@ -39,7 +39,7 @@ module Roby
                                 .should_receive(:attempt_connection).once
                             interface.poll
                         end
-                        it "#poll forwards any exception that is not "\
+                        it "#poll forwards any exception that is not " \
                            "ComError or ConnectionError" do
                             interface = Interface.new { raise ArgumentError }
                             interface.connection_future.wait
@@ -51,20 +51,20 @@ module Roby
 
                     describe "#wait" do
                         describe "while connecting" do
-                            it "waits for the pending connection attempt "\
+                            it "waits for the pending connection attempt " \
                                "to finish and returns true" do
                                 interface = Interface.new {}
                                 assert interface.wait
                                 assert interface.connection_future.complete?
                             end
-                            it "with a timeout, the method returns false "\
+                            it "with a timeout, the method returns false " \
                                "if the attempt is not finished" do
                                 sync = Concurrent::Event.new
                                 interface = Interface.new { sync.wait }
                                 refute interface.wait(timeout: 0.1)
                                 sync.set
                             end
-                            it "with a timeout, the method returns true "\
+                            it "with a timeout, the method returns true " \
                                "if the attempt is finished" do
                                 interface = Interface.new {}
                                 assert interface.wait(timeout: 10)
@@ -88,12 +88,12 @@ module Roby
                             it "times out if no data is received on the channel" do
                                 refute interface.wait(timeout: 0.1)
                             end
-                            it "returns true if there is data on the channel "\
+                            it "returns true if there is data on the channel " \
                                "without a timeout" do
                                 server.interface.notify_cycle_end
                                 assert interface.wait
                             end
-                            it "returns true if there is data on the channel "\
+                            it "returns true if there is data on the channel " \
                                "with a timeout" do
                                 server.interface.notify_cycle_end
                                 assert interface.wait(timeout: 0.1)
@@ -102,7 +102,7 @@ module Roby
                                 server.close
                                 assert interface.wait
                             end
-                            it "blocks if no data is on the channel "\
+                            it "blocks if no data is on the channel " \
                                "and no timeout is given" do
                                 t = Thread.new { interface.wait }
                                 sleep 0.01 while t.status != "sleep"
@@ -123,7 +123,7 @@ module Roby
                             interface.poll
                             interface.poll
                         end
-                        it "calls on_reachable callback when connected "\
+                        it "calls on_reachable callback when connected " \
                            "to the remote server" do
                             connect do |interface|
                                 recorder.should_receive(:reachable).once.ordered
@@ -132,7 +132,7 @@ module Roby
                                 interface.on_unreachable { recorder.unreachable }
                             end
                         end
-                        it "passes the current list of jobs as argument "\
+                        it "passes the current list of jobs as argument " \
                            "to #on_reachable" do
                             server = create_server
                             flexmock(server.interface).should_receive(:jobs)
@@ -149,7 +149,7 @@ module Roby
                                 c.on_reachable { |jobs| recorder.called(jobs) }
                             end
                         end
-                        it "calls the on_unreachable callback "\
+                        it "calls the on_unreachable callback " \
                            "when the connection is lost" do
                             server = create_server
                             client = connect(server)
@@ -220,7 +220,7 @@ module Roby
                             @interface.poll
                             refute @interface.active_job_monitor?(@job_monitor)
                         end
-                        it "accepts an already removed job monitor "\
+                        it "accepts an already removed job monitor " \
                            "as argument to #remove_job_monitor" do
                             @interface.remove_job_monitor(@job_monitor)
                             @interface.remove_job_monitor(@job_monitor)
@@ -300,7 +300,7 @@ module Roby
                                 interface.push_pending_notifications
                                 process_call { client.poll }
                             end
-                            it "does not repeatedly call a listener "\
+                            it "does not repeatedly call a listener " \
                                "that already ignored a job" do
                                 interface.job_notify(
                                     Roby::Interface::JOB_READY, 1, "name"
@@ -315,7 +315,7 @@ module Roby
                                 recorder.should_receive(:job).never
                                 process_call { client.poll }
                             end
-                            it "does not call the hook on jobs "\
+                            it "does not call the hook on jobs " \
                                "that have already been seen" do
                                 interface.job_notify(
                                     Roby::Interface::JOB_READY, 1, "name"
@@ -327,7 +327,7 @@ module Roby
                                 interface.push_pending_notifications
                                 process_call { client.poll }
                             end
-                            it "calls the hook only once on jobs "\
+                            it "calls the hook only once on jobs " \
                                "created by the interface" do
                                 flexmock(client.client)
                                     .should_receive(:find_action_by_name)

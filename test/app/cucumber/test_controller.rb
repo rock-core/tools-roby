@@ -65,7 +65,7 @@ module Roby
                         refute controller.roby_connected?
                     end
 
-                    it "raises if attempting to start a new controller "\
+                    it "raises if attempting to start a new controller " \
                        "while one is running" do
                         pid = roby_start("default", "default", app_dir: roby_app_dir)
                         interface = controller.roby_interface
@@ -190,7 +190,7 @@ module Roby
                         refute controller.roby_connected?
                     end
 
-                    it "returns false if the controller has been started "\
+                    it "returns false if the controller has been started " \
                        "and the we're not connected" do
                         roby_start("default", "default",
                                    app_dir: roby_app_dir, connect: false)
@@ -297,7 +297,7 @@ module Roby
                     end
 
                     describe "#start_job" do
-                        it "queues the action on the remote controller "\
+                        it "queues the action on the remote controller " \
                            "until the next apply_current_batch" do
                             controller.start_job(
                                 "cucumber test job", "cucumber_monitoring"
@@ -428,7 +428,7 @@ module Roby
                     end
 
                     describe "#run_job" do
-                        it "runs the action in the current batch "\
+                        it "runs the action in the current batch " \
                            "and waits for it to end" do
                             flexmock(controller).should_receive(:apply_current_batch)
                                                 .once.pass_thru

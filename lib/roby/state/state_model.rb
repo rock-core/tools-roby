@@ -41,8 +41,8 @@ module Roby
         attr_reader :superclass
 
         def to_s
-            "#<StateModel:#{object_id} path=#{path.join('/')} "\
-            "fields=#{@members.keys.sort.join(',')}>"
+            "#<StateModel:#{object_id} path=#{path.join('/')} " \
+                "fields=#{@members.keys.sort.join(',')}>"
         end
 
         def initialize(super_or_obj = nil, attach_to = nil, attach_name = nil)
@@ -52,8 +52,8 @@ module Roby
                     value.to_state_variable_model(self, name)
                 else
                     raise ArgumentError,
-                          "cannot set #{value} on #{name} in a state model. "\
-                          "Only allowed values are StateVariableModel, and values "\
+                          "cannot set #{value} on #{name} in a state model. " \
+                          "Only allowed values are StateVariableModel, and values " \
                           "that respond to #to_state_variable_model"
                 end
             end
@@ -91,8 +91,8 @@ module Roby
     # Representation of a level in the current state
     class StateField < OpenStruct
         def to_s
-            "#<StateField:#{object_id} path=#{path.join('/')} "\
-            "fields=#{@members.keys.sort.join(',')}>"
+            "#<StateField:#{object_id} path=#{path.join('/')} " \
+                "fields=#{@members.keys.sort.join(',')}>"
         end
 
         # Returns a structure that gives access to the models of the
@@ -163,8 +163,8 @@ module Roby
 
                 if field_type && !(field_type === value)
                     raise ArgumentError,
-                          "field #{name} is expected to have values of "\
-                          "type #{field_type.name}, #{value} is of type "\
+                          "field #{name} is expected to have values of " \
+                          "type #{field_type.name}, #{value} is of type " \
                           "#{value.class}"
                 end
                 value
@@ -269,7 +269,7 @@ module Roby
         # See also #export_none and #export_all
         def export(*names)
             @exported_fields ||= Set.new
-            @exported_fields.merge names.map(&:to_s).to_set
+            @exported_fields.merge names.to_set(&:to_s)
         end
 
         def create_subfield(name)
@@ -285,15 +285,15 @@ module Roby
         # Which fields get marshalled can be controlled with #export_all,
         # #export_none and #export. The default is to marshal all fields.
         def _dump(lvl = -1)
-            if !@exported_fields
-                super
-            else
+            if @exported_fields
                 marshalled_members = @exported_fields.map do |name|
                     value = @members[name]
                     [name, Marshal.dump(value)] rescue nil
                 end
                 marshalled_members.compact!
                 Marshal.dump([marshalled_members, @aliases])
+            else
+                super
             end
         end
 

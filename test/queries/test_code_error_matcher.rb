@@ -35,7 +35,7 @@ module Roby
                 assert_operator matcher, :===, error
             end
 
-            it "does not match CodeError with ruby exception if "\
+            it "does not match CodeError with ruby exception if " \
                "without_ruby_exception was set" do
                 error = CodeError.new(StandardError.new, @task)
                 matcher = CodeErrorMatcher.new.without_ruby_exception
@@ -46,8 +46,8 @@ module Roby
                 matcher = CodeErrorMatcher
                           .new.with_origin(@task)
                           .with_ruby_exception(StandardError)
-                expected = "Roby::CodeError.with_origin(#{@task})"\
-                           ".with_original_exception(StandardError)"\
+                expected = "Roby::CodeError.with_origin(#{@task})" \
+                           ".with_original_exception(StandardError)" \
                            ".with_ruby_exception(StandardError)"
                 assert_equal expected, matcher.to_s
             end
@@ -57,7 +57,7 @@ module Roby
                 error = CodeError.new(StandardError.new, @task)
                 matcher = CodeErrorMatcher.new.with_ruby_exception(error_m)
                 description = matcher.describe_failed_match(error)
-                expected = "expected one of the original exceptions to match "\
+                expected = "expected one of the original exceptions to match " \
                            "#{error_m}, but got StandardError"
                 assert_equal expected, description
             end
@@ -66,17 +66,17 @@ module Roby
                 matcher = CodeErrorMatcher
                           .new.with_origin(@task)
                           .without_ruby_exception
-                expected = "Roby::CodeError.with_origin(#{@task})"\
+                expected = "Roby::CodeError.with_origin(#{@task})" \
                            ".without_ruby_exception"
                 assert_equal expected, matcher.to_s
             end
 
-            it "describes a failure for having a ruby exception while "\
+            it "describes a failure for having a ruby exception while " \
                "none was expected" do
                 error = CodeError.new(StandardError.new, @task)
                 matcher = CodeErrorMatcher.new.without_ruby_exception
                 description = matcher.describe_failed_match(error)
-                expected = "there is an underlying exception (StandardError) but "\
+                expected = "there is an underlying exception (StandardError) but " \
                            "the matcher expected none"
                 assert_equal expected, description
             end

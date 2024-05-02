@@ -14,10 +14,8 @@ module Webgen::Tag
 
                 if param("tag.menu.range_start") && si < param("tag.menu.range_start")
                     true
-                elsif param("tag.menu.range_end") && si > param("tag.menu.range_end")
-                    true
                 else
-                    false
+                    param("tag.menu.range_end") && si > param("tag.menu.range_end")
                 end
             end
             tree

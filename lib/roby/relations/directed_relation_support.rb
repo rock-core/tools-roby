@@ -190,12 +190,12 @@ module Roby
             # target. If +relation+ is given, it removes only the edge in that
             # relation graph.
             def remove_child_object(child, relation = nil)
-                if !relation
+                if relation
+                    relation_graphs[relation].remove_relation(self, child)
+                else
                     for rel in sorted_relations
                         rel.remove_relation(self, child)
                     end
-                else
-                    relation_graphs[relation].remove_relation(self, child)
                 end
             end
 

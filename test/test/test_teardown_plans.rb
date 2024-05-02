@@ -28,9 +28,9 @@ module Roby
                     assert((0.08..0.2).include?(warn_time - tic))
 
                     matcher = Regexp.new(
-                        "trying to shut down #{plan} for \\d+s "\
-                        "after .*teardown_registered_plans#test_\\d+_warns about "\
-                        "tasks that block the plan after teardown_warn "\
+                        "trying to shut down #{plan} for \\d+s " \
+                        "after .*teardown_registered_plans#test_\\d+_warns about " \
+                        "tasks that block the plan after teardown_warn " \
                         "seconds, quarantine=0 tasks, tasks=1 tasks"
                     )
                     assert_match matcher, messages[0]
@@ -38,7 +38,7 @@ module Roby
                     assert_equal "  #{task} running=true finishing=true", messages[2]
                 end
 
-                it "force-kills deployments after teardown_force seconds and reports "\
+                it "force-kills deployments after teardown_force seconds and reports " \
                    "a teardown failure" do
                     task_m = Roby::Task.new_submodel { event(:stop) { |event| } }
                     deployment_m = Roby::Task.new_submodel do
@@ -71,7 +71,7 @@ module Roby
                     assert plan.empty?
                 end
 
-                it "removes dependency relationships between tasks to let the GC "\
+                it "removes dependency relationships between tasks to let the GC " \
                    "try to clean them up" do
                     task_m = Roby::Task.new_submodel { event(:stop) { |event| } }
 

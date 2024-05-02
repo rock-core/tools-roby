@@ -137,17 +137,17 @@ module Roby
                         @cycle_index, @cycle_start_time = *args
                         return true
                     when :bad_call
-                        if !pending_async_calls.empty?
-                            process_pending_async_call(args, nil)
-                        else
+                        if pending_async_calls.empty?
                             e = args
                             raise RemoteError, e.message, (e.backtrace + caller)
+                        else
+                            process_pending_async_call(args, nil)
                         end
                     when :reply
-                        if !pending_async_calls.empty?
-                            process_pending_async_call(nil, args)
-                        else
+                        if pending_async_calls.empty?
                             yield args
+                        else
+                            process_pending_async_call(nil, args)
                         end
                     when :job_progress
                         queue_job_progress(*args)
@@ -444,7 +444,7 @@ module Roby
                             __push([], :start_job, [action_name], arguments)
                         else
                             ::Kernel.raise ::Roby::Interface::V2::Client::NoSuchAction,
-                                           "there is no action called #{action_name} "\
+                                           "there is no action called #{action_name} " \
                                            "on #{@context}"
                         end
                     end
@@ -476,8 +476,8 @@ module Roby
                         end
 
                         ::Kernel.raise ::NoMethodError.new(m),
-                                       "#{m} either does not exist, or is not "\
-                                       "supported in batch context (only "\
+                                       "#{m} either does not exist, or is not " \
+                                       "supported in batch context (only " \
                                        "starting and killing jobs is)"
                     end
 

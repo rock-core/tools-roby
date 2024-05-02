@@ -77,12 +77,12 @@ module Roby
                         if known_arguments.empty?
                             "The action accepts no arguments"
                         else
-                            "The action accepts the following arguments: "\
-                            "#{known_arguments.sort.join(', ')}"
+                            "The action accepts the following arguments: " \
+                                "#{known_arguments.sort.join(', ')}"
                         end
 
                     raise ArgumentError,
-                          "unknown argument '#{invalid_arg}' given to action #{self}. "\
+                          "unknown argument '#{invalid_arg}' given to action #{self}. " \
                           "#{expected_arguments}"
                 end
 
@@ -93,7 +93,7 @@ module Roby
 
                         if arg.required
                             raise ArgumentError,
-                                  "required argument '#{arg.name}' not given to action "\
+                                  "required argument '#{arg.name}' not given to action " \
                                   "#{self}"
                         elsif arg.default
                             arguments[arg_sym] = arg.default
@@ -109,7 +109,7 @@ module Roby
                         action_interface_model, name, result, returned_task_type
                     )
 
-                    raise e, "action '#{self}' was expected to return a task of "\
+                    raise e, "action '#{self}' was expected to return a task of " \
                              "type #{returned_task_type}, but returned #{result}"
                 end
 

@@ -106,9 +106,7 @@ module Roby
             end
 
             it "raises on creation if it encounters the wrong magic" do
-                File.open(dummy_path = File.join(tmpdir, "dummy"), "w") do |io|
-                    io.write "FGOEIJDOEJIDEOIJ"
-                end
+                File.write(dummy_path = File.join(tmpdir, "dummy"), "FGOEIJDOEJIDEOIJ")
                 assert_raises(Logfile::InvalidFileError) do
                     Logfile::Reader.open(dummy_path)
                 end

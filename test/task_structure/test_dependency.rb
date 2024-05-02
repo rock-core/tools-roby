@@ -979,11 +979,11 @@ module Roby
                     end.to { have_error_matching ChildFailedError }
 
                     stop_event = @child.stop_event.last
-                    stop_to_s = "[#{Roby.format_time(stop_event.time)} "\
-                        "@#{stop_event.propagation_id}]"
+                    stop_to_s = "[#{Roby.format_time(stop_event.time)} " \
+                                "@#{stop_event.propagation_id}]"
                     success_event = @child.success_event.last
-                    success_to_s = "[#{Roby.format_time(success_event.time)} "\
-                        "@#{success_event.propagation_id}]"
+                    success_to_s = "[#{Roby.format_time(success_event.time)} " \
+                                   "@#{success_event.propagation_id}]"
                     expected = <<~MESSAGE.chomp
                         Child<id:#{@child.droby_id.id}>
                           no owners

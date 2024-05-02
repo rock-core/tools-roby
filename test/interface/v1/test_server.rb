@@ -87,7 +87,7 @@ module Roby
                     it "has notifications enabled by default" do
                         assert @server.notifications_enabled?
                     end
-                    it "sends notifications right away "\
+                    it "sends notifications right away " \
                        "if notified from the main thread" do
                         @notify_app.notify("test", :warn, "some_message")
                         assert_equal [[:notification, "test", :warn, "some_message"]],
@@ -98,8 +98,8 @@ module Roby
                               .join
                         assert_equal [], @written_packets
                     end
-                    it "keeps order between queued notifications when a new one "\
-                        "is received from the main thread" do
+                    it "keeps order between queued notifications when a new one " \
+                       "is received from the main thread" do
                         Thread.new { @notify_app.notify("thread", :warn, "some_message") }
                               .join
                         @notify_app.notify("main", :warn, "some_message")
@@ -167,7 +167,7 @@ module Roby
                         server.close
                     end
 
-                    it "passes call and arguments, "\
+                    it "passes call and arguments, " \
                        "and replies with the result of the call" do
                         flexmock(server).should_receive(:test_call)
                                         .explicitly.once.with(24).and_return([42])
@@ -215,8 +215,8 @@ module Roby
                         assert_equal "test message", exception.message
                     end
 
-                    it "processes all calls from a batch and returns "\
-                        "all their return values" do
+                    it "processes all calls from a batch and returns " \
+                       "all their return values" do
                         flexmock(server).should_receive(:test_call)
                                         .explicitly.once.with(24).and_return([42])
                         flexmock(server).should_receive(:test_call)
@@ -252,8 +252,8 @@ module Roby
                         assert_equal [:reply, [42, 84]], client_channel.read_packet
                     end
 
-                    it "replies with :bad_call and the exception "\
-                        "if any of the calls raises" do
+                    it "replies with :bad_call and the exception " \
+                       "if any of the calls raises" do
                         flexmock(server).should_receive(:test_call)
                                         .explicitly.once.with(24).and_return([42])
                         flexmock(server)
@@ -367,9 +367,9 @@ module Roby
                             assert_match "test message", msg.message
                         end
 
-                        it "notifies the remote side of a non-ComError exception that "\
-                            "was raised during reply marshalling, "\
-                            "and fails the local side" do
+                        it "notifies the remote side of a non-ComError exception that " \
+                           "was raised during reply marshalling, " \
+                           "and fails the local side" do
                             reply_e = @error_m.exception("test message")
                             server_io.should_receive(:write_packet)
                                      .with([:reply, @ret])

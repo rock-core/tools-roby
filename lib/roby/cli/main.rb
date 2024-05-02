@@ -96,14 +96,12 @@ module Roby
                             return namespace.connect_with_tcp_to(host, port)
                         rescue Roby::Interface::ConnectionError => e
                             if deadline && deadline > Time.now
-                                Robot.warn "failed to connect to #{host}:#{port}: "\
+                                Robot.warn "failed to connect to #{host}:#{port}: " \
                                            "#{e.message}, retrying"
                                 sleep 0.05
                             elsif !retry_connection || deadline
                                 raise
                             end
-                        rescue Interrupt
-                            raise
                         end
                     end
                 end
@@ -177,9 +175,9 @@ module Roby
 
             desc "check", "verifies that the configuration is valid",
                  hide: true
-            long_desc "This loads the specified robot configuration,"\
-                " but does not start the app itself."\
-                " Use this to validate the current configuration"
+            long_desc "This loads the specified robot configuration, " \
+                      "but does not start the app itself. " \
+                      "Use this to validate the current configuration"
             option :robot, aliases: "r", default: "default",
                            desc: "the robot name, separate name and type a comma"
             option :set, desc: "set configuration variable(s)",

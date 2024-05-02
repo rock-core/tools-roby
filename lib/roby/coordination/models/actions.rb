@@ -96,11 +96,11 @@ module Roby
                         state, event, target_event = *spec
                         if !toplevel_state?(state)
                             raise NotToplevelState,
-                                  "cannot specify #{state} as the state to forward "\
+                                  "cannot specify #{state} as the state to forward " \
                                   "from as it is not a toplevel state"
                         elsif !event_active_in_state?(event, state)
                             raise EventNotActiveInState,
-                                  "cannot forward from #{event} while in state "\
+                                  "cannot forward from #{event} while in state " \
                                   "#{state} as the event is not active in this state"
                         elsif !root_event?(target_event)
                             raise NotRootEvent, "can only forward to a root event"

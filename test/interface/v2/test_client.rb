@@ -176,7 +176,7 @@ module Roby
                     end
                 end
 
-                it "raises NoSuchAction on invalid actions "\
+                it "raises NoSuchAction on invalid actions " \
                    "without accessing the network" do
                     client = open_client
                     flexmock(client.io).should_receive(:write_packet).never
@@ -261,7 +261,7 @@ module Roby
                             while_polling_server { client.process_batch(batch) }
                         end
 
-                        it "returns a Return object which contains "\
+                        it "returns a Return object which contains " \
                            "the calls associated with their return values" do
                             client = open_client
                             batch = client.create_batch
@@ -281,7 +281,7 @@ module Roby
                             assert_equal expected, ret.each_element.to_a
                         end
 
-                        it "the Return object behaves as an enumeration "\
+                        it "the Return object behaves as an enumeration " \
                            "on the return values" do
                             client = open_client
                             batch = client.create_batch
@@ -312,7 +312,7 @@ module Roby
                                          ret.filter(call: :start_job).each_element.to_a
                         end
 
-                        it "the Return provides a shortcut "\
+                        it "the Return provides a shortcut " \
                            "to return the started job IDs" do
                             client = open_client
                             batch = client.create_batch
@@ -323,7 +323,7 @@ module Roby
                             assert_equal [1, 3], ret.started_jobs_id
                         end
 
-                        it "the Return provides a shortcut "\
+                        it "the Return provides a shortcut " \
                            "to return the killed job IDs" do
                             client = open_client
                             batch = client.create_batch
@@ -334,7 +334,7 @@ module Roby
                             assert_equal [1], ret.killed_jobs_id
                         end
 
-                        it "the Return provides a shortcut "\
+                        it "the Return provides a shortcut " \
                            "to return the dropped job IDs" do
                             interface.should_receive(:drop_job)
                                      .with(2).and_return(4).ordered.once
@@ -355,7 +355,7 @@ module Roby
                         assert_raises(Client::NoSuchAction) { batch.does_not_exist! }
                     end
 
-                    it "raises NoMethodError if trying to queue "\
+                    it "raises NoMethodError if trying to queue " \
                        "a command that is not kill_job" do
                         client = open_client
                         batch = client.create_batch
@@ -363,7 +363,7 @@ module Roby
                     end
                 end
 
-                it "queues app notifications and allows to retrieve "\
+                it "queues app notifications and allows to retrieve " \
                    "the notifications in FIFO order" do
                     client = open_client
                     app.notify("WARN", "obj", "message 0")
@@ -378,7 +378,7 @@ module Roby
                     assert !client.has_notifications?
                 end
 
-                it "queues ui events and allows to retrieve "\
+                it "queues ui events and allows to retrieve " \
                    "the notifications in FIFO order" do
                     client = open_client
                     app.ui_event("test-event", 42)
@@ -391,7 +391,7 @@ module Roby
                     assert !client.has_ui_event?
                 end
 
-                it "queues exceptions and allows to "\
+                it "queues exceptions and allows to " \
                    "retrieve the notifications in FIFO order" do
                     client = open_client
                     plan.execution_engine.display_exceptions = false
@@ -413,7 +413,7 @@ module Roby
                     assert !client.has_exceptions?
                 end
 
-                it "computes and queues the IDs of the jobs that are involved "\
+                it "computes and queues the IDs of the jobs that are involved " \
                    "in the exception" do
                     client = open_client
                     plan.execution_engine.display_exceptions = false
@@ -438,12 +438,12 @@ module Roby
                         it "is false if there was nothing to process" do
                             assert_equal false, client.poll.last
                         end
-                        it "is false if it did some processing but no cycle_end "\
+                        it "is false if it did some processing but no cycle_end " \
                            "has been received" do
                             app.notify "1", "2", "3"
                             assert_equal false, client.poll.last
                         end
-                        it "is true if a cycle_end message is received first, "\
+                        it "is true if a cycle_end message is received first, " \
                            "and does not do any more message processing" do
                             interface.notify_cycle_end
                             server.poll
@@ -460,7 +460,7 @@ module Roby
                             assert !client.has_notifications?
                         end
 
-                        it "updates cycle_time and cycle_index with "\
+                        it "updates cycle_time and cycle_index with " \
                            "the state from the execution engine" do
                             flexmock(plan.execution_engine)
                                 .should_receive(:cycle_start)
@@ -475,7 +475,7 @@ module Roby
                         end
                     end
 
-                    it "raises ProtocolError "\
+                    it "raises ProtocolError " \
                        "if getting more than one reply call in one time" do
                         server.io.write_packet [:reply, 0]
                         server.io.write_packet [:reply, 1]
@@ -566,12 +566,12 @@ module Roby
                     )
                         event = Concurrent::Event.new
                         client.async_call(path, method_name, *args, **keywords) do |error, result|
-                            if !exp_error.nil?
+                            if exp_error.nil?
+                                assert_nil error
+                            else
                                 assert_kind_of Protocol::Error, error
                                 assert_equal "#{exp_error.message} (#{exp_error.class})",
                                              error.message.chomp
-                            else
-                                assert_nil error
                             end
                             assert_equal [exp_result], [result]
                             watch.ping(seq)
@@ -620,7 +620,7 @@ module Roby
                         end
                     end
 
-                    it "raises NoSuchAction on invalid actions "\
+                    it "raises NoSuchAction on invalid actions " \
                        "without accessing the network" do
                         client = open_client
                         flexmock(client.io).should_receive(:write_packet).never
@@ -701,7 +701,7 @@ module Roby
                         assert_equal ret, client.async_test("some", "foo", &callback)
                     end
 
-                    it "is called with the proper path when prefixing a method name "\
+                    it "is called with the proper path when prefixing a method name " \
                        "with async_ on a subcommand" do
                         client = open_client
                         subcommand = SubcommandClient.new(client, "sub", "", {})

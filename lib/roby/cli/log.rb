@@ -19,8 +19,8 @@ module Roby
                         app.setup_robot_names_from_config_dir
                         unless app.robot_name?(file)
                             raise ArgumentError,
-                                  "expected #{file} to either the path to a log file, "\
-                                  "or a robot name to get the last log file from "\
+                                  "expected #{file} to either the path to a log file, " \
+                                  "or a robot name to get the last log file from " \
                                   "this robot configuration"
                         end
 
@@ -47,14 +47,14 @@ module Roby
             desc "timepoints", "extract timepoint information from the log file"
             option :raw,
                    type: :boolean, default: false,
-                   desc: "display the timpoints as they appear instead of "\
+                   desc: "display the timpoints as they appear instead of " \
                          "formatting them per-thread and per-group"
             option :flamegraph,
                    type: :string,
                    desc: "path to a HTML file that will display a flame graph"
             option :ctf,
                    type: :boolean,
-                   desc: "generate a CTF file suitable to be analyzed by e.g. "\
+                   desc: "generate a CTF file suitable to be analyzed by e.g. " \
                          "Trace Compass"
             def timepoints(file = nil)
                 file = handle_file_argument(file)
@@ -75,15 +75,15 @@ module Roby
 
                             case m
                             when :timepoint
-                                puts "#{Roby.format_time(Time.at(sec, usec))} "\
+                                puts "#{Roby.format_time(Time.at(sec, usec))} " \
                                      "#{path.join('/')}/#{timepoint_name}"
                             when :timepoint_group_start
-                                puts "#{Roby.format_time(Time.at(sec, usec))} "\
+                                puts "#{Roby.format_time(Time.at(sec, usec))} " \
                                      "#{path.join('/')}/#{timepoint_name} {"
                                 path.push timepoint_name
                             when :timepoint_group_end
                                 path.pop
-                                puts "#{Roby.format_time(Time.at(sec, usec))} "\
+                                puts "#{Roby.format_time(Time.at(sec, usec))} " \
                                      "#{path.join('/')}/#{timepoint_name} }"
                             end
                         end
@@ -120,9 +120,7 @@ module Roby
                     graph = graph.map do |name, duration|
                         [name, (duration * 1000).round]
                     end
-                    File.open(options[:flamegraph], "w") do |io|
-                        io.write FlamegraphRenderer.new(graph).graph_html
-                    end
+                    File.write(options[:flamegraph], FlamegraphRenderer.new(graph).graph_html)
                 else
                     puts analyzer.format
                 end
@@ -146,7 +144,7 @@ module Roby
                 end
 
                 timespan = index.range
-                puts "#{cycle_count} cycles between #{timespan.first.to_hms} "\
+                puts "#{cycle_count} cycles between #{timespan.first.to_hms} " \
                      "and #{timespan.last.to_hms}"
                 process_utime = index.inject(0) { |old, info| old + info[:utime] }
                 process_stime = index.inject(0) { |old, info| old + info[:stime] }
@@ -162,7 +160,7 @@ module Roby
                     max = count if !max || max < count
                     total + count
                 end
-                puts "#{event_count} log events, #{event_count / cycle_count} "\
+                puts "#{event_count} log events, #{event_count / cycle_count} " \
                      "events/cycle (min: #{min}, max: #{max})"
 
                 io = STDOUT
@@ -234,8 +232,8 @@ module Roby
             desc "decode", "show the raw events from the logfile"
             option :replay,
                    type: :string, default: "normal",
-                   desc: "replay the log stream into a plan, add =debug to display "\
-                         "more debugging information. Mainly useful to debug issues "\
+                   desc: "replay the log stream into a plan, add =debug to display " \
+                         "more debugging information. Mainly useful to debug issues " \
                          "with the plan rebuilder"
             def decode(file = nil)
                 file = handle_file_argument(file)

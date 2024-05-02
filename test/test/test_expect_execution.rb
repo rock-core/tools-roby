@@ -70,7 +70,7 @@ module Roby
                 end
             end
 
-            it "properly formats an exception "\
+            it "properly formats an exception " \
                "when it is the reason of an unachievable message" do
                 plan.add(task = Tasks::Simple.new)
                 exception =
@@ -96,7 +96,7 @@ module Roby
                 assert_error_message_start_with(expected, unmet.message)
             end
 
-            it "properly formats an exception when it is the context of an event "\
+            it "properly formats an exception when it is the context of an event " \
                "that is the reason the expectation is unmet" do
                 plan.add(task = Tasks::Simple.new)
                 task.poll { raise "something" }
@@ -142,7 +142,7 @@ module Roby
                 actual_dbg = actual.split("\n").map(&:inspect).join("\n")
                 expected_dbg = expected.split("\n").map(&:inspect).join("\n")
                 assert actual.start_with?(expected),
-                       "expected\n```\n#{actual_dbg}\n```\nto start with\n"\
+                       "expected\n```\n#{actual_dbg}\n```\nto start with\n" \
                        "```\n#{expected_dbg}\n```"
             end
         end

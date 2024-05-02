@@ -47,8 +47,8 @@ while !async.connected? && (Time.now - start) < 10
     sleep 0.1
 end
 
-if !async.connected?
-    Robot.fatal "timed out"
-else
+if async.connected?
     Robot.info "new instance ready"
+else
+    Robot.fatal "timed out"
 end

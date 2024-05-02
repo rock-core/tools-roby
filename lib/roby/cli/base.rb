@@ -125,8 +125,8 @@ module Roby
                                 raise
                             end
 
-                            Robot.warn "failed to connect to #{host}:#{port}: "\
-                                        "#{e.message}, retrying"
+                            Robot.warn "failed to connect to #{host}:#{port}: " \
+                                       "#{e.message}, retrying"
                             sleep retry_period
                         end
                     end

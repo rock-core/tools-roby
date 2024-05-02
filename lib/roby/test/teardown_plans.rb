@@ -157,9 +157,9 @@ module Roby
             def teardown_warn(start_time, plan, last_tasks, last_quarantine)
                 if last_tasks != plan.tasks || last_quarantine != plan.quarantined_tasks
                     duration = Integer(Time.now - start_time)
-                    Roby.warn "trying to shut down #{plan} for #{duration}s after "\
-                              "#{self.class.name}##{name}, "\
-                              "quarantine=#{plan.quarantined_tasks.size} tasks, "\
+                    Roby.warn "trying to shut down #{plan} for #{duration}s after " \
+                              "#{self.class.name}##{name}, " \
+                              "quarantine=#{plan.quarantined_tasks.size} tasks, " \
                               "tasks=#{plan.tasks.size} tasks"
                 end
 
@@ -189,14 +189,14 @@ module Roby
             def teardown_clear(plan)
                 if plan.tasks.any? { |t| t.starting? || t.running? }
                     Roby.warn(
-                        "failed to teardown: #{plan} has #{plan.tasks.size} "\
-                        "tasks and #{plan.free_events.size} events, "\
+                        "failed to teardown: #{plan} has #{plan.tasks.size} " \
+                        "tasks and #{plan.free_events.size} events, " \
                         "#{plan.quarantined_tasks.size} of which are in quarantine"
                     )
 
                     unless plan.execution_engine
-                        Roby.warn "this is most likely because this plan "\
-                                  "does not have an execution engine. Either "\
+                        Roby.warn "this is most likely because this plan " \
+                                  "does not have an execution engine. Either " \
                                   "add one or clear the plan in the tests"
                     end
                 end
@@ -209,8 +209,8 @@ module Roby
                 end
 
                 unless plan.transactions.empty?
-                    Roby.warn "  #{plan.transactions.size} transactions left "\
-                                "attached to the plan"
+                    Roby.warn "  #{plan.transactions.size} transactions left " \
+                              "attached to the plan"
                     plan.transactions.each(&:discard_transaction)
                 end
 

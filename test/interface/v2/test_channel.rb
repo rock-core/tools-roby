@@ -56,7 +56,7 @@ module Roby
                     channel.push_write_data
                     assert_equal("1" * io_w_buffer_size, @io_r.read(io_w_buffer_size))
                 end
-                it "raises ComError if the internal write buffer "\
+                it "raises ComError if the internal write buffer " \
                    "reaches its maximum size" do
                     channel = Channel.new(@io_w, false, max_write_buffer_size: 1024)
                     io_w_buffer_size =
@@ -100,7 +100,7 @@ module Roby
                         @io_w.close
                         assert_raises(ComError) { channel.read_packet }
                     end
-                    it "raises ComError if writing the socket raises SystemCallError "\
+                    it "raises ComError if writing the socket raises SystemCallError " \
                        "a.k.a. any of the Errno constants" do
                         flexmock(@io_w).should_receive(:syswrite)
                                        .and_raise(SystemCallError.new("test", 0))
@@ -108,7 +108,7 @@ module Roby
                         @io_r.close
                         assert_raises(ComError) { channel.write_packet([]) }
                     end
-                    it "raises ComError if reading the socket raises SystemCallError "\
+                    it "raises ComError if reading the socket raises SystemCallError " \
                        "a.k.a. any of the Errno constants" do
                         flexmock(@io_r).should_receive(:sysread)
                                        .and_raise(SystemCallError.new("test", 0))
@@ -179,7 +179,7 @@ module Roby
                         assert_equal "Roby::LocalizedError", ret.exception.class_name
                         assert_equal child.droby_id.id, ret.failed_task.id
                         assert_equal Set[parent.droby_id.id, child.droby_id.id],
-                                     ret.involved_tasks.map(&:id).to_set
+                                     ret.involved_tasks.to_set(&:id)
                     end
                 end
 
@@ -200,7 +200,7 @@ module Roby
                     end
 
                     it "marshals a set" do
-                        set = 10.times.map { Object.new }.to_set
+                        set = 10.times.to_set { Object.new }
                         set.each_with_index do |o, i|
                             @channel.should_receive(:marshal_filter_object)
                                     .with(o).and_return { i }
@@ -277,7 +277,7 @@ module Roby
                         assert_equal (0..20), @channel.marshal_filter_object((0..20))
                     end
 
-                    it "returns any objects whose class was set up with "\
+                    it "returns any objects whose class was set up with " \
                        "#allow_classes as is" do
                         k = Class.new
                         o = k.new
@@ -296,7 +296,7 @@ module Roby
                         assert_equal o, ret.value
                     end
 
-                    it "will pick up a marshaller for a base class "\
+                    it "will pick up a marshaller for a base class " \
                        "if there is none for the exact class" do
                         base = Class.new
                         o = Class.new(base).new
@@ -308,7 +308,7 @@ module Roby
                         assert_equal o, ret.value
                     end
 
-                    it "will use the marshaller for the exact class "\
+                    it "will use the marshaller for the exact class " \
                        "even if there is one for the base class" do
                         base = Class.new
                         k = Class.new(base)
@@ -322,7 +322,7 @@ module Roby
                         assert_equal o, ret.value
                     end
 
-                    it "will use the marshaller for the most specialized class in the "\
+                    it "will use the marshaller for the most specialized class in the " \
                        "inheritance chain" do
                         base = Class.new
                         middle = Class.new(base)

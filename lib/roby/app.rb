@@ -349,7 +349,7 @@ module Roby
             if (test_dir = ENV["ROBY_APP_DIR"])
                 unless Application.is_app_dir?(test_dir)
                     raise InvalidRobyAppDirEnv,
-                          "the ROBY_APP_DIR envvar is set to #{test_dir}, but this "\
+                          "the ROBY_APP_DIR envvar is set to #{test_dir}, but this " \
                           "is not a valid Roby application path"
                 end
 
@@ -578,7 +578,7 @@ module Roby
             end
             parser.on(
                 "--log=SPEC", String,
-                "configuration specification for text loggers. SPEC is of the form "\
+                "configuration specification for text loggers. SPEC is of the form " \
                 "path/to/a/module:LEVEL[:FILE][,path/to/another]"
             ) do |log_spec|
                 log_spec.split(",").each do |spec|
@@ -1337,7 +1337,7 @@ module Roby
         def call_plugins(method, *args, deprecated: nil)
             each_responding_plugin(method) do |config_extension|
                 if deprecated
-                    Roby.warn "#{config_extension} uses the deprecated .#{method} "\
+                    Roby.warn "#{config_extension} uses the deprecated .#{method} " \
                               "hook during setup and teardown, #{deprecated}"
                 end
                 config_extension.send(method, *args)
@@ -1374,7 +1374,7 @@ module Roby
                 name = name.to_s
                 unless (plugin = plugin_definition(name))
                     raise ArgumentError,
-                          "#{name} is not a known plugin (available plugins: "\
+                          "#{name} is not a known plugin (available plugins: " \
                           "#{available_plugins.map { |n, *_| n }.join(', ')})"
                 end
 
@@ -1635,7 +1635,7 @@ module Roby
             metadata = log_read_metadata
             if metadata.empty?
                 raise NoCurrentLog,
-                      "#{log_current_dir} is not a valid Roby log dir, "\
+                      "#{log_current_dir} is not a valid Roby log dir, " \
                       "it does not have an info.yml metadata file"
             elsif !(robot_name = metadata.map { |h| h["robot_name"] }.compact.last)
                 raise NoCurrentLog,
@@ -1645,7 +1645,7 @@ module Roby
             full_path = File.join(log_current_dir, "#{robot_name}-events.log")
             unless File.file?(full_path)
                 raise NoCurrentLog,
-                      "inferred log file #{full_path} for #{log_current_dir}, "\
+                      "inferred log file #{full_path} for #{log_current_dir}, " \
                       "but that file does not exist"
             end
 
@@ -1670,7 +1670,7 @@ module Roby
                       "#{current_path} points to #{resolved_path}, which does not exist"
             elsif !File.directory?(resolved_path)
                 raise ArgumentError,
-                      "#{current_path} points to #{resolved_path}, "\
+                      "#{current_path} points to #{resolved_path}, " \
                       "which is not a directory"
             end
             resolved_path
@@ -1697,10 +1697,10 @@ module Roby
 
             date_tag ||= Time.now.strftime("%Y%m%d-%H%M")
             basename =
-                if !basename.empty?
-                    "#{date_tag}-#{basename}"
-                else
+                if basename.empty?
                     date_tag
+                else
+                    "#{date_tag}-#{basename}"
                 end
 
             # Check if +basename+ already exists, and if it is the case add a
@@ -1805,10 +1805,10 @@ module Roby
             file = make_path_relative(absolute_path)
             Roby::Application.info "loading #{file} (#{absolute_path})"
             isolate_load_errors("ignored file #{file}") do
-                if file != absolute_path
-                    Kernel.require(file)
-                else
+                if file == absolute_path
                     Kernel.require absolute_path
+                else
+                    Kernel.require(file)
                 end
             end
         end
@@ -2040,7 +2040,7 @@ module Roby
                 apply_config_interface(host_port)
             elsif (host_port = config.fetch("droby", {})["host"])
                 Roby.warn_deprecated(
-                    "the droby.host configuration parameter in config/app.yml "\
+                    "the droby.host configuration parameter in config/app.yml " \
                     "is deprecated, use 'interface' at the toplevel instead"
                 )
                 apply_config_interface(host_port)
@@ -2154,7 +2154,7 @@ module Roby
             )
             shell_interface.abort_on_exception = shell_abort_on_exception?
             if shell_interface_fd
-                Robot.info "shell interface started on file descriptor "\
+                Robot.info "shell interface started on file descriptor " \
                            "#{shell_interface_fd}"
             else
                 Robot.info "shell interface started on port #{shell_interface_port}"
@@ -2176,7 +2176,7 @@ module Roby
             enable_remote_interface_version(2)
 
             if @shell_interface_v2
-                raise "there is already a v2 shell interface started, "\
+                raise "there is already a v2 shell interface started, " \
                       "call #stop_shell_interface first"
             end
 
@@ -2187,7 +2187,7 @@ module Roby
             )
             shell_interface_v2.abort_on_exception = shell_abort_on_exception?
             if shell_interface_v2_fd
-                Robot.info "shell interface v2 started on file descriptor "\
+                Robot.info "shell interface v2 started on file descriptor " \
                            "#{shell_interface_v2_fd}"
             else
                 Robot.info "shell interface v2 started on port #{shell_interface_v2_port}"
@@ -2232,10 +2232,10 @@ module Roby
             )
             @rest_interface.start
 
-            if rest_interface_port != Interface::DEFAULT_REST_PORT
-                Robot.info "REST interface started on port #{@rest_interface.port(timeout: nil)}"
-            else
+            if rest_interface_port == Interface::DEFAULT_REST_PORT
                 Robot.debug "REST interface started on port #{rest_interface_port}"
+            else
+                Robot.info "REST interface started on port #{@rest_interface.port(timeout: nil)}"
             end
             @rest_interface
         end
@@ -3007,7 +3007,7 @@ module Roby
 
             candidates_s = candidates.map { |pl, _| pl.to_s }.sort.join(", ")
             raise ActionResolutionError,
-                  "more than one action interface provide the #{name} "\
+                  "more than one action interface provide the #{name} " \
                   "action: #{candidates_s}"
         end
 
@@ -3027,11 +3027,11 @@ module Roby
                 end.flatten
                 if available_actions.empty?
                     raise ActionResolutionError,
-                          "cannot find an action named #{name}, "\
+                          "cannot find an action named #{name}, " \
                           "there are no actions defined"
                 else
                     raise ActionResolutionError,
-                          "cannot find an action named #{name}, "\
+                          "cannot find an action named #{name}, " \
                           "available actions are: #{available_actions.sort.join(', ')}"
                 end
             end

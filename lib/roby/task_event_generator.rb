@@ -247,30 +247,30 @@ module Roby
 
             if task.failed_to_start?
                 CommandRejected.new(self).exception(
-                    "#{symbol}! called by #{execution_engine.propagation_sources.to_a} "\
+                    "#{symbol}! called by #{execution_engine.propagation_sources.to_a} " \
                     "but the task has failed to start: #{task.failure_reason}"
                 )
             elsif task.event(:stop).emitted?
                 CommandRejected.new(self).exception(
-                    "#{symbol}! called by #{execution_engine.propagation_sources.to_a} "\
-                    "but the task has finished. Task has been terminated by "\
+                    "#{symbol}! called by #{execution_engine.propagation_sources.to_a} " \
+                    "but the task has finished. Task has been terminated by " \
                     "#{task.event(:stop).history.first.sources.to_a}."
                 )
             elsif task.finished? && !terminal?
                 CommandRejected.new(self).exception(
-                    "#{symbol}! called by #{execution_engine.propagation_sources.to_a} "\
-                    "but the task has finished. Task has been terminated by "\
+                    "#{symbol}! called by #{execution_engine.propagation_sources.to_a} " \
+                    "but the task has finished. Task has been terminated by " \
                     "#{task.event(:stop).history.first.sources.to_a}."
                 )
             elsif task.pending? && symbol != :start
                 CommandRejected.new(self).exception(
-                    "#{symbol}! called by #{execution_engine.propagation_sources.to_a} "\
+                    "#{symbol}! called by #{execution_engine.propagation_sources.to_a} " \
                     "but the task has never been started"
                 )
             elsif task.running? && symbol == :start
                 CommandRejected.new(self).exception(
-                    "#{symbol}! called by #{execution_engine.propagation_sources.to_a} "\
-                    "but the task is already running. Task has been started by "\
+                    "#{symbol}! called by #{execution_engine.propagation_sources.to_a} " \
+                    "but the task is already running. Task has been started by " \
                     "#{task.event(:start).history.first.sources.to_a}."
                 )
             else
@@ -300,13 +300,13 @@ module Roby
         def refine_call_exception(e)
             if task.partially_instanciated?
                 TaskEventNotExecutable.new(self).exception(
-                    "#{symbol}_event.call on #{task} which is partially instanciated\n"\
-                    "The following arguments were not set:\n  "\
+                    "#{symbol}_event.call on #{task} which is partially instanciated\n" \
+                    "The following arguments were not set:\n  " \
                     "#{task.list_unset_arguments.map(&:to_s).join('\n  ')}"
                 )
             elsif !plan
                 TaskEventNotExecutable.new(self).exception(
-                    "#{symbol}_event.call on #{task} but "\
+                    "#{symbol}_event.call on #{task} but " \
                     "the task has been removed from its plan"
                 )
             elsif !plan.executable?
@@ -332,13 +332,13 @@ module Roby
         def refine_emit_exception(e) # :nodoc:
             if task.partially_instanciated?
                 TaskEventNotExecutable.new(self).exception(
-                    "#{symbol}_event.emit on #{task} which is partially instanciated\n"\
+                    "#{symbol}_event.emit on #{task} which is partially instanciated\n" \
                     "The following arguments were not set:\n  " +
                     task.list_unset_arguments.map(&:to_s).join("\n")
                 )
             elsif !plan
                 TaskEventNotExecutable.new(self).exception(
-                    "#{symbol}_event.emit on #{task} but "\
+                    "#{symbol}_event.emit on #{task} but " \
                     "the task has been removed from its plan"
                 )
             elsif !plan.executable?

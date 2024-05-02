@@ -122,17 +122,17 @@ describe Roby::Interface::Interface do
             expected_notifications.each_with_index do |expected, i|
                 queued = interface.job_notifications[i]
                 if !queued
-                    flunk "expected notification #{i} to be #{expected.inspect}\n"\
-                        "but there was none"
+                    flunk "expected notification #{i} to be #{expected.inspect}\n" \
+                          "but there was none"
                 elsif !expected.each_with_index.all? { |v, v_i| v === queued[v_i] }
-                    flunk "expected notification #{i} to be #{expected.inspect}\n"\
-                        "but got #{queued.inspect}"
+                    flunk "expected notification #{i} to be #{expected.inspect}\n" \
+                          "but got #{queued.inspect}"
                 end
             end
             if strict
                 assert_equal expected_notifications.size,
                              interface.job_notifications.size,
-                             "the extra notifications are: "\
+                             "the extra notifications are: " \
                              "#{interface.job_notifications[expected_notifications.size..-1]}"
             end
         end
@@ -140,17 +140,17 @@ describe Roby::Interface::Interface do
         def assert_received_notifications(*expected_notifications, strict: false)
             expected_notifications.each_with_index do |expected, i|
                 if !recorder[i]
-                    flunk "expected notification #{i} to be #{expected.inspect}\n"\
-                        "but there was none"
+                    flunk "expected notification #{i} to be #{expected.inspect}\n" \
+                          "but there was none"
                 elsif !expected.each_with_index.all? { |v, v_i| v === recorder[i][v_i] }
-                    flunk "expected notification #{i} to be #{expected.inspect}\n"\
-                        "but got #{recorder[i].inspect}"
+                    flunk "expected notification #{i} to be #{expected.inspect}\n" \
+                          "but got #{recorder[i].inspect}"
                 end
             end
             if strict
                 assert_equal expected_notifications.size,
                              recorder.size,
-                             "the extra notifications are: "\
+                             "the extra notifications are: " \
                              "#{interface.job_notifications[expected_notifications.size..-1]}"
             end
         end

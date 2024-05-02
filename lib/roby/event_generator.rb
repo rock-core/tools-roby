@@ -267,9 +267,9 @@ module Roby
         def call(*context)
             engine = execution_engine
             if engine && !engine.in_propagation_context?
-                Roby.warn_deprecated "calling EventGenerator#call outside of a "\
-                                     "propagation context is deprecated. In "\
-                                     "tests, use execute { } or expect_execution "\
+                Roby.warn_deprecated "calling EventGenerator#call outside of a " \
+                                     "propagation context is deprecated. In " \
+                                     "tests, use execute { } or expect_execution " \
                                      "{ }.to { }"
                 engine.process_events_synchronous { call(*context) }
                 return
@@ -428,8 +428,8 @@ module Roby
         #   the one on which the handler got installed
         def if_unreachable(options = {}, &block)
             if [true, false].include?(options)
-                Roby.warn_deprecated "if_unreachable(cancel_at_emission) has been "\
-                                     "replaced by if_unreachable(cancel_at_emission: "\
+                Roby.warn_deprecated "if_unreachable(cancel_at_emission) has been " \
+                                     "replaced by if_unreachable(cancel_at_emission: " \
                                      "true or false, on_replace: :policy)"
                 options = { cancel_at_emission: options }
             end
@@ -439,7 +439,7 @@ module Roby
 
             unless %i[drop copy].include?(options[:on_replace])
                 raise ArgumentError,
-                      "wrong value for the :on_replace option. "\
+                      "wrong value for the :on_replace option. " \
                       "Expecting either :drop or :copy, got #{options[:on_replace]}"
             end
 
@@ -645,8 +645,8 @@ module Roby
         def emit_failed(error = nil, message = nil)
             engine = execution_engine
             if engine && !engine.in_propagation_context?
-                Roby.warn_deprecated "calling EventGenerator#emit_failed outside of a "\
-                                     "propagation context is deprecated. In tests, "\
+                Roby.warn_deprecated "calling EventGenerator#emit_failed outside of a " \
+                                     "propagation context is deprecated. In tests, " \
                                      "use execute { } or expect_execution { }.to { }"
                 engine.process_events_synchronous { emit_failed(error, message) }
                 return
@@ -716,8 +716,8 @@ module Roby
         def emit(*context)
             engine = execution_engine
             if engine && !engine.in_propagation_context?
-                Roby.warn_deprecated "calling EventGenerator#emit outside of a "\
-                                     "propagation context is deprecated. In tests, "\
+                Roby.warn_deprecated "calling EventGenerator#emit outside of a " \
+                                     "propagation context is deprecated. In tests, " \
                                      "use execute { } or expect_execution { }.to { }"
                 engine.process_events_synchronous { emit(*context) }
                 return
@@ -982,8 +982,8 @@ module Roby
         def add_child_object(child, type, info) # :nodoc:
             unless child.read_write?
                 raise OwnershipError,
-                      "cannot add an event relation on a child we don't own. "\
-                      "#{child} is owned by #{child.owners.to_a} (plan is "\
+                      "cannot add an event relation on a child we don't own. " \
+                      "#{child} is owned by #{child.owners.to_a} (plan is " \
                       "owned by #{plan.owners.to_a if plan})"
             end
 
@@ -1047,8 +1047,8 @@ module Roby
         def unreachable!(reason = nil, plan = self.plan)
             engine = execution_engine
             if engine && !engine.in_propagation_context?
-                Roby.warn_deprecated "calling EventGenerator#unreachable! outside of a "\
-                                     "propagation context is deprecated. In tests, "\
+                Roby.warn_deprecated "calling EventGenerator#unreachable! outside of a " \
+                                     "propagation context is deprecated. In tests, " \
                                      "use execute { } or expect_execution { }.to { }"
                 execution_engine.process_events_synchronous do
                     unreachable!(reason, plan)

@@ -252,7 +252,7 @@ module Roby
                     engine.add_framework_error(e, description)
                     false
                 when :disable
-                    engine.warn "propagation handler #{description} disabled "\
+                    engine.warn "propagation handler #{description} disabled " \
                                 "because of the following error"
                     Roby.log_exception_with_backtrace(e, engine, :warn)
                     false
@@ -487,8 +487,8 @@ module Roby
         def scheduler=(scheduler)
             unless scheduler
                 raise ArgumentError,
-                      "cannot set the scheduler to nil. You can disable the current "\
-                      "scheduler with .enabled = false instead, or set it to "\
+                      "cannot set the scheduler to nil. You can disable the current " \
+                      "scheduler with .enabled = false instead, or set it to " \
                       "Schedulers::Null.new"
             end
 
@@ -496,7 +496,7 @@ module Roby
         end
 
         def gathering?
-            Roby.warn_deprecated "#gathering? is deprecated, use "\
+            Roby.warn_deprecated "#gathering? is deprecated, use " \
                                  "#in_propagation_context? instead"
             in_propagation_context?
         end
@@ -642,7 +642,7 @@ module Roby
             else
                 Roby.log_exception_with_backtrace(e, self, :fatal)
                 raise NotPropagationContext,
-                      "#add_error called outside an error-gathering "\
+                      "#add_error called outside an error-gathering " \
                       "context (#add_error)"
             end
         end
@@ -1166,10 +1166,10 @@ module Roby
                                     end
                                 rescue Roby::LocalizedError => e
                                     Roby.warn(
-                                        "Internal Error: #emit_without_propagation "\
-                                        "emitted a LocalizedError exception. This is "\
-                                        "unsupported and will become a fatal error in "\
-                                        "the future. You should usually replace raise "\
+                                        "Internal Error: #emit_without_propagation " \
+                                        "emitted a LocalizedError exception. This is " \
+                                        "unsupported and will become a fatal error in " \
+                                        "the future. You should usually replace raise " \
                                         "with engine.add_error"
                                     )
                                     Roby.display_exception(
@@ -1178,10 +1178,10 @@ module Roby
                                     add_error(e)
                                 rescue Exception => e
                                     Roby.warn(
-                                        "Internal Error: #emit_without_propagation "\
-                                        "emitted an exception. This is unsupported "\
-                                        "and will become a fatal error in the future. "\
-                                        "You should create a proper localized error "\
+                                        "Internal Error: #emit_without_propagation " \
+                                        "emitted an exception. This is unsupported " \
+                                        "and will become a fatal error in the future. " \
+                                        "You should create a proper localized error " \
                                         "and replace raise with engine.add_error"
                                     )
                                     Roby.display_exception(
@@ -1261,8 +1261,8 @@ module Roby
                 if parents
                     filtered_parents = parents.find_all { |t| t.depends_on?(origin) }
                     if filtered_parents != parents
-                        warn "some parents specified for #{exception.exception}"\
-                             "(#{exception.exception.class}) are actually not parents "\
+                        warn "some parents specified for #{exception.exception}" \
+                             "(#{exception.exception.class}) are actually not parents " \
                              "of #{origin}, they got filtered out"
                         (parents - filtered_parents).each do |task|
                             warn "  #{task}"
@@ -1503,7 +1503,7 @@ module Roby
                 compute_kill_tasks_for_unhandled_fatal_errors(fatal_errors).to_set
             handled_errors = structure_handled + events_handled
 
-            debug "#{fatal_errors.size} fatal errors found and "\
+            debug "#{fatal_errors.size} fatal errors found and " \
                   "#{free_events_errors.size} errors involving free events"
             debug "the fatal errors involve #{kill_tasks.size} non-finalized tasks"
             PropagationInfo.new(
@@ -1857,10 +1857,10 @@ module Roby
         rescue Exception => e
             if passed_recursive_check
                 application_exceptions = clear_application_exceptions
-                if !application_exceptions.empty?
-                    raise SynchronousEventProcessingMultipleErrors.new(application_exceptions.map(&:first) + [e])
-                else
+                if application_exceptions.empty?
                     raise e
+                else
+                    raise SynchronousEventProcessingMultipleErrors.new(application_exceptions.map(&:first) + [e])
                 end
             else
                 raise e
@@ -1977,7 +1977,7 @@ module Roby
                     mismatches_s = mismatching_plan.map { |t| "#{t}(plan=#{t.plan})" }
                                                    .join(", ")
                     raise ArgumentError,
-                          "#{mismatches_s} have been given to #{self}.garbage_collect, "\
+                          "#{mismatches_s} have been given to #{self}.garbage_collect, " \
                           "but they are not tasks in #{plan}"
                 end
             end
@@ -2005,7 +2005,7 @@ module Roby
                 debug do
                     debug "#{local_tasks.size} tasks are unneeded in this plan"
                     local_tasks.each do |t|
-                        debug "  #{t} mission=#{plan.mission_task?(t)} "\
+                        debug "  #{t} mission=#{plan.mission_task?(t)} " \
                               "permanent=#{plan.permanent_task?(t)}"
                     end
                     break
@@ -2069,12 +2069,12 @@ module Roby
                 warn "GC: #{local_task} is running but in quarantine"
             elsif local_task.event(:stop).controlable?
                 debug { "GC: attempting to stop #{local_task}" }
-                if !local_task.respond_to?(:stop!)
-                    warn "something fishy: #{local_task}/stop is controlable but "\
+                if local_task.respond_to?(:stop!)
+                    return true
+                else
+                    warn "something fishy: #{local_task}/stop is controlable but " \
                          "there is no #stop! method, putting in quarantine"
                     plan.quarantine_task(local_task)
-                else
-                    return true
                 end
             else
                 warn "GC: #{local_task} cannot be stopped, putting in quarantine"
@@ -2317,8 +2317,8 @@ module Roby
 
         def issue_quit_progression_warning(remaining)
             Robot.info(
-                "Waiting for #{remaining.size} tasks to finish "\
-                "(#{plan.num_tasks} tasks still in plan) and "\
+                "Waiting for #{remaining.size} tasks to finish " \
+                "(#{plan.num_tasks} tasks still in plan) and " \
                 "#{waiting_work.size} async work jobs"
             )
             remaining.each do |task|
@@ -2367,7 +2367,7 @@ module Roby
                 GC::Profiler.disable if profile_gc?
             rescue Exception => e
                 if quitting?
-                    fatal "Execution thread FORCEFULLY quitting "\
+                    fatal "Execution thread FORCEFULLY quitting " \
                           "because of unhandled exception"
                     Roby.log_exception_with_backtrace(e, self, :fatal)
                     raise
@@ -2425,12 +2425,12 @@ module Roby
                     fatal "Quitting without cleaning up"
                     force_quit
                 else
-                    fatal "Still #{time_until_deadline.ceil}s before "\
+                    fatal "Still #{time_until_deadline.ceil}s before " \
                           "interruption will quit without cleaning up"
                 end
             else
                 fatal "Received interruption request"
-                fatal "Interrupt again in #{INTERRUPT_FORCE_EXIT_DEAD_ZONE}s "\
+                fatal "Interrupt again in #{INTERRUPT_FORCE_EXIT_DEAD_ZONE}s " \
                       "to quit without cleaning up"
                 quit
                 exit_state.force_exit_deadline =
@@ -2568,11 +2568,11 @@ module Roby
             ivar = Concurrent::IVar.new
             once(sync: ivar, type: type) do
                 begin
-                    if !catch.empty?
+                    if catch.empty?
+                        ivar.set([:ret, yield])
+                    else
                         result = capture_catch.call(*catch, &block)
                         ivar.set(result)
-                    else
-                        ivar.set([:ret, yield])
                     end
                 rescue ::Exception => e # rubocop:disable Lint/RescueException
                     ivar.set([:raise, e])

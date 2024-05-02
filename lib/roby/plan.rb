@@ -235,8 +235,8 @@ module Roby
         end
 
         def inspect # :nodoc:
-            "#<#{self}: mission_tasks=#{mission_tasks} tasks=#{tasks} "\
-            "events=#{free_events} transactions=#{transactions}>"
+            "#<#{self}: mission_tasks=#{mission_tasks} tasks=#{tasks} " \
+                "events=#{free_events} transactions=#{transactions}>"
         end
 
         # Calls the given block in the execution thread of this plan's engine.
@@ -383,14 +383,14 @@ module Roby
         #   mapping[t] => corresponding task in +copy+
         def deep_copy_to(copy)
             mappings = Hash.new do |_, k|
-                if !include?(k)
+                if include?(k)
                     raise InternalError,
-                          "#{k} is listed in a relation, but is not included "\
-                          "in the corresponding plan #{self}"
+                          "#{k} is an object in #{self} for which no mapping " \
+                          "has been created in #{copy}"
                 else
                     raise InternalError,
-                          "#{k} is an object in #{self} for which no mapping "\
-                          "has been created in #{copy}"
+                          "#{k} is listed in a relation, but is not included " \
+                          "in the corresponding plan #{self}"
                 end
             end
 
@@ -582,7 +582,7 @@ module Roby
         # @deprecated use {#add_permanent_task} or {#add_permanent_event} instead
         def add_permanent(object)
             Roby.warn_deprecated(
-                "#add_permanent is deprecated, use either #add_permanent_task "\
+                "#add_permanent is deprecated, use either #add_permanent_task " \
                 "or #add_permanent_event instead"
             )
             object = normalize_add_arguments([object]).first
@@ -597,7 +597,7 @@ module Roby
         # @deprecated use {#unmark_permanent_task} or {#unmark_permanent_event} instead
         def unmark_permanent(object)
             Roby.warn_deprecated(
-                "#unmark_permanent is deprecated, use either #unmark_permanent_task "\
+                "#unmark_permanent is deprecated, use either #unmark_permanent_task " \
                 "or #unmark_permanent_event"
             )
 
@@ -613,7 +613,7 @@ module Roby
         # @deprecated use {#permanent_task?} or {#permanent_event?} instead
         def permanent?(object)
             Roby.warn_deprecated(
-                "#permanent? is deprecated, use either "\
+                "#permanent? is deprecated, use either " \
                 "#permanent_task? or #permanent_event?"
             )
 
@@ -737,21 +737,21 @@ module Roby
         def handle_force_replace(from, to)
             if !from.plan
                 raise ArgumentError,
-                      "#{from} has been removed from plan, "\
+                      "#{from} has been removed from plan, " \
                       "cannot use as source in a replacement"
             elsif !to.plan
                 raise ArgumentError,
-                      "#{to} has been removed from plan, "\
+                      "#{to} has been removed from plan, " \
                       "cannot use as target in a replacement"
             elsif from.plan != self
                 raise ArgumentError,
-                      "trying to replace #{from} but its plan "\
+                      "trying to replace #{from} but its plan " \
                       "is #{from.plan}, expected #{self}"
             elsif to.plan.template?
                 add(to)
             elsif to.plan != self
                 raise ArgumentError,
-                      "trying to replace #{to} but its plan "\
+                      "trying to replace #{to} but its plan " \
                       "is #{to.plan}, expected #{self}"
             elsif from == to
                 return
@@ -926,7 +926,7 @@ module Roby
         def add_plan_service(service)
             if service.task.plan != self
                 raise ArgumentError,
-                      "trying to register a plan service on #{self} for "\
+                      "trying to register a plan service on #{self} for " \
                       "#{service.task}, which is included in #{service.task.plan}"
             end
 
@@ -1115,19 +1115,19 @@ module Roby
 
                 if plan_object.removed_at
                     raise ArgumentError,
-                          "cannot add #{plan_object} in #{self}, "\
+                          "cannot add #{plan_object} in #{self}, " \
                           "it has been removed from the plan"
                 elsif !p
                     raise InternalError,
-                          "there seem to be an inconsistency, #{plan_object}#plan "\
+                          "there seem to be an inconsistency, #{plan_object}#plan " \
                           "is nil but #removed_at is not set"
                 elsif p.empty?
                     raise InternalError,
-                          "there seem to be an inconsistency, #{plan_object} "\
+                          "there seem to be an inconsistency, #{plan_object} " \
                           "is associated with #{p} but #{p} is empty"
                 elsif !p.template?
                     raise ModelViolation,
-                          "cannot add #{plan_object} in #{self}, "\
+                          "cannot add #{plan_object} in #{self}, " \
                           "it is already included in #{p}"
                 end
                 plans << p
@@ -1490,7 +1490,7 @@ module Roby
         #   {#has_task_event?} instead
         def include?(object)
             Roby.warn_deprecated(
-                "Plan#include? is deprecated, use one of the more specific "\
+                "Plan#include? is deprecated, use one of the more specific " \
                 "#has_task? #has_task_event? and #has_free_event?"
             )
             has_free_event?(object) || has_task_event?(object) || has_task?(object)
@@ -1558,13 +1558,13 @@ module Roby
             if !object.plan
                 if object.removed_at && !object.removed_at.empty?
                     raise ArgumentError,
-                          "#{object} has already been removed from its plan\n"\
+                          "#{object} has already been removed from its plan\n" \
                           "Removed at\n  #{object.removed_at.join("\n  ")}"
                 else
                     raise ArgumentError,
-                          "#{object} has already been removed from its plan. "\
-                          "Set PlanObject.debug_finalization_place to true to "\
-                          "get the backtrace of where (in the code) the object "\
+                          "#{object} has already been removed from its plan. " \
+                          "Set PlanObject.debug_finalization_place to true to " \
+                          "get the backtrace of where (in the code) the object " \
                           "got finalized"
                 end
             elsif object.plan.template?
@@ -1642,7 +1642,7 @@ module Roby
         # @deprecated use {#remove_task} or {#remove_free_event} instead
         def remove_object(object, timestamp = Time.now)
             Roby.warn_deprecated(
-                "#remove_object is deprecated, use either "\
+                "#remove_object is deprecated, use either " \
                 "#remove_task or #remove_free_event"
             )
 
@@ -1684,7 +1684,7 @@ module Roby
             end
 
             unless remaining.empty?
-                Roby.warn "#{remaining.size} tasks remaining after clearing "\
+                Roby.warn "#{remaining.size} tasks remaining after clearing " \
                           "the plan as they are still running"
                 remaining.each do |t|
                     Roby.warn "  #{t}"
@@ -1847,19 +1847,19 @@ module Roby
                 other_plan.tasks | other_plan.free_events | other_plan.task_events
             )
 
-            all_mapped_objects = all_self_objects.map do |obj|
+            all_mapped_objects = all_self_objects.to_set do |obj|
                 return [:new_object, obj] unless mappings.key?(obj)
 
                 mappings[obj]
-            end.to_set
+            end
 
             if all_mapped_objects != all_other_objects
                 return [:removed_objects, all_other_objects - all_mapped_objects]
-            elsif mission_tasks.map { |m| mappings[m] }.to_set != other_plan.mission_tasks
+            elsif mission_tasks.to_set { |m| mappings[m] } != other_plan.mission_tasks
                 return [:missions_differ]
-            elsif permanent_tasks.map { |p| mappings[p] }.to_set != other_plan.permanent_tasks
+            elsif permanent_tasks.to_set { |p| mappings[p] } != other_plan.permanent_tasks
                 return [:permanent_tasks_differ]
-            elsif permanent_events.map { |p| mappings[p] }.to_set != other_plan.permanent_events
+            elsif permanent_events.to_set { |p| mappings[p] } != other_plan.permanent_events
                 return [:permanent_events_differ]
             end
 

@@ -155,10 +155,10 @@ module Roby
 
                     def state
                         if interface.reachable?
-                            if !async
-                                :reachable
-                            else
+                            if async
                                 async.state
+                            else
+                                :reachable
                             end
                         else
                             :unreachable

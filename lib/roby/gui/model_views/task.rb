@@ -32,7 +32,7 @@ module Roby
                                                                   external_objects: false, doc: true
                     if (external_objects = options[:external_objects])
                         file = "#{external_objects % 'roby_task'}.svg"
-                        File.open(file, "w") { |io| io.write(svg) }
+                        File.write(file, svg)
                         svg = "<object data=\"#{file}\" type=\"image/svg+xml\"></object>"
                     end
 

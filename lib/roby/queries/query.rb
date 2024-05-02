@@ -62,7 +62,7 @@ module Roby
                 if block_given? # Enumerable version
                     super
                 else
-                    Roby.warn_deprecated "Query#filter is deprecated, "\
+                    Roby.warn_deprecated "Query#filter is deprecated, " \
                                          "use #filter_tasks_sets instead"
                     # TaskMatcher version
                     filter_tasks_sets(*args, &block)

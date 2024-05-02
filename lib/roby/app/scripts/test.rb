@@ -25,30 +25,30 @@ excluded_patterns = []
 base_dir = File.join(Roby.app.app_dir, "test")
 force_discovery = false
 parser = OptionParser.new do |opt|
-    opt.banner = "#{File.basename($0)} test [ROBY_OPTIONS] -- "\
+    opt.banner = "#{File.basename($0)} test [ROBY_OPTIONS] -- " \
                  "[MINITEST_OPTIONS] [TEST_FILES]"
     opt.on("--self", "only run tests that are present in this bundle") do |val|
         only_self = true
     end
-    opt.on("--not-all", "run all the tests found in the bundle, regardless of whether "\
+    opt.on("--not-all", "run all the tests found in the bundle, regardless of whether " \
                         "they are loaded by the robot configuration") do |val|
         all = false
     end
-    opt.on("--really-all", "load all models, and run all the tests "\
+    opt.on("--really-all", "load all models, and run all the tests " \
                            "found in the bundle") do |val|
         app.auto_load_models = true
         all = true
     end
-    opt.on("--exclude PATTERN", String, "do not run files "\
-           "matching this pattern") do |pattern|
+    opt.on("--exclude PATTERN", String, "do not run files " \
+                                        "matching this pattern") do |pattern|
         pattern = "**/#{pattern}" if pattern[0, 1] != "/"
         excluded_patterns << pattern
     end
-    opt.on("--distributed", "access remote systems while setting up "\
+    opt.on("--distributed", "access remote systems while setting up " \
                             "or running the tests") do |val|
         Roby.app.single = !val
     end
-    opt.on("--list", "lists the test files that are executed, "\
+    opt.on("--list", "lists the test files that are executed, " \
                      "but does not execute them") do
         list_tests = true
     end
@@ -58,7 +58,7 @@ parser = OptionParser.new do |opt|
     opt.on("-k", "--keep-logs", "keep all logs") do
         Roby.app.public_logs = true
     end
-    opt.on("--ui", "tell plugins and/or robot configurations to load their "\
+    opt.on("--ui", "tell plugins and/or robot configurations to load their " \
                    "UI frameworks of choice. This does not imply --interactive") do
         Conf.ui = true
     end
@@ -66,19 +66,19 @@ parser = OptionParser.new do |opt|
         Roby.app.automatic_testing = false
     end
     opt.on("--coverage[=NAME]", String,
-           "generate code coverage information. This autoloads "\
-           "all files and task context models to get "\
+           "generate code coverage information. This autoloads " \
+           "all files and task context models to get " \
            "a full coverage information") do |name|
         require "simplecov"
         SimpleCov.command_name name
         SimpleCov.start
     end
-    opt.on("--base-dir DIR", "includes the directory on which the tests "\
-                         "will be auto-discovered") do |dir|
+    opt.on("--base-dir DIR", "includes the directory on which the tests " \
+                             "will be auto-discovered") do |dir|
         base_dir = dir
     end
     opt.on("--force-discovery",
-           "call discover_test_files even if there are "\
+           "call discover_test_files even if there are " \
            "explicit files on the command line") do
         force_discovery = true
     end

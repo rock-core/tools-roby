@@ -189,7 +189,7 @@ module Roby
                 def join(timeout: nil)
                     if timeout
                         unless @server_thread.join(timeout)
-                            raise Timeout, "timed out while waiting for "\
+                            raise Timeout, "timed out while waiting for " \
                                            "the server to stop"
                         end
                     else
@@ -221,8 +221,8 @@ module Roby
                         params: { value: test_value }
                     )
                     if test_value != Integer(returned_value)
-                        raise InvalidServer, "unexpected server answer to 'ping', "\
-                                             "expected #{test_value} but got "\
+                        raise InvalidServer, "unexpected server answer to 'ping', " \
+                                             "expected #{test_value} but got " \
                                              "#{returned_value}"
                     end
                     true

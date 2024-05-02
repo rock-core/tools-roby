@@ -543,7 +543,7 @@ module Roby
         end
 
         describe "#find_dirs" do
-            it "interprets the first element of search_path "\
+            it "interprets the first element of search_path " \
                "as being the most specific" do
                 least_specific = make_tmppath
                 (least_specific / "test").mkdir
@@ -650,7 +650,7 @@ module Roby
                 assert_equal [path], app.each_test_file_in_app.to_a
             end
 
-            it "only loads the test file in test/robots/ that match the current "\
+            it "only loads the test file in test/robots/ that match the current " \
                "robot name" do
                 touch_test_files \
                     %w[robots test_current_robot.rb],
@@ -662,7 +662,7 @@ module Roby
                 assert_equal [path], app.each_test_file_in_app.to_a
             end
 
-            it "falls back to the robot type test if there is one and none for the "\
+            it "falls back to the robot type test if there is one and none for the " \
                "robot type" do
                 touch_test_files \
                     %w[robots test_current_robot_type.rb],
@@ -1122,12 +1122,12 @@ module Roby
         end
 
         def touch_test_files(*paths)
-            paths.map do |p|
+            paths.to_set do |p|
                 full_p = File.join(app.app_dir, "test", *p)
                 FileUtils.mkdir_p File.dirname(full_p)
                 FileUtils.touch full_p
                 full_p
-            end.to_set
+            end
         end
     end
 end

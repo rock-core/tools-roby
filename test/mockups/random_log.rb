@@ -14,8 +14,8 @@ def pick_parent_child(set, group_size: 5)
     if from_group > to_group
         from_group, to_group = to_group, from_group
     end
-    from_i = from_group * group_size + rand(group_size)
-    to_i   = to_group * group_size + rand(group_size)
+    from_i = (from_group * group_size) + rand(group_size)
+    to_i   = (to_group * group_size) + rand(group_size)
 
     [set[from_i], set[to_i]]
 end

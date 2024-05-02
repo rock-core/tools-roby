@@ -315,17 +315,17 @@ module Roby
                 g_forward  = graph.instance_variable_get(:@forward_edges_with_info)
                 g_backward = graph.instance_variable_get(:@backward_edges)
                 g_forward.each do |g_u, g_out_edges|
-                    if !(out_edges = @forward_edges_with_info[g_u])
-                        @forward_edges_with_info[g_u] = g_out_edges.dup
-                    else
+                    if (out_edges = @forward_edges_with_info[g_u])
                         out_edges.merge!(g_out_edges)
+                    else
+                        @forward_edges_with_info[g_u] = g_out_edges.dup
                     end
                 end
                 g_backward.each do |g_v, g_in_edges|
-                    if !(in_edges = @backward_edges[g_v])
-                        @backward_edges[g_v] = g_in_edges.dup
-                    else
+                    if (in_edges = @backward_edges[g_v])
                         in_edges.merge!(g_in_edges)
+                    else
+                        @backward_edges[g_v] = g_in_edges.dup
                     end
                 end
             end
@@ -375,18 +375,18 @@ module Roby
                 @forward_edges_with_info.each do |v, out_edges|
                     unless @backward_edges.key?(v)
                         raise Inconsistent,
-                              "#{v} has an entry in the forward-edge set, "\
+                              "#{v} has an entry in the forward-edge set, " \
                               "but not in the backward-edge"
                     end
 
                     out_edges.each do |(out_e, _info)|
                         if !@backward_edges.key?(out_e)
                             raise Inconsistent,
-                                  "#{out_e} is listed as an out-neighbour of #{v} "\
+                                  "#{out_e} is listed as an out-neighbour of #{v} " \
                                   "but #{out_e} is not included in the graph"
                         elsif !@backward_edges[out_e].key?(v)
                             raise Inconsistent,
-                                  "#{out_e} is listed as an out-neighbour of #{v} "\
+                                  "#{out_e} is listed as an out-neighbour of #{v} " \
                                   "but #{out_e} does not list it as in-neighbour"
                         end
                     end
@@ -394,18 +394,18 @@ module Roby
                 @backward_edges.each do |v, in_edges|
                     unless @forward_edges_with_info.key?(v)
                         raise Inconsistent,
-                              "#{v} has an entry in the forward-edge set, "\
+                              "#{v} has an entry in the forward-edge set, " \
                               "but not in the backward-edge"
                     end
 
                     in_edges.each do |(in_e, _)|
                         if !@forward_edges_with_info[in_e]
                             raise Inconsistent,
-                                  "#{in_e} is listed as an in-neighbour of #{v} "\
+                                  "#{in_e} is listed as an in-neighbour of #{v} " \
                                   "but is not included in the graph"
                         elsif !@forward_edges_with_info[in_e].key?(v)
                             raise Inconsistent,
-                                  "#{in_e} is listed as an in-neighbour of #{v} "\
+                                  "#{in_e} is listed as an in-neighbour of #{v} " \
                                   "but #{in_e} does not list it as out-neighbour"
                         end
                     end

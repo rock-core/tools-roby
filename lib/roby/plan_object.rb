@@ -173,12 +173,12 @@ module Roby
             if removed_at
                 if PlanObject.debug_finalization_place?
                     raise ArgumentError,
-                          "#{self} has been removed from plan, cannot add it back\n"\
+                          "#{self} has been removed from plan, cannot add it back\n" \
                           "Removed at\n  #{removed_at.join("\n  ")}"
                 else
                     raise ArgumentError,
-                          "#{self} has been removed from plan, cannot add it back. "\
-                          "Set PlanObject.debug_finalization_place to true to get "\
+                          "#{self} has been removed from plan, cannot add it back. " \
+                          "Set PlanObject.debug_finalization_place to true to get " \
                           "the backtrace of where (in the code) the object got finalized"
                 end
             end
@@ -316,10 +316,10 @@ module Roby
                 enumerator.call(object) do |related_object|
                     next if next_plan[related_object, create: false]
 
-                    if !intrusive
-                        yield(object, related_object)
-                    else
+                    if intrusive
                         new_objects << related_object
+                    else
+                        yield(object, related_object)
                     end
                 end
 

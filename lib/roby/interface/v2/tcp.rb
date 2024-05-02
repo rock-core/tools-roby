@@ -77,7 +77,7 @@ module Roby
                 # @return [Integer]
                 def port
                     Roby.warn_deprecated(
-                        "Interface::TCPServer#port is deprecated in favor "\
+                        "Interface::TCPServer#port is deprecated in favor " \
                         "of #ip_port to match ruby's Addrinfo API"
                     )
                     ip_port

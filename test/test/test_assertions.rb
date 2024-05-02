@@ -153,7 +153,7 @@ module Roby
                         e = assert_raises(ArgumentError) do
                             run_state_machine_capture(@task, "does_not_exist")
                         end
-                        assert_equal "no capture named 'does_not_exist' in any state "\
+                        assert_equal "no capture named 'does_not_exist' in any state " \
                                      "machine associated with #{@task}", e.message
                     end
                 end

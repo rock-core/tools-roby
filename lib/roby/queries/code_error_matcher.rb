@@ -50,11 +50,11 @@ module Roby
                     description
                 elsif !(ruby_exception_class === exception.error)
                     if ruby_exception_class
-                        "the underlying exception #{exception.error} does not "\
-                        "match the expected #{ruby_exception_class}"
+                        "the underlying exception #{exception.error} does not " \
+                            "match the expected #{ruby_exception_class}"
                     else
-                        "there is an underlying exception (#{exception.error}) "\
-                        "but the matcher expected none"
+                        "there is an underlying exception (#{exception.error}) " \
+                            "but the matcher expected none"
                     end
                 end
             end

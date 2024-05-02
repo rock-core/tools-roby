@@ -567,14 +567,14 @@ module Roby
                     if options[:success].nil?
                         options[:success] = []
                     end
-                    options[:success] = Array[*options[:success]]
+                    options[:success] = [*options[:success]]
                                         .map(&:to_unbound_task_predicate)
                                         .inject(&:or)
 
                     if options[:failure].nil?
                         options[:failure] = []
                     end
-                    options[:failure] = Array[*options[:failure]]
+                    options[:failure] = [*options[:failure]]
                                         .map(&:to_unbound_task_predicate)
                                         .inject(&:or)
 
@@ -719,14 +719,14 @@ module Roby
                                                                           required_models, required_arguments)
                     end
 
-                    if !has_value
-                        model = self.model.fullfilled_model.find_all { |m| m <= Roby::Task }.min
-                        [[model], self.meaningful_arguments]
-                    else
+                    if has_value
                         model, tags, arguments = *current_model
                         tags = tags.dup
                         tags.unshift model
                         [tags, arguments]
+                    else
+                        model = self.model.fullfilled_model.find_all { |m| m <= Roby::Task }.min
+                        [[model], self.meaningful_arguments]
                     end
                 end
 

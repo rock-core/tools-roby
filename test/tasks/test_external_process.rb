@@ -384,7 +384,7 @@ module Roby
                     refute_match(/INT/, contents)
                 end
 
-                it "sends KILL after kill_timeout seconds "\
+                it "sends KILL after kill_timeout seconds " \
                    "if the process did not terminate" do
                     task = prepare_task(signal: "USR2", kill_timeout: 0.2)
                     execute_one_cycle

@@ -170,7 +170,7 @@ module Roby
         if deprecation_warnings_are_errors
             error_deprecated(msg, caller_depth)
         elsif enable_deprecation_warnings
-            Roby.warn "Deprecation Warning: #{msg} "\
+            Roby.warn "Deprecation Warning: #{msg} " \
                       "at #{caller[1, caller_depth].join("\n")}"
         end
     end

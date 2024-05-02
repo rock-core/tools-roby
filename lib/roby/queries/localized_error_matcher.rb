@@ -102,14 +102,14 @@ module Roby
                                                   .find { |e| original_exception_model === e }
                     unless original_exception
                         if exception.original_exceptions.empty?
-                            return "expected one of the original exceptions "\
-                                   "to match #{original_exception_model}, "\
+                            return "expected one of the original exceptions " \
+                                   "to match #{original_exception_model}, " \
                                    "but none are registered"
                         else
                             original_exceptions_s =
                                 exception.original_exceptions.map(&:to_s).join(", ")
-                            return "expected one of the original exceptions to "\
-                                   "match #{original_exception_model}, but got "\
+                            return "expected one of the original exceptions to " \
+                                   "match #{original_exception_model}, but got " \
                                    "#{original_exceptions_s}"
                         end
                     end
@@ -117,21 +117,21 @@ module Roby
 
                 if !exception.failed_task
                     unless failure_point_matcher === exception.failed_generator
-                        return "failure point #{exception.failed_generator} does not "\
+                        return "failure point #{exception.failed_generator} does not " \
                                "match #{failure_point_matcher}"
                     end
                 elsif failure_point_matcher.respond_to?(:task_matcher)
                     if exception.failed_generator
                         unless failure_point_matcher === exception.failed_generator
-                            return "failure point #{exception.failed_generator} does "\
+                            return "failure point #{exception.failed_generator} does " \
                                    "not match #{failure_point_matcher}"
                         end
                     else
-                        return "exception reports no failure generator "\
+                        return "exception reports no failure generator " \
                                "but was expected to"
                     end
                 elsif !(failure_point_matcher === exception.failed_task)
-                    return "failure point #{exception.failed_task} does not "\
+                    return "failure point #{exception.failed_task} does not " \
                            "match #{failure_point_matcher}"
                 end
                 nil

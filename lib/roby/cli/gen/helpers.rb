@@ -55,18 +55,18 @@ module Roby
                         file_name[i] != p
                     end
                     if non_matching_prefix
-                        if non_matching_prefix[1] != 0
-                            raise CLIInvalidArguments,
-                                  "attempted to create a #{gen_type} model "\
-                                  "outside of #{file_root.join('/')}"
-                        else
+                        if non_matching_prefix[1] == 0
                             file_name = file_root + file_name
+                        else
+                            raise CLIInvalidArguments,
+                                  "attempted to create a #{gen_type} model " \
+                                  "outside of #{file_root.join('/')}"
                         end
                     end
 
                     if robot_name && file_name[-2] != robot_name
                         raise CLIInvalidArguments,
-                              "attempted to create a model for robot #{robot_name} "\
+                              "attempted to create a model for robot #{robot_name} " \
                               "outside a #{robot_name}/ subfolder"
                     end
 
@@ -104,40 +104,40 @@ module Roby
                         end
 
                     if non_matching_full_prefix
-                        if non_matching_full_prefix[1] != 0
-                            raise CLIInvalidArguments,
-                                  "attempted to create a #{gen_type} model outside "\
-                                  "of its expected namespace "\
-                                  "#{full_namespace_root.join('::')}"
-                        else
+                        if non_matching_full_prefix[1] == 0
                             non_matching_app_prefix =
                                 namespace_root.each_with_index.find do |p, i|
                                     given_class_name[i] != p
                                 end
                             if non_matching_app_prefix
-                                if non_matching_app_prefix[1] != 0
-                                    raise CLIInvalidArguments,
-                                          "attempted to create a #{gen_type} model "\
-                                          "outside of its expected namespace "\
-                                          "#{full_namespace_root.join('::')}"
-                                else
+                                if non_matching_app_prefix[1] == 0
                                     given_class_name =
                                         full_namespace_root + given_class_name
+                                else
+                                    raise CLIInvalidArguments,
+                                          "attempted to create a #{gen_type} model " \
+                                          "outside of its expected namespace " \
+                                          "#{full_namespace_root.join('::')}"
                                 end
                             else
                                 given_class_name =
                                     app_module_name + given_class_name
                             end
+                        else
+                            raise CLIInvalidArguments,
+                                  "attempted to create a #{gen_type} model outside " \
+                                  "of its expected namespace " \
+                                  "#{full_namespace_root.join('::')}"
                         end
                     end
 
                     if robot_name && given_class_name[-2, 1] != robot_module
                         raise CLIInvalidArguments,
-                              "attempted to create a model for robot #{robot_name} "\
-                              "outside the expected namespace "\
-                              "#{robot_module.join('::')} "\
-                              "(e.g. #{given_class_name[0..-2].join('::')}"\
-                              "::#{robot_module.join('::')}"\
+                              "attempted to create a model for robot #{robot_name} " \
+                              "outside the expected namespace " \
+                              "#{robot_module.join('::')} " \
+                              "(e.g. #{given_class_name[0..-2].join('::')}" \
+                              "::#{robot_module.join('::')}" \
                               "::#{given_class_name[-1]})"
                     end
 

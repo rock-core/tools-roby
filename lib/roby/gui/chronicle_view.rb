@@ -59,7 +59,7 @@ module Roby
                     if text.empty?
                         chronicle.filter = nil
                     else
-                        chronicle.filter = Regexp.new(text.split(" ").join("|"))
+                        chronicle.filter = Regexp.new(text.split.join("|"))
                     end
                 end
                 @menu_layout.add_widget(@filter_lbl)
@@ -70,7 +70,7 @@ module Roby
                     if text.empty?
                         chronicle.filter_out = nil
                     else
-                        chronicle.filter_out = Regexp.new(text.split(" ").join("|"))
+                        chronicle.filter_out = Regexp.new(text.split.join("|"))
                     end
                 end
                 @menu_layout.add_widget(@filter_out_lbl)

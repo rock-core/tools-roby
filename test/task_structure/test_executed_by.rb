@@ -42,7 +42,7 @@ module Roby
                 assert_equal([ExecutionAgentModel, { id: 20 }], submodel.execution_agent)
             end
 
-            it "marks executed tasks as failed to start by default if the agent fails "\
+            it "marks executed tasks as failed to start by default if the agent fails " \
                "to get ready" do
                 plan.add(task = Roby::Tasks::Simple.new)
                 task.executed_by(execution_agent = @agent_m.new)
@@ -57,7 +57,7 @@ module Roby
                 assert_equal reason, task.failure_reason.reason
             end
 
-            it "lets the control object decide what to do with executed tasks if the "\
+            it "lets the control object decide what to do with executed tasks if the " \
                "agent fails to start" do
                 plan.add(task = Roby::Tasks::Simple.new)
                 task.executed_by(execution_agent = @agent_m.new)
@@ -84,7 +84,7 @@ module Roby
                 assert_equal execution_agent.failed_event.last, task.failure_reason.reason
             end
 
-            it "lets the control object decide what to do with pending executed tasks "\
+            it "lets the control object decide what to do with pending executed tasks " \
                "when the agent stops" do
                 plan.add(task = Roby::Tasks::Simple.new)
                 task.executed_by(execution_agent = @agent_m.new)
@@ -211,7 +211,7 @@ module Roby
                     end
             end
 
-            it "marks the executed tasks as failed_to_start if the agent's "\
+            it "marks the executed tasks as failed_to_start if the agent's " \
                "ready_event becomes unreachable" do
                 plan.add(task = Tasks::Simple.new)
                 task.executed_by(agent = BaseExecutionAgent.new)
@@ -222,7 +222,7 @@ module Roby
                     .to { fail_to_start task, reason: error_m }
             end
 
-            it "does not mark the executed task as failed_to_start "\
+            it "does not mark the executed task as failed_to_start " \
                "because the ready_event becomes unreachable once it has been emitted" do
                 plan.add(task = Tasks::Simple.new)
                 task.executed_by(agent = BaseExecutionAgent.new)
@@ -236,8 +236,8 @@ module Roby
                 refute task.failed_to_start?
                 execute { task.start! }
             end
-            it "does not mark the executed task as failed_to_start when the ready_event "\
-               "becomes unreachable if the relation was established "\
+            it "does not mark the executed task as failed_to_start when " \
+               "the ready_event becomes unreachable if the relation was established " \
                "after the event's emission" do
                 plan.add(task = Tasks::Simple.new)
                 plan.add(agent = BaseExecutionAgent.new)

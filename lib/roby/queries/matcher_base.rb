@@ -10,7 +10,7 @@ module Roby
             end
 
             def each(plan)
-                Roby.warn_deprecated "MatcherBase#each is deprecated, "\
+                Roby.warn_deprecated "MatcherBase#each is deprecated, " \
                                      "use #each_in_plan instead"
 
                 each_in_plan(plan)
@@ -43,7 +43,7 @@ module Roby
             end
 
             def reset
-                Roby.warn_deprecated "Matcher#reset is a no-op now, matchers "\
+                Roby.warn_deprecated "Matcher#reset is a no-op now, matchers " \
                                      "don't cache their results anymore"
             end
 

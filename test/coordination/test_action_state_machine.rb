@@ -484,8 +484,8 @@ module Roby
                         end
 
                     assert_equal(
-                        "in the action state machine #{action_m}.test running on "\
-                        "#{test_task} while starting followup_state, capture:arg "\
+                        "in the action state machine #{action_m}.test running on " \
+                        "#{test_task} while starting followup_state, capture:arg " \
                         "is not bound yet",
                         execution_exception.exception.original_exceptions.first.message
                     )

@@ -520,11 +520,11 @@ module Roby
                     def async_call_and_expect_ordered(client, exp_error, exp_result,
                         seq, path, m, *args)
                         client.async_call(path, m, *args) do |error, result|
-                            if !exp_error.nil?
+                            if exp_error.nil?
+                                assert_nil error
+                            else
                                 assert_kind_of exp_error.class, error
                                 assert_equal exp_error.message, error.message
-                            else
-                                assert_nil error
                             end
                             assert_equal [exp_result], [result]
                             watch.ping(seq)

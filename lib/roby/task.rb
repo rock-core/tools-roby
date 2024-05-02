@@ -591,7 +591,7 @@ module Roby
                 return
             elsif !pending? && !starting?
                 raise Roby::InternalError,
-                      "#{self} is neither pending nor starting, "\
+                      "#{self} is neither pending nor starting, " \
                       "cannot mark as failed_to_start!"
             end
 
@@ -750,22 +750,22 @@ module Roby
         def check_emission_validity(event) # :nodoc:
             if finished? && !event.terminal?
                 EmissionRejected.new(event).exception(
-                    "#{self}.emit(#{event.symbol}) called by "\
-                    "#{execution_engine.propagation_sources.to_a} but the task "\
-                    "has finished. Task has been terminated by "\
+                    "#{self}.emit(#{event.symbol}) called by " \
+                    "#{execution_engine.propagation_sources.to_a} but the task " \
+                    "has finished. Task has been terminated by " \
                     "#{stop_event.last.sources.to_a}."
                 )
             elsif pending? && event.symbol != :start
                 EmissionRejected.new(event).exception(
-                    "#{self}.emit(#{event.symbol}) called by "\
-                    "#{execution_engine.propagation_sources.to_a} but the task "\
+                    "#{self}.emit(#{event.symbol}) called by " \
+                    "#{execution_engine.propagation_sources.to_a} but the task " \
                     "has never been started"
                 )
             elsif running? && event.symbol == :start
                 EmissionRejected.new(event).exception(
-                    "#{self}.emit(#{event.symbol}) called by "\
-                    "#{execution_engine.propagation_sources.to_a} but the task "\
-                    "is already running. Task has been started by "\
+                    "#{self}.emit(#{event.symbol}) called by " \
+                    "#{execution_engine.propagation_sources.to_a} but the task " \
+                    "is already running. Task has been started by " \
                     "#{start_event.last.sources.to_a}."
                 )
             end
@@ -856,7 +856,7 @@ module Roby
         def event(event_model)
             unless (event = find_event(event_model))
                 raise ArgumentError,
-                      "cannot find #{event_model} in the set of bound events in "\
+                      "cannot find #{event_model} in the set of bound events in " \
                       "#{self}. Known events are #{bound_events}."
             end
 
@@ -868,7 +868,7 @@ module Roby
         # @deprecated use {TaskEventGenerator#emit} instead (e.g. task.start_event.emit)
         def emit(event_model, *context)
             Roby.warn_deprecated(
-                "Roby::Task#emit(event_name) is deprecated, use EventGenerator#emit "\
+                "Roby::Task#emit(event_name) is deprecated, use EventGenerator#emit " \
                 "(e.g. task.start_event.emit or task.event(:start).emit)"
             )
             event(event_model).emit(*context)
@@ -879,7 +879,7 @@ module Roby
         #   task.start_event.on { |event| ... }
         def on(event_model, options = {}, &user_handler)
             Roby.warn_deprecated(
-                "Task#on is deprecated, use EventGenerator#on instead "\
+                "Task#on is deprecated, use EventGenerator#on instead " \
                 "(e.g. #{event_model}_event.signals other_event)"
             )
             event(event_model).on(options, &user_handler)
@@ -890,7 +890,7 @@ module Roby
         # task.start_event.signal other_task.stop_event)
         def signals(event_model, to, *to_task_events)
             Roby.warn_deprecated(
-                "Task#signals is deprecated, use EventGenerator#signal instead "\
+                "Task#signals is deprecated, use EventGenerator#signal instead " \
                 "(e.g. #{event_model}_event.signals other_event)"
             )
 
@@ -906,7 +906,7 @@ module Roby
                     [to]
                 else
                     raise ArgumentError,
-                          "expected Task or EventGenerator, got #{to}(#{to.class}: "\
+                          "expected Task or EventGenerator, got #{to}(#{to.class}: " \
                           "#{to.class.ancestors})"
                 end
 
@@ -920,7 +920,7 @@ module Roby
         # task.start_event.forward_to other_task.stop_event)
         def forward_to(event_model, to, *to_task_events)
             Roby.warn_deprecated(
-                "Task#forward_to is deprecated, use EventGenerator#forward_to "\
+                "Task#forward_to is deprecated, use EventGenerator#forward_to " \
                 "instead (e.g. #{event_model}_event.forward_to other_event)"
             )
 
@@ -936,7 +936,7 @@ module Roby
                     [to]
                 else
                     raise ArgumentError,
-                          "expected Task or EventGenerator, got #{to}(#{to.class}: "\
+                          "expected Task or EventGenerator, got #{to}(#{to.class}: " \
                           "#{to.class.ancestors})"
                 end
 
@@ -1374,7 +1374,7 @@ module Roby
         def add_child_object(child, type, info)
             unless read_write? && child.read_write?
                 raise OwnershipError,
-                      "cannot add a relation between tasks we don't own. #{self} by "\
+                      "cannot add a relation between tasks we don't own. #{self} by " \
                       "#{owners.to_a} and #{child} is owned by #{child.owners.to_a}"
             end
 

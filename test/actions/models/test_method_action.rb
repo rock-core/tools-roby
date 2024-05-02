@@ -41,8 +41,8 @@ module Roby
                             e = assert_raises(ArgumentError) do
                                 @interface_m.no_args.instanciate(plan, some: 10)
                             end
-                            assert_equal "unknown argument 'some' given to action "\
-                                         "TestActions.no_args. The action accepts "\
+                            assert_equal "unknown argument 'some' given to action " \
+                                         "TestActions.no_args. The action accepts " \
                                          "no arguments", e.message
                         end
                     end
@@ -67,9 +67,9 @@ module Roby
                             e = assert_raises(ArgumentError) do
                                 @interface_m.args.instanciate(plan, req: 20, some: 10)
                             end
-                            assert_equal "unknown argument 'some' given to action "\
-                                         "TestActions.args. The action accepts "\
-                                         "the following arguments: opt_with_value, "\
+                            assert_equal "unknown argument 'some' given to action " \
+                                         "TestActions.args. The action accepts " \
+                                         "the following arguments: opt_with_value, " \
                                          "opt_without_value, req", e.message
                         end
 
@@ -80,7 +80,7 @@ module Roby
                             e = assert_raises(ArgumentError) do
                                 @interface_m.args.instanciate(plan)
                             end
-                            assert_equal "required argument 'req' not given to action "\
+                            assert_equal "required argument 'req' not given to action " \
                                          "TestActions.args", e.message
                         end
 
@@ -135,9 +135,9 @@ module Roby
                         e = assert_raises(MethodAction::InvalidReturnedType) do
                             @action_m.instanciate(plan)
                         end
-                        assert_equal "action 'TestActions.test' was expected "\
-                            "to return a task of type #{expected_m}, "\
-                            "but returned #{@task}", e.message
+                        assert_equal "action 'TestActions.test' was expected " \
+                                     "to return a task of type #{expected_m}, " \
+                                     "but returned #{@task}", e.message
                         pp_message = <<~MESSAGE
                             action 'TestActions.test' was expected to return
                             a task of type #{PP.pp(expected_m, ''.dup, 0).chomp},

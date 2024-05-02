@@ -26,10 +26,10 @@ class PrevNextTag
                   end
 
         if content
-            if !body.empty?
-                body.gsub "%", content
-            else
+            if body.empty?
                 content
+            else
+                body.gsub "%", content
             end
         end
     end

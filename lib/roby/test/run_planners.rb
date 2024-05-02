@@ -66,7 +66,7 @@ module Roby
                 root_tasks = Array(root_tasks)
                 if (not_a_task = root_tasks.find { |t| !t.respond_to?(:as_plan) })
                     raise ArgumentError,
-                          "#{not_a_task} is not a Roby task and cannot "\
+                          "#{not_a_task} is not a Roby task and cannot " \
                           "be converted to one"
                 end
 

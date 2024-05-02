@@ -111,7 +111,8 @@ module Roby
                     raise ArgumentError, "there is already a view of type #{name} with ID #{id}"
                 end
 
-                klass = begin constant(name)
+                begin
+                    klass = constant(name)
                 rescue NameError => e
                     Roby.warn "cannot create display of class #{name}: #{e}"
                     return
@@ -246,9 +247,9 @@ module Roby
                     begin
                         Roby.app.using plugin_name
                     rescue ArgumentError
-                        Roby.warn "the display configuration file mentions the "\
-                                  "#{plugin_name} plugin, but it is not available "\
-                                  "on this system. Some information might not "\
+                        Roby.warn "the display configuration file mentions the " \
+                                  "#{plugin_name} plugin, but it is not available " \
+                                  "on this system. Some information might not " \
                                   "be displayed"
                     end
                 end

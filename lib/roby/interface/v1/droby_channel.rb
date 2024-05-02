@@ -32,7 +32,7 @@ module Roby
                 def initialize(
                     io, client,
                     marshaller: DRoby::Marshal.new(auto_create_plans: true),
-                    max_write_buffer_size: 25 * 1024**2
+                    max_write_buffer_size: 25 * (1024**2)
                 )
                     @io = io
                     @io.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
@@ -88,7 +88,7 @@ module Roby
                 # @return [Boolean] falsy if the timeout was reached, true
                 #   otherwise
                 def read_wait(timeout: nil)
-                    !!IO.select([io], [], [], timeout)
+                    !!io.wait_readable(timeout)
                 end
 
                 # Read one packet from {#io} and unmarshal it
@@ -99,7 +99,7 @@ module Roby
                     @read_thread ||= Thread.current
                     if @read_thread != Thread.current
                         raise InternalError,
-                              "cross-thread access to droby channel: "\
+                              "cross-thread access to droby channel: " \
                               "from #{@read_thread} to #{Thread.current}"
                     end
 
@@ -111,7 +111,7 @@ module Roby
                     end
 
                     loop do
-                        if IO.select([io], [], [], remaining_time)
+                        if io.wait_readable(remaining_time)
                             begin
                                 if io.sysread(1024**2, @read_buffer)
                                     @incoming << @read_buffer
@@ -172,7 +172,7 @@ module Roby
                     @write_thread ||= Thread.current
                     if @write_thread != Thread.current
                         raise InternalError,
-                              "cross-thread access to droby channel: "\
+                              "cross-thread access to droby channel: " \
                               "from #{@write_thread} to #{Thread.current}"
                     end
 
@@ -184,8 +184,8 @@ module Roby
                 rescue Errno::EWOULDBLOCK, Errno::EAGAIN
                     if @write_buffer.size > max_write_buffer_size
                         raise ComError,
-                              "droby_channel reached an internal buffer size of "\
-                              "#{@write_buffer.size}, which is bigger than the limit "\
+                              "droby_channel reached an internal buffer size of " \
+                              "#{@write_buffer.size}, which is bigger than the limit " \
                               "of #{max_write_buffer_size}, bailing out"
                     end
                 rescue SystemCallError, IOError

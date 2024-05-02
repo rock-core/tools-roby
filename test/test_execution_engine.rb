@@ -127,7 +127,7 @@ module Roby
                 refute execution_engine.waiting_work.include?(p)
             end
 
-            it "adds a promise error as a framework error if there are error handlers, "\
+            it "adds a promise error as a framework error if there are error handlers, " \
                "but themselves raised" do
                 e = ArgumentError.new("e")
                 f = ArgumentError.new("f")
@@ -319,7 +319,7 @@ module Roby
                 expect_execution.garbage_collect(true).to_run
             end
 
-            it "does not finalize a task which is strongly related to another, "\
+            it "does not finalize a task which is strongly related to another, " \
                "this other task being pending but returning false in #can_finalize?" do
                 plan.add(task = Tasks::Simple.new)
                 can_finalize = false
@@ -350,7 +350,7 @@ module Roby
                 can_finalize = true
             end
 
-            it "does garbage-collect tasks passed in the force_gc set, "\
+            it "does garbage-collect tasks passed in the force_gc set, " \
                "regardless of whether they are in the unneeded_tasks set" do
                 plan.add_mission_task(task = Tasks::Simple.new)
                 execute { task.start! }
@@ -412,7 +412,7 @@ module Roby
                         execute { execution_engine.garbage_collect }
                     end
                     assert_equal(
-                        ["GC: #{uninterruptible_task} cannot be stopped, "\
+                        ["GC: #{uninterruptible_task} cannot be stopped, " \
                          "putting in quarantine"], log
                     )
 
@@ -422,7 +422,7 @@ module Roby
 
                 # This worked around a Heisenbug a long time ago ... need to make
                 # sure that it still happens
-                it "quarantines a task whose stop event is controllable but for "\
+                it "quarantines a task whose stop event is controllable but for " \
                    "which #stop! is not defined" do
                     plan.add(task = Tasks::Simple.new)
                     execute { task.start_event.emit }
@@ -434,7 +434,7 @@ module Roby
                     end
 
                     assert_equal(
-                        ["something fishy: #{task}/stop is controlable but there "\
+                        ["something fishy: #{task}/stop is controlable but there " \
                          "is no #stop! method, putting in quarantine"], warn_log
                     )
                     assert task.quarantined?
@@ -476,7 +476,7 @@ module Roby
                     execute { parent_task.stop_event.emit }
                 end
 
-                it "does not generate a QuarantinedTaskError error for parents tasks "\
+                it "does not generate a QuarantinedTaskError error for parents tasks " \
                    "that are themselves in quarantine" do
                     plan.add(parent_task = Tasks::Simple.new)
                     parent_task.depends_on(task = Tasks::Simple.new)
@@ -496,7 +496,7 @@ module Roby
                     end
                 end
 
-                it "does not generate a QuarantinedTaskError error "\
+                it "does not generate a QuarantinedTaskError error " \
                    "for a standalone task" do
                     plan.add(task = Tasks::Simple.new)
                     execute { task.start_event.emit }
@@ -844,14 +844,14 @@ module Roby
                                                         unhandled: [full_trace, Set[root, child]],
                                                         handled: [])
                 end
-                rx = Regexp.new("some parents specified for.*are actually not parents "\
-                    "of #{Regexp.quote(child.to_s)}, they got filtered out")
+                rx = Regexp.new("some parents specified for.*are actually not parents " \
+                                "of #{Regexp.quote(child.to_s)}, they got filtered out")
                 assert_match rx, messages[0]
                 assert_equal "  #{task}", messages[1]
             end
 
-            it "will propagate through all parents if filtering out "\
-                "non-existing parents results in an empty set" do
+            it "will propagate through all parents if filtering out " \
+               "non-existing parents results in an empty set" do
                 plan.add(task = task_m.new(name: "task"))
 
                 exception = localized_error_m.new(child).to_execution_exception
@@ -870,8 +870,8 @@ module Roby
                                                         unhandled: [full_trace, Set[root, child]],
                                                         handled: [])
                 end
-                rx = Regexp.new("some parents specified for.*are actually not parents "\
-                    "of #{Regexp.quote(child.to_s)}, they got filtered out")
+                rx = Regexp.new("some parents specified for.*are actually not parents " \
+                                "of #{Regexp.quote(child.to_s)}, they got filtered out")
                 assert_match rx, messages[0]
                 assert_equal "  #{task}", messages[1]
             end
@@ -1736,8 +1736,8 @@ module Roby
                 execution_engine.run
             end
 
-            it "handles the race condition that arises due to the waiting work"\
-                "terminating concurrently with the attempt to terminate it" do
+            it "handles the race condition that arises due to the waiting work" \
+               "terminating concurrently with the attempt to terminate it" do
                 ivar = Concurrent::IVar.new
                 ivar.set nil
                 flexmock(ivar).should_receive(complete?: false)
@@ -2433,7 +2433,7 @@ class TC_ExecutionEngine < Minitest::Test
 
     def apply_check_structure(&block)
         Plan.structure_checks.clear
-        Plan.structure_checks << lambda(&block)
+        Plan.structure_checks << block
         execute_one_cycle
     ensure
         Plan.structure_checks.clear

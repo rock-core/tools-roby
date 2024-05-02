@@ -10,7 +10,7 @@ module Roby
             def each_in_plan(plan, &block)
                 if plan != self.plan
                     raise ArgumentError,
-                          "attempting to enumerate results of a query ran "\
+                          "attempting to enumerate results of a query ran " \
                           "in #{self.plan} from #{plan}"
                 end
 
@@ -24,7 +24,7 @@ module Roby
             def |(other)
                 if other.plan != plan
                     raise ArgumentError,
-                          "cannot merge results from #{other.plan} "\
+                          "cannot merge results from #{other.plan} " \
                           "in results from #{plan}"
                 elsif !other.initial_set.equal?(initial_set)
                     raise ArgumentError,
@@ -39,7 +39,7 @@ module Roby
             def &(other)
                 if other.plan != plan
                     raise ArgumentError,
-                          "cannot merge results from #{other.plan} "\
+                          "cannot merge results from #{other.plan} " \
                           "in results from #{plan}"
                 elsif !other.initial_set.equal?(initial_set)
                     raise ArgumentError,

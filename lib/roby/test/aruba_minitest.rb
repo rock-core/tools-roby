@@ -84,11 +84,11 @@ module Roby
 
             def assert_command_finished_successfully(cmd)
                 refute cmd.timed_out?,
-                       "#{cmd} timed out on stop\n-- STDOUT\n#{cmd.stdout}\n"\
+                       "#{cmd} timed out on stop\n-- STDOUT\n#{cmd.stdout}\n" \
                        "STDERR\n#{cmd.stderr}"
                 assert_equal 0, cmd.exit_status,
-                             "#{cmd} finished with a non-zero exit status "\
-                             "(#{cmd.exit_status})\n-- STDOUT\n#{cmd.stdout}\n"\
+                             "#{cmd} finished with a non-zero exit status " \
+                             "(#{cmd.exit_status})\n-- STDOUT\n#{cmd.stdout}\n" \
                              "-- STDERR\n#{cmd.stderr}"
             end
 

@@ -33,7 +33,7 @@ module Roby
             end
 
             def engine
-                Roby.warn_deprecated "#engine is deprecated, "\
+                Roby.warn_deprecated "#engine is deprecated, " \
                                      "use #execution_engine instead"
                 execution_engine
             end
@@ -106,7 +106,7 @@ module Roby
             end
 
             def process_events(timeout: 10, **options, &caller_block)
-                Roby.warn_deprecated "do not use #process_events. Use the "\
+                Roby.warn_deprecated "do not use #process_events. Use the " \
                                      "expect_execution infrastructure instead"
 
                 exceptions = []
@@ -140,8 +140,8 @@ module Roby
             # @yieldreturn [Boolean] true if the condition is met, false
             #   otherwise
             def process_events_until(timeout: 5, **options)
-                Roby.warn_deprecated "do not use #process_events. Use the "\
-                                     "expect_execution infrastructure with "\
+                Roby.warn_deprecated "do not use #process_events. Use the " \
+                                     "expect_execution infrastructure with " \
                                      "the 'achieve' expectation instead"
 
                 start = Time.now
@@ -149,7 +149,7 @@ module Roby
                     now = Time.now
                     remaining = timeout - (now - start)
                     if remaining < 0
-                        flunk("failed to reach expected condition "\
+                        flunk("failed to reach expected condition " \
                               "within #{timeout} seconds")
                     end
                     process_events(timeout: remaining, **options)
@@ -159,14 +159,14 @@ module Roby
 
             # @deprecated use capture_log instead
             def inhibit_fatal_messages(&block)
-                Roby.warn_deprecated "#{__method__} is deprecated, "\
+                Roby.warn_deprecated "#{__method__} is deprecated, " \
                                      "use capture_log instead"
                 with_log_level(Roby, Logger::FATAL, &block)
             end
 
             # @deprecated use capture_log instead
             def with_log_level(log_object, level)
-                Roby.warn_deprecated "#{__method__} is deprecated, "\
+                Roby.warn_deprecated "#{__method__} is deprecated, " \
                                      "use capture_log instead"
                 log_object = log_object.logger if log_object.respond_to?(:logger)
                 current_level = log_object.level
@@ -179,7 +179,7 @@ module Roby
 
             # @deprecated use {#run_planners} instead
             def roby_run_planner(root_task, recursive: true, **options)
-                Roby.warn_deprecated "#{__method__} is deprecated, "\
+                Roby.warn_deprecated "#{__method__} is deprecated, " \
                                      "use run_planners instead"
                 run_planners(root_task, recursive: recursive, **options)
             end

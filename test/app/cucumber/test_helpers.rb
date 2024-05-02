@@ -337,7 +337,7 @@ module Roby
                     e = assert_raises(ArgumentError) do
                         CucumberHelpers.validate_unit(:x, 20, "m", :unknown)
                     end
-                    assert_equal "unknown quantity definition 'unknown', "\
+                    assert_equal "unknown quantity definition 'unknown', " \
                                  "expected one of :length, :angle, :time",
                                  e.message
                 end

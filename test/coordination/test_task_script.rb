@@ -334,8 +334,8 @@ module Roby
                             .to { emit task.stop_event }
                     end
 
-                    it "emits the timeout event and moves on if the sub-script has "\
-                        "not finished in time" do
+                    it "emits the timeout event and moves on if the sub-script has " \
+                       "not finished in time" do
                         Timecop.freeze(base_time = Time.now)
                         execute { task.start! }
 

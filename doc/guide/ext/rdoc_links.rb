@@ -22,8 +22,8 @@ class RdocLinks
         path = "#{class_name.split('::').join('/')}.html"
         url = "#{param('rdoclinks.base_url')}/#{path}"
 
-        "<a href=\"#{context.ref_node.route_to(url)}\">"\
-        "#{param('rdoclinks.text') || param('rdoclinks.name')}</a>"
+        "<a href=\"#{context.ref_node.route_to(url)}\">" \
+            "#{param('rdoclinks.text') || param('rdoclinks.name')}</a>"
     end
 end
 
