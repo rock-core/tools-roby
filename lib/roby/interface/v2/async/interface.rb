@@ -246,10 +246,29 @@ module Roby
                         end
                         client.ui_event_queue.clear
 
+                        finalized_monitors, finalized_jobs =
+                            process_job_progress_queue(client.job_progress_queue)
+                        client.job_progress_queue.clear
+
+                        process_exception_queue(client.exception_queue)
+                        client.exception_queue.clear
+
+                        finalized_monitors.each do |job_id, monitors|
+                            active_monitors = job_monitors[job_id]
+                            monitors.each { |m| active_monitors.delete(m) }
+                            job_monitors.delete(job_id) if active_monitors.empty?
+                        end
+
+                        finalized_jobs.each do |job_id|
+                            new_job_listeners.each { |l| l.clear_job_id(job_id) }
+                        end
+                    end
+
+                    def process_job_progress_queue(queue)
                         finalized_monitors = {}
                         finalized_jobs = []
-                        client.job_progress_queue
-                              .each do |id, (job_state, job_id, job_name, *args)|
+
+                        queue.each do |id, (job_state, job_id, job_name, *args)| # rubocop:disable Style/HashEachMethods
                             new_job_listeners.each do |listener|
                                 next if listener.seen_job_with_id?(job_id)
 
@@ -285,9 +304,12 @@ module Roby
                             end
                             run_hook :on_job_progress, job_state, job_id, job_name, args
                         end
-                        client.job_progress_queue.clear
 
-                        client.exception_queue.each do |id, (kind, exception, tasks, job_ids)|
+                        [finalized_monitors, finalized_jobs]
+                    end
+
+                    def process_exception_queue(queue)
+                        queue.each do |_, (kind, exception, tasks, job_ids)| # rubocop:disable Style/HashEachMethods
                             job_ids.each do |job_id|
                                 if monitors = job_monitors[job_id]
                                     monitors.dup.each do |m|
@@ -297,19 +319,6 @@ module Roby
                             end
 
                             run_hook :on_exception, kind, exception, tasks, job_ids
-                        end
-                        client.exception_queue.clear
-
-                        finalized_monitors.each do |job_id, monitors|
-                            active_monitors = job_monitors[job_id]
-                            monitors.each { |m| active_monitors.delete(m) }
-                            if active_monitors.empty?
-                                job_monitors.delete(job_id)
-                            end
-                        end
-
-                        finalized_jobs.each do |job_id|
-                            new_job_listeners.each { |l| l.clear_job_id(job_id) }
                         end
                     end
 

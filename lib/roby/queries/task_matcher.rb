@@ -396,12 +396,12 @@ module Roby
                 if !other_query.kind_of?(TaskMatcher) && !other_query.kind_of?(Task)
                     if relation.kind_of?(Hash)
                         arguments = relation
-                        relation = (arguments.delete(:relation) ||
-                                    arguments.delete("relation"))
-                        relation_options = (
+                        relation = arguments.delete(:relation) ||
+                                   arguments.delete("relation")
+                        relation_options =
                             arguments.delete(:relation_options) ||
                             arguments.delete("relation_options")
-                        )
+
                     else
                         arguments = {}
                     end

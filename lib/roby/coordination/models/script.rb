@@ -94,10 +94,10 @@ module Roby
 
                         if event.task != root_task
                             role_name = "wait_#{self.object_id}"
-                            current_roles = (
+                            current_roles =
                                 root_task.depends_on?(event.task) &&
                                 root_task.roles_of(event.task)
-                            )
+
                             root_task.depends_on(
                                 event.task, success: nil, role: role_name
                             )
@@ -133,9 +133,8 @@ module Roby
                         if child
                             script.root_task.remove_roles(
                                 child, role_name,
-                                remove_child_when_empty: (
+                                remove_child_when_empty:
                                     !current_roles || !current_roles.empty?
-                                )
                             )
                         end
 

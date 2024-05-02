@@ -25,7 +25,7 @@ module Roby
             option :sampling, type: :numeric
             def backward(*path)
                 host, port = "localhost", Server::DEFAULT_PORT
-                if remote_addr = (options[:client] || options[:host])
+                if remote_addr = options[:client] || options[:host]
                     if options[:host]
                         Roby.warn_deprecated "--host is deprecated, use 'roby-display client' instead, run roby-display help for more information"
                     else

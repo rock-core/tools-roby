@@ -245,11 +245,10 @@ module Roby
                 # Convert a {ExecutionException}
                 def self.marshal_execution_exception(channel, execution_exception)
                     exception = execution_exception.exception
-                    if exception.respond_to?(:failed_task)
-                        if (failed_task = exception.failed_task)
-                            marshalled_failed_task =
-                                channel.marshal_filter_object(failed_task)
-                        end
+                    if exception.respond_to?(:failed_task) &&
+                       (failed_task = exception.failed_task)
+                        marshalled_failed_task =
+                            channel.marshal_filter_object(failed_task)
                     end
 
                     ExecutionException.new(

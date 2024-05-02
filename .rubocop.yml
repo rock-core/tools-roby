@@ -68,5 +68,5 @@ Naming/MethodParameterName:
 
 # Rubocop 1.50
 #
-# Style/GlobalStdStream:
-#   Enabled: false
+Style/GlobalStdStream:
+   Enabled: false

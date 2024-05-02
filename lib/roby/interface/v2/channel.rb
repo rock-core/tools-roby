@@ -224,7 +224,7 @@ module Roby
                     report_error(message)
                 end
 
-                def marshal_basic_object(object) # rubocop:disable Metrics/AbcSize
+                def marshal_basic_object(object) # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity
                     case object
                     when Array
                         object.map { marshal_filter_object(_1) }

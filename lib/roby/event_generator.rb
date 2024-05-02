@@ -896,9 +896,9 @@ module Roby
             each_precondition do |reason, block|
                 result = begin
                     block.call(self, context)
-                         rescue EventPreconditionFailed => e
-                             e.generator = self
-                             raise
+                rescue EventPreconditionFailed => e
+                    e.generator = self
+                    raise
                 end
 
                 unless result
@@ -1005,7 +1005,7 @@ module Roby
 
         # Internal helper for unreachable!
         def call_unreachable_handlers(reason) # :nodoc:
-            unreachable_handlers.each do |_, handler|
+            unreachable_handlers.each do |(_, handler)|
                 begin
                     handler.call(reason, self)
                 rescue LocalizedError => e
