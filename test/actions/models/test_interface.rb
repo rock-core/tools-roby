@@ -195,7 +195,7 @@ module Roby
                         act = interface_m.an_action(test: 10)
                         assert_same interface_m.find_action_by_name("an_action"),
                                     act.model
-                        assert_equal Hash[test: 10], act.arguments
+                        assert_equal({ test: 10 }, act.arguments)
                     end
                 end
 
@@ -249,7 +249,7 @@ module Roby
                         action = interface_m.new(plan)
                         root_task = action.test(test_arg: 20)
                         execute { root_task.start! }
-                        assert_equal Hash[test_arg: 20], root_task.current_task_child.planning_task.action_arguments
+                        assert_equal({ test_arg: 20 }, root_task.current_task_child.planning_task.action_arguments)
                     end
 
                     it "creates an action state machine at the action level" do

@@ -357,8 +357,8 @@ class TC_Dependency < Minitest::Test
         submodel = flexmock(:<= => true)
         root.should_receive(:fullfills?).with(submodel).and_return(false)
         submodel.should_receive(:fullfills?).with(root).and_return(true)
-        opt1 = Hash[model: [[root], {}]]
-        opt2 = Hash[model: [[submodel], {}]]
+        opt1 = { model: [[root], {}] }
+        opt2 = { model: [[submodel], {}] }
         result = Dependency.merge_dependency_options(opt1, opt2)
         assert_equal [[submodel], {}], result[:model]
     end
@@ -367,8 +367,8 @@ class TC_Dependency < Minitest::Test
         m1, m2 = flexmock(:<= => true), flexmock(:<= => true)
         m1.should_receive(:fullfills?).with(m2).and_return(false)
         m2.should_receive(:fullfills?).with(m1).and_return(false)
-        opt1 = Hash[model: [[m1], {}]]
-        opt2 = Hash[model: [[m2], {}]]
+        opt1 = { model: [[m1], {}] }
+        opt2 = { model: [[m2], {}] }
         assert_raises(Roby::ModelViolation) do
             Dependency.merge_dependency_options(opt1, opt2)
         end
@@ -584,33 +584,33 @@ module Roby
                 let(:target_tag_m) { TaskService.new_submodel }
                 let(:source_tag_m) { TaskService.new_submodel }
                 it "does not modify the target argument" do
-                    target = [task_m, [target_tag_m], Hash[arg0: 10]]
-                    Dependency.merge_fullfilled_model(target, [source_tag_m], Hash[arg1: 20])
-                    assert_equal [task_m, [target_tag_m], Hash[arg0: 10]], target
+                    target = [task_m, [target_tag_m], { arg0: 10 }]
+                    Dependency.merge_fullfilled_model(target, [source_tag_m], { arg1: 20 })
+                    assert_equal [task_m, [target_tag_m], { arg0: 10 }], target
                 end
                 it "picks the most specialized task model" do
-                    target = [task_m, [target_tag_m], Hash[arg0: 10]]
+                    target = [task_m, [target_tag_m], { arg0: 10 }]
                     subclass_m = task_m.new_submodel
-                    merged = Dependency.merge_fullfilled_model(target, [subclass_m], Hash[])
+                    merged = Dependency.merge_fullfilled_model(target, [subclass_m], {})
                     assert_equal subclass_m, merged[0]
                     target[0] = subclass_m
-                    merged = Dependency.merge_fullfilled_model(target, [task_m], Hash[])
+                    merged = Dependency.merge_fullfilled_model(target, [task_m], {})
                     assert_equal subclass_m, merged[0]
                 end
                 it "concatenates tags" do
-                    target = [task_m, [target_tag_m], Hash[arg0: 10]]
-                    merged = Dependency.merge_fullfilled_model(target, [source_tag_m], Hash[arg1: 20])
+                    target = [task_m, [target_tag_m], { arg0: 10 }]
+                    merged = Dependency.merge_fullfilled_model(target, [source_tag_m], { arg1: 20 })
                     assert_equal [target_tag_m, source_tag_m], merged[1]
                 end
                 it "removes duplicate tags" do
-                    target = [task_m, [target_tag_m], Hash[arg0: 10]]
-                    merged = Dependency.merge_fullfilled_model(target, [target_tag_m], Hash[arg1: 20])
+                    target = [task_m, [target_tag_m], { arg0: 10 }]
+                    merged = Dependency.merge_fullfilled_model(target, [target_tag_m], { arg1: 20 })
                     assert_equal [target_tag_m], merged[1]
                 end
                 it "merges the arguments" do
-                    target = [task_m, [target_tag_m], Hash[arg0: 10]]
-                    merged = Dependency.merge_fullfilled_model(target, [source_tag_m], Hash[arg1: 20])
-                    assert_equal Hash[arg0: 10, arg1: 20], merged.last
+                    target = [task_m, [target_tag_m], { arg0: 10 }]
+                    merged = Dependency.merge_fullfilled_model(target, [source_tag_m], { arg1: 20 })
+                    assert_equal({ arg0: 10, arg1: 20 }, merged.last)
                 end
             end
 

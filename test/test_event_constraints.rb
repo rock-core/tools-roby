@@ -322,22 +322,22 @@ class TC_EventConstraints_UnboundPredicate < Minitest::Test
         plan.add(task = TaskModel.new)
         assert(!pred.evaluate(task))
         assert_explained_by(false, pred,
-                            Hash[first_pred => [false, task.start_event],
-                                 second_pred => [false, task.first_event]],
+                            { first_pred => [false, task.start_event],
+                              second_pred => [false, task.first_event] },
                             pred.explain_false(task))
 
         execute { task.start! }
         assert(!pred.evaluate(task), pred.code)
         assert_explained_by(false, pred,
-                            Hash[first_pred => [false, task.failed_event],
-                                 second_pred => [false, task.first_event]],
+                            { first_pred => [false, task.failed_event],
+                              second_pred => [false, task.first_event] },
                             pred.explain_false(task))
 
         execute { task.first! }
         assert(!pred.evaluate(task), pred.code)
         assert_explained_by(false, pred,
-                            Hash[first_pred => [false, task.failed_event],
-                                 second_pred => [false, task.second_event]],
+                            { first_pred => [false, task.failed_event],
+                              second_pred => [false, task.second_event] },
                             pred.explain_false(task))
 
         execute { task.second! }
@@ -347,8 +347,8 @@ class TC_EventConstraints_UnboundPredicate < Minitest::Test
         execute { task.stop! }
         assert(pred.evaluate(task))
         assert_explained_by(true, pred,
-                            Hash[first_pred => [true, [task.start_event.last, task.failed_event.last]],
-                                 second_pred => [true, [task.first_event.last, task.second_event.last]]],
+                            { first_pred => [true, [task.start_event.last, task.failed_event.last]],
+                              second_pred => [true, [task.first_event.last, task.second_event.last]] },
                             pred.explain_true(task))
 
         # Make first_pred true but keep second_pred false
@@ -359,15 +359,15 @@ class TC_EventConstraints_UnboundPredicate < Minitest::Test
         execute { task.second! }
         assert(!pred.evaluate(task), pred.code)
         assert_explained_by(false, pred,
-                            Hash[first_pred => [false, task.failed_event],
-                                 second_pred => [false, task.first_event]],
+                            { first_pred => [false, task.failed_event],
+                              second_pred => [false, task.first_event] },
                             pred.explain_false(task))
 
         execute { task.first! }
         assert(!pred.evaluate(task), pred.code)
         assert_explained_by(false, pred,
-                            Hash[first_pred => [false, task.failed_event],
-                                 second_pred => [false, task.second_event]],
+                            { first_pred => [false, task.failed_event],
+                              second_pred => [false, task.second_event] },
                             pred.explain_false(task))
 
         execute { task.stop! }
@@ -400,8 +400,8 @@ class TC_EventConstraints_UnboundPredicate < Minitest::Test
         end
         assert(!pred.evaluate(task))
         assert_static(nil, pred,
-                      Hash[first_pred => [nil, task.start_event],
-                           second_pred => [nil, task.first_event]],
+                      { first_pred => [nil, task.start_event],
+                        second_pred => [nil, task.first_event] },
                       task)
 
         plan.add(task = TaskModel.new)
@@ -415,8 +415,8 @@ class TC_EventConstraints_UnboundPredicate < Minitest::Test
         assert(first_pred.static?(task))
         assert(second_pred.static?(task))
         assert_static(nil, pred,
-                      Hash[first_pred => [nil, [task.start_event]],
-                           second_pred => [nil, [task.second_event]]],
+                      { first_pred => [nil, [task.start_event]],
+                        second_pred => [nil, [task.second_event]] },
                       task)
     end
 
@@ -434,8 +434,8 @@ class TC_EventConstraints_UnboundPredicate < Minitest::Test
         end
         assert(pred.evaluate(task))
         assert_static(nil, pred,
-                      Hash[first_pred => [nil, [task.start_event]],
-                           second_pred => [nil, [task.first_event]]],
+                      { first_pred => [nil, [task.start_event]],
+                        second_pred => [nil, [task.first_event]] },
                       task)
     end
 
@@ -461,11 +461,11 @@ class TC_EventConstraints_UnboundPredicate < Minitest::Test
         # Make only first predicate true
         plan.add(task = TaskModel.new)
         assert(!pred.evaluate(task))
-        assert_explained_by(false, pred, Hash[first_pred => [false, task.start_event], second_pred => [false, task.first_event]], pred.explain_false(task))
+        assert_explained_by(false, pred, { first_pred => [false, task.start_event], second_pred => [false, task.first_event] }, pred.explain_false(task))
 
         execute { task.start! }
         assert(!pred.evaluate(task), pred.code)
-        assert_explained_by(false, pred, Hash[first_pred => [false, task.failed_event], second_pred => [false, task.first_event]], pred.explain_false(task))
+        assert_explained_by(false, pred, { first_pred => [false, task.failed_event], second_pred => [false, task.first_event] }, pred.explain_false(task))
 
         execute { task.stop! }
         assert(pred.evaluate(task))
@@ -483,7 +483,7 @@ class TC_EventConstraints_UnboundPredicate < Minitest::Test
 
         execute { task.second! }
         assert(!pred.evaluate(task))
-        assert_explained_by(false, pred, Hash[first_pred => [false, task.failed_event], second_pred => [false, task.second_event.last]], pred.explain_false(task))
+        assert_explained_by(false, pred, { first_pred => [false, task.failed_event], second_pred => [false, task.second_event.last] }, pred.explain_false(task))
 
         execute { task.stop! }
         assert_explained_by(true, first_pred, [task.start_event.last, task.failed_event.last], pred.explain_true(task))
@@ -516,8 +516,8 @@ class TC_EventConstraints_UnboundPredicate < Minitest::Test
         end
         assert(!pred.evaluate(task))
         assert_static(nil, pred,
-                      Hash[first_pred => [nil, [task.failed_event]],
-                           second_pred => [nil, [task.first_event]]],
+                      { first_pred => [nil, [task.failed_event]],
+                        second_pred => [nil, [task.first_event]] },
                       task)
     end
 

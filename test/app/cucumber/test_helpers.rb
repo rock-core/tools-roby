@@ -8,16 +8,16 @@ module Roby
         describe CucumberHelpers do
             describe ".parse_argument_text_to_hash" do
                 it "parses a simple comma-separated sequence" do
-                    assert_equal Hash[x: "a", y: "b", z: "c"],
-                                 CucumberHelpers.parse_argument_text_to_hash("x=a, y=b, z=c")
+                    assert_equal({ x: "a", y: "b", z: "c" },
+                                 CucumberHelpers.parse_argument_text_to_hash("x=a, y=b, z=c"))
                 end
                 it "parses a 'and' separator at the end" do
-                    assert_equal Hash[x: "a", y: "b", z: "c"],
-                                 CucumberHelpers.parse_argument_text_to_hash("x=a, y=b and z=c")
+                    assert_equal({ x: "a", y: "b", z: "c" },
+                                 CucumberHelpers.parse_argument_text_to_hash("x=a, y=b and z=c"))
                 end
                 it "parses a hash construct that ends at the end of the stream" do
-                    assert_equal Hash[x: Hash[y: "z"]],
-                                 CucumberHelpers.parse_argument_text_to_hash("x={y=z}")
+                    assert_equal({ x: { y: "z" } },
+                                 CucumberHelpers.parse_argument_text_to_hash("x={y=z}"))
                 end
                 it "raises InvalidSyntax if the first token is not key=value" do
                     assert_raises(CucumberHelpers::InvalidSyntax) do
@@ -45,73 +45,73 @@ module Roby
                     end
                 end
                 it "parses a hash value" do
-                    assert_equal Hash[x: Hash[a: "x", b: "y"], y: "b", z: "c"],
-                                 CucumberHelpers.parse_argument_text_to_hash("x={a=x and b=y}, y=b and z=c")
+                    assert_equal({ x: { a: "x", b: "y" }, y: "b", z: "c" },
+                                 CucumberHelpers.parse_argument_text_to_hash("x={a=x and b=y}, y=b and z=c"))
                 end
                 it "parses hash values recursively" do
-                    assert_equal Hash[x: Hash[a: "x", b: Hash[j: "i"]], y: "b", z: "c"],
-                                 CucumberHelpers.parse_argument_text_to_hash("x={a=x and b={j=i}}, y=b and z=c")
+                    assert_equal({ x: { a: "x", b: { j: "i" } }, y: "b", z: "c" },
+                                 CucumberHelpers.parse_argument_text_to_hash("x={a=x and b={j=i}}, y=b and z=c"))
                 end
             end
 
             describe ".parse_arguments" do
                 it "parses a sequence with comma and 'and' statements" do
-                    assert_equal Hash[x: "a", y: "b", z: "c"],
-                                 CucumberHelpers.parse_arguments("x=a, y=b and z=c", strict: false)
+                    assert_equal({ x: "a", y: "b", z: "c" },
+                                 CucumberHelpers.parse_arguments("x=a, y=b and z=c", strict: false))
                 end
                 it "parses a single value" do
-                    assert_equal Hash[x: "a"],
-                                 CucumberHelpers.parse_arguments("x=a", strict: false)
+                    assert_equal({ x: "a" },
+                                 CucumberHelpers.parse_arguments("x=a", strict: false))
                 end
                 it "parses two values combined with 'and'" do
-                    assert_equal Hash[x: "a", y: "b"],
-                                 CucumberHelpers.parse_arguments("x=a and y=b", strict: false)
+                    assert_equal({ x: "a", y: "b" },
+                                 CucumberHelpers.parse_arguments("x=a and y=b", strict: false))
                 end
                 it "parses two values combined with a comma" do
-                    assert_equal Hash[x: "a", y: "b"],
-                                 CucumberHelpers.parse_arguments("x=a, y=b", strict: false)
+                    assert_equal({ x: "a", y: "b" },
+                                 CucumberHelpers.parse_arguments("x=a, y=b", strict: false))
                 end
                 it "parses a positive numerical value with unit" do
                     flexmock(CucumberHelpers).should_receive(:apply_unit)
                                              .with(10, "unit")
                                              .and_return(20)
-                    assert_equal Hash[x: 20],
-                                 CucumberHelpers.parse_arguments("x=10unit", strict: false)
+                    assert_equal({ x: 20 },
+                                 CucumberHelpers.parse_arguments("x=10unit", strict: false))
                 end
                 it "parses a negative numerical value with unit" do
                     flexmock(CucumberHelpers).should_receive(:apply_unit)
                                              .with(-10, "unit")
                                              .and_return(20)
-                    assert_equal Hash[x: 20],
-                                 CucumberHelpers.parse_arguments("x=-10unit", strict: false)
+                    assert_equal({ x: 20 },
+                                 CucumberHelpers.parse_arguments("x=-10unit", strict: false))
                 end
                 it "parses hashes recursively" do
-                    assert_equal Hash[x: Hash[y: 20]],
-                                 CucumberHelpers.parse_arguments("x={y=20m}", strict: false)
+                    assert_equal({ x: { y: 20 } },
+                                 CucumberHelpers.parse_arguments("x={y=20m}", strict: false))
                 end
                 it "converts a floating-point value into a float" do
-                    assert_equal Hash[x: 0.1],
-                                 CucumberHelpers.parse_arguments("x=0.1", strict: false)
+                    assert_equal({ x: 0.1 },
+                                 CucumberHelpers.parse_arguments("x=0.1", strict: false))
                 end
                 it "converts an integer value into an integer" do
-                    assert_equal Hash[x: 2],
-                                 CucumberHelpers.parse_arguments("x=2", strict: false)
+                    assert_equal({ x: 2 },
+                                 CucumberHelpers.parse_arguments("x=2", strict: false))
                 end
 
                 describe "unit validation" do
                     it "raises UnexpectedArgument if strict is set and the argument does not have a quantity" do
                         assert_raises(CucumberHelpers::UnexpectedArgument) do
-                            CucumberHelpers.parse_arguments("x=20m", Hash[], strict: true)
+                            CucumberHelpers.parse_arguments("x=20m", {}, strict: true)
                         end
                     end
                     it "validates that the unit and the quantity match" do
                         flexmock(CucumberHelpers).should_receive(:validate_unit)
                                                  .with(:x, 20, "m", :angle).once
-                        CucumberHelpers.parse_arguments("x=20m", Hash[x: :angle], strict: false)
+                        CucumberHelpers.parse_arguments("x=20m", { x: :angle }, strict: false)
                     end
                     it "raises InvalidUnit if the value does not have a unit" do
                         e = assert_raises(CucumberHelpers::InvalidUnit) do
-                            CucumberHelpers.parse_arguments("x=20", Hash[x: :angle], strict: false)
+                            CucumberHelpers.parse_arguments("x=20", { x: :angle }, strict: false)
                         end
                         assert_equal "expected x=20 to be a angle, but it got no unit",
                                      e.message
@@ -121,12 +121,12 @@ module Roby
 
             describe ".parse_arguments_respectively" do
                 it "uses the first argument's keys as default names for the parsed values" do
-                    assert_equal Hash[x: 10, y: 20],
-                                 CucumberHelpers.parse_arguments_respectively(%i[x y], "10m and 20m", strict: false)
+                    assert_equal({ x: 10, y: 20 },
+                                 CucumberHelpers.parse_arguments_respectively(%i[x y], "10m and 20m", strict: false))
                 end
                 it "applies the same value to all keys if a single numerical value is provided" do
-                    assert_equal Hash[x: 10, y: 10],
-                                 CucumberHelpers.parse_arguments_respectively(%i[x y], "10m", strict: false)
+                    assert_equal({ x: 10, y: 10 },
+                                 CucumberHelpers.parse_arguments_respectively(%i[x y], "10m", strict: false))
                 end
                 it "does not allow to mix name and order" do
                     assert_raises(CucumberHelpers::MixingOrderAndNames) do
@@ -137,8 +137,8 @@ module Roby
                     end
                 end
                 it "allows to pass the arguments by name" do
-                    assert_equal Hash[y: 10, x: 20],
-                                 CucumberHelpers.parse_arguments_respectively(%i[x y], "y=10m and x=20m", strict: false)
+                    assert_equal({ y: 10, x: 20 },
+                                 CucumberHelpers.parse_arguments_respectively(%i[x y], "y=10m and x=20m", strict: false))
                 end
                 it "raises if names not present in the reference hash are given" do
                     exception = assert_raises(CucumberHelpers::UnexpectedArgument) do
@@ -171,7 +171,7 @@ module Roby
                     describe "fully implicit mode" do
                         it "raises UnexpectedArgument if strict is set and the argument does not have a quantity" do
                             assert_raises(CucumberHelpers::UnexpectedArgument) do
-                                CucumberHelpers.parse_arguments_respectively(%i[x y], "20m", Hash[x: :length], strict: true)
+                                CucumberHelpers.parse_arguments_respectively(%i[x y], "20m", { x: :length }, strict: true)
                             end
                         end
                         it "validates that the unit and the quantity match" do
@@ -179,18 +179,18 @@ module Roby
                                                      .with(:x, 20.0, "m", :length).once
                             flexmock(CucumberHelpers).should_receive(:validate_unit)
                                                      .with(:y, 20.0, "m", :angle).once
-                            CucumberHelpers.parse_arguments_respectively(%i[x y], "20m", Hash[x: :length, y: :angle], strict: false)
+                            CucumberHelpers.parse_arguments_respectively(%i[x y], "20m", { x: :length, y: :angle }, strict: false)
                         end
                         it "raises InvalidUnit if the value does not have a unit" do
                             e = assert_raises(CucumberHelpers::InvalidUnit) do
-                                CucumberHelpers.parse_arguments_respectively(%i[x y], "20", Hash[x: :length, y: :length], strict: false)
+                                CucumberHelpers.parse_arguments_respectively(%i[x y], "20", { x: :length, y: :length }, strict: false)
                             end
                             assert_equal "expected x=20 to be a length, but it got no unit",
                                          e.message
                         end
                         it "raises InvalidUnit if the value is not numeric" do
                             e = assert_raises(CucumberHelpers::InvalidUnit) do
-                                CucumberHelpers.parse_arguments_respectively(%i[x y], "not numeric", Hash[x: :length, y: :length], strict: false)
+                                CucumberHelpers.parse_arguments_respectively(%i[x y], "not numeric", { x: :length, y: :length }, strict: false)
                             end
                             assert_equal "expected x=not numeric to be a length, but it is not even a number",
                                          e.message
@@ -200,7 +200,7 @@ module Roby
                     describe "name-based mode" do
                         it "raises UnexpectedArgument if strict is set and the argument does not have a quantity" do
                             assert_raises(CucumberHelpers::UnexpectedArgument) do
-                                CucumberHelpers.parse_arguments_respectively(%i[x y], "x=20m and y=5m", Hash[x: :length], strict: true)
+                                CucumberHelpers.parse_arguments_respectively(%i[x y], "x=20m and y=5m", { x: :length }, strict: true)
                             end
                         end
                         it "validates that the unit and the quantity match" do
@@ -208,11 +208,11 @@ module Roby
                                                      .with("y", 20.0, "m", :angle).once
                             flexmock(CucumberHelpers).should_receive(:validate_unit)
                                                      .with("x", 5.0, "m", :length).once
-                            CucumberHelpers.parse_arguments_respectively(%i[x y], "y=20m and x=5m", Hash[x: :length, y: :angle], strict: false)
+                            CucumberHelpers.parse_arguments_respectively(%i[x y], "y=20m and x=5m", { x: :length, y: :angle }, strict: false)
                         end
                         it "raises InvalidUnit if the value does not have a unit" do
                             e = assert_raises(CucumberHelpers::InvalidUnit) do
-                                CucumberHelpers.parse_arguments_respectively(%i[x y], "x=20m and y=5", Hash[x: :length, y: :length], strict: false)
+                                CucumberHelpers.parse_arguments_respectively(%i[x y], "x=20m and y=5", { x: :length, y: :length }, strict: false)
                             end
                             assert_equal "expected y=5 to be a length",
                                          e.message
@@ -222,7 +222,7 @@ module Roby
                     describe "order-based mode" do
                         it "raises UnexpectedArgument if strict is set and the argument does not have a quantity" do
                             assert_raises(CucumberHelpers::UnexpectedArgument) do
-                                CucumberHelpers.parse_arguments_respectively(%i[x y], "20m and 5m", Hash[x: :length], strict: true)
+                                CucumberHelpers.parse_arguments_respectively(%i[x y], "20m and 5m", { x: :length }, strict: true)
                             end
                         end
                         it "raises InvalidUnit if the unit does not match the expected quantity" do
@@ -230,11 +230,11 @@ module Roby
                                                      .with(:y, 5.0, "m", :angle).once
                             flexmock(CucumberHelpers).should_receive(:validate_unit)
                                                      .with(:x, 20.0, "m", :length).once
-                            CucumberHelpers.parse_arguments_respectively(%i[x y], "20m and 5m", Hash[x: :length, y: :angle], strict: false)
+                            CucumberHelpers.parse_arguments_respectively(%i[x y], "20m and 5m", { x: :length, y: :angle }, strict: false)
                         end
                         it "raises InvalidUnit if the value does not have a unit" do
                             e = assert_raises(CucumberHelpers::InvalidUnit) do
-                                CucumberHelpers.parse_arguments_respectively(%i[x y], "20m and 5", Hash[x: :length, y: :length], strict: false)
+                                CucumberHelpers.parse_arguments_respectively(%i[x y], "20m and 5", { x: :length, y: :length }, strict: false)
                             end
                             assert_equal "expected y=5 to be a length",
                                          e.message

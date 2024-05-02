@@ -431,7 +431,7 @@ module Roby
                 Roby.warn_deprecated "if_unreachable(cancel_at_emission) has been "\
                                      "replaced by if_unreachable(cancel_at_emission: "\
                                      "true or false, on_replace: :policy)"
-                options = Hash[cancel_at_emission: options]
+                options = { cancel_at_emission: options }
             end
             options = Kernel.validate_options options,
                                               cancel_at_emission: false,
@@ -1092,7 +1092,7 @@ module Roby
         end
 
         def replace_by(object)
-            plan.replace_subplan({}, Hash[object => object])
+            plan.replace_subplan({}, { object => object })
             initialize_replacement(object)
         end
 

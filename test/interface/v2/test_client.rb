@@ -92,9 +92,9 @@ module Roby
                 it "discovers actions and commands on connection" do
                     interface.should_receive(actions: [stub_action("Test")])
                     commands = CommandLibrary::InterfaceCommands.new(
-                        "", nil, Hash[test: stub_command(:test)]
+                        "", nil, { test: stub_command(:test) }
                     )
-                    interface.should_receive(commands: Hash["" => commands])
+                    interface.should_receive(commands: { "" => commands })
 
                     commands, actions = connect do |client|
                         [client.commands, client.actions]
@@ -302,8 +302,8 @@ module Roby
                             batch.Test!(arg: 20)
                             ret = while_polling_server { client.process_batch(batch) }
                             expected =
-                                [[[[], :start_job, ["Test"], Hash[arg: 10]], 1],
-                                 [[[], :start_job, ["Test"], Hash[arg: 20]], 3]]
+                                [[[[], :start_job, ["Test"], { arg: 10 }], 1],
+                                 [[[], :start_job, ["Test"], { arg: 20 }], 3]]
                                 .map do |call, call_ret|
                                     Client::BatchContext::Return::Element
                                         .new(call, call_ret)

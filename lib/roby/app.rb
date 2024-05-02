@@ -1560,9 +1560,9 @@ module Roby
         #
         # @see add_app_metadata
         def app_metadata
-            Hash["time" => time_tag, "cmdline" => "#{$0} #{ARGV.join(' ')}",
-                 "robot_name" => robot_name, "robot_type" => robot_type,
-                 "app_name" => app_name, "app_dir" => app_dir].merge(app_extra_metadata)
+            { "time" => time_tag, "cmdline" => "#{$0} #{ARGV.join(' ')}",
+              "robot_name" => robot_name, "robot_type" => robot_type,
+              "app_name" => app_name, "app_dir" => app_dir }.merge(app_extra_metadata)
         end
 
         # Test whether this app already created its log directory
@@ -3190,10 +3190,10 @@ module Roby
                 end
 
                 unless only_self
-                    test_files.merge!(Hash[each_test_file_for_loaded_models.to_a])
+                    test_files.merge!(each_test_file_for_loaded_models.to_a.to_h)
                 end
             else
-                test_files = Hash[each_test_file_for_loaded_models.to_a]
+                test_files = each_test_file_for_loaded_models.to_a.to_h
                 if only_self
                     test_files = test_files.find_all { |f, _| self_file?(f) }
                 end

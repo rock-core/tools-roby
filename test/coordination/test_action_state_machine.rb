@@ -77,7 +77,7 @@ module Roby
                 task = start_machine(action_m.test)
                 start = task.current_task_child
                 assert_kind_of task_m, start
-                assert_equal Hash[id: :start], start.arguments
+                assert_equal({ id: :start }, start.arguments)
             end
 
             it "starting state can be overridden by passing start_state argument" do
@@ -90,7 +90,7 @@ module Roby
                 task = start_machine(action_m.test, start_state: "second")
                 start = task.current_task_child
                 assert_kind_of task_m, start
-                assert_equal Hash[id: :next], start.arguments
+                assert_equal({ id: :next }, start.arguments)
             end
 
             it "state_machines check for accidentally given arg \"start_state\"" do
@@ -121,8 +121,8 @@ module Roby
                     end
                     assert_equal 2, task.children.size
                     refute task.children.include?(monitor) # task is restarted on transition
-                    assert_equal Hash[id: "monitoring"], task.monitor_state_child.arguments
-                    assert_equal Hash[id: :next], task.current_task_child.arguments
+                    assert_equal({ id: "monitoring" }, task.monitor_state_child.arguments)
+                    assert_equal({ id: :next }, task.current_task_child.arguments)
                 end
 
                 it "can transition using an event from a state-local dependency" do
@@ -140,7 +140,7 @@ module Roby
                         monitor.start!
                         monitor.success_event.emit
                     end
-                    assert_equal Hash[id: :next], task.current_task_child.arguments
+                    assert_equal({ id: :next }, task.current_task_child.arguments)
                 end
 
                 it "removes the dependency from the root task to the current state's task" do
@@ -153,7 +153,7 @@ module Roby
                         transition(start_state, monitor.start_event, next_state)
                     end
                     task = start_machine(action_m.test)
-                    assert_equal Hash[id: :start], task.current_task_child.arguments
+                    assert_equal({ id: :start }, task.current_task_child.arguments)
                     assert_equal 2, task.children.to_a.size
                     assert_equal([task.current_task_child, task.monitor_child].to_set, task.children.to_set)
                 end
@@ -170,13 +170,13 @@ module Roby
                     end
 
                     task = start_machine(action_m.test)
-                    assert_equal Hash[id: :start], task.current_task_child.arguments
+                    assert_equal({ id: :start }, task.current_task_child.arguments)
                     execute { task.monitor_child.start! }
-                    assert_equal Hash[id: :start], task.current_task_child.arguments
+                    assert_equal({ id: :start }, task.current_task_child.arguments)
                     execute { task.monitor_child.success_event.emit }
-                    assert_equal Hash[id: :next], task.current_task_child.arguments
+                    assert_equal({ id: :next }, task.current_task_child.arguments)
                     execute { task.monitor_child.start! }
-                    assert_equal Hash[id: :start], task.current_task_child.arguments
+                    assert_equal({ id: :start }, task.current_task_child.arguments)
                 end
 
                 # It makes no sense ... that's a regression test
@@ -543,7 +543,7 @@ module Roby
                 task = action_m.test.instanciate(plan, machine_arg: 10)
                 execute { task.start! }
                 table = plan.active_fault_response_tables.first
-                assert_equal Hash[arg: 10], table.arguments
+                assert_equal({ arg: 10 }, table.arguments)
             end
 
             it "does not instanciate transitions if the root task is finished" do

@@ -393,7 +393,7 @@ module Roby
                             )
                             controller.apply_current_batch
                             jobs = controller.roby_interface.client.each_job.to_a
-                            assert_equal Hash[arg: 20], jobs.first.task.action_arguments
+                            assert_equal({ arg: 20 }, jobs.first.task.action_arguments)
                         end
                         it "registers the job as a monitoring job" do
                             job = controller.start_monitoring_job(

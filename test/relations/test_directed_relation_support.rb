@@ -12,7 +12,7 @@ module Roby
                 @graph   = graph   = graph_m.new
                 @vertex_m = Class.new(Object) do
                     include DirectedRelationSupport
-                    define_method(:relation_graphs) { Hash[graph_m => graph] }
+                    define_method(:relation_graphs) { { graph_m => graph } }
                     define_method(:sorted_relations) { [graph_m] }
                 end
             end

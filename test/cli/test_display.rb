@@ -41,7 +41,7 @@ module Roby
 
                 describe "--host" do
                     it "calls the 'client' command" do
-                        cli = CLI::Display.new([], Hash[host: "host:port"])
+                        cli = CLI::Display.new([], { host: "host:port" })
                         flexmock(Roby)
                             .should_receive(:warn_deprecated)
                             .once

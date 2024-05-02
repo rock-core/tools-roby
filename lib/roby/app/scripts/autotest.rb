@@ -60,7 +60,7 @@ test_files = parser.parse(ARGV)
 if !server_pid
     require "roby/app/test_server"
     require "roby/app/autotest_console_reporter"
-    manager = Autorespawn::Manager.new(name: Hash[cmdline: "#{$0} #{ARGV.join(' ')}"])
+    manager = Autorespawn::Manager.new(name: { cmdline: "#{$0} #{ARGV.join(' ')}" })
     server_pid = Process.pid
     server = Roby::App::TestServer.start(Process.pid)
     Roby::App::AutotestConsoleReporter.new(server, manager)

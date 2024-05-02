@@ -70,19 +70,19 @@ module Roby
                 end
 
                 it "attempts to resolve distributed objects through their siblings" do
-                    marshalled = flexmock(remote_siblings: Hash[remote_id => remote_object_id])
+                    marshalled = flexmock(remote_siblings: { remote_id => remote_object_id })
                     flexmock(object_manager).should_receive(:find_by_id)
                                             .with(remote_id, remote_object_id).once.and_return(obj = flexmock(droby_id: Object.new))
                     assert_equal [true, obj], subject.find_local_object(marshalled)
                 end
 
                 it "returns (false, nil) if none of the siblings can be resolved" do
-                    marshalled = flexmock(remote_siblings: Hash[remote_id => remote_object_id])
+                    marshalled = flexmock(remote_siblings: { remote_id => remote_object_id })
                     assert_equal [false, nil], subject.find_local_object(marshalled)
                 end
 
                 it "registers the siblings of newly discovered objects" do
-                    marshalled = flexmock(remote_siblings: Hash[remote_id => remote_object_id])
+                    marshalled = flexmock(remote_siblings: { remote_id => remote_object_id })
                     flexmock(object_manager, :strict).should_receive(:find_by_id)
                                                      .with(remote_id, remote_object_id).and_return(obj = flexmock)
                     flexmock(object_manager, :strict).should_receive(:register_siblings)
@@ -91,7 +91,7 @@ module Roby
                 end
 
                 it "calls #update on the objects resolved by remote_siblings" do
-                    marshalled = flexmock(remote_siblings: Hash[remote_id => remote_object_id])
+                    marshalled = flexmock(remote_siblings: { remote_id => remote_object_id })
                     flexmock(object_manager, :strict).should_receive(:find_by_id)
                                                      .with(remote_id, remote_object_id).and_return(obj = flexmock(droby_id: Object.new))
                     flexmock(marshalled).should_receive(:update).with(subject, obj).once

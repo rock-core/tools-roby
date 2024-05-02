@@ -62,9 +62,9 @@ module Roby
                 if task.name
                     roles << task.name
                 end
-                Hash[roles: roles,
-                     failure: :stop.or(:start.never),
-                     remove_when_done: true]
+                { roles: roles,
+                  failure: :stop.or(:start.never),
+                  remove_when_done: true }
             end
 
             def start_task(toplevel, explicit_start: false)

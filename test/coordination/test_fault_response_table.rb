@@ -45,7 +45,7 @@ describe Roby::Coordination::FaultResponseTable do
         assert_equal 1, plan.active_fault_response_tables.size
         table = plan.active_fault_response_tables.first
         assert_kind_of fault_table_m, table
-        assert_equal Hash[arg: 20], table.arguments
+        assert_equal({ arg: 20 }, table.arguments)
         execute { task.stop! }
         assert plan.active_fault_response_tables.empty?
     end

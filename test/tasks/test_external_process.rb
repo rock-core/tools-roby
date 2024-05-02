@@ -33,19 +33,19 @@ module Roby
                     @task.redirect_output(stdout: :close)
                     opened_ios, options = @task.handle_redirection
                     assert_equal [], opened_ios
-                    assert_equal Hash[out: :close], options
+                    assert_equal({ out: :close }, options)
                 end
                 it "closes stderr" do
                     @task.redirect_output(stderr: :close)
                     opened_ios, options = @task.handle_redirection
                     assert_equal [], opened_ios
-                    assert_equal Hash[err: :close], options
+                    assert_equal({ err: :close }, options)
                 end
                 it "closes both stdout and stderr if given a single string" do
                     @task.redirect_output(:close)
                     opened_ios, options = @task.handle_redirection
                     assert_equal [], opened_ios
-                    assert_equal Hash[out: :close, err: :close], options
+                    assert_equal({ out: :close, err: :close }, options)
                 end
 
                 it "creates a pipe for stdout" do
@@ -53,14 +53,14 @@ module Roby
                     @task.redirect_output(stdout: :pipe)
                     opened_ios, options = @task.handle_redirection
                     assert_equal [[:close, pipe_w]], opened_ios
-                    assert_equal Hash[out: pipe_w], options
+                    assert_equal({ out: pipe_w }, options)
                 end
                 it "creates a pipe for stderr" do
                     _, pipe_w = mock_pipe
                     @task.redirect_output(stderr: :pipe)
                     opened_ios, options = @task.handle_redirection
                     assert_equal [[:close, pipe_w]], opened_ios
-                    assert_equal Hash[err: pipe_w], options
+                    assert_equal({ err: pipe_w }, options)
                 end
                 it "creates two different pipes for stdout and stderr if given a single :pipe symbol" do
                     _, out_pipe_w = mock_pipe
@@ -68,7 +68,7 @@ module Roby
                     @task.redirect_output(:pipe)
                     opened_ios, options = @task.handle_redirection
                     assert_equal [[:close, out_pipe_w], [:close, err_pipe_w]], opened_ios
-                    assert_equal Hash[out: out_pipe_w, err: err_pipe_w], options
+                    assert_equal({ out: out_pipe_w, err: err_pipe_w }, options)
                 end
 
                 describe "redirection to a file without substitution" do
@@ -79,27 +79,27 @@ module Roby
 
                     def self.common(c, arg, spawn_arg)
                         c.it "opens the target file directly" do
-                            @task.redirect_output(**Hash[arg => @specified_target])
+                            @task.redirect_output(**{ arg => @specified_target })
                             _, options = @task.handle_redirection
                             assert_equal @specified_target, options[spawn_arg].path
                         end
 
                         c.it "truncates the target file if the filename is not preceded by +" do
                             File.open(@specified_target, "w") { |io| io.puts "TEST" }
-                            @task.redirect_output(**Hash[arg => @specified_target])
+                            @task.redirect_output(**{ arg => @specified_target })
                             _, options = @task.handle_redirection
                             assert_equal 0, options[spawn_arg].stat.size
                         end
 
                         c.it "appends instead of truncating an existing target file if the filename is preceded by +" do
                             File.open(@specified_target, "w") { |io| io.puts "TEST" }
-                            @task.redirect_output(**Hash[arg => "+#{@specified_target}"])
+                            @task.redirect_output(**{ arg => "+#{@specified_target}" })
                             _, options = @task.handle_redirection
                             assert_equal 5, options[spawn_arg].stat.size
                         end
 
                         c.it "requests that the IO be closed after the spawn" do
-                            @task.redirect_output(**Hash[arg => @specified_target])
+                            @task.redirect_output(**{ arg => @specified_target })
                             opened_ios, options = @task.handle_redirection
                             assert_equal 1, opened_ios.size
                             assert_equal [[:close, options[spawn_arg]]], opened_ios
@@ -124,7 +124,7 @@ module Roby
                         target_file, io = opened_ios[0]
                         assert_equal File.join(out_dir, "bla-%p"), target_file
                         assert_equal out_dir, File.dirname(io.path)
-                        assert_equal Hash[out: io], options
+                        assert_equal({ out: io }, options)
                     end
                     it "creates a temporary file in the target's directory for stderr to enable substitutions" do
                         out_dir = make_tmpdir
@@ -134,7 +134,7 @@ module Roby
                         target_file, io = opened_ios[0]
                         assert_equal File.join(out_dir, "bla-%p"), target_file
                         assert_equal out_dir, File.dirname(io.path)
-                        assert_equal Hash[err: io], options
+                        assert_equal({ err: io }, options)
                     end
                     it "sets up a common target file if given a single string" do
                         out_dir = make_tmpdir
@@ -144,7 +144,7 @@ module Roby
                         target_file, io = opened_ios[0]
                         assert_equal File.join(out_dir, "bla"), target_file
                         assert_equal out_dir, File.dirname(io.path)
-                        assert_equal Hash[out: io, err: io], options
+                        assert_equal({ out: io, err: io }, options)
                     end
                     it "sets up a common target file if given the same string for stdout and stderr" do
                         out_dir = make_tmpdir
@@ -157,7 +157,7 @@ module Roby
                         target_file, io = opened_ios[0]
                         assert_equal File.join(out_dir, "bla"), target_file
                         assert_equal out_dir, File.dirname(io.path)
-                        assert_equal Hash[out: io, err: io], options
+                        assert_equal({ out: io, err: io }, options)
                     end
                 end
             end
@@ -276,7 +276,7 @@ module Roby
 
                     def initialize(**)
                         super
-                        @received_data = Hash[stderr: String.new, stdout: String.new]
+                        @received_data = { stderr: String.new, stdout: String.new }
                     end
 
                     def stdout_received(data)
@@ -319,8 +319,8 @@ module Roby
                     plan.add(task = pipe_task_m.new(command_line: [mock_command, "--common"]))
                     task.redirect_output(stdout: :pipe, stderr: :pipe)
                     expect_execution { task.start! }.to { emit task.success_event }
-                    assert_equal Hash[stdout: "O: FIRST LINE\nO: SECOND LINE\n", stderr: "E: FIRST LINE\nE: SECOND LINE\n"],
-                                 task.received_data
+                    assert_equal({ stdout: "O: FIRST LINE\nO: SECOND LINE\n", stderr: "E: FIRST LINE\nE: SECOND LINE\n" },
+                                 task.received_data)
                 end
 
                 it "redirects stderr to file" do
@@ -474,27 +474,27 @@ module Roby
 
                         def self.common(c, arg, spawn_arg)
                             c.it "opens the target file directly" do
-                                @task.redirect_output(**Hash[arg => "out"])
+                                @task.redirect_output(**{ arg => "out" })
                                 _, options = @task.handle_redirection
                                 assert_equal @specified_target, options[spawn_arg].path
                             end
 
                             c.it "truncates the target file if the filename is not preceded by +" do
                                 File.open(@specified_target, "w") { |io| io.puts "TEST" }
-                                @task.redirect_output(**Hash[arg => "out"])
+                                @task.redirect_output(**{ arg => "out" })
                                 _, options = @task.handle_redirection
                                 assert_equal 0, options[spawn_arg].stat.size
                             end
 
                             c.it "appends instead of truncating an existing target file if the filename is preceded by +" do
                                 File.open(@specified_target, "w") { |io| io.puts "TEST" }
-                                @task.redirect_output(**Hash[arg => "+out"])
+                                @task.redirect_output(**{ arg => "+out" })
                                 _, options = @task.handle_redirection
                                 assert_equal 5, options[spawn_arg].stat.size
                             end
 
                             c.it "requests that the IO be closed after the spawn" do
-                                @task.redirect_output(**Hash[arg => "out"])
+                                @task.redirect_output(**{ arg => "out" })
                                 opened_ios, options = @task.handle_redirection
                                 assert_equal 1, opened_ios.size
                                 assert_equal [[:close, options[spawn_arg]]], opened_ios
@@ -519,7 +519,7 @@ module Roby
                             assert_equal File.join(@working_directory, "bla-%p"),
                                          target_file
                             assert_equal @working_directory, File.dirname(io.path)
-                            assert_equal Hash[out: io], options
+                            assert_equal({ out: io }, options)
                         end
                     end
                 end

@@ -462,19 +462,19 @@ module Roby
             it "merges configuration options in robot-specific sections" do
                 before = app.options.dup
                 app.robot "test"
-                create_app_yml("robots" => Hash["test" => Hash["interface" => "test"]])
+                create_app_yml("robots" => { "test" => { "interface" => "test" } })
                 assert_equal before.merge("interface" => "test"), app.load_config_yaml
             end
             it "does a recursive merge for hash entries" do
-                app.options["test"] = Hash["kept" => 10, "overriden" => 20]
+                app.options["test"] = { "kept" => 10, "overriden" => 20 }
                 app.robot "test"
-                create_app_yml("robots" => Hash["test" => Hash["test" => Hash["overriden" => 30]]])
-                assert_equal Hash["kept" => 10, "overriden" => 30], app.load_config_yaml["test"]
+                create_app_yml("robots" => { "test" => { "test" => { "overriden" => 30 } } })
+                assert_equal({ "kept" => 10, "overriden" => 30 }, app.load_config_yaml["test"])
             end
             it "simply overrides non-hash entries" do
                 app.options["overriden"] = 10
                 app.robot "test"
-                create_app_yml("robots" => Hash["test" => Hash["overriden" => 30]])
+                create_app_yml("robots" => { "test" => { "overriden" => 30 } })
                 assert_equal 30, app.load_config_yaml["overriden"]
             end
         end
@@ -492,7 +492,7 @@ module Roby
             it "falls back to droby.host for backward compatibility" do
                 flexmock(Roby).should_receive(:warn_deprecated).with(/droby\.host/).once
                 app.should_receive(:apply_config_interface).with(host_port = flexmock).once
-                app.apply_config("droby" => Hash["host" => host_port])
+                app.apply_config("droby" => { "host" => host_port })
             end
         end
 
@@ -771,9 +771,9 @@ module Roby
             it "returns the unmarshalled contents of the info.yml file" do
                 app.log_dir = make_tmpdir
                 File.open(File.join(app.log_dir, "info.yml"), "w") do |io|
-                    YAML.dump(Hash["test" => true], io)
+                    YAML.dump({ "test" => true }, io)
                 end
-                assert_equal Hash["test" => true], app.log_read_metadata
+                assert_equal({ "test" => true }, app.log_read_metadata)
             end
         end
 
@@ -782,19 +782,19 @@ module Roby
                 @opt = OptionParser.new
             end
             it "sets the host/port pair if both are given" do
-                Application.host_options(@opt, options = Hash[host: "test", port: 666])
+                Application.host_options(@opt, options = { host: "test", port: 666 })
                 @opt.parse(["--host=bla:90"])
                 assert_equal "bla", options[:host]
                 assert_equal 90, options[:port]
             end
             it "sets only the host and leaves the port if no port is given" do
-                Application.host_options(@opt, options = Hash[host: "test", port: 666])
+                Application.host_options(@opt, options = { host: "test", port: 666 })
                 @opt.parse(["--host=bla"])
                 assert_equal "bla", options[:host]
                 assert_equal 666, options[:port]
             end
             it "does not modify the options if no --host argument is given" do
-                Application.host_options(@opt, options = Hash[host: "test", port: 666])
+                Application.host_options(@opt, options = { host: "test", port: 666 })
                 @opt.parse([])
                 assert_equal "test", options[:host]
                 assert_equal 666, options[:port]

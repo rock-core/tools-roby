@@ -43,7 +43,7 @@ module Roby
                     it "returns a hash of the requested commands" do
                         flexmock(@interface, commands: 42, jobs: 84)
                         result = @server.handshake("42", %i[commands jobs])
-                        assert_equal Hash[commands: 42, jobs: 84], result
+                        assert_equal({ commands: 42, jobs: 84 }, result)
                     end
                     it "does not listen to notifications once closed" do
                         @server.handshake("42", [])

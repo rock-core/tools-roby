@@ -221,11 +221,11 @@ module Roby
                             @channel.should_receive(:marshal_filter_object).with(k).never
                         end
 
-                        hash = Hash[keys.zip(values)]
+                        hash = keys.zip(values).to_h
                         @channel.should_receive(:marshal_filter_object)
                                 .with(hash).pass_thru
 
-                        expected = Hash[keys.zip(0...10)]
+                        expected = keys.zip(0...10).to_h
                         assert_equal(
                             expected, @channel.marshal_filter_object(hash)
                         )

@@ -25,22 +25,22 @@ module Roby
         describe "#initialize" do
             it "instanciates graphs for all the relation graphs "\
                "registered on Roby::Task" do
-                space = flexmock(instanciate: Hash[1 => 2])
+                space = flexmock(instanciate: { 1 => 2 })
                 flexmock(Roby::Task)
                     .should_receive(:all_relation_spaces).and_return([space])
                 plan = Roby::Plan.new
-                assert_equal Hash[1 => 2], plan.task_relation_graphs
+                assert_equal({ 1 => 2 }, plan.task_relation_graphs)
             end
             it "instanciates graphs for all the relation graphs "\
                "registered on Roby::Task's submodels" do
-                root_space = flexmock(instanciate: Hash[1 => 2])
-                submodel_space = flexmock(instanciate: Hash[41 => 42])
+                root_space = flexmock(instanciate: { 1 => 2 })
+                submodel_space = flexmock(instanciate: { 41 => 42 })
                 Roby::Task.new_submodel
                 flexmock(Roby::Task)
                     .should_receive(:all_relation_spaces)
                     .and_return([root_space, submodel_space])
                 plan = Roby::Plan.new
-                assert_equal Hash[1 => 2, 41 => 42], plan.task_relation_graphs
+                assert_equal({ 1 => 2, 41 => 42 }, plan.task_relation_graphs)
             end
             it "configures #task_relation_graphs to raise "\
                "if an invalid graph is being resolved" do
@@ -59,11 +59,11 @@ module Roby
 
             it "instanciates graphs for all the relation graphs "\
                "registered on Roby::EventGenerator" do
-                space = flexmock(instanciate: Hash[1 => 2])
+                space = flexmock(instanciate: { 1 => 2 })
                 flexmock(Roby::EventGenerator)
                     .should_receive(:all_relation_spaces).and_return([space])
                 plan = Roby::Plan.new
-                assert_equal Hash[1 => 2], plan.event_relation_graphs
+                assert_equal({ 1 => 2 }, plan.event_relation_graphs)
             end
             it "configures #event_relation_graphs to raise "\
                "if an invalid graph is being resolved" do
@@ -330,7 +330,7 @@ module Roby
                 plan.add(target = Roby::Task.new)
                 graph.add_edge(parent, source, info = flexmock)
                 new, removed =
-                    plan.compute_subplan_replacement(Hash[source => target], [graph])
+                    plan.compute_subplan_replacement({ source => target }, [graph])
                 assert_equal [[graph, parent, target, info]], new
                 assert_equal [[graph, parent, source]], removed
             end
@@ -340,7 +340,7 @@ module Roby
                 plan.add(target = Roby::Task.new)
                 graph.add_edge(source, child, info = flexmock)
                 new, removed =
-                    plan.compute_subplan_replacement(Hash[source => target], [graph])
+                    plan.compute_subplan_replacement({ source => target }, [graph])
                 assert_equal [[graph, target, child, info]], new
                 assert_equal [[graph, source, child]], removed
             end
@@ -351,7 +351,7 @@ module Roby
                 plan.add(child_target = Roby::Task.new)
                 graph.add_edge(parent, child, flexmock)
                 new, removed = plan.compute_subplan_replacement(
-                    Hash[parent => parent_target, child => child_target], [graph]
+                    { parent => parent_target, child => child_target }, [graph]
                 )
                 assert_equal [], new
                 assert_equal [], removed
@@ -364,7 +364,7 @@ module Roby
                 graph.add_edge(root, parent, flexmock)
                 graph.add_edge(parent, child, flexmock)
                 new, removed = plan.compute_subplan_replacement(
-                    Hash[parent => nil, child => child_target], [graph]
+                    { parent => nil, child => child_target }, [graph]
                 )
                 assert_equal [], new
                 assert_equal [], removed
@@ -374,10 +374,10 @@ module Roby
                 plan.add(child = Roby::Task.new)
                 plan.add(child_target = Roby::Task.new)
                 graph.add_edge(parent, child, info = flexmock)
-                mapping = Hash[child => child_target]
+                mapping = { child => child_target }
                 resolver = ->(t) { mapping[t] }
                 new, removed = plan.compute_subplan_replacement(
-                    Hash[child => [nil, resolver]], [graph]
+                    { child => [nil, resolver] }, [graph]
                 )
                 assert_equal [[graph, parent, child_target, info]], new
                 assert_equal [[graph, parent, child]], removed
@@ -388,7 +388,7 @@ module Roby
                 plan.add(parent_target = Roby::Task.new)
                 graph.add_edge(parent, child, flexmock)
                 new, removed = plan.compute_subplan_replacement(
-                    Hash[parent => parent_target], [graph], child_objects: false
+                    { parent => parent_target }, [graph], child_objects: false
                 )
                 assert_equal [], new
                 assert_equal [], removed
@@ -400,7 +400,7 @@ module Roby
                 graph = Roby::Relations::Graph.new(strong: true)
                 graph.add_edge(parent, source, flexmock)
                 new, removed =
-                    plan.compute_subplan_replacement(Hash[source => target], [graph])
+                    plan.compute_subplan_replacement({ source => target }, [graph])
                 assert_equal [], new
                 assert_equal [], removed
             end
@@ -412,7 +412,7 @@ module Roby
                 graph = Roby::Relations::Graph.new(copy_on_replace: true)
                 graph.add_edge(parent, source, info = flexmock)
                 new, removed =
-                    plan.compute_subplan_replacement(Hash[source => target], [graph])
+                    plan.compute_subplan_replacement({ source => target }, [graph])
                 assert_equal [[graph, parent, target, info]], new
                 assert_equal [], removed
             end

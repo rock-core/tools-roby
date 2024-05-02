@@ -14,7 +14,7 @@ class Vertex
     attr_reader :relation_graphs
 
     def initialize(graph)
-        @relation_graphs = Hash[graph => graph, graph.class => graph]
+        @relation_graphs = { graph => graph, graph.class => graph }
     end
 end
 

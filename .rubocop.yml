@@ -70,3 +70,5 @@ Naming/MethodParameterName:
 #
 Style/GlobalStdStream:
    Enabled: false
+Style/HashConversion: # new in 1.10
+  Enabled: true

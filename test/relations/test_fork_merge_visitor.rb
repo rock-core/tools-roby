@@ -29,38 +29,38 @@ module Roby
                 it "counts the in and out edges for each vertex" do
                     visitor = ForkMergeVisitor.new(graph, mock_value, 1)
                     in_degree, out_degree = visitor.compute_in_out_degrees(1, [21, 22])
-                    assert_equal Hash[1 => 0, 21 => 1, 22 => 1, 3 => 2, 4 => 1, 5 => 2],
-                                 in_degree
-                    assert_equal Hash[1 => 2, 21 => 1, 22 => 2, 3 => 1, 4 => 1],
-                                 out_degree
+                    assert_equal({ 1 => 0, 21 => 1, 22 => 1, 3 => 2, 4 => 1, 5 => 2 },
+                                 in_degree)
+                    assert_equal({ 1 => 2, 21 => 1, 22 => 2, 3 => 1, 4 => 1 },
+                                 out_degree)
                 end
 
                 it "does not count neighbours twice if they are children of each other" do
                     visitor = ForkMergeVisitor.new(graph, mock_value, 1)
                     graph.add_edge 21, 22, nil
                     in_degree, out_degree = visitor.compute_in_out_degrees(1, [21, 22])
-                    assert_equal Hash[1 => 0, 21 => 1, 22 => 2, 3 => 2, 4 => 1, 5 => 2],
-                                 in_degree
-                    assert_equal Hash[1 => 2, 21 => 2, 22 => 2, 3 => 1, 4 => 1],
-                                 out_degree
+                    assert_equal({ 1 => 0, 21 => 1, 22 => 2, 3 => 2, 4 => 1, 5 => 2 },
+                                 in_degree)
+                    assert_equal({ 1 => 2, 21 => 2, 22 => 2, 3 => 1, 4 => 1 },
+                                 out_degree)
                 end
 
                 it "restricts itself to the subgraph defined by the origin argument" do
                     visitor = ForkMergeVisitor.new(graph, mock_value, 1)
                     in_degree, out_degree = visitor.compute_in_out_degrees(22, [3, 5])
-                    assert_equal Hash[22 => 0, 3 => 1, 4 => 1, 5 => 2],
-                                 in_degree
-                    assert_equal Hash[22 => 2, 3 => 1, 4 => 1],
-                                 out_degree
+                    assert_equal({ 22 => 0, 3 => 1, 4 => 1, 5 => 2 },
+                                 in_degree)
+                    assert_equal({ 22 => 2, 3 => 1, 4 => 1 },
+                                 out_degree)
                 end
 
                 it "restricts itself to the subgraph defined by the neighbour argument" do
                     visitor = ForkMergeVisitor.new(graph, mock_value, 1)
                     in_degree, out_degree = visitor.compute_in_out_degrees(1, [21])
-                    assert_equal Hash[1 => 0, 21 => 1, 3 => 1, 4 => 1, 5 => 1],
-                                 in_degree
-                    assert_equal Hash[1 => 1, 21 => 1, 3 => 1, 4 => 1],
-                                 out_degree
+                    assert_equal({ 1 => 0, 21 => 1, 3 => 1, 4 => 1, 5 => 1 },
+                                 in_degree)
+                    assert_equal({ 1 => 1, 21 => 1, 3 => 1, 4 => 1 },
+                                 out_degree)
                 end
             end
 

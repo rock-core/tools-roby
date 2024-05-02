@@ -199,21 +199,21 @@ describe Roby::TaskArguments do
     describe "#evaluate_delayed_arguments" do
         it "returns a hash of the arguments value" do
             task = task_m.new arg: 10
-            assert_equal Hash[arg: 10], task.arguments.evaluate_delayed_arguments
+            assert_equal({ arg: 10 }, task.arguments.evaluate_delayed_arguments)
         end
         it "does not set the delayed arguments that have no value" do
             delayed_arg = flexmock do |r|
                 r.should_receive(:evaluate_delayed_argument).and_throw(:no_value)
             end
             task = task_m.new arg: delayed_arg
-            assert_equal Hash[], task.arguments.evaluate_delayed_arguments
+            assert_equal({}, task.arguments.evaluate_delayed_arguments)
         end
         it "sets evaluated delayed arguments" do
             delayed_arg = flexmock do |r|
                 r.should_receive(:evaluate_delayed_argument).and_return(20)
             end
             task = task_m.new arg: delayed_arg
-            assert_equal Hash[arg: 20], task.arguments.evaluate_delayed_arguments
+            assert_equal({ arg: 20 }, task.arguments.evaluate_delayed_arguments)
         end
     end
 

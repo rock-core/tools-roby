@@ -62,11 +62,11 @@ module Roby
                         graph = Relations::BidirectionalDirectedAdjacencyGraph.new
                         task_a, remote_a = create_task_pair
                         task_b, remote_b = create_task_pair
-                        graph.add_edge(task_a, task_b, Hash[v: 10])
-                        graph.add_edge(task_a.start_event, task_b.stop_event, Hash[v: 42])
+                        graph.add_edge(task_a, task_b, { v: 10 })
+                        graph.add_edge(task_a.start_event, task_b.stop_event, { v: 42 })
                         remote_g = transfer(graph)
-                        assert_equal Hash[v: 10], remote_g.edge_info(remote_a, remote_b)
-                        assert_equal Hash[v: 42], remote_g.edge_info(remote_a.start_event, remote_b.stop_event)
+                        assert_equal({ v: 10 }, remote_g.edge_info(remote_a, remote_b))
+                        assert_equal({ v: 42 }, remote_g.edge_info(remote_a.start_event, remote_b.stop_event))
                     end
                 end
 
@@ -679,7 +679,7 @@ module Roby
                             flexmock(demarshaller).should_receive(:local_object).with(any).pass_thru
                             matcher = transfer(self.matcher)
                             assert_kind_of Roby::Queries::TaskMatcher, matcher
-                            assert_equal Hash[test: {}], matcher.arguments
+                            assert_equal({ test: {} }, matcher.arguments)
                         end
                     end
 

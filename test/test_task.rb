@@ -507,7 +507,7 @@ module Roby
                         end
                     end
                     task = task_m.new(high_level_arg: 10, low_level_arg: 10)
-                    assert_equal Hash[high_level_arg: 10, low_level_arg: 10], task.parallel_assignment
+                    assert_equal({ high_level_arg: 10, low_level_arg: 10 }, task.parallel_assignment)
                 end
 
                 it "does parallel-assignment of delayed arguments in #freeze_delayed_arguments" do
@@ -1807,7 +1807,7 @@ class TC_Task < Minitest::Test
         end
 
         plan.add(task = klass.new)
-        expected_links = Hash[e1: %i[e2 e3], e4: :stop]
+        expected_links = { e1: %i[e2 e3], e4: :stop }
 
         assert_task_relation_set task, relation, expected_links.merge(additional_links)
     end
@@ -1837,11 +1837,11 @@ class TC_Task < Minitest::Test
 
         task = base.new
         assert_task_relation_set task, relation,
-                                 Hash[e1: %i[e2 e3]].merge(additional_links)
+                                 { e1: %i[e2 e3] }.merge(additional_links)
 
         task = subclass.new
         assert_task_relation_set task, relation,
-                                 Hash[e1: %i[e2 e3], e4: :stop].merge(additional_links)
+                                 { e1: %i[e2 e3], e4: :stop }.merge(additional_links)
     end
 
     def test_inherit_model_signals

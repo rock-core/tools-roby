@@ -99,7 +99,7 @@ module Roby
             #   self (with key '') and of its subcommands (where the key is not
             #   empty)
             def commands
-                result = Hash["" => InterfaceCommands.new("", nil, self.class.commands)]
+                result = { "" => InterfaceCommands.new("", nil, self.class.commands) }
                 each_subcommand do |name, interface, description|
                     result[name] = InterfaceCommands.new(
                         name, description, interface.commands

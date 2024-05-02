@@ -31,17 +31,17 @@ module Roby
                 def parse_host_option
                     if (url = options[:host])
                         if url =~ /(.*):(\d+)$/
-                            Hash[host: $1, port: Integer($2)]
+                            { host: $1, port: Integer($2) }
                         else
-                            Hash[host: url]
+                            { host: url }
                         end
                     elsif (vagrant_name = options[:vagrant])
                         require "roby/app/vagrant"
                         if vagrant_name =~ /(.*):(\d+)$/
                             vagrant_name, port = $1, Integer($2)
                         end
-                        Hash[host: Roby::App::Vagrant.resolve_ip(vagrant_name),
-                             port: port]
+                        { host: Roby::App::Vagrant.resolve_ip(vagrant_name),
+                          port: port }
                     else
                         {}
                     end

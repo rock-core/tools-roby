@@ -57,18 +57,18 @@ module Roby
 
             it "dumps and loads one cycle" do
                 w = Logfile::Writer.open(@path)
-                w.dump([:cycle_end, 0, 0, [Hash[test: 10]]])
+                w.dump([:cycle_end, 0, 0, [{ test: 10 }]])
                 w.close
 
                 Logfile::Reader.open(@path) do |r|
                     data = r.load_one_cycle
-                    assert_equal [:cycle_end, 0, 0, [Hash[test: 10]]], data
+                    assert_equal [:cycle_end, 0, 0, [{ test: 10 }]], data
                 end
             end
 
             it "handles a chunk whose payload is truncated" do
                 w = Logfile::Writer.open(@path)
-                w.dump([:cycle_end, 0, 0, [Hash[test: 10]]])
+                w.dump([:cycle_end, 0, 0, [{ test: 10 }]])
                 pos = w.tell
                 w.close
                 File.truncate(@path, pos - 1)
@@ -83,7 +83,7 @@ module Roby
             it "handles a chunk whose chunk header is truncated" do
                 w = Logfile::Writer.open(@path)
                 before = w.tell
-                w.dump([:cycle_end, 0, 0, [Hash[test: 10]]])
+                w.dump([:cycle_end, 0, 0, [{ test: 10 }]])
                 w.close
                 File.truncate(@path, before + 2)
 
@@ -96,7 +96,7 @@ module Roby
 
             it "returns nil if called on EOF" do
                 w = Logfile::Writer.open(@path)
-                w.dump([:cycle_end, 0, 0, [Hash[test: 10]]])
+                w.dump([:cycle_end, 0, 0, [{ test: 10 }]])
                 w.close
 
                 Logfile::Reader.open(@path) do |r|
@@ -334,7 +334,7 @@ module Roby
                         r.should_receive(:fatal)
                     end
                     assert_raises(TypeError) do
-                        w.dump([:cycle_end, 0, 0, [Hash[test: klass]]])
+                        w.dump([:cycle_end, 0, 0, [{ test: klass }]])
                     end
                 end
             end

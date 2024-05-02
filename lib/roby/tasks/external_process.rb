@@ -196,7 +196,7 @@ module Roby
                     path = File.expand_path(redir_target, redirection_base_path)
                     dir = File.dirname(path)
                     io = open_redirection(dir)
-                    return [[@redirection[:stdout], io]], Hash[out: io, err: io]
+                    return [[@redirection[:stdout], io]], { out: io, err: io }
                 end
 
                 out_open, out_io, @out_pipe, @out_buffer =
