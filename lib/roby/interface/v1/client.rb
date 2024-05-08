@@ -463,15 +463,16 @@ module Roby
                     end
 
                     def respond_to_missing?(m, include_private)
-                        (m =~ /(.*)!$/) || super
+                        m.to_s.end_with?("!")
                     end
 
                     # @api private
                     #
                     # Provides the action_name! syntax to start jobs
                     def method_missing(m, *args) # rubocop:disable Style/MethodMissingSuper
-                        if (action_match = /(.*)!$/.match(m.to_s))
-                            return start_job(action_match[1], *args)
+                        m = m.to_s
+                        if m.to_s.end_with?("!")
+                            return start_job(m[0..-2], *args)
                         end
 
                         ::Kernel.raise ::NoMethodError.new(m),
