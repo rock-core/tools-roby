@@ -23,7 +23,7 @@ module Roby
             # the run_ methods gets called, it is restricted to this particular
             # mode
             def run_if(&block)
-                run_modes << lambda(&block)
+                run_modes << block
             end
 
             # Enable this test only on the given robot
@@ -166,7 +166,7 @@ module Roby
                     end
                 else
                     target_blocks = (target.instance_variable_get(:@__describe_blocks) || [])
-                        .concat(@__describe_blocks)
+                                    .concat(@__describe_blocks)
                     target.instance_variable_set(:@__describe_blocks, target_blocks)
                 end
             end

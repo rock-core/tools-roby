@@ -24,7 +24,7 @@ end
 ORIGINAL_ARGV = ARGV.dup
 mode = ARGV.shift
 
-KNOWN_MODES = Hash[
+KNOWN_MODES = {
     "gen" => "generate new Roby models / objects within a Roby appplication directory",
     "run" => "start a Roby instance",
     "shell" => "connect to a running Roby instance with a shell",
@@ -35,7 +35,7 @@ KNOWN_MODES = Hash[
 
     "init" => "create a new Roby app",
     "add-robot" => "deprecated, use roby gen robot instead"
-]
+}.freeze
 
 if !mode || !KNOWN_MODES.has_key?(mode)
     if mode

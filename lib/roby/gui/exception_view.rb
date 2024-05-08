@@ -27,7 +27,7 @@ module Roby
 
             def filter_backtrace(parsed_backtrace, raw_backtrace)
                 raw_backtrace = raw_backtrace
-                    .find_all { |l| !(excluded_patterns === l) }
+                                .find_all { |l| !(excluded_patterns === l) }
                 Roby.filter_backtrace(raw_backtrace, force: true)
             end
 

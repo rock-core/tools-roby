@@ -151,10 +151,9 @@ module Roby
             end
 
             def clear_changes
-                @changes = Hash[
-                    state: false,
-                    structure: false,
-                    event_propagation: false]
+                @changes = { state: false,
+                             structure: false,
+                             event_propagation: false }
             end
 
             def self.update_type(type)

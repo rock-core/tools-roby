@@ -46,7 +46,7 @@ module Roby
                 def execute(&block)
                     return super unless block_given?
 
-                    Roby.warn_deprecated "Helpers#execute is deprecated, "\
+                    Roby.warn_deprecated "Helpers#execute is deprecated, " \
                                          "use #roby_execute instead"
                     roby_execute(&block)
                 end

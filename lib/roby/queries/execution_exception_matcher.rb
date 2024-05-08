@@ -83,7 +83,7 @@ module Roby
                         Array(targets).flat_map { |t| [source, t] }
                     end
                 end
-                @expected_edges = edges.each_slice(2).map { |a, b| [a, b, nil] }.to_set
+                @expected_edges = edges.each_slice(2).to_set { |a, b| [a, b, nil] }
                 self
             end
 
@@ -156,9 +156,9 @@ module Roby
                 end
 
                 if missing_involved_task
-                    return "#{missing_involved_task} cannot be found in "\
-                           "the exception trace\n"\
-                           "  #{exception.trace.map(&:to_s).join("\n  ")}"
+                    return "#{missing_involved_task} cannot be found in " \
+                           "the exception trace\n  " \
+                           "#{exception.trace.map(&:to_s).join("\n  ")}"
                 end
 
                 nil

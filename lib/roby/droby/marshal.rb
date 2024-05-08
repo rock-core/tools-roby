@@ -113,10 +113,10 @@ module Roby
 
             # Dump an object for transmition to the peer
             def dump(object)
-                if droby_id = context_objects[object]
+                if (droby_id = context_objects[object])
                     droby_id
                 elsif object.respond_to?(:droby_dump)
-                    if sibling = object_manager.registered_sibling_on(object, peer_id)
+                    if (sibling = object_manager.registered_sibling_on(object, peer_id))
                         RemoteDRobyID.new(peer_id, sibling)
                     else
                         object.droby_dump(self)
@@ -140,7 +140,7 @@ module Roby
             # @return [(Boolean,Object)] whether the object was resolved and the
             #   unmarshalled object
             def find_local_object(marshalled)
-                if local_object = context_objects[marshalled]
+                if (local_object = context_objects[marshalled])
                     [true, local_object]
                 elsif marshalled.kind_of?(DRobyID)
                     [true, object_manager.fetch_by_id(peer_id, marshalled)]
@@ -148,7 +148,7 @@ module Roby
                     [true, object_manager.fetch_by_id(marshalled.peer_id, marshalled.droby_id)]
                 elsif marshalled.respond_to?(:remote_siblings)
                     marshalled.remote_siblings.each do |peer_id, droby_id|
-                        if local_object = object_manager.find_by_id(peer_id, droby_id)
+                        if (local_object = object_manager.find_by_id(peer_id, droby_id))
                             # In case the remote siblings got updated since
                             # last time
                             object_manager.register_siblings(local_object, marshalled.remote_siblings)
@@ -224,7 +224,7 @@ module Roby
 
                 # Look locally for the constant listed in the name
                 local_object = Object
-                while subname = names.shift
+                while (subname = names.shift)
                     if subname =~ /^[A-Z]\w*$/ && local_object.const_defined_here?(subname)
                         local_object = local_object.const_get(subname)
                     else

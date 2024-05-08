@@ -77,7 +77,7 @@ module Roby
                 # @return [Integer]
                 def port
                     Roby.warn_deprecated(
-                        "Interface::TCPServer#port is deprecated in favor "\
+                        "Interface::TCPServer#port is deprecated in favor " \
                         "of #ip_port to match ruby's Addrinfo API"
                     )
                     ip_port
@@ -175,7 +175,7 @@ module Roby
             # @param [Array<Symbol>] handshake see {Client#initialize}
             # @return [Client] the connected {Client} object
             def self.connect_with_tcp_to(host, port = DEFAULT_PORT_V2,
-                    handshake: %i[actions commands])
+                handshake: %i[actions commands])
                 require "socket"
                 socket = TCPSocket.new(host, port)
                 addr = socket.addr(true)

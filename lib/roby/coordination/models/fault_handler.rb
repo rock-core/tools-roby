@@ -180,8 +180,8 @@ module Roby
                         end
 
                     search_graph = origin.plan
-                        .task_relation_graph_for(TaskStructure::Dependency)
-                        .reverse
+                                         .task_relation_graph_for(TaskStructure::Dependency)
+                                         .reverse
                     visitor = ResponseLocationVisitor.new(search_graph, predicate)
                     search_graph.depth_first_visit(origin, visitor) {}
                     visitor.selected

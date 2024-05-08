@@ -181,7 +181,7 @@ class TC_TransactionsProxy < Minitest::Test
         proxies = tasks.map { |t| transaction[t] }
 
         t1, t2, t3 = tasks
-        p1, p2, p3 = proxies
+        p1, p2, = proxies
         p1.depends_on p2
 
         assert_equal([], t1.enum_for(:each_child_object, Dependency).to_a)

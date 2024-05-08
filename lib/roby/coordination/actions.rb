@@ -62,9 +62,9 @@ module Roby
                 if task.name
                     roles << task.name
                 end
-                Hash[roles: roles,
-                     failure: :stop.or(:start.never),
-                     remove_when_done: true]
+                { roles: roles,
+                  failure: :stop.or(:start.never),
+                  remove_when_done: true }
             end
 
             def start_task(toplevel, explicit_start: false)
@@ -93,9 +93,8 @@ module Roby
             end
 
             def remove_current_task
-                current_task_child = root_task.find_child_from_role("current_task")
                 task_info[current_task].required_tasks.each do |task, roles|
-                    if state_name = task.name
+                    if (state_name = task.name)
                         roles = [state_name, *roles]
                     end
                     if !roles.empty? && (child_task = root_task.find_child_from_role(roles.first))

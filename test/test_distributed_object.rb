@@ -45,7 +45,7 @@ module Roby
             end
 
             it "becomes self_owned if all owners are removed with clear_owners" do
-                @object.add_owner(owner = flexmock)
+                @object.add_owner(flexmock)
                 @object.clear_owners
                 assert @object.self_owned?
             end

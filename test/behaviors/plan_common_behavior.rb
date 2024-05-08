@@ -178,7 +178,7 @@ module Roby
             flexmock(Roby).should_receive(:warn_deprecated).once
             task = Roby::Task.new
             flexmock(plan).should_receive(:permanent_task?).with(task).once
-                .and_return(ret = flexmock)
+                          .and_return(ret = flexmock)
             assert_equal ret, plan.permanent?(task)
         end
 
@@ -186,7 +186,7 @@ module Roby
             flexmock(Roby).should_receive(:warn_deprecated).once
             event = Roby::EventGenerator.new
             flexmock(plan).should_receive(:permanent_event?).with(event).once
-                .and_return(ret = flexmock)
+                          .and_return(ret = flexmock)
             assert_equal ret, plan.permanent?(event)
         end
 
@@ -235,7 +235,7 @@ module Roby
         def test_add_permanent_event_notifies_the_state_change
             ev = EventGenerator.new
             flexmock(plan).should_receive(:notify_event_status_change)
-                .with(ev, :permanent).once
+                          .with(ev, :permanent).once
             plan.add_permanent_event(ev)
         end
 
@@ -254,7 +254,7 @@ module Roby
         def test_unmark_permanent_event_notifies_the_status_change
             plan.add_permanent_event(ev = EventGenerator.new)
             flexmock(plan).should_receive(:notify_event_status_change)
-                .with(ev, :normal).once
+                          .with(ev, :normal).once
             plan.unmark_permanent_event(ev)
             assert_event_state(ev, :normal)
         end

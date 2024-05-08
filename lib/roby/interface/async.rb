@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
 Roby.warn_deprecated(
-    "require \"roby/interface/async\" is deprecated, require the versioned "\
-    "roby/interface/v1/async or roby/interface/v2/async instead, and use the "\
+    "require \"roby/interface/async\" is deprecated, require the versioned " \
+    "roby/interface/v1/async or roby/interface/v2/async instead, and use the " \
     "explicitly versioned namespace"
 )
 
 if ENV["ROBY_STRICT_INTERFACE_VERSION"] == "1"
     raise LoadError,
-          "roby/interface/async not available because "\
+          "roby/interface/async not available because " \
           "ROBY_STRICT_INTERFACE_VERSION is set"
 end
 

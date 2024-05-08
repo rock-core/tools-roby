@@ -108,8 +108,8 @@ module Roby
                         begin
                             ["#{obj} (#{obj.class})", e]
                         rescue StandardError
-                            ["-- cannot display object, #to_s raised -- "\
-                                   "(#{obj.class})", e]
+                            ["-- cannot display object, #to_s raised -- " \
+                             "(#{obj.class})", e]
                         end
                     end
                 end

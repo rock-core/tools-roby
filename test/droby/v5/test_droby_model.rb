@@ -27,7 +27,7 @@ module Roby
 
                 def transfer(obj)
                     ::Marshal.load(::Marshal.dump(marshaller.dump(obj)))
-                        .proxy(demarshaller)
+                             .proxy(demarshaller)
                 end
 
                 describe "provided_models_of" do
@@ -40,7 +40,7 @@ module Roby
                         end
 
                         flexmock(m).should_receive(:supermodel).explicitly
-                            .and_return(super_m)
+                                   .and_return(super_m)
 
                         assert_equal [], DRobyModel.provided_models_of(m)
                     end

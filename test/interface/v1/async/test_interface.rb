@@ -127,12 +127,12 @@ module Roby
                                                       .and_return(1 => %w[a b c])
                             recorder
                                 .should_receive(:called).once
-                                .with(lambda { |jobs|
-                                          jobs.size == 1 &&
-                                          jobs.first.job_id == 1 &&
-                                          jobs.first.state == "a" &&
-                                          jobs.first.task == "c"
-                                      })
+                                                        .with(lambda { |jobs|
+                                                                  jobs.size == 1 &&
+                                                                  jobs.first.job_id == 1 &&
+                                                                  jobs.first.state == "a" &&
+                                                                  jobs.first.task == "c"
+                                                              })
                             connect(server) do |c|
                                 c.on_reachable { |jobs| recorder.called(jobs) }
                             end
@@ -216,12 +216,12 @@ module Roby
                             client = connect(server)
                             flexmock(server.interface).should_receive(:jobs).and_return(1 => %w[a b c])
                             recorder.should_receive(:job)
-                                .once
-                                .with(lambda { |job|
-                                          job.job_id == 1 &&
-                                          job.state == "a" &&
-                                          job.task == "c"
-                                      })
+                                    .once
+                                    .with(lambda { |job|
+                                              job.job_id == 1 &&
+                                              job.state == "a" &&
+                                              job.task == "c"
+                                          })
                             process_call do
                                 client.on_job { |j| recorder.job(j) }
                             end
@@ -230,12 +230,12 @@ module Roby
                             port = available_server_port
                             client = create_client(connect: false, port: port)
                             recorder.should_receive(:job)
-                                .once
-                                .with(lambda { |job|
-                                          job.job_id == 1 &&
-                                          job.state == "a" &&
-                                          job.task == "c"
-                                      })
+                                    .once
+                                    .with(lambda { |job|
+                                              job.job_id == 1 &&
+                                              job.state == "a" &&
+                                              job.task == "c"
+                                          })
                             client.on_job { |j| recorder.job(j) }
 
                             server = create_server(port: port)
@@ -256,19 +256,19 @@ module Roby
                                 @server = create_server
                                 @client = connect(server)
                                 recorder.should_receive(:job)
-                                    .by_default
-                                    .once
-                                    .with(lambda { |job|
-                                              job.job_id == 1 &&
-                                              job.state == "a" &&
-                                              job.task == "c"
-                                          })
+                                        .by_default
+                                        .once
+                                        .with(lambda { |job|
+                                                  job.job_id == 1 &&
+                                                  job.state == "a" &&
+                                                  job.task == "c"
+                                              })
                                 @listener = process_call do
                                     client.on_job { |j| recorder.job(j) }
                                 end
                                 flexmock(server.interface).should_receive(:find_job_info_by_id)
-                                    .with(1)
-                                    .and_return(%w[a b c])
+                                                          .with(1)
+                                                          .and_return(%w[a b c])
                                 interface.tracked_jobs << 1
                             end
 
@@ -346,7 +346,7 @@ module Roby
                             monitor = flexmock(:on, JobMonitor, job_id: 42, finalized?: false)
                             client.add_job_monitor(monitor)
                             monitor.should_receive(:notify_exception)
-                                .with(:fatal, "exception_object").once
+                                   .with(:fatal, "exception_object").once
                             client.client.queue_exception(:fatal, "exception_object", [], [42])
                             process_call do
                                 client.poll
@@ -357,7 +357,7 @@ module Roby
                             monitor = JobMonitor.new(client, 42)
                             monitor.start
                             flexmock(monitor).should_receive(:notify_exception)
-                                .with(:fatal, "exception_object").once
+                                             .with(:fatal, "exception_object").once
                             interface.job_notify(Roby::Interface::JOB_MONITORED, 42, "name")
                             client.client.queue_exception(:fatal, "exception_object", [], [42])
                             interface.job_notify(Roby::Interface::JOB_FINALIZED, 42, "name")

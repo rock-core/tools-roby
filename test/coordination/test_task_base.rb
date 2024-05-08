@@ -29,7 +29,7 @@ describe Roby::Coordination::TaskBase do
             roby_task.depends_on roby_child, role: "name"
             model_task.should_receive(:find_child_model).and_return(nil)
             model_task.should_receive(:find_child).once
-                .with("name", Roby::Tasks::Simple)
+                      .with("name", Roby::Tasks::Simple)
             flexmock(task).should_receive(:resolve).and_return(roby_task)
             task.find_child("name")
         end
@@ -38,7 +38,7 @@ describe Roby::Coordination::TaskBase do
             roby_task.depends_on roby_child, role: "name"
             model_task.should_receive(:find_child_model).with("name").and_return(child_model = flexmock)
             model_task.should_receive(:find_child).once
-                .with("name", child_model)
+                      .with("name", child_model)
             flexmock(task).should_receive(:resolve).and_return(roby_task)
             task.find_child("name")
         end
@@ -48,7 +48,7 @@ describe Roby::Coordination::TaskBase do
 
             roby_child_model = flexmock
             model_task.should_receive(:find_child).once
-                .with("name", roby_child_model)
+                      .with("name", roby_child_model)
             flexmock(task).should_receive(:resolve).and_return(roby_task)
             task.find_child("name", roby_child_model)
         end

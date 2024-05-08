@@ -107,7 +107,7 @@ module Roby
                             connection_init      = ::Marshal.dump([CONNECTION_INIT, chunks.inject(0) { |s, c| s + c.size }])
                             connection_init_done = ::Marshal.dump(CONNECTION_INIT_DONE)
                             chunks.unshift([connection_init.size].pack("L<") + connection_init)
-                            chunks << [connection_init_done.size].pack("L<") + connection_init_done
+                            chunks << ([connection_init_done.size].pack("L<") + connection_init_done)
                             @pending_data[socket] = chunks
                         end
 

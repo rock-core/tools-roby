@@ -13,7 +13,7 @@ describe Roby::TaskService do
             srv_m = Roby::TaskService.new_submodel
             task_m = Roby::Task.new_submodel
             task_m.provides srv_m
-            assert (srv_m.match === task_m.new)
+            assert(srv_m.match === task_m.new)
         end
     end
 end

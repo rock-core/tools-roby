@@ -62,11 +62,11 @@ module Roby
                         graph = Relations::BidirectionalDirectedAdjacencyGraph.new
                         task_a, remote_a = create_task_pair
                         task_b, remote_b = create_task_pair
-                        graph.add_edge(task_a, task_b, Hash[v: 10])
-                        graph.add_edge(task_a.start_event, task_b.stop_event, Hash[v: 42])
+                        graph.add_edge(task_a, task_b, { v: 10 })
+                        graph.add_edge(task_a.start_event, task_b.stop_event, { v: 42 })
                         remote_g = transfer(graph)
-                        assert_equal Hash[v: 10], remote_g.edge_info(remote_a, remote_b)
-                        assert_equal Hash[v: 42], remote_g.edge_info(remote_a.start_event, remote_b.stop_event)
+                        assert_equal({ v: 10 }, remote_g.edge_info(remote_a, remote_b))
+                        assert_equal({ v: 42 }, remote_g.edge_info(remote_a.start_event, remote_b.stop_event))
                     end
                 end
 
@@ -142,7 +142,7 @@ module Roby
                         task_m.event :terminal, terminal: true
                         marshaller.register_model(task_m)
                         marshalled = marshaller.dump(task_m)
-                        loaded = ::Marshal.load(::Marshal.dump(marshalled))
+                        ::Marshal.load(::Marshal.dump(marshalled))
                         loaded = demarshaller.local_object(marshalled)
                         assert loaded.find_event(:controlable).controlable?
                         assert loaded.find_event(:terminal).terminal?
@@ -153,7 +153,7 @@ module Roby
 
                     it "registers its model" do
                         task_m = Roby::Task.new_submodel
-                        task = task_m.new
+                        task_m.new
                         droby_transfer(task_m.new)
                         assert_kind_of Roby::DRoby::RemoteDRobyID,
                                        droby_local_marshaller.dump(task_m)
@@ -269,7 +269,7 @@ module Roby
                                 event :additional, controlable: true
                             end
                             local_plan.add_mission_task(task = task_m.new)
-                            remote_task = transfer(task)
+                            transfer(task)
 
                             local_plan.unmark_mission_task(task)
                             remote_task = transfer(task)
@@ -330,7 +330,7 @@ module Roby
                     end
 
                     it "transfers the tasks" do
-                        plan.add(task0 = task_m.new(test: 20))
+                        plan.add(task_m.new(test: 20))
                         plan = transfer(self.plan)
                         assert_equal 1, plan.tasks.size
                         assert_equal Roby::Task, plan.tasks.first.class.superclass
@@ -339,7 +339,7 @@ module Roby
 
                     it "handles tasks in arguments" do
                         plan.add(task0 = task_m.new)
-                        plan.add(task1 = task_m.new(test: task0))
+                        plan.add(task_m.new(test: task0))
                         plan = transfer(self.plan)
                         task0, task1 = plan.tasks.to_a
                         assert_equal task0, task1.arguments[:test]
@@ -432,7 +432,7 @@ module Roby
                         e = LocalizedError.new(local_task.start_event)
                         e.original_exceptions << flexmock(droby_dump: 42)
                         flexmock(demarshaller).should_receive(:local_object).with(42)
-                            .and_return(r_exceptions = flexmock)
+                                              .and_return(r_exceptions = flexmock)
                         flexmock(demarshaller).should_receive(:local_object).pass_thru
                         e = transfer(e)
                         assert_equal [r_exceptions], e.original_exceptions
@@ -470,7 +470,7 @@ module Roby
                 describe DefaultArgumentDumper do
                     it "transfers the default argument value" do
                         local = Roby::Task.new_submodel
-                        obj = DefaultArgument.new(local)
+                        DefaultArgument.new(local)
                         arg = Roby::DefaultArgument.new(local)
 
                         remote_arg = droby_transfer(arg)
@@ -484,7 +484,7 @@ module Roby
                         obj = Object.new
                         arg = Roby::DelayedArgumentFromObject.new(obj, false).bla
 
-                        loaded = transfer(arg)
+                        transfer(arg)
                         assert_kind_of Object, arg.instance_variable_get(:@object)
                         assert_equal [:bla], arg.instance_variable_get(:@methods)
                         assert_equal Object, arg.instance_variable_get(:@expected_class)
@@ -494,7 +494,7 @@ module Roby
                     it "handles DelayedArgumentFromState" do
                         arg = Roby::DelayedArgumentFromState.new.bla
 
-                        loaded = transfer(arg)
+                        transfer(arg)
                         assert_kind_of Roby::StateSpace, arg.instance_variable_get(:@object)
                         assert_equal [:bla], arg.instance_variable_get(:@methods)
                         assert_equal Object, arg.instance_variable_get(:@expected_class)
@@ -519,7 +519,8 @@ module Roby
                             loaded = transfer(action)
                             assert_same action.model, loaded.model
                             assert_equal task_m.droby_id, demarshaller_object_manager.known_sibling_on(
-                                loaded.arguments[:test], local_id)
+                                loaded.arguments[:test], local_id
+                            )
                         end
                     end
 
@@ -593,7 +594,7 @@ module Roby
                             flexmock(marshaller).should_receive(:dump).with(q).and_return(42).once
                             flexmock(demarshaller).should_receive(:local_object).with(Queries::NotMatcherDumper::DRoby).pass_thru
                             flexmock(demarshaller).should_receive(:local_object).with(42)
-                                .and_return(q).once
+                                                  .and_return(q).once
                             unmarshalled = transfer(not_q)
                             assert_kind_of Roby::Queries::NotMatcher, unmarshalled
                             assert_equal q, unmarshalled.instance_variable_get(:@op)
@@ -678,7 +679,7 @@ module Roby
                             flexmock(demarshaller).should_receive(:local_object).with(any).pass_thru
                             matcher = transfer(self.matcher)
                             assert_kind_of Roby::Queries::TaskMatcher, matcher
-                            assert_equal Hash[test: {}], matcher.arguments
+                            assert_equal({ test: {} }, matcher.arguments)
                         end
                     end
 

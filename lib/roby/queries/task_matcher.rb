@@ -186,8 +186,8 @@ module Roby
                     names.each do |n|
                         unless Index::PREDICATES.include?(n)
                             raise ArgumentError,
-                                  "#{n} is not declared in Index::PREDICATES. Use "\
-                                  "match_indexed_predicate directly to override "\
+                                  "#{n} is not declared in Index::PREDICATES. Use " \
+                                  "match_indexed_predicate directly to override " \
                                   "this check"
                         end
 
@@ -470,7 +470,7 @@ module Roby
 
             # @deprecated use {#filter_tasks_sets} instead
             def filter(initial_set, index, initial_is_complete: false)
-                Roby.warn_deprecated "TaskMatcher#filter is deprecated, "\
+                Roby.warn_deprecated "TaskMatcher#filter is deprecated, " \
                                      "use {#filter_tasks_sets} instead"
                 filter_tasks_sets(initial_set, index,
                                   initial_is_complete: initial_is_complete)
@@ -513,10 +513,10 @@ module Roby
 
             def find_event(event_name)
                 event_name = event_name.to_sym
-                models = if !@model.empty?
-                             @model
-                         else
+                models = if @model.empty?
                              [Roby::Task]
+                         else
+                             @model
                          end
                 models.each do |m|
                     if m.find_event(event_name)
@@ -539,8 +539,8 @@ module Roby
                 if !model
                     task_models = @model.empty? ? [Roby::Task] : @model
                     raise NoMethodError.new(m),
-                          "no event '#{event_name}' in match model "\
-                          "#{task_models.map(&:to_s).join(', ')}, use "\
+                          "no event '#{event_name}' in match model " \
+                          "#{task_models.map(&:to_s).join(', ')}, use " \
                           "#which_fullfills to narrow the task model"
                 elsif !args.empty?
                     raise ArgumentError,

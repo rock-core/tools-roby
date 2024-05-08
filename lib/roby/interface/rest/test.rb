@@ -26,7 +26,7 @@ module Roby
                 include Rack::Test::Methods
 
                 def rest_api
-                    raise NotImplementedError, "implement #rest_api in your test "\
+                    raise NotImplementedError, "implement #rest_api in your test " \
                                                "to return the REST API"
                 end
 

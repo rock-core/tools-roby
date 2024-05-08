@@ -81,7 +81,7 @@ module Roby
                         event.when_unreachable(true) do |reason, _generator|
                             unless disabled?
                                 raise Script::DeadInstruction.new(script.root_task),
-                                      "the 'until' condition of #{self} will "\
+                                      "the 'until' condition of #{self} will " \
                                       "never be reached: #{reason}"
                             end
                         end

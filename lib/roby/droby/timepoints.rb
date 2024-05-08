@@ -150,7 +150,7 @@ module Roby
                         result.concat(tp.flamegraph)
                         d + tp.duration
                     end
-                    result << path << self.duration - duration
+                    result << path << (self.duration - duration)
                     result
                 end
             end

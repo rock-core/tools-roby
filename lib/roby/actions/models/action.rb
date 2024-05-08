@@ -110,15 +110,15 @@ module Roby
 
                     if overloading_return.kind_of?(Class)
                         raise ArgumentError,
-                              "overloading return type #{overloading_return} does "\
-                              "not fullfill #{overloaded_return}, cannot merge "\
+                              "overloading return type #{overloading_return} does " \
+                              "not fullfill #{overloaded_return}, cannot merge " \
                               "the action models"
                     elsif overloaded_return != Roby::Task
                         raise ArgumentError,
-                              "overloading return type #{overloading_return} is "\
-                              "a service model which does not fullfill "\
-                              "#{overloaded_return}, and Roby does not support "\
-                              "return type specifications that are composite "\
+                              "overloading return type #{overloading_return} is " \
+                              "a service model which does not fullfill " \
+                              "#{overloaded_return}, and Roby does not support " \
+                              "return type specifications that are composite " \
                               "of services and tasks"
                     end
                 end

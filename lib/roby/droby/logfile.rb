@@ -68,21 +68,21 @@ module Roby
             # object as header
             def self.guess_version_from_marshalled_header(input)
                 input.rewind
-                header =
-                    begin ::Marshal.load(input) # rubocop:disable Security/MarshalLoad
-                    rescue TypeError
-                        return
-                    end
+                begin
+                    header = ::Marshal.load(input) # rubocop:disable Security/MarshalLoad
+                rescue TypeError
+                    return
+                end
 
                 case header
                 when Hash
                     header[:log_format]
                 when Symbol
-                    first_chunk =
-                        begin ::Marshal.load(input) # rubocop:disable Security/MarshalLoad
-                        rescue TypeError
-                            return
-                        end
+                    begin
+                        first_chunk = ::Marshal.load(input) # rubocop:disable Security/MarshalLoad
+                    rescue TypeError
+                        return
+                    end
 
                     0 if first_chunk.kind_of?(Array)
                 when Array
@@ -123,12 +123,12 @@ module Roby
             def self.validate_format(format)
                 if format < FORMAT_VERSION
                     raise InvalidFormatVersion,
-                          "this is an outdated format (#{format}, current is "\
+                          "this is an outdated format (#{format}, current is " \
                           "#{FORMAT_VERSION}). Please run roby-log upgrade-format"
                 elsif format > FORMAT_VERSION
                     raise InvalidFormatVersion,
-                          "this is an unknown format version #{format}: "\
-                          "expected #{FORMAT_VERSION}. This file can be read "\
+                          "this is an unknown format version #{format}: " \
+                          "expected #{FORMAT_VERSION}. This file can be read " \
                           "only by newer versions of Roby"
                 end
             end
@@ -149,8 +149,8 @@ module Roby
                 buffer = io.read(data_size) || ""
                 if buffer.size < data_size
                     raise TruncatedFileError,
-                          "truncated file, expected a chunk of size #{data_size} "\
-                          "at #{actual_pos + 4}, but got only "\
+                          "truncated file, expected a chunk of size #{data_size} " \
+                          "at #{actual_pos + 4}, but got only " \
                           "#{buffer ? buffer.size : '0'} bytes"
                 end
 
@@ -176,11 +176,11 @@ module Roby
                     )
                     retry
                 else
-                    raise e, "#{e.message}, running roby-log repair "\
+                    raise e, "#{e.message}, running roby-log repair " \
                              "might repair the file", e.backtrace
                 end
             rescue Exception => e # rubocop:disable Lint/RescueException
-                raise e, "#{e.message}, running roby-log repair "\
+                raise e, "#{e.message}, running roby-log repair " \
                          "might repair the file", e.backtrace
             end
 

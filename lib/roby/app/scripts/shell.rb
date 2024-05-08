@@ -70,7 +70,7 @@ main_remote_interface__.silent(silent)
 
 module RbReadline
     def self.puts(msg)
-        if needs_save_and_restore = rl_isstate(RL_STATE_READCMD)
+        if (needs_save_and_restore = rl_isstate(RL_STATE_READCMD))
             saved_point = rl_point
             rl_maybe_save_line
             rl_save_prompt
@@ -116,7 +116,7 @@ end
 
 class ShellEvalContext
     WHITELISTED_METHODS = %i[actions wtf? cancel safe unsafe safe? help]
-        .freeze
+                          .freeze
 
     def initialize(interface, interface_m, send_q: ::Queue.new, results_q: ::Queue.new)
         @__interface = interface

@@ -106,11 +106,11 @@ module Roby
             @exception = exception
             @trace = Relations::BidirectionalDirectedAdjacencyGraph.new
 
-            if task = exception.failed_task
+            if (task = exception.failed_task)
                 @origin = task
                 @trace.add_vertex(task)
             end
-            if generator = exception.failed_generator
+            if (generator = exception.failed_generator)
                 @generator = exception.failed_generator
             end
 
@@ -208,10 +208,10 @@ module Roby
                             handler.call(self, exception_object)
                             return true
                         rescue Exception => e
-                            if !kind_of?(PlanObject)
-                                execution_engine.add_framework_error(e, "global exception handling")
-                            else
+                            if kind_of?(PlanObject)
                                 add_error(FailedExceptionHandler.new(e, self, exception_object, handler))
+                            else
+                                execution_engine.add_framework_error(e, "global exception handling")
                             end
                         end
                     end
@@ -324,7 +324,7 @@ module Roby
                 PP.pp(exception, "".dup)
             rescue Exception => e
                 begin
-                    "error formatting exception\n  #{exception.full_message}"\
+                    "error formatting exception\n  #{exception.full_message}" \
                     "\nplease report the formatting error:\n  #{e.full_message}"
                 rescue Exception => e
                     "error formatting exception\n  #{e.full_message}"
@@ -350,13 +350,14 @@ module Roby
         message + original_exception_msgs
     end
 
-    LOG_SYMBOLIC_TO_NUMERIC = Array[
-        :debug,
-        :info,
-        :warn,
-        :error,
-        :fatal,
-        :unknown]
+    LOG_SYMBOLIC_TO_NUMERIC = %i[
+        debug
+        info
+        warn
+        error
+        fatal
+        unknown
+    ].freeze
 
     def self.log_level_enabled?(logger, level)
         logger_level = if logger.respond_to?(:log_level)
@@ -365,7 +366,7 @@ module Roby
                            logger.level
                        end
 
-        if numeric_level = LOG_SYMBOLIC_TO_NUMERIC.index(level.to_sym)
+        if (numeric_level = LOG_SYMBOLIC_TO_NUMERIC.index(level.to_sym))
             logger_level <= numeric_level
         else
             raise ArgumentError, "#{level} is not a valid log level, log levels are #{LOG_SYMBOLIC_TO_NUMERIC.map(&:inspect).join(', ')}"
@@ -380,7 +381,7 @@ module Roby
                 PP.pp(obj, "".dup)
             rescue Exception => e
                 begin
-                    "error formatting object\n  #{obj}\n"\
+                    "error formatting object\n  #{obj}\n" \
                     "please report the formatting error:\n  #{e.full_message}"
                 rescue Exception => e
                     "\nerror formatting object\n  #{e.full_message}"

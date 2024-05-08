@@ -92,7 +92,7 @@ module Roby
                     end
 
                     def initialize(host = DEFAULT_REMOTE_NAME, port: DEFAULT_PORT, connect: true,
-                                   plan_rebuilder: default_plan_rebuilder)
+                        plan_rebuilder: default_plan_rebuilder)
                         @host = host
                         @port = port
                         @plan_rebuilder = plan_rebuilder

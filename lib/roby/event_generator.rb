@@ -163,20 +163,20 @@ module Roby
         def check_call_validity
             if !plan
                 EventNotExecutable.new(self)
-                    .exception("#emit called on #{self} which has been removed from its plan")
+                                  .exception("#emit called on #{self} which has been removed from its plan")
             elsif !plan.executable?
                 EventNotExecutable.new(self)
-                    .exception("#emit called on #{self} which is not in an executable plan")
+                                  .exception("#emit called on #{self} which is not in an executable plan")
             elsif !controlable?
                 EventNotControlable.new(self)
-                    .exception("#call called on a non-controlable event")
+                                   .exception("#call called on a non-controlable event")
             elsif unreachable?
                 if unreachability_reason
                     UnreachableEvent.new(self, unreachability_reason)
-                        .exception("#call called on #{self} which has been made unreachable because of #{unreachability_reason}")
+                                    .exception("#call called on #{self} which has been made unreachable because of #{unreachability_reason}")
                 else
                     UnreachableEvent.new(self, unreachability_reason)
-                        .exception("#call called on #{self} which has been made unreachable")
+                                    .exception("#call called on #{self} which has been made unreachable")
                 end
             elsif !execution_engine.allow_propagation?
                 PhaseMismatch.exception("call to #emit is not allowed in this context")
@@ -188,7 +188,7 @@ module Roby
         def check_call_validity_after_calling
             unless executable?
                 EventNotExecutable.new(self)
-                    .exception("#call called on #{self} which is a non-executable event")
+                                  .exception("#call called on #{self} which is a non-executable event")
             end
         end
 
@@ -197,20 +197,20 @@ module Roby
         def check_emission_validity
             if !plan
                 EventNotExecutable.new(self)
-                    .exception("#emit called on #{self} which has been removed from its plan")
+                                  .exception("#emit called on #{self} which has been removed from its plan")
             elsif !plan.executable?
                 EventNotExecutable.new(self)
-                    .exception("#emit called on #{self} which is not in an executable plan")
+                                  .exception("#emit called on #{self} which is not in an executable plan")
             elsif !executable?
                 EventNotExecutable.new(self)
-                    .exception("#emit called on #{self} which is a non-executable event")
+                                  .exception("#emit called on #{self} which is a non-executable event")
             elsif unreachable?
                 if unreachability_reason
                     UnreachableEvent.new(self, unreachability_reason)
-                        .exception("#emit called on #{self} which has been made unreachable because of #{unreachability_reason}")
+                                    .exception("#emit called on #{self} which has been made unreachable because of #{unreachability_reason}")
                 else
                     UnreachableEvent.new(self, unreachability_reason)
-                        .exception("#emit called on #{self} which has been made unreachable")
+                                    .exception("#emit called on #{self} which has been made unreachable")
                 end
             elsif !execution_engine.allow_propagation?
                 PhaseMismatch.exception("call to #emit is not allowed in this context")
@@ -221,7 +221,7 @@ module Roby
 
         # Calls the command from within the event propagation code
         def call_without_propagation(context)
-            if error = check_call_validity
+            if (error = check_call_validity)
                 clear_pending
                 execution_engine.add_error(error)
                 return
@@ -267,15 +267,15 @@ module Roby
         def call(*context)
             engine = execution_engine
             if engine && !engine.in_propagation_context?
-                Roby.warn_deprecated "calling EventGenerator#call outside of a "\
-                                     "propagation context is deprecated. In "\
-                                     "tests, use execute { } or expect_execution "\
+                Roby.warn_deprecated "calling EventGenerator#call outside of a " \
+                                     "propagation context is deprecated. In " \
+                                     "tests, use execute { } or expect_execution " \
                                      "{ }.to { }"
                 engine.process_events_synchronous { call(*context) }
                 return
             end
 
-            if error = check_call_validity
+            if (error = check_call_validity)
                 clear_pending
                 raise error
             end
@@ -428,10 +428,10 @@ module Roby
         #   the one on which the handler got installed
         def if_unreachable(options = {}, &block)
             if [true, false].include?(options)
-                Roby.warn_deprecated "if_unreachable(cancel_at_emission) has been "\
-                                     "replaced by if_unreachable(cancel_at_emission: "\
+                Roby.warn_deprecated "if_unreachable(cancel_at_emission) has been " \
+                                     "replaced by if_unreachable(cancel_at_emission: " \
                                      "true or false, on_replace: :policy)"
-                options = Hash[cancel_at_emission: options]
+                options = { cancel_at_emission: options }
             end
             options = Kernel.validate_options options,
                                               cancel_at_emission: false,
@@ -439,7 +439,7 @@ module Roby
 
             unless %i[drop copy].include?(options[:on_replace])
                 raise ArgumentError,
-                      "wrong value for the :on_replace option. "\
+                      "wrong value for the :on_replace option. " \
                       "Expecting either :drop or :copy, got #{options[:on_replace]}"
             end
 
@@ -645,8 +645,8 @@ module Roby
         def emit_failed(error = nil, message = nil)
             engine = execution_engine
             if engine && !engine.in_propagation_context?
-                Roby.warn_deprecated "calling EventGenerator#emit_failed outside of a "\
-                                     "propagation context is deprecated. In tests, "\
+                Roby.warn_deprecated "calling EventGenerator#emit_failed outside of a " \
+                                     "propagation context is deprecated. In tests, " \
                                      "use execute { } or expect_execution { }.to { }"
                 engine.process_events_synchronous { emit_failed(error, message) }
                 return
@@ -691,7 +691,7 @@ module Roby
         #
         # This is used by event propagation. Do not call directly: use #call instead
         def emit_without_propagation(context)
-            if error = check_emission_validity
+            if (error = check_emission_validity)
                 execution_engine.add_error(error)
                 return
             end
@@ -716,8 +716,8 @@ module Roby
         def emit(*context)
             engine = execution_engine
             if engine && !engine.in_propagation_context?
-                Roby.warn_deprecated "calling EventGenerator#emit outside of a "\
-                                     "propagation context is deprecated. In tests, "\
+                Roby.warn_deprecated "calling EventGenerator#emit outside of a " \
+                                     "propagation context is deprecated. In tests, " \
                                      "use execute { } or expect_execution { }.to { }"
                 engine.process_events_synchronous { emit(*context) }
                 return
@@ -741,7 +741,8 @@ module Roby
             end
 
             engine.queue_forward(
-                engine.propagation_sources, self, context, nil)
+                engine.propagation_sources, self, context, nil
+            )
         end
 
         # Set this generator up so that it "delegates" its emission to another
@@ -981,8 +982,8 @@ module Roby
         def add_child_object(child, type, info) # :nodoc:
             unless child.read_write?
                 raise OwnershipError,
-                      "cannot add an event relation on a child we don't own. "\
-                      "#{child} is owned by #{child.owners.to_a} (plan is "\
+                      "cannot add an event relation on a child we don't own. " \
+                      "#{child} is owned by #{child.owners.to_a} (plan is " \
                       "owned by #{plan.owners.to_a if plan})"
             end
 
@@ -1046,8 +1047,8 @@ module Roby
         def unreachable!(reason = nil, plan = self.plan)
             engine = execution_engine
             if engine && !engine.in_propagation_context?
-                Roby.warn_deprecated "calling EventGenerator#unreachable! outside of a "\
-                                     "propagation context is deprecated. In tests, "\
+                Roby.warn_deprecated "calling EventGenerator#unreachable! outside of a " \
+                                     "propagation context is deprecated. In tests, " \
                                      "use execute { } or expect_execution { }.to { }"
                 execution_engine.process_events_synchronous do
                     unreachable!(reason, plan)
@@ -1091,7 +1092,7 @@ module Roby
         end
 
         def replace_by(object)
-            plan.replace_subplan({}, Hash[object => object])
+            plan.replace_subplan({}, { object => object })
             initialize_replacement(object)
         end
 

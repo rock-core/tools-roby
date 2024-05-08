@@ -32,7 +32,7 @@ module Roby
                 assert !e2.meets_temporal_constraints?(Time.now)
                 expect_execution { e2.emit }.to do
                     have_error_matching EventStructure::OccurenceConstraintViolation.match
-                        .with_origin(e2)
+                                                                                    .with_origin(e2)
                 end
 
                 plan.add(e1 = Roby::EventGenerator.new(true))
@@ -55,7 +55,7 @@ module Roby
                 assert !e2.meets_temporal_constraints?(Time.now)
                 expect_execution { e2.emit }.to do
                     have_error_matching EventStructure::OccurenceConstraintViolation.match
-                        .with_origin(e2)
+                                                                                    .with_origin(e2)
                 end
             end
 
@@ -66,7 +66,7 @@ module Roby
                 assert !e2.meets_temporal_constraints?(Time.now)
                 expect_execution { e2.emit }.to do
                     have_error_matching EventStructure::OccurenceConstraintViolation.match
-                        .with_origin(e2)
+                                                                                    .with_origin(e2)
                 end
 
                 plan.add(e1 = Roby::EventGenerator.new(true))
@@ -79,7 +79,7 @@ module Roby
                 assert !e2.meets_temporal_constraints?(Time.now)
                 expect_execution { e2.emit }.to do
                     have_error_matching EventStructure::OccurenceConstraintViolation.match
-                        .with_origin(e2)
+                                                                                    .with_origin(e2)
                 end
 
                 plan.add(e1 = Roby::EventGenerator.new(true))
@@ -93,7 +93,7 @@ module Roby
                 assert !e2.meets_temporal_constraints?(Time.now)
                 expect_execution { e2.emit }.to do
                     have_error_matching EventStructure::OccurenceConstraintViolation.match
-                        .with_origin(e2)
+                                                                                    .with_origin(e2)
                 end
             end
 
@@ -265,7 +265,7 @@ module Roby
             end
 
             def test_temporal_constraint_violation
-                t1, t2, t3 = prepare_plan add: 3, model: Tasks::Simple
+                t1, t2, = prepare_plan add: 3, model: Tasks::Simple
                 e1 = t1.start_event
                 e2 = t2.start_event
 
@@ -280,7 +280,7 @@ module Roby
                     current_time += 12
                     expect_execution { e2.emit }.to do
                         have_error_matching EventStructure::TemporalConstraintViolation.match
-                            .with_origin(e2)
+                                                                                       .with_origin(e2)
                     end
                 end
             end
@@ -305,7 +305,7 @@ module Roby
 
                     expect_execution { e2.emit }.to do
                         have_error_matching EventStructure::TemporalConstraintViolation.match
-                            .with_origin(e2)
+                                                                                       .with_origin(e2)
                     end
                 end
             end

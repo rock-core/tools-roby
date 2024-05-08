@@ -3,8 +3,8 @@
 require "roby"
 
 Roby.warn_deprecated(
-    "require \"roby/interface\" is deprecated, require the versioned "\
-    "v1/interface or v2/interface instead, and use the explicitly "\
+    "require \"roby/interface\" is deprecated, require the versioned " \
+    "v1/interface or v2/interface instead, and use the explicitly " \
     "versioned namespace"
 )
 

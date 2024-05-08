@@ -60,11 +60,11 @@ module Roby
         end
 
         private def warn_deprecated_non_symbol_key(key)
-            if !key.kind_of?(Symbol)
+            if key.kind_of?(Symbol)
+                key
+            else
                 Roby.warn_deprecated "accessing arguments using anything else than a symbol is deprecated", 2
                 key.to_sym
-            else
-                key
             end
         end
 
@@ -215,11 +215,11 @@ module Roby
                 next(arg != other_arg) unless self_delayed || other_delayed
 
                 if self_delayed && other_delayed
-                    if !(arg.strong? ^ other_arg.strong?)
+                    if arg.strong? ^ other_arg.strong?
+                        false
+                    else
                         !arg.can_merge?(task, other_args.task,
                                         other_arg)
-                    else
-                        false
                     end
                 elsif self_delayed
                     if arg.strong?
@@ -343,13 +343,13 @@ module Roby
             key = warn_deprecated_non_symbol_key(key)
             if writable?(key, value)
                 if !value.droby_marshallable?
-                    raise NotMarshallable, "values used as task arguments must be "\
-                        "marshallable, attempting to set #{key} to #{value} of "\
-                        "class #{value.class}, which is not"
+                    raise NotMarshallable, "values used as task arguments must be " \
+                                           "marshallable, attempting to set #{key} to #{value} of " \
+                                           "class #{value.class}, which is not"
                 elsif !task.read_write?
-                    raise OwnershipError, "cannot change the argument set of a task "\
-                        "which is not owned #{task} is owned by #{task.owners} and "\
-                        "#{task.plan} by #{task.plan.owners}"
+                    raise OwnershipError, "cannot change the argument set of a task " \
+                                          "which is not owned #{task} is owned by #{task.owners} and " \
+                                          "#{task.plan} by #{task.plan.owners}"
                 end
 
                 if TaskArguments.delayed_argument?(value)
@@ -366,8 +366,8 @@ module Roby
                 end
                 value
             else
-                raise ArgumentError, "cannot override task argument #{key} as it is "\
-                    "already set to #{values[key]}"
+                raise ArgumentError, "cannot override task argument #{key} as it is " \
+                                     "already set to #{values[key]}"
             end
         end
 
@@ -410,9 +410,9 @@ module Roby
         def force_merge!(hash)
             hash.each do |key, value|
                 unless value.droby_marshallable?
-                    raise NotMarshallable, "values used as task arguments must "\
-                        "be marshallable, attempting to set #{key} to #{value}, "\
-                        "which is not"
+                    raise NotMarshallable, "values used as task arguments must " \
+                                           "be marshallable, attempting to set #{key} to #{value}, " \
+                                           "which is not"
                 end
             end
 
@@ -439,9 +439,9 @@ module Roby
         def merge!(hash)
             hash.each do |key, value|
                 unless value.droby_marshallable?
-                    raise NotMarshallable, "values used as task arguments must "\
-                        "be marshallable, attempting to set #{key} to #{value}, "\
-                        "which is not"
+                    raise NotMarshallable, "values used as task arguments must " \
+                                           "be marshallable, attempting to set #{key} to #{value}, " \
+                                           "which is not"
                 end
             end
 
@@ -451,8 +451,8 @@ module Roby
                     task.plan.log(:task_arguments_updated, task, key, new)
                     new
                 else
-                    raise ArgumentError, "cannot override task argument #{key}: "\
-                        "trying to replace #{old} by #{new}"
+                    raise ArgumentError, "cannot override task argument #{key}: " \
+                                         "trying to replace #{old} by #{new}"
                 end
             end
             @static = values.all? { |k, v| !TaskArguments.delayed_argument?(v) }

@@ -81,8 +81,8 @@ module Roby
                         io << "  #{from_id} -> #{to_id}\n"
                     else
                         DRoby::Logfile.warn(
-                            "ignoring #{from}(#{from.object_id} #{from_id}) -> "\
-                            "#{to}(#{to.object_id} #{to_id}) in #{graph.class} "\
+                            "ignoring #{from}(#{from.object_id} #{from_id}) -> " \
+                            "#{to}(#{to.object_id} #{to_id}) in #{graph.class} " \
                             "in #{caller(1).join("\n  ")}"
                         )
                     end
@@ -105,15 +105,15 @@ module Roby
             def compute_depth(depth)
                 @depth = depth
                 child_depth = transactions
-                    .map { |trsc| trsc.compute_depth(depth + 1) }
-                    .max
+                              .map { |trsc| trsc.compute_depth(depth + 1) }
+                              .max
                 child_depth || depth
             end
 
             def apply_layout(bounding_rects, positions, display, max_depth = nil)
                 max_depth ||= compute_depth(0)
 
-                if rect = bounding_rects[dot_id]
+                if (rect = bounding_rects[dot_id])
                     item = display[self]
                     item.z_value = PLAN_LAYER + depth - max_depth
                     item.rect = rect
@@ -151,7 +151,7 @@ module Roby
                 end
 
                 label = dot_label(display).split("\n").join('\n')
-                io << "  #{dot_id}[label=\"#{label}\",width=#{bounding_rect.width},"\
+                io << "  #{dot_id}[label=\"#{label}\",width=#{bounding_rect.width}," \
                       "height=#{bounding_rect.height},fixedsize=true];\n"
             end
 
@@ -159,12 +159,12 @@ module Roby
             def apply_layout(bounding_rects, positions, display)
                 return unless display.displayed?(self)
 
-                if p = positions[dot_id]
-                    raise "no graphics for #{self}" unless graphics_item = display[self]
+                if (p = positions[dot_id])
+                    raise "no graphics for #{self}" unless (graphics_item = display[self])
 
                     graphics_item.pos = p
-                elsif b = bounding_rects[dot_id]
-                    raise "no graphics for #{self}" unless graphics_item = display[self]
+                elsif (b = bounding_rects[dot_id])
+                    raise "no graphics for #{self}" unless (graphics_item = display[self])
 
                     graphics_item.rect = b
                 else
@@ -195,10 +195,12 @@ module Roby
                         has_event = true
                     end
                 end
-                task_height = if !has_event then DEFAULT_TASK_HEIGHT + text_bb.height
-                              else
-                                  text_bb.height
-                              end
+                task_height =
+                    if has_event
+                        text_bb.height
+                    else
+                        DEFAULT_TASK_HEIGHT + text_bb.height
+                    end
 
                 io << "  #{dot_id}[width=#{[DEFAULT_TASK_WIDTH, text_bb.width].max},height=#{task_height},fixedsize=true];\n"
                 io << "}\n"
@@ -206,8 +208,8 @@ module Roby
 
             def dot_label(display)
                 event_names = each_event.find_all { |ev| display.displayed?(ev) }
-                    .map { |ev| ev.dot_label(display) }
-                    .join(" ")
+                                        .map { |ev| ev.dot_label(display) }
+                                        .join(" ")
 
                 own = super
                 if own.size > event_names.size then own
@@ -244,16 +246,18 @@ module Roby
 
                 if bounding_rect.null? # no events, we need to take the bounding box from the fake task node
                     bounding_rect = Qt::RectF.new(
-                        task.x - DEFAULT_TASK_WIDTH / 2,
-                        task.y - DEFAULT_TASK_HEIGHT / 2, DEFAULT_TASK_WIDTH, DEFAULT_TASK_HEIGHT)
+                        task.x - (DEFAULT_TASK_WIDTH / 2),
+                        task.y - (DEFAULT_TASK_HEIGHT / 2), DEFAULT_TASK_WIDTH, DEFAULT_TASK_HEIGHT
+                    )
                 else
                     bounding_rect.y -= 5
                 end
                 graphics_item.rect = bounding_rect
 
                 text_pos = Qt::PointF.new(
-                    bounding_rect.x + bounding_rect.width / 2 - graphics_item.text.bounding_rect.width / 2,
-                    bounding_rect.y + bounding_rect.height)
+                    bounding_rect.x + (bounding_rect.width / 2) - (graphics_item.text.bounding_rect.width / 2),
+                    bounding_rect.y + bounding_rect.height
+                )
                 graphics_item.text.pos = text_pos
             end
         end
@@ -366,14 +370,12 @@ module Roby
             # events according to the propagations
             def layout(display, plan, options = {})
                 @display = display
-                options = Kernel.validate_options options,
-                                                  scale_x: DOT_TO_QT_SCALE_FACTOR_X, scale_y: DOT_TO_QT_SCALE_FACTOR_Y
 
                 # We first layout only the tasks separately. This allows to find
                 # how to layout the events within the task, and know the overall
                 # task sizes
                 all_tasks = Set.new
-                bounding_boxes, positions = run_dot(graph_type: "graph", layout_method: "fdp", scale_x: 1.0 / 100, scale_y: 1.0 / 100) do
+                _, positions = run_dot(graph_type: "graph", layout_method: "fdp", scale_x: 1.0 / 100, scale_y: 1.0 / 100) do
                     display.plans.each do |p|
                         p_tasks = p.tasks | p.finalized_tasks
                         p_tasks.each do |task|
@@ -400,7 +402,7 @@ module Roby
                     next unless display.displayed?(t)
 
                     bb = Qt::RectF.new
-                    if p = positions[t.dot_id]
+                    if (p = positions[t.dot_id])
                         bb |= Qt::RectF.new(p, p)
                     end
                     t.each_event do |ev|

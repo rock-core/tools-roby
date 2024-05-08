@@ -44,7 +44,7 @@ module Roby
                     # calling <tt>constant(name)</tt>, or raises ArgumentError if
                     # it is not the case.
                     def droby_dump(peer)
-                        if constant = DRobyConstant.valid_constants[self]
+                        if (constant = DRobyConstant.valid_constants[self])
                             return constant
                         elsif !name
                             raise ConstantResolutionFailed, "#{self}#name returned nil"
@@ -64,8 +64,8 @@ module Roby
                             DRobyConstant.valid_constants[self] = DRobyConstant.new(name, peer.known_siblings_for(self))
                         else
                             raise MismatchingLocalConstant,
-                                  "got DRobyConstant whose name '#{name}' resolves "\
-                                  "to #{local_constant}(#{local_constant.class}), "\
+                                  "got DRobyConstant whose name '#{name}' resolves " \
+                                  "to #{local_constant}(#{local_constant.class}), " \
                                   "not itself (#{self})"
                         end
                     end

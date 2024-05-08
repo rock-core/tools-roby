@@ -39,7 +39,7 @@ module Roby
                     def assert_client_receives_batch(*calls)
                         batch = nil
                         flexmock(client.client, :strict).should_receive(:process_batch)
-                            .once.with(->(b) { batch = b })
+                                                        .once.with(->(b) { batch = b })
                         yield
                         assert batch
                         assert_equal calls, batch.__calls

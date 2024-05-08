@@ -67,7 +67,7 @@ module Roby
             it "does nothing if the success event is emitted while the task is still pending" do
                 start, success = EventGenerator.new(true), EventGenerator.new
                 plan.add(success)
-                plan.add(task = VirtualTask.create(start, success))
+                plan.add(VirtualTask.create(start, success))
                 execute { success.emit }
             end
         end

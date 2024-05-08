@@ -27,7 +27,7 @@ module Roby
 
                 def transfer(obj)
                     ::Marshal.load(::Marshal.dump(marshaller.dump(obj)))
-                        .proxy(demarshaller)
+                             .proxy(demarshaller)
                 end
 
                 describe Builtins::ClassDumper do
@@ -48,9 +48,11 @@ module Roby
                         end
                         marshaller_object_manager.register_model(
                             local_base_class,
-                            { remote_id => remote_base_class.droby_id })
+                            { remote_id => remote_base_class.droby_id }
+                        )
                         demarshaller_object_manager.register_model(
-                            remote_base_class)
+                            remote_base_class
+                        )
                         @parent = Class.new(local_base_class)
                         def parent.name
                             "Parent"
@@ -141,7 +143,7 @@ module Roby
 
                 describe Builtins::HashDumper do
                     it "marshals its elements with #dump" do
-                        a = Hash[1, 2, 3, 4]
+                        a = { 1 => 2, 3 => 4 }
                         flexmock(marshaller) do |r|
                             r.should_receive(:dump).with(a).pass_thru
                             r.should_receive(:dump).with(1).and_return("A")
@@ -149,11 +151,11 @@ module Roby
                             r.should_receive(:dump).with(3).and_return("C")
                             r.should_receive(:dump).with(4).and_return("D")
                         end
-                        assert_equal Hash["A" => "B", "C" => "D"], marshaller.dump(a)
+                        assert_equal({ "A" => "B", "C" => "D" }, marshaller.dump(a))
                     end
 
                     it "proxies its elements with #local_object" do
-                        a = Hash[1, 2, 3, 4]
+                        a = { 1 => 2, 3 => 4 }
                         flexmock(marshaller) do |r|
                             r.should_receive(:local_object).with(a).pass_thru
                             r.should_receive(:local_object).with(1).and_return("A")
@@ -161,7 +163,7 @@ module Roby
                             r.should_receive(:local_object).with(3).and_return("C")
                             r.should_receive(:local_object).with(4).and_return("D")
                         end
-                        assert_equal Hash["A" => "B", "C" => "D"], marshaller.local_object(a)
+                        assert_equal({ "A" => "B", "C" => "D" }, marshaller.local_object(a))
                     end
                 end
 

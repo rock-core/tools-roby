@@ -45,7 +45,7 @@ describe Roby::Coordination::FaultResponseTable do
         assert_equal 1, plan.active_fault_response_tables.size
         table = plan.active_fault_response_tables.first
         assert_kind_of fault_table_m, table
-        assert_equal Hash[arg: 20], table.arguments
+        assert_equal({ arg: 20 }, table.arguments)
         execute { task.stop! }
         assert plan.active_fault_response_tables.empty?
     end
@@ -142,7 +142,7 @@ describe Roby::Coordination::FaultResponseTable do
             execute { root_task.start! }
             flexmock(execution_engine).should_receive(:warn).with("1 handled errors")
             flexmock(execution_engine).should_receive(:notify_exception).once
-                .with(Roby::ExecutionEngine::EXCEPTION_HANDLED, error_m.to_execution_exception_matcher, any)
+                                      .with(Roby::ExecutionEngine::EXCEPTION_HANDLED, error_m.to_execution_exception_matcher, any)
 
             execute { execution_engine.add_error(error_m.new(root_task)) }
             assert execution_engine.inhibited_exception?(error_m.new(root_task))

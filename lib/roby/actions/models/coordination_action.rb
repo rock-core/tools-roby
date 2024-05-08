@@ -30,7 +30,7 @@ module Roby
                     rebound = dup
                     if action_interface_model < self.action_interface_model
                         rebound.coordination_model = coordination_model
-                            .rebind(action_interface_model)
+                                                     .rebind(action_interface_model)
                     end
                     rebound
                 end

@@ -39,7 +39,7 @@ module Roby
                 @origin = origin
                 @origin_neighbours = origin_neighbours
 
-                @vertex_to_object = Hash[origin => object]
+                @vertex_to_object = { origin => object }
                 @pending_merges = Hash.new { |h, k| h[k] = [] }
 
                 @in_degree, @out_degree = compute_in_out_degrees(origin, origin_neighbours)

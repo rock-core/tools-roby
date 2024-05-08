@@ -21,7 +21,7 @@ module Roby
             end
 
             desc "app [DIR]",
-                 "creates a new app scaffold in the current directory, "\
+                 "creates a new app scaffold in the current directory, " \
                  "or DIR if given"
             option :quiet, type: :boolean, default: false
             def app(dir = nil, init_path: "roby_app", robot_path: "roby_app")

@@ -27,7 +27,7 @@ module Roby
         def self.each_graph_topologically(graphs)
             rel_to_graph = Hash[*graphs.flat_map { |g| [g.class, g] }]
             all_relations.each do |rel|
-                if g = rel_to_graph[rel]
+                if (g = rel_to_graph[rel])
                     yield(g)
                 end
             end

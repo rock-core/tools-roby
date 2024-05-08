@@ -43,7 +43,7 @@ module Roby
                     end
 
                     def self.common_behavior_on_poll_exception # rubocop:disable Metrics/AbcSize
-                        it "does not disconnect a client "\
+                        it "does not disconnect a client " \
                            "based on the return value of #poll" do
                             @client.should_receive(:poll).and_return(true)
                             @server.process_pending_requests
@@ -92,7 +92,7 @@ module Roby
                                           .once
                             @server.process_pending_requests
                         end
-                        it "processes other clients after an exception "\
+                        it "processes other clients after an exception " \
                            "that is not ComError" do
                             other_client = connect
                             @client.should_receive(:poll).and_raise(RuntimeError)

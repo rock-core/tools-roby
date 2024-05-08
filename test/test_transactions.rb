@@ -591,19 +591,15 @@ module TC_TransactionBehaviour
     def test_commit_updates_edge_info_between_existing_plan_tasks
         parent, child = prepare_plan(add: 2)
         parent.planned_by child, plan_early: false
-
-        info = nil
         transaction_commit(plan, parent, child) do |trsc, p_parent, p_child|
-            p_parent[p_child, PlannedBy] = Hash[plan_early: true]
+            p_parent[p_child, PlannedBy] = { plan_early: true }
         end
-        assert_child_of parent, child, PlannedBy, Hash[plan_early: true]
+        assert_child_of(parent, child, PlannedBy, { plan_early: true })
     end
 
     def test_commit_removed_relations_between_existing_plan_tasks
         parent, child = prepare_plan(add: 2)
         parent.planned_by child, plan_early: false
-
-        info = nil
         transaction_commit(plan, parent, child) do |trsc, p_parent, p_child|
             p_parent.remove_planning_task p_child
         end
@@ -652,23 +648,23 @@ module TC_TransactionBehaviour
             .should_receive(:merge_info)
             .and_return { |a, b| a.merge(b) }
 
-        t1.add_child(t2, Hash[0, 1, 2, 3])
+        t1.add_child(t2, { 0 => 1, 2 => 3 })
         transaction_commit(plan, t1, t2) do |trsc, p1, p2|
             flexmock(p1.relation_graph_for(Dependency))
                 .should_receive(:merge_info)
                 .and_return { |_, _, a, b| a.merge(b) }
-            p1.add_child(p2, Hash[0, 5, 4, 5])
-            assert_equal Hash[0, 5, 2, 3, 4, 5], p1[p2, Dependency]
-            assert_equal Hash[0, 1, 2, 3], t1[t2, Dependency]
+            p1.add_child(p2, { 0 => 5, 4 => 5 })
+            assert_equal({ 0 => 5, 2 => 3, 4 => 5 }, p1[p2, Dependency])
+            assert_equal({ 0 => 1, 2 => 3 }, t1[t2, Dependency])
         end
-        assert_equal Hash[0, 5, 2, 3, 4, 5], t1[t2, Dependency]
+        assert_equal({ 0 => 5, 2 => 3, 4 => 5 }, t1[t2, Dependency])
 
         transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-            p1[p2, Dependency] = Hash[0, 5, 4, 5]
-            assert_equal Hash[0, 5, 4, 5], p1[p2, Dependency]
-            assert_equal Hash[0, 5, 2, 3, 4, 5], t1[t2, Dependency]
+            p1[p2, Dependency] = { 0 => 5, 4 => 5 }
+            assert_equal({ 0 => 5, 4 => 5 }, p1[p2, Dependency])
+            assert_equal({ 0 => 5, 2 => 3, 4 => 5 }, t1[t2, Dependency])
         end
-        assert_equal Hash[0, 5, 4, 5], t1[t2, Dependency]
+        assert_equal({ 0 => 5, 4 => 5 }, t1[t2, Dependency])
     end
 
     def test_commit_new_events
@@ -1142,7 +1138,7 @@ class TC_Transactions < Minitest::Test
         root, t1, t2 = prepare_plan add: 3, model: Tasks::Simple
         root.depends_on t1, model: Tasks::Simple
         root.depends_on t2, model: Tasks::Simple
-        service = Roby::PlanService.get(t1)
+        Roby::PlanService.get(t1)
 
         mock = flexmock
         transaction_commit(plan, t1, t2) do |trsc, p1, p2|
@@ -1165,7 +1161,7 @@ class TC_Transactions < Minitest::Test
         root, t1, t2 = prepare_plan add: 3, model: Tasks::Simple
         root.depends_on t1, model: Tasks::Simple
         root.depends_on t2, model: Tasks::Simple
-        service = Roby::PlanService.get(t1)
+        Roby::PlanService.get(t1)
 
         FlexMock.use do |mock|
             transaction_commit(plan, t1, t2) do |trsc, p1, p2|

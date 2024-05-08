@@ -33,9 +33,9 @@ module Roby
 
                 if (flags & EVENT_CALLED) == EVENT_CALLED
                     if (flags & EVENT_CONTROLABLE) != EVENT_CONTROLABLE
-                        STDERR.puts "WARN: inconsistency in replayed logs. Found "\
-                                    "event call on #{object} #{object.object_id} "\
-                                    "which is marked as contingent "\
+                        STDERR.puts "WARN: inconsistency in replayed logs. Found " \
+                                    "event call on #{object} #{object.object_id} " \
+                                    "which is marked as contingent " \
                                     "(#{object.controlable?}"
                     end
                     flags |= EVENT_CONTROLABLE
@@ -43,7 +43,7 @@ module Roby
 
                 unless styles.has_key?(flags)
                     raise ArgumentError,
-                          "event #{object} has flags #{flags}, which has no "\
+                          "event #{object} has flags #{flags}, which has no " \
                           "defined style (controlable=#{object.controlable?})"
                 end
 
@@ -79,10 +79,10 @@ module Roby
             def display_time_end(circle, pos); end
 
             def display_name(display)
-                name = if model.ancestors[0].name != "Roby::EventGenerator"
-                           [display.filter_prefixes(model.ancestors[0].name.dup)]
-                       else
+                name = if model.ancestors[0].name == "Roby::EventGenerator"
                            []
+                       else
+                           [display.filter_prefixes(model.ancestors[0].name.dup)]
                        end
 
                 if display.show_ownership
@@ -123,7 +123,7 @@ module Roby
                 width, height = 0, 0
                 events = self.each_event.map do |e|
                     next unless display.displayed?(e)
-                    next unless circle = display[e]
+                    next unless (circle = display[e])
 
                     br = (circle.bounding_rect | circle.children_bounding_rect)
                     [e, circle, br]
@@ -139,10 +139,10 @@ module Roby
                 width  += TASK_EVENT_SPACING * (events.size + 1)
                 height += TASK_EVENT_SPACING
 
-                x = -width / 2 + TASK_EVENT_SPACING
+                x = (-width / 2) + TASK_EVENT_SPACING
                 events.each do |e, circle, br|
                     w = br.width
-                    circle.set_pos(x + w / 2, -br.height / 2 + EVENT_CIRCLE_RADIUS + TASK_EVENT_SPACING)
+                    circle.set_pos(x + (w / 2), (-br.height / 2) + EVENT_CIRCLE_RADIUS + TASK_EVENT_SPACING)
                     x += w + TASK_EVENT_SPACING
                 end
 
@@ -156,7 +156,7 @@ module Roby
                 end
 
                 text = graphics_item.text
-                text.set_pos(- text.bounding_rect.width / 2, height / 2 + TASK_EVENT_SPACING)
+                text.set_pos(- text.bounding_rect.width / 2, (height / 2) + TASK_EVENT_SPACING)
             end
 
             def display_create(display)
@@ -274,7 +274,7 @@ module Roby
                 scene = display.scene
 
                 svg = Qt::SvgGenerator.new
-                if path = options[:path]
+                if (path = options[:path])
                     svg.file_name = path
                 else
                     buffer = svg.output_device = Qt::Buffer.new
@@ -306,7 +306,6 @@ module Roby
             end
 
             def display_create(display)
-                scene = display.scene
                 item = super
 
                 brush = item.brush
@@ -441,7 +440,7 @@ module Roby
             dy = to[1] - from[1]
             dx = to[0] - from[0]
             alpha = Math.atan2(dy, dx)
-            length = Math.sqrt(dx**2 + dy**2)
+            length = Math.sqrt((dx**2) + (dy**2))
 
             # arrow.line.set_line from[0], from[1], to[0], to[1]
             arrow.resetMatrix
@@ -551,7 +550,7 @@ module Roby
             end
 
             def apply_options(options)
-                if enabled_relations = options["enabled_relations"]
+                if (enabled_relations = options["enabled_relations"])
                     enabled_relations.each do |name|
                         rel = constant(name)
                         enable_relation(rel)
@@ -611,7 +610,7 @@ module Roby
             def arrow(from, to, rel, info, base_layer)
                 id = [from, to, rel]
                 unless (item = arrows[id])
-                    if item = last_arrows.delete(id)
+                    if (item = last_arrows.delete(id))
                         arrows[id] = item
                     else
                         item = arrows[id] = (free_arrows.pop || scene.add_arrow(ARROW_SIZE))
@@ -652,7 +651,7 @@ module Roby
 
                 # Find the graphics items
                 bb = objects.inject(Qt::RectF.new) do |bb, object|
-                    if item = self[object]
+                    if (item = self[object])
                         item.selected = true
                         bb | item.scene_bounding_rect | item.map_to_scene(item.children_bounding_rect).bounding_rect
                     else
@@ -786,7 +785,7 @@ module Roby
             def display_policy=(policy)
                 unless DISPLAY_POLICIES.include?(policy)
                     raise ArgumentError,
-                          "got #{policy.inspect} as a display policy, accepted "\
+                          "got #{policy.inspect} as a display policy, accepted " \
                           "values are #{DISPLAY_POLICIES.map(&:inspect).join(', ')}"
                 end
 
@@ -854,7 +853,7 @@ module Roby
                 end
 
                 removed_objects.each do |object|
-                    if item = graphics[object]
+                    if (item = graphics[object])
                         item.visible = displayed?(object)
                     end
                 end
@@ -904,7 +903,7 @@ module Roby
                     # Make sure that the event's tasks are added to
                     # visible_objects as well
                     visible_objects.dup.each do |obj|
-                        if parent = obj.display_parent
+                        if (parent = obj.display_parent)
                             visible_objects << parent
                         end
                     end
@@ -1016,7 +1015,6 @@ module Roby
                     p.called_generators.each do |generator|
                         flags[generator] |= EVENT_CALLED
                     end
-                    base_priority = p.called_generators.size
 
                     p.emitted_events.each do |(_, event)|
                         generator = event.generator
@@ -1065,19 +1063,18 @@ module Roby
 
                 # Layout the graph
                 layouts = plans.find_all(&:root_plan?)
-                    .map do |p|
-                        dot = PlanDotLayout.new
-                        begin
-                            dot.layout(self, p, layout_options)
-                            dot
-                        rescue Exception => e
-                            puts "Failed to lay out the plan: #{e}"
-                        end
-                    end.compact
+                               .map do |p|
+                    dot = PlanDotLayout.new
+                    begin
+                        dot.layout(self, p, layout_options)
+                        dot
+                    rescue Exception => e
+                        puts "Failed to lay out the plan: #{e}"
+                    end
+                end.compact
                 layouts.each(&:apply)
 
                 # Display the signals
-                signal_arrow_idx = -1
                 plans.each do |p|
                     p.propagated_events.each_with_index do |(_, flag, sources, to), signal_arrow_idx|
                         relation =

@@ -25,7 +25,7 @@ module Roby
                 # {#initialize}
                 def filter(state_machine, event)
                     CaptureEvaluationContext.new(state_machine)
-                        .instance_exec(event, &@filter)
+                                            .instance_exec(event, &@filter)
                 end
 
                 class CaptureEvaluationContext < Object

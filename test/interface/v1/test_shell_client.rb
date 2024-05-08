@@ -76,7 +76,7 @@ module Roby
                             @shell_client.summarize_pending_messages
                             assert @shell_client.client.notification_queue.empty?
                         end
-                        it "hides messages that are given to it "\
+                        it "hides messages that are given to it " \
                            "as \"already summarized\"" do
                             _, messages = @shell_client.summarize_pending_messages([1])
                             assert messages.empty?

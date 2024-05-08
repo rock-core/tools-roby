@@ -361,14 +361,14 @@ module Roby
 
         # Returns when this task has been started
         def start_time
-            if ev = start_event.last
+            if (ev = start_event.last)
                 ev.time
             end
         end
 
         # Returns when this task has finished
         def end_time
-            if ev = stop_event.last
+            if (ev = stop_event.last)
                 ev.time
             end
         end
@@ -399,7 +399,7 @@ module Roby
             @bound_events = {}
             @execute_handlers = old.execute_handlers.dup
             @poll_handlers = old.poll_handlers.dup
-            if m = old.instance_variable_get(:@fullfilled_model)
+            if (m = old.instance_variable_get(:@fullfilled_model))
                 @fullfilled_model = m.dup
             end
         end
@@ -591,7 +591,7 @@ module Roby
                 return
             elsif !pending? && !starting?
                 raise Roby::InternalError,
-                      "#{self} is neither pending nor starting, "\
+                      "#{self} is neither pending nor starting, " \
                       "cannot mark as failed_to_start!"
             end
 
@@ -742,7 +742,7 @@ module Roby
             end
 
             result.reject { |ev| ev.respond_to?(:task) && ev.task == self }
-                .to_set
+                  .to_set
         end
 
         # This method is called by TaskEventGenerator#fire just before the event handlers
@@ -750,22 +750,22 @@ module Roby
         def check_emission_validity(event) # :nodoc:
             if finished? && !event.terminal?
                 EmissionRejected.new(event).exception(
-                    "#{self}.emit(#{event.symbol}) called by "\
-                    "#{execution_engine.propagation_sources.to_a} but the task "\
-                    "has finished. Task has been terminated by "\
+                    "#{self}.emit(#{event.symbol}) called by " \
+                    "#{execution_engine.propagation_sources.to_a} but the task " \
+                    "has finished. Task has been terminated by " \
                     "#{stop_event.last.sources.to_a}."
                 )
             elsif pending? && event.symbol != :start
                 EmissionRejected.new(event).exception(
-                    "#{self}.emit(#{event.symbol}) called by "\
-                    "#{execution_engine.propagation_sources.to_a} but the task "\
+                    "#{self}.emit(#{event.symbol}) called by " \
+                    "#{execution_engine.propagation_sources.to_a} but the task " \
                     "has never been started"
                 )
             elsif running? && event.symbol == :start
                 EmissionRejected.new(event).exception(
-                    "#{self}.emit(#{event.symbol}) called by "\
-                    "#{execution_engine.propagation_sources.to_a} but the task "\
-                    "is already running. Task has been started by "\
+                    "#{self}.emit(#{event.symbol}) called by " \
+                    "#{execution_engine.propagation_sources.to_a} but the task " \
+                    "is already running. Task has been started by " \
                     "#{start_event.last.sources.to_a}."
                 )
             end
@@ -856,7 +856,7 @@ module Roby
         def event(event_model)
             unless (event = find_event(event_model))
                 raise ArgumentError,
-                      "cannot find #{event_model} in the set of bound events in "\
+                      "cannot find #{event_model} in the set of bound events in " \
                       "#{self}. Known events are #{bound_events}."
             end
 
@@ -868,7 +868,7 @@ module Roby
         # @deprecated use {TaskEventGenerator#emit} instead (e.g. task.start_event.emit)
         def emit(event_model, *context)
             Roby.warn_deprecated(
-                "Roby::Task#emit(event_name) is deprecated, use EventGenerator#emit "\
+                "Roby::Task#emit(event_name) is deprecated, use EventGenerator#emit " \
                 "(e.g. task.start_event.emit or task.event(:start).emit)"
             )
             event(event_model).emit(*context)
@@ -879,7 +879,7 @@ module Roby
         #   task.start_event.on { |event| ... }
         def on(event_model, options = {}, &user_handler)
             Roby.warn_deprecated(
-                "Task#on is deprecated, use EventGenerator#on instead "\
+                "Task#on is deprecated, use EventGenerator#on instead " \
                 "(e.g. #{event_model}_event.signals other_event)"
             )
             event(event_model).on(options, &user_handler)
@@ -890,7 +890,7 @@ module Roby
         # task.start_event.signal other_task.stop_event)
         def signals(event_model, to, *to_task_events)
             Roby.warn_deprecated(
-                "Task#signals is deprecated, use EventGenerator#signal instead "\
+                "Task#signals is deprecated, use EventGenerator#signal instead " \
                 "(e.g. #{event_model}_event.signals other_event)"
             )
 
@@ -906,7 +906,7 @@ module Roby
                     [to]
                 else
                     raise ArgumentError,
-                          "expected Task or EventGenerator, got #{to}(#{to.class}: "\
+                          "expected Task or EventGenerator, got #{to}(#{to.class}: " \
                           "#{to.class.ancestors})"
                 end
 
@@ -920,7 +920,7 @@ module Roby
         # task.start_event.forward_to other_task.stop_event)
         def forward_to(event_model, to, *to_task_events)
             Roby.warn_deprecated(
-                "Task#forward_to is deprecated, use EventGenerator#forward_to "\
+                "Task#forward_to is deprecated, use EventGenerator#forward_to " \
                 "instead (e.g. #{event_model}_event.forward_to other_event)"
             )
 
@@ -936,7 +936,7 @@ module Roby
                     [to]
                 else
                     raise ArgumentError,
-                          "expected Task or EventGenerator, got #{to}(#{to.class}: "\
+                          "expected Task or EventGenerator, got #{to}(#{to.class}: " \
                           "#{to.class.ancestors})"
                 end
 
@@ -1221,13 +1221,13 @@ module Roby
             return if event(:internal_error).emitted?
 
             begin
-                while execute_block = @execute_handlers.pop
+                while (execute_block = @execute_handlers.pop)
                     execute_block.block.call(self)
                 end
 
                 poll_handler
 
-                if machine = state_machine
+                if (machine = state_machine)
                     machine.do_poll(self)
                 end
 
@@ -1374,7 +1374,7 @@ module Roby
         def add_child_object(child, type, info)
             unless read_write? && child.read_write?
                 raise OwnershipError,
-                      "cannot add a relation between tasks we don't own. #{self} by "\
+                      "cannot add a relation between tasks we don't own. #{self} by " \
                       "#{owners.to_a} and #{child} is owned by #{child.owners.to_a}"
             end
 
@@ -1452,11 +1452,11 @@ module Roby
             event_pairs = []
             model.each_event do |_, event|
                 event = transaction_stack
-                    .find { |_, o| o.find_event(event.symbol) }
-                    .last.event(event.symbol)
+                        .find { |_, o| o.find_event(event.symbol) }
+                        .last.event(event.symbol)
                 object_event = object_transaction_stack
-                    .find { |_, o| o.find_event(event.symbol) }
-                    .last.event(event.symbol)
+                               .find { |_, o| o.find_event(event.symbol) }
+                               .last.event(event.symbol)
                 event_pairs << [event, object_event]
             end
 
@@ -1775,7 +1775,7 @@ module Roby
         # defined from explicit action objects
         def action_state_machine(&block)
             model = Coordination::ActionStateMachine
-                .new_submodel(action_interface: nil, root: self.model)
+                    .new_submodel(action_interface: nil, root: self.model)
             model.parse(&block)
             model.new(self)
         end

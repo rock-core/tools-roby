@@ -84,7 +84,7 @@ module Roby::Pos
                 y ||= 0
             end
 
-            Math.sqrt((x - self.x)**2 + (y - self.y)**2)
+            Math.sqrt(((x - self.x)**2) + ((y - self.y)**2))
         end
 
         # call-seq:
@@ -106,7 +106,7 @@ module Roby::Pos
                 z ||= 0
             end
 
-            Math.sqrt((x - self.x)**2 + (y - self.y)**2 + (z - self.z)**2)
+            Math.sqrt(((x - self.x)**2) + ((y - self.y)**2) + ((z - self.z)**2))
         end
     end
 

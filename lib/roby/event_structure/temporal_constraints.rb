@@ -141,7 +141,7 @@ module Roby
             # Returns true if +value+ is included in one of the intervals
             def include?(value)
                 candidate = intervals
-                    .find { |min, max| max >= value }
+                            .find { |min, max| max >= value }
                 candidate && (candidate[0] <= value)
             end
 
@@ -161,7 +161,7 @@ module Roby
                 end
 
                 new_list = []
-                while interval = intervals.shift
+                while (interval = intervals.shift)
                     if interval[1] < min
                         new_list << interval
                     elsif interval[0] > min
@@ -182,7 +182,7 @@ module Roby
                     new_list << [min, max]
 
                 elsif new_list.last[1] <= max
-                    while interval = intervals.shift
+                    while (interval = intervals.shift)
                         last_interval = new_list.last
 
                         # It is guaranteed that interval[0] > last_interval[0].
@@ -603,9 +603,9 @@ module Roby
                 # Now look for the timeouts
                 errors = []
                 deadlines.missed_deadlines(Time.now)
-                    .each do |deadline, event, generator|
-                        errors << MissedDeadlineError.new(generator, event, deadline)
-                    end
+                         .each do |deadline, event, generator|
+                    errors << MissedDeadlineError.new(generator, event, deadline)
+                end
 
                 errors
             end

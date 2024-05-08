@@ -19,7 +19,7 @@ module Roby
 
             it "is suitable as a hash key" do
                 id = Object.new
-                h = Hash[DRobyID.new(id) => 10]
+                h = { DRobyID.new(id) => 10 }
                 assert h.has_key?(DRobyID.new(id))
                 refute h.has_key?(DRobyID.new(Object.new))
             end

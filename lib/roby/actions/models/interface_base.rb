@@ -78,8 +78,8 @@ module Roby
                 def describe(doc = nil)
                     if @current_description
                         Actions::Interface.warn(
-                            "the last #describe call was not followed by an action "\
-                            "definition. Did you forget to add a method to your "\
+                            "the last #describe call was not followed by an action " \
+                            "definition. Did you forget to add a method to your " \
                             "action interface ?"
                         )
                     end
@@ -102,7 +102,7 @@ module Roby
                 #
                 def register_action(name, action_model)
                     unless action_model.respond_to?(:to_action_model)
-                        raise ArgumentError, "register_action expects an action model, "\
+                        raise ArgumentError, "register_action expects an action model, " \
                                              "got #{action_model.class} instead"
                     end
 
@@ -190,13 +190,13 @@ module Roby
                     rescue ArgumentError
                         if expected_argument_count == 0
                             raise ArgumentCountMismatch,
-                                  "action #{name} has been declared to have no "\
-                                  "arguments, the #{name} method must be callable "\
+                                  "action #{name} has been declared to have no " \
+                                  "arguments, the #{name} method must be callable " \
                                   "without any arguments"
                         else
                             raise ArgumentCountMismatch,
-                                  "action #{name} has been declared to have "\
-                                  "arguments, the #{name} method must be "\
+                                  "action #{name} has been declared to have " \
+                                  "arguments, the #{name} method must be " \
                                   "callable with a single Hash argument"
                         end
                     end
@@ -240,7 +240,7 @@ module Roby
 
                     unless action_model
                         raise ArgumentError,
-                              "you must describe the action with #describe "\
+                              "you must describe the action with #describe " \
                               "before calling #action_coordination"
                     end
 
@@ -278,10 +278,10 @@ module Roby
                         .new_submodel(action_interface: self, root: root_m)
 
                     action_model.arguments.each do |arg|
-                        if !arg.required
-                            coordination_model.argument arg.name, default: arg.default
-                        else
+                        if arg.required
                             coordination_model.argument arg.name
+                        else
+                            coordination_model.argument arg.name, default: arg.default
                         end
                     end
                     coordination_model.parse(&block)
@@ -316,7 +316,7 @@ module Roby
                     # the default starting state
                     if action_model.has_arg?("start_state")
                         raise ArgumentError,
-                              "A argument \"start_state\" has defined for the "\
+                              "A argument \"start_state\" has defined for the " \
                               "statemachine, but this keyword is reserved"
                     end
 

@@ -187,7 +187,7 @@ module Roby
                 pp.nest(2) do
                     pp.text "."
                     pp.breakable
-                    pp.text "on_error(#{element.description}, "\
+                    pp.text "on_error(#{element.description}, " \
                             "in_engine: #{element.run_in_engine})"
                 end
             end

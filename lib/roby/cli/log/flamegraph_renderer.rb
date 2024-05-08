@@ -81,7 +81,7 @@ module Roby
                 end
 
                 def read(file)
-                    IO.read(::File.expand_path(file, ::File.dirname(__FILE__)))
+                    File.read(::File.expand_path(file, ::File.dirname(__FILE__)))
                 end
             end
         end

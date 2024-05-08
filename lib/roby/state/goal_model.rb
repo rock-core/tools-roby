@@ -45,8 +45,8 @@ module Roby
                     value.to_goal_variable_model(self, name)
                 else
                     raise ArgumentError,
-                          "cannot set #{value} on #{name} in a goal model. Only "\
-                          "allowed values are GoalVariableModel, and values that "\
+                          "cannot set #{value} on #{name} in a goal model. Only " \
+                          "allowed values are GoalVariableModel, and values that " \
                           "respond to #to_goal_variable_model"
                 end
             end

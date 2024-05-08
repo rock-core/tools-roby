@@ -20,10 +20,10 @@ module Roby
                 attr_reader :app
 
                 def initialize(app = Roby.app,
-                               default_host: app.shell_interface_host || "localhost",
-                               default_port: app.shell_interface_port || Interface::DEFAULT_PORT)
+                    default_host: app.shell_interface_host || "localhost",
+                    default_port: app.shell_interface_port || Interface::DEFAULT_PORT)
                     @app = app
-                    @host_options = Hash[host: default_host, port: default_port]
+                    @host_options = { host: default_host, port: default_port }
                 end
 
                 def setup_option_parser(parser)
@@ -51,7 +51,7 @@ module Roby
                     app.single
                     app.load_base_config
 
-                    args = option_parser.parse(args)
+                    option_parser.parse(args)
                     host, port = self.host
                     interface = Interface::V1.connect_with_tcp_to(host, port)
                     yield(interface)

@@ -14,8 +14,8 @@ def pick_parent_child(set, group_size: 5)
     if from_group > to_group
         from_group, to_group = to_group, from_group
     end
-    from_i = from_group * group_size + rand(group_size)
-    to_i   = to_group * group_size + rand(group_size)
+    from_i = (from_group * group_size) + rand(group_size)
+    to_i   = (to_group * group_size) + rand(group_size)
 
     [set[from_i], set[to_i]]
 end
@@ -39,7 +39,8 @@ def randomly_modify_plan(plan, num_tasks, num_task_relation_changes, num_event_r
             end
         end
 
-        task_events = plan.task_events.to_a + trsc.task_events.to_a
+        plan.task_events.to_a
+        trsc.task_events.to_a
         num_event_relation_changes.times do
             from_task, to_task = pick_parent_child(tasks)
             from = from_task.bound_events.values[rand(from_task.bound_events.size)]

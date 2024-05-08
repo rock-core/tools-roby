@@ -17,7 +17,7 @@ module Roby
             end
 
             def resolve
-                if result = parent.resolve.find_child_from_role(model.role)
+                if (result = parent.resolve.find_child_from_role(model.role))
                     result
                 else
                     raise ResolvingUnboundObject, "#{parent.resolve}, resolved from #{parent} has not child named #{model.role}"

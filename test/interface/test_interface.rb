@@ -26,8 +26,8 @@ describe Roby::Interface::Interface do
             task.planned_by(job = @job_task_m.new(job_id: 10))
             app.plan.add(task)
             flexmock(Roby::Interface::Interface).new_instances
-                .should_receive(:monitor_job).with(job, new_task: true)
-                .once.pass_thru
+                                                .should_receive(:monitor_job).with(job, new_task: true)
+                                                .once.pass_thru
             Roby::Interface::Interface.new(app)
         end
     end
@@ -70,17 +70,17 @@ describe Roby::Interface::Interface do
     describe "#jobs" do
         it "should return the set of job tasks existing in the plan" do
             plan.add_mission_task(job_task = job_task_m.new(job_id: 10))
-            assert_equal Hash[10 => [:ready, job_task, job_task]], interface.jobs
+            assert_equal({ 10 => [:ready, job_task, job_task] }, interface.jobs)
         end
         it "should return the planned task if the job task has one" do
             plan.add(job_task = job_task_m.new(job_id: 10))
             plan.add_mission_task(planned_task = Roby::Task.new)
             planned_task.planned_by job_task
-            assert_equal Hash[10 => [:planning_ready, planned_task, job_task]], interface.jobs
+            assert_equal({ 10 => [:planning_ready, planned_task, job_task] }, interface.jobs)
         end
         it "should not return job tasks that have no job ID" do
             plan.add(job_task_m.new)
-            assert_equal Hash[], interface.jobs
+            assert_equal({}, interface.jobs)
         end
     end
 
@@ -122,17 +122,17 @@ describe Roby::Interface::Interface do
             expected_notifications.each_with_index do |expected, i|
                 queued = interface.job_notifications[i]
                 if !queued
-                    flunk "expected notification #{i} to be #{expected.inspect}\n"\
-                        "but there was none"
+                    flunk "expected notification #{i} to be #{expected.inspect}\n" \
+                          "but there was none"
                 elsif !expected.each_with_index.all? { |v, v_i| v === queued[v_i] }
-                    flunk "expected notification #{i} to be #{expected.inspect}\n"\
-                        "but got #{queued.inspect}"
+                    flunk "expected notification #{i} to be #{expected.inspect}\n" \
+                          "but got #{queued.inspect}"
                 end
             end
             if strict
                 assert_equal expected_notifications.size,
                              interface.job_notifications.size,
-                             "the extra notifications are: "\
+                             "the extra notifications are: " \
                              "#{interface.job_notifications[expected_notifications.size..-1]}"
             end
         end
@@ -140,17 +140,17 @@ describe Roby::Interface::Interface do
         def assert_received_notifications(*expected_notifications, strict: false)
             expected_notifications.each_with_index do |expected, i|
                 if !recorder[i]
-                    flunk "expected notification #{i} to be #{expected.inspect}\n"\
-                        "but there was none"
+                    flunk "expected notification #{i} to be #{expected.inspect}\n" \
+                          "but there was none"
                 elsif !expected.each_with_index.all? { |v, v_i| v === recorder[i][v_i] }
-                    flunk "expected notification #{i} to be #{expected.inspect}\n"\
-                        "but got #{recorder[i].inspect}"
+                    flunk "expected notification #{i} to be #{expected.inspect}\n" \
+                          "but got #{recorder[i].inspect}"
                 end
             end
             if strict
                 assert_equal expected_notifications.size,
                              recorder.size,
-                             "the extra notifications are: "\
+                             "the extra notifications are: " \
                              "#{interface.job_notifications[expected_notifications.size..-1]}"
             end
         end
@@ -653,7 +653,7 @@ describe Roby::Interface::Interface do
             plan.add_mission_task(task = Roby::Tasks::Simple.new)
             task.planned_by job_task
             flexmock(interface).should_receive(:job_state).with(task)
-                .and_return(expected_state = flexmock)
+                               .and_return(expected_state = flexmock)
             job_state, placeholder_task, planning_task = interface.find_job_info_by_id(10)
             assert_equal expected_state, job_state
             assert_equal task, placeholder_task
@@ -669,7 +669,7 @@ describe Roby::Interface::Interface do
             plan.add(job_task = job_task_m.new(job_id: 10))
             plan.add_mission_task(task = Roby::Tasks::Simple.new)
             task.planned_by job_task
-            job_state, task, planning_task = interface.find_job_info_by_id(20)
+            interface.find_job_info_by_id(20)
         end
     end
 
@@ -680,8 +680,8 @@ describe Roby::Interface::Interface do
                 recorder.called(source, level, message)
             end
             recorder.should_receive(:called)
-                .with(source = flexmock, level = flexmock, message = flexmock)
-                .once
+                    .with(source = flexmock, level = flexmock, message = flexmock)
+                    .once
             app.notify(source, level, message)
         end
         it "#remove_notification_listener removes a registered notification handler" do

@@ -108,7 +108,7 @@ class TC_Dependency < Minitest::Test
     end
 
     def assert_child_failed(child, error, reason, plan)
-        result = plan.check_structure
+        plan.check_structure
         assert_equal(child, error.failed_task)
         assert_equal(reason, error.failure_point)
         assert_formatting_succeeds(error)
@@ -147,7 +147,7 @@ class TC_Dependency < Minitest::Test
             end
 
             plan.execution_engine.control = decision_control
-            parent, child = create_pair success: [], failure: [:stop], start: false
+            _, child = create_pair success: [], failure: [:stop], start: false
             execute { child.start! }
 
             mock.should_receive(:decision_control_called).once
@@ -290,7 +290,7 @@ class TC_Dependency < Minitest::Test
         child = child_model.new(id: "child")
 
         options = { role: "child1", model: Task, failure: :start.never }
-            .merge(special_options)
+                  .merge(special_options)
         parent.depends_on child, options
 
         expected_info = { consider_in_pending: true,
@@ -329,7 +329,7 @@ class TC_Dependency < Minitest::Test
     end
 
     def test_merging_models
-        parent, child, info, child_model, tag = setup_merging_test
+        parent, child, info, _, tag = setup_merging_test
 
         # Test that models are "upgraded"
         parent.depends_on child, model: Tasks::Simple, success: []
@@ -357,8 +357,8 @@ class TC_Dependency < Minitest::Test
         submodel = flexmock(:<= => true)
         root.should_receive(:fullfills?).with(submodel).and_return(false)
         submodel.should_receive(:fullfills?).with(root).and_return(true)
-        opt1 = Hash[model: [[root], {}]]
-        opt2 = Hash[model: [[submodel], {}]]
+        opt1 = { model: [[root], {}] }
+        opt2 = { model: [[submodel], {}] }
         result = Dependency.merge_dependency_options(opt1, opt2)
         assert_equal [[submodel], {}], result[:model]
     end
@@ -367,8 +367,8 @@ class TC_Dependency < Minitest::Test
         m1, m2 = flexmock(:<= => true), flexmock(:<= => true)
         m1.should_receive(:fullfills?).with(m2).and_return(false)
         m2.should_receive(:fullfills?).with(m1).and_return(false)
-        opt1 = Hash[model: [[m1], {}]]
-        opt2 = Hash[model: [[m2], {}]]
+        opt1 = { model: [[m1], {}] }
+        opt2 = { model: [[m2], {}] }
         assert_raises(Roby::ModelViolation) do
             Dependency.merge_dependency_options(opt1, opt2)
         end
@@ -401,7 +401,7 @@ class TC_Dependency < Minitest::Test
     end
 
     def test_resolve_role_path
-        t1, t2, t3, t4 = prepare_plan add: 4, model: Tasks::Simple
+        t1, t2, t3, = prepare_plan add: 4, model: Tasks::Simple
 
         t1.depends_on t2, role: "1"
         t2.depends_on t3, role: "2"
@@ -506,9 +506,9 @@ class TC_Dependency < Minitest::Test
             grandchild.stop!
         end.to do
             have_error_matching ChildFailedError.match
-                .with_origin(child)
-                .to_execution_exception_matcher
-                .with_trace(child => parent)
+                                                .with_origin(child)
+                                                .to_execution_exception_matcher
+                                                .with_trace(child => parent)
         end
     end
 
@@ -523,9 +523,9 @@ class TC_Dependency < Minitest::Test
             child.start_event.unreachable!(grandchild.start_event.last)
         end.to do
             have_error_matching ChildFailedError.match
-                .with_origin(child.start_event)
-                .to_execution_exception_matcher
-                .with_trace(child => parent)
+                                                .with_origin(child.start_event)
+                                                .to_execution_exception_matcher
+                                                .with_trace(child => parent)
         end
     end
 end
@@ -584,33 +584,33 @@ module Roby
                 let(:target_tag_m) { TaskService.new_submodel }
                 let(:source_tag_m) { TaskService.new_submodel }
                 it "does not modify the target argument" do
-                    target = [task_m, [target_tag_m], Hash[arg0: 10]]
-                    Dependency.merge_fullfilled_model(target, [source_tag_m], Hash[arg1: 20])
-                    assert_equal [task_m, [target_tag_m], Hash[arg0: 10]], target
+                    target = [task_m, [target_tag_m], { arg0: 10 }]
+                    Dependency.merge_fullfilled_model(target, [source_tag_m], { arg1: 20 })
+                    assert_equal [task_m, [target_tag_m], { arg0: 10 }], target
                 end
                 it "picks the most specialized task model" do
-                    target = [task_m, [target_tag_m], Hash[arg0: 10]]
+                    target = [task_m, [target_tag_m], { arg0: 10 }]
                     subclass_m = task_m.new_submodel
-                    merged = Dependency.merge_fullfilled_model(target, [subclass_m], Hash[])
+                    merged = Dependency.merge_fullfilled_model(target, [subclass_m], {})
                     assert_equal subclass_m, merged[0]
                     target[0] = subclass_m
-                    merged = Dependency.merge_fullfilled_model(target, [task_m], Hash[])
+                    merged = Dependency.merge_fullfilled_model(target, [task_m], {})
                     assert_equal subclass_m, merged[0]
                 end
                 it "concatenates tags" do
-                    target = [task_m, [target_tag_m], Hash[arg0: 10]]
-                    merged = Dependency.merge_fullfilled_model(target, [source_tag_m], Hash[arg1: 20])
+                    target = [task_m, [target_tag_m], { arg0: 10 }]
+                    merged = Dependency.merge_fullfilled_model(target, [source_tag_m], { arg1: 20 })
                     assert_equal [target_tag_m, source_tag_m], merged[1]
                 end
                 it "removes duplicate tags" do
-                    target = [task_m, [target_tag_m], Hash[arg0: 10]]
-                    merged = Dependency.merge_fullfilled_model(target, [target_tag_m], Hash[arg1: 20])
+                    target = [task_m, [target_tag_m], { arg0: 10 }]
+                    merged = Dependency.merge_fullfilled_model(target, [target_tag_m], { arg1: 20 })
                     assert_equal [target_tag_m], merged[1]
                 end
                 it "merges the arguments" do
-                    target = [task_m, [target_tag_m], Hash[arg0: 10]]
-                    merged = Dependency.merge_fullfilled_model(target, [source_tag_m], Hash[arg1: 20])
-                    assert_equal Hash[arg0: 10, arg1: 20], merged.last
+                    target = [task_m, [target_tag_m], { arg0: 10 }]
+                    merged = Dependency.merge_fullfilled_model(target, [source_tag_m], { arg1: 20 })
+                    assert_equal({ arg0: 10, arg1: 20 }, merged.last)
                 end
             end
 
@@ -668,7 +668,7 @@ module Roby
             describe "interesting_events set" do
                 def self.runs(context)
                     context.it "registers the start event of a parent" do
-                        parent, child = create_parent_child do |parent, child|
+                        parent, = create_parent_child do |parent, child|
                             parent.depends_on child, success: :start
                         end
                         flexmock(dependency_graph.interesting_events)
@@ -679,7 +679,7 @@ module Roby
                     end
 
                     context.it "registers an event emitted that is positively involved in a dependency" do
-                        parent, child = create_parent_child do |parent, child|
+                        _, child = create_parent_child do |parent, child|
                             parent.depends_on child, success: :start
                         end
                         flexmock(dependency_graph.interesting_events)
@@ -700,9 +700,9 @@ module Roby
                         expect_execution { child.failed_to_start!(nil) }
                             .to do
                                 have_error_matching ChildFailedError.match
-                                    .with_origin(child)
-                                    .to_execution_exception_matcher
-                                    .with_trace(child => parent)
+                                                                    .with_origin(child)
+                                                                    .to_execution_exception_matcher
+                                                                    .with_trace(child => parent)
                             end
                     end
 
@@ -717,9 +717,9 @@ module Roby
                         expect_execution { child.start! }
                             .to do
                                 have_error_matching ChildFailedError.match
-                                    .with_origin(child)
-                                    .to_execution_exception_matcher
-                                    .with_trace(child => parent)
+                                                                    .with_origin(child)
+                                                                    .to_execution_exception_matcher
+                                                                    .with_trace(child => parent)
                             end
                     end
 
@@ -826,9 +826,9 @@ module Roby
                     decision_control.should_receive(pending_dependency_failed: true).at_least.once
                     expect_pending_relation.to do
                         have_error_matching ChildFailedError.match
-                            .with_origin(child)
-                            .to_execution_exception_matcher
-                            .with_trace(child => parent)
+                                                            .with_origin(child)
+                                                            .to_execution_exception_matcher
+                                                            .with_trace(child => parent)
                     end
                 end
 
@@ -872,8 +872,8 @@ module Roby
                     parent.depends_on(child = child_m.new(id: 10))
 
                     command_failed_matcher = CommandFailed.match
-                        .with_origin(child.start_event)
-                        .with_ruby_exception(error)
+                                                          .with_origin(child.start_event)
+                                                          .with_ruby_exception(error)
 
                     expect_execution { child.start! }
                         .to do
@@ -886,9 +886,9 @@ module Roby
                     parent.depends_on(child = Roby::Tasks::Simple.new, success: :start)
                     expect_execution { child.start_event.unreachable! }.to do
                         have_error_matching ChildFailedError.match
-                            .with_origin(child.start_event)
-                            .to_execution_exception_matcher
-                            .with_trace(child => parent)
+                                                            .with_origin(child.start_event)
+                                                            .to_execution_exception_matcher
+                                                            .with_trace(child => parent)
                     end
                 end
 
@@ -896,9 +896,9 @@ module Roby
                     parent.depends_on(child = child_m.new, success: :intermediate)
                     expect_execution { child.start!; child.stop_event.emit }.to do
                         have_error_matching ChildFailedError.match
-                            .with_origin(child.stop_event)
-                            .to_execution_exception_matcher
-                            .with_trace(child => parent)
+                                                            .with_origin(child.stop_event)
+                                                            .to_execution_exception_matcher
+                                                            .with_trace(child => parent)
                     end
                 end
 
@@ -906,9 +906,9 @@ module Roby
                     parent.depends_on(child = child_m.new, failure: :intermediate)
                     expect_execution { child.start!; child.intermediate_event.emit }.to do
                         have_error_matching ChildFailedError.match
-                            .with_origin(child.intermediate_event)
-                            .to_execution_exception_matcher
-                            .with_trace(child => parent)
+                                                            .with_origin(child.intermediate_event)
+                                                            .to_execution_exception_matcher
+                                                            .with_trace(child => parent)
                     end
                 end
 
@@ -918,9 +918,9 @@ module Roby
                     parent.depends_on(child, failure: :start)
                     expect_execution.to do
                         have_error_matching ChildFailedError.match
-                            .with_origin(child.start_event)
-                            .to_execution_exception_matcher
-                            .with_trace(child => parent)
+                                                            .with_origin(child.start_event)
+                                                            .to_execution_exception_matcher
+                                                            .with_trace(child => parent)
                     end
                 end
 
@@ -933,9 +933,9 @@ module Roby
                     parent.depends_on(child, success: :intermediate)
                     expect_execution.to do
                         have_error_matching ChildFailedError.match
-                            .with_origin(child.intermediate_event)
-                            .to_execution_exception_matcher
-                            .with_trace(child => parent)
+                                                            .with_origin(child.intermediate_event)
+                                                            .to_execution_exception_matcher
+                                                            .with_trace(child => parent)
                     end
                 end
 
@@ -979,11 +979,11 @@ module Roby
                     end.to { have_error_matching ChildFailedError }
 
                     stop_event = @child.stop_event.last
-                    stop_to_s = "[#{Roby.format_time(stop_event.time)} "\
-                        "@#{stop_event.propagation_id}]"
+                    stop_to_s = "[#{Roby.format_time(stop_event.time)} " \
+                                "@#{stop_event.propagation_id}]"
                     success_event = @child.success_event.last
-                    success_to_s = "[#{Roby.format_time(success_event.time)} "\
-                        "@#{success_event.propagation_id}]"
+                    success_to_s = "[#{Roby.format_time(success_event.time)} " \
+                                   "@#{success_event.propagation_id}]"
                     expected = <<~MESSAGE.chomp
                         Child<id:#{@child.droby_id.id}>
                           no owners

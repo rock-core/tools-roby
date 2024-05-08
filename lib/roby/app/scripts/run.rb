@@ -41,7 +41,7 @@ options = OptionParser.new do |opt|
         app.shell_interface_fd = fd
     end
     opt.on "--interface-v2-fd=FD", Integer,
-           "file descriptor to use for the v2 interface server "\
+           "file descriptor to use for the v2 interface server " \
            "(automatically enables it)" do |fd|
         app.shell_interface_v2_fd = fd
         app.public_shell_interface_v2 = true
@@ -55,18 +55,18 @@ options = OptionParser.new do |opt|
         app.public_shell_interface_v2 = flag
     end
     opt.on "--port=PORT", Integer,
-           "the interface port. This sets the v2 port to PORT+2 unless "\
+           "the interface port. This sets the v2 port to PORT+2 unless " \
            "--port-v2 is also used" do |port|
         app.shell_interface_port = port
         app.shell_interface_v2_port = port + 2 unless has_v2_port
     end
     opt.on "--port-v1=PORT", Integer,
-           "the v1 remote interface port. Unlike --port, "\
+           "the v1 remote interface port. Unlike --port, " \
            "it never sets the v2 port" do |port|
         app.shell_interface_port = port
     end
     opt.on "--port-v2=PORT", Integer,
-           "the interface port for the v2 interface. "\
+           "the interface port for the v2 interface. " \
            "This enables the interface automatically" do |port|
         app.public_shell_interface_v2 = true
         app.shell_interface_v2_port = port
@@ -200,8 +200,8 @@ error = Roby.display_exception(STDERR) do
                 Roby.app.run_controller_blocks
 
                 if Roby.app.controllers.empty? && !controller_file
-                    Robot.info "no controller block registered, and found "\
-                               "no controller file to load for "\
+                    Robot.info "no controller block registered, and found " \
+                               "no controller file to load for " \
                                "#{Roby.app.robot_name}:#{Roby.app.robot_type}"
                 end
             end

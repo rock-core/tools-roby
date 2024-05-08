@@ -34,7 +34,7 @@ module Roby
 
                     root_event.task.coordination_model.parse_names
                     root_event.task.coordination_model
-                        .forward task, self, root_event
+                              .forward task, self, root_event
                 end
 
                 def to_s

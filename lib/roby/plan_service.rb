@@ -167,7 +167,7 @@ module Roby
         # Returns a plan service for +task+. If a service is already defined for
         # +task+, it will return it.
         def self.get(task)
-            if service = task.plan.find_plan_service(task)
+            if (service = task.plan.find_plan_service(task))
                 service
             else
                 new(task)

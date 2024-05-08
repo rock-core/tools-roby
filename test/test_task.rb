@@ -143,9 +143,9 @@ module Roby
                 end
                 plan.add(task = task_m.new)
                 expect_execution.scheduler(scheduler)
-                    .to do
-                        fail_to_start task
-                    end
+                                .to do
+                    fail_to_start task
+                end
             end
 
             it "emits the internal error if it fails after it emitted the event" do
@@ -239,8 +239,8 @@ module Roby
                         execution_engine.add_error(CodeError.new(ArgumentError.new, task))
                     end.to do
                         have_error_matching CodeError.match
-                            .with_ruby_exception(ArgumentError)
-                            .with_origin(task)
+                                                     .with_ruby_exception(ArgumentError)
+                                                     .with_origin(task)
                     end
                 end
             end
@@ -252,8 +252,8 @@ module Roby
                         execution_engine.add_error(CodeError.new(ArgumentError.new, task))
                     end.to do
                         have_error_matching CodeError.match
-                            .with_ruby_exception(ArgumentError)
-                            .with_origin(task)
+                                                     .with_ruby_exception(ArgumentError)
+                                                     .with_origin(task)
                     end
                 end
             end
@@ -266,8 +266,8 @@ module Roby
                         execution_engine.add_error(CodeError.new(ArgumentError.new, task))
                     end.to do
                         have_error_matching CodeError.match
-                            .with_ruby_exception(ArgumentError)
-                            .with_origin(task)
+                                                     .with_ruby_exception(ArgumentError)
+                                                     .with_origin(task)
                     end
                 end
             end
@@ -275,7 +275,7 @@ module Roby
                 after do
                     @task.start_event.emit if @task.starting?
                 end
-                it "marks the task as failed-to-start if the error's origin "\
+                it "marks the task as failed-to-start if the error's origin " \
                    "is the task's start_event" do
                     task_m = Tasks::Simple.new_submodel do
                         event :start do |context|
@@ -289,8 +289,8 @@ module Roby
                         )
                     end.to do
                         fail_to_start task, reason: CodeError.match
-                            .with_ruby_exception(ArgumentError)
-                            .with_origin(task.start_event)
+                                                             .with_ruby_exception(ArgumentError)
+                                                             .with_origin(task.start_event)
                     end
                 end
             end
@@ -299,7 +299,7 @@ module Roby
                     execute { @task.stop_event.emit } if @task&.stop_event&.pending?
                 end
 
-                it "handles the error and emits internal_error_event "\
+                it "handles the error and emits internal_error_event " \
                    "with the error as context" do
                     plan.add(task = Tasks::Simple.new)
                     error_matcher =
@@ -507,7 +507,7 @@ module Roby
                         end
                     end
                     task = task_m.new(high_level_arg: 10, low_level_arg: 10)
-                    assert_equal Hash[high_level_arg: 10, low_level_arg: 10], task.parallel_assignment
+                    assert_equal({ high_level_arg: 10, low_level_arg: 10 }, task.parallel_assignment)
                 end
 
                 it "does parallel-assignment of delayed arguments in #freeze_delayed_arguments" do
@@ -516,7 +516,7 @@ module Roby
 
                     plan.add(task = task_m.new(high_level_arg: delayed_arg))
                     flexmock(task).should_receive(:assign_arguments)
-                        .once.with(high_level_arg: 10)
+                                  .once.with(high_level_arg: 10)
                     task.freeze_delayed_arguments
                 end
             end
@@ -633,25 +633,31 @@ module Roby
                     # event
                     plan.add(task = task_m.new)
                     assert(task.start_event.child_object?(
-                               task.ev1_event, Roby::EventStructure::Precedence))
+                               task.ev1_event, Roby::EventStructure::Precedence
+                           ))
                     assert(!task.start_event.child_object?(
-                        task.ev2_event, Roby::EventStructure::Precedence))
+                        task.ev2_event, Roby::EventStructure::Precedence
+                    ))
                     assert(task.start_event.child_object?(
-                               task.ev3_event, Roby::EventStructure::Precedence))
+                               task.ev3_event, Roby::EventStructure::Precedence
+                           ))
                 end
 
                 it "adds a precedence link between the leaf intermediate events and the root terminal events" do
                     task.each_event do |ev|
                         if ev.terminal?
                             assert(!task.ev1_event.child_object?(
-                                ev, Roby::EventStructure::Precedence))
+                                ev, Roby::EventStructure::Precedence
+                            ))
                         end
                     end
                     %i[success aborted internal_error].each do |terminal|
                         assert(task.ev2_event.child_object?(
-                                   task.event(terminal), Roby::EventStructure::Precedence), "ev2 is not marked as preceding #{terminal}")
+                                   task.event(terminal), Roby::EventStructure::Precedence
+                               ), "ev2 is not marked as preceding #{terminal}")
                         assert(task.ev3_event.child_object?(
-                                   task.event(terminal), Roby::EventStructure::Precedence), "ev3 is not marked as preceding #{terminal}")
+                                   task.event(terminal), Roby::EventStructure::Precedence
+                               ), "ev3 is not marked as preceding #{terminal}")
                     end
                 end
             end
@@ -983,7 +989,7 @@ module Roby
                     .timeout(0)
                     .to do
                         have_handled_error_matching CodeError.match
-                            .with_ruby_exception(error_m)
+                                                             .with_ruby_exception(error_m)
                         emit task.internal_error_event
                     end
             end
@@ -1113,8 +1119,8 @@ module Roby
                     execute { plan.remove_task(task) }
                 end
                 validity_checks_fail_at_toplevel(self, TaskEventNotExecutable) do |is_call, task|
-                    "start_event.#{is_call ? 'call' : 'emit'} on #{task} but the task "\
-                    "has been removed from its plan"
+                    "start_event.#{is_call ? 'call' : 'emit'} on #{task} but the task " \
+                        "has been removed from its plan"
                 end
             end
 
@@ -1208,7 +1214,7 @@ module Roby
                     assert strong_graph.has_edge?(task.start_event, ev)
                     assert strong_graph.has_edge?(ev, task.stop_event)
                 end
-                it "keeps event relations between the tasks that are strongly "\
+                it "keeps event relations between the tasks that are strongly " \
                    "related when called on the parent" do
                     agent_m = Roby::Task.new_submodel { event :ready }
                     task.executed_by(agent = agent_m.new)
@@ -1221,7 +1227,7 @@ module Roby
                     assert task.start_event.forwarded_to?(agent.start_event)
                     assert agent.stop_event.forwarded_to?(task.stop_event)
                 end
-                it "keeps event relations between the tasks that are strongly "\
+                it "keeps event relations between the tasks that are strongly " \
                    "related when called on the child" do
                     agent_m = Roby::Task.new_submodel { event :ready }
                     task.executed_by(agent = agent_m.new)
@@ -1419,20 +1425,20 @@ module Roby
                     task.mark_failed_to_start(flexmock, t = Time.now)
                     assert_equal t, task.failed_to_start_time
                 end
-                it "sets the failure reason to FailedToStart "\
+                it "sets the failure reason to FailedToStart " \
                    "if it is not localized on the task already" do
                     task.mark_failed_to_start(reason = flexmock, Time.now)
                     assert_kind_of FailedToStart, task.failure_reason
                     assert_equal reason, task.failure_reason.reason
                 end
-                it "sets the failure reason to the given reason "\
+                it "sets the failure reason to the given reason " \
                    "if it is already localized on the task" do
                     reason = LocalizedError.new(task)
                     task.mark_failed_to_start(reason, Time.now)
                     assert_equal reason, task.failure_reason
                 end
                 it "sets the task as failed in the index" do
-                    task.mark_failed_to_start(reason = flexmock, Time.now)
+                    task.mark_failed_to_start(flexmock, Time.now)
                     assert_equal [task], plan.find_tasks.failed.to_a
                 end
             end
@@ -1510,8 +1516,8 @@ module Roby
                 recorder = flexmock
                 matcher = flexmock
                 matcher.should_receive(:===)
-                    .with(localized_error_m.to_execution_exception_matcher)
-                    .and_return(false)
+                       .with(localized_error_m.to_execution_exception_matcher)
+                       .and_return(false)
                 matcher.should_receive(to_execution_exception_matcher: matcher)
                 task_m.on_exception(matcher) do |exception|
                     recorder.called
@@ -1539,8 +1545,8 @@ module Roby
             end
             it "creates a promise using the serialized task executor otherwise" do
                 flexmock(execution_engine).should_receive(:promise).once
-                    .with(->(h) { h[:executor].equal?(task.promise_executor) }, Proc)
-                    .and_return(ret = flexmock)
+                                          .with(->(h) { h[:executor].equal?(task.promise_executor) }, Proc)
+                                          .and_return(ret = flexmock)
                 assert_equal(ret, task.promise {})
             end
         end
@@ -1646,7 +1652,7 @@ module Roby
             it "ensures the state machine is started when the task is" do
                 interface_m = @interface_m
                 plan.add(task)
-                machine = task.action_state_machine do
+                task.action_state_machine do
                     s = state(interface_m.some_action)
                     start(s)
                 end
@@ -1658,7 +1664,7 @@ module Roby
                 interface_m = @interface_m
                 plan.add(task)
                 execute { task.start! }
-                machine = task.action_state_machine do
+                task.action_state_machine do
                     s = state(interface_m.some_action)
                     start(s)
                 end
@@ -1714,7 +1720,7 @@ class TC_Task < Minitest::Test
         end
         flexmock(model).new_instances.should_receive(:arg=).with("B").once.pass_thru
 
-        plan.add(task = model.new(arg: "B"))
+        plan.add(model.new(arg: "B"))
     end
 
     def test_meaningful_arguments
@@ -1801,7 +1807,7 @@ class TC_Task < Minitest::Test
         end
 
         plan.add(task = klass.new)
-        expected_links = Hash[e1: %i[e2 e3], e4: :stop]
+        expected_links = { e1: %i[e2 e3], e4: :stop }
 
         assert_task_relation_set task, relation, expected_links.merge(additional_links)
     end
@@ -1831,11 +1837,11 @@ class TC_Task < Minitest::Test
 
         task = base.new
         assert_task_relation_set task, relation,
-                                 Hash[e1: %i[e2 e3]].merge(additional_links)
+                                 { e1: %i[e2 e3] }.merge(additional_links)
 
         task = subclass.new
         assert_task_relation_set task, relation,
-                                 Hash[e1: %i[e2 e3], e4: :stop].merge(additional_links)
+                                 { e1: %i[e2 e3], e4: :stop }.merge(additional_links)
     end
 
     def test_inherit_model_signals
@@ -1854,7 +1860,7 @@ class TC_Task < Minitest::Test
 
     # Test the behaviour of Task#on, and event propagation inside a task
     def test_instance_event_handlers
-        plan.add(t1 = Tasks::Simple.new)
+        plan.add(Tasks::Simple.new)
         plan.add(task = Tasks::Simple.new)
         FlexMock.use do |mock|
             task.start_event.on   { |event| mock.started(event.context) }
@@ -1956,10 +1962,10 @@ class TC_Task < Minitest::Test
     }.freeze
 
     def assert_model_event_flag(model, event_name, model_flag)
-        if model_flag != :normal
-            assert model.event_model(event_name).terminal?, "#{model}.#{event_name}.terminal? returned false"
-        else
+        if model_flag == :normal
             assert !model.event_model(event_name).terminal?, "#{model}.#{event_name}.terminal? returned true"
+        else
+            assert model.event_model(event_name).terminal?, "#{model}.#{event_name}.terminal? returned false"
         end
     end
 
@@ -2186,7 +2192,6 @@ class TC_Task < Minitest::Test
         assert_respond_to(task, :start?)
 
         # Test modifications to the class hierarchy
-        my_event = nil
         my_event = klass.const_get(:EvContingent)
         assert_raises(NameError) { klass.superclass.const_get(:EvContingent) }
         assert_equal(TaskEvent, my_event.superclass)
@@ -2204,7 +2209,7 @@ class TC_Task < Minitest::Test
         # Check properties on EvControlable
         assert(klass::EvControlable.controlable?)
         assert(klass::EvControlable.respond_to?(:call))
-        event = klass::EvControlable.new(task, task.ev_controlable_event, 0, nil)
+        klass::EvControlable.new(task, task.ev_controlable_event, 0, nil)
         assert_equal(:ev_controlable, klass::EvControlable.call(task, :ev_controlable))
 
         # Check Event.terminal? if terminal: true
@@ -2553,7 +2558,7 @@ class TC_Task < Minitest::Test
 
     def test_related_tasks
         t1, t2, t3 = (1..3).map { Tasks::Simple.new }
-            .each { |t| plan.add(t) }
+                           .each { |t| plan.add(t) }
         t1.depends_on t2
         t1.start_event.signals t3.start_event
         assert_equal([t3].to_set, t1.start_event.related_tasks)
@@ -2563,7 +2568,7 @@ class TC_Task < Minitest::Test
 
     def test_related_events
         t1, t2, t3 = (1..3).map { Tasks::Simple.new }
-            .each { |t| plan.add(t) }
+                           .each { |t| plan.add(t) }
         t1.depends_on t2
         t1.start_event.signals t3.start_event
         assert_equal([t3.start_event].to_set, t1.related_events)
@@ -2728,8 +2733,8 @@ class TC_Task < Minitest::Test
             task.intermediate_event.emit_failed
         end.to do
             have_handled_error_matching EmissionFailed.match
-                .with_origin(task.intermediate_event)
-                .with_ruby_exception(nil)
+                                                      .with_origin(task.intermediate_event)
+                                                      .with_ruby_exception(nil)
             emit task.internal_error_event
         end
         assert task.internal_error?
@@ -2751,7 +2756,7 @@ class TC_Task < Minitest::Test
             task.command_fails!
         end.to do
             have_handled_error_matching CommandFailed.match
-                .with_origin(task.command_fails_event)
+                                                     .with_origin(task.command_fails_event)
             emit task.internal_error_event
         end
 
@@ -2766,8 +2771,8 @@ class TC_Task < Minitest::Test
             task.emission_fails_event.emit_failed
         end.to do
             have_handled_error_matching EmissionFailed.match
-                .with_origin(task.emission_fails_event)
-                .with_ruby_exception(nil)
+                                                      .with_origin(task.emission_fails_event)
+                                                      .with_ruby_exception(nil)
             emit task.internal_error_event
         end
 
@@ -2837,7 +2842,7 @@ class TC_Task < Minitest::Test
     end
 
     def test_delayed_argument_from_task
-        value_obj = Class.new do
+        Class.new do
             attr_accessor :value
         end.new
 
@@ -3107,13 +3112,13 @@ class TC_Task < Minitest::Test
         execute { source.stop! }
         event = target.stop_event.last
 
-        assert_equal [target.failed_event].map(&:last).to_set, event.sources.to_set
-        assert_equal [source.failed_event, source.stop_event, target.aborted_event, target.failed_event].map(&:last).to_set, event.all_sources.to_set
-        assert_equal [source.failed_event].map(&:last).to_set, event.root_sources.to_set
+        assert_equal [target.failed_event].to_set(&:last), event.sources.to_set
+        assert_equal [source.failed_event, source.stop_event, target.aborted_event, target.failed_event].to_set(&:last), event.all_sources.to_set
+        assert_equal [source.failed_event].to_set(&:last), event.root_sources.to_set
 
-        assert_equal [target.failed_event].map(&:last).to_set, event.task_sources.to_set
-        assert_equal [target.aborted_event, target.failed_event].map(&:last).to_set, event.all_task_sources.to_set
-        assert_equal [target.aborted_event].map(&:last).to_set, event.root_task_sources.to_set
+        assert_equal [target.failed_event].to_set(&:last), event.task_sources.to_set
+        assert_equal [target.aborted_event, target.failed_event].to_set(&:last), event.all_task_sources.to_set
+        assert_equal [target.aborted_event].to_set(&:last), event.root_task_sources.to_set
     end
 
     def test_task_as_plan

@@ -334,8 +334,8 @@ module Roby
                             .to { emit task.stop_event }
                     end
 
-                    it "emits the timeout event and moves on if the sub-script has "\
-                        "not finished in time" do
+                    it "emits the timeout event and moves on if the sub-script has " \
+                       "not finished in time" do
                         Timecop.freeze(base_time = Time.now)
                         execute { task.start! }
 
@@ -366,7 +366,7 @@ module Roby
                         execute { task.start! }
 
                         expect_execution.poll { Timecop.freeze(Time.now + 0.3) }
-                            .to { have_error_matching Script::TimedOut }
+                                        .to { have_error_matching Script::TimedOut }
                     end
                 end
             end
@@ -515,7 +515,7 @@ class TC_Coordination_TaskScript < Minitest::Test
         expect_execution { task.done_script2_event.unreachable! }
             .to do
                 have_error_matching Roby::Coordination::Script::DeadInstruction.match
-                    .with_origin(task)
+                                                                               .with_origin(task)
                 not_emit task.done_script2_event
             end
     end

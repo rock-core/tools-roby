@@ -29,19 +29,19 @@ module Roby
 
             no_commands do
                 def parse_host_option
-                    if url = options[:host]
+                    if (url = options[:host])
                         if url =~ /(.*):(\d+)$/
-                            Hash[host: $1, port: Integer($2)]
+                            { host: $1, port: Integer($2) }
                         else
-                            Hash[host: url]
+                            { host: url }
                         end
-                    elsif url = options[:vagrant]
+                    elsif (vagrant_name = options[:vagrant])
                         require "roby/app/vagrant"
                         if vagrant_name =~ /(.*):(\d+)$/
                             vagrant_name, port = $1, Integer($2)
                         end
-                        Hash[host: Roby::App::Vagrant.resolve_ip(vagrant_name),
-                             port: port]
+                        { host: Roby::App::Vagrant.resolve_ip(vagrant_name),
+                          port: port }
                     else
                         {}
                     end
@@ -83,17 +83,12 @@ module Roby
                 end
 
                 def setup_interface(app = Roby.app, retry_connection: false, timeout: nil)
-                    interface_version = options[:interface_version] || 1
-
-                    host_port = parse_host_option
                     host, port, namespace = interface_host_port_and_namespace(app)
 
                     app.guess_app_dir
                     app.shell
                     app.single
                     app.load_base_config
-
-                    interface = nil
                     deadline = Time.now + timeout if retry_connection && timeout
 
                     loop do
@@ -101,14 +96,12 @@ module Roby
                             return namespace.connect_with_tcp_to(host, port)
                         rescue Roby::Interface::ConnectionError => e
                             if deadline && deadline > Time.now
-                                Robot.warn "failed to connect to #{host}:#{port}: "\
+                                Robot.warn "failed to connect to #{host}:#{port}: " \
                                            "#{e.message}, retrying"
                                 sleep 0.05
                             elsif !retry_connection || deadline
                                 raise
                             end
-                        rescue Interrupt
-                            raise
                         end
                     end
                 end
@@ -117,7 +110,7 @@ module Roby
                     until interface.closed?
                         interface.poll
                         while interface.has_notifications?
-                            _, (source, level, message) = interface.pop_notification
+                            _, (_, level, message) = interface.pop_notification
                             Robot.send(level.downcase, message)
                         end
                         while interface.has_job_progress?
@@ -143,7 +136,8 @@ module Roby
                 timeout = options[:retry] if options[:retry] != 0
                 interface = setup_interface(
                     retry_connection: !!options[:retry],
-                    timeout: timeout)
+                    timeout: timeout
+                )
                 Robot.info "connected"
                 interface.quit
                 begin
@@ -173,16 +167,17 @@ module Roby
             def wait
                 interface = setup_interface(
                     retry_connection: true,
-                    timeout: options[:timeout])
+                    timeout: options[:timeout]
+                )
             ensure
                 interface.close if interface && !interface.closed?
             end
 
             desc "check", "verifies that the configuration is valid",
                  hide: true
-            long_desc "This loads the specified robot configuration,"\
-                " but does not start the app itself."\
-                " Use this to validate the current configuration"
+            long_desc "This loads the specified robot configuration, " \
+                      "but does not start the app itself. " \
+                      "Use this to validate the current configuration"
             option :robot, aliases: "r", default: "default",
                            desc: "the robot name, separate name and type a comma"
             option :set, desc: "set configuration variable(s)",

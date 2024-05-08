@@ -114,14 +114,14 @@ module Roby
                     on_parent = on { |t| t == parent && t.plan == plan }
 
                     flexmock(parent).should_receive(ing_hook)
-                        .with(on_child, *args).once.ordered
+                                    .with(on_child, *args).once.ordered
                     flexmock(child).should_receive("#{ing_hook}_parent")
-                        .with(on_parent, *args).once.ordered
+                                   .with(on_parent, *args).once.ordered
                     yield if block_given?
                     flexmock(parent).should_receive(ed_hook)
-                        .with(on_child, *args).once.ordered
+                                    .with(on_child, *args).once.ordered
                     flexmock(child).should_receive("#{ed_hook}_parent")
-                        .with(on_parent, *args).once.ordered
+                                   .with(on_parent, *args).once.ordered
                 end
 
                 it "calls added_CHILD_NAME and adding_CHILD_NAME and the corresponding parent hooks on addition" do
@@ -162,16 +162,16 @@ module Roby
                 it "does not add the edge if adding_CHILD_NAME raises" do
                     parent, child = prepare_plan add: 2
                     flexmock(parent).should_receive(:adding_child)
-                        .with(child, Hash).once
-                        .and_raise(ArgumentError)
+                                    .with(child, Hash).once
+                                    .and_raise(ArgumentError)
                     assert_raises(ArgumentError) { parent.depends_on child }
                     assert !parent.depends_on?(child)
                 end
                 it "adds the edge even if added_CHILD_NAME raises" do
                     parent, child = prepare_plan add: 2
                     flexmock(parent).should_receive(:added_child)
-                        .with(child, Hash).once
-                        .and_raise(ArgumentError)
+                                    .with(child, Hash).once
+                                    .and_raise(ArgumentError)
                     assert_raises(ArgumentError) { parent.depends_on child }
                     assert parent.depends_on?(child)
                 end
@@ -212,8 +212,8 @@ module Roby
                     parent, child = prepare_plan add: 2
                     parent.depends_on child
                     flexmock(parent).should_receive(:removing_child)
-                        .with(child).once
-                        .and_raise(ArgumentError)
+                                    .with(child).once
+                                    .and_raise(ArgumentError)
                     assert_raises(ArgumentError) { parent.remove_child child }
                     assert parent.depends_on?(child)
                 end
@@ -221,8 +221,8 @@ module Roby
                     parent, child = prepare_plan add: 2
                     parent.depends_on child
                     flexmock(parent).should_receive(:removed_child)
-                        .with(child).once
-                        .and_raise(ArgumentError)
+                                    .with(child).once
+                                    .and_raise(ArgumentError)
                     assert_raises(ArgumentError) { parent.remove_child child }
                     assert !parent.depends_on?(child)
                 end

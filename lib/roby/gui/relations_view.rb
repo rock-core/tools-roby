@@ -40,7 +40,7 @@ module Roby
             # underlying history widget changed its source
             def updateWindowTitle
                 if (parent_title = history_widget.window_title)
-                    self.window_title = "#{history_widget.window_title}: Relations"
+                    self.window_title = "#{parent_title}: Relations"
                 else
                     self.window_title = "roby-display: Relations"
                 end
@@ -106,10 +106,10 @@ class Ui::RelationsView
             return unless obj.kind_of?(Roby::Task)
 
             menu = Qt::Menu.new
-            hide_this = menu.add_action("Hide")
-            hide_children = menu.add_action("Hide children")
-            show_children = menu.add_action("Show children")
-            return unless action = menu.exec(event.globalPos)
+            menu.add_action("Hide")
+            menu.add_action("Hide children")
+            menu.add_action("Show children")
+            return unless (action = menu.exec(event.globalPos))
 
             case action.text
             when "Hide"
@@ -258,7 +258,7 @@ class Ui::RelationsView
         @actionSVGExport.connect(SIGNAL(:triggered)) do
             return unless scene
 
-            if path = Qt::FileDialog.get_save_file_name(nil, "SVG Export")
+            if (path = Qt::FileDialog.get_save_file_name(nil, "SVG Export"))
                 svg = Qt::SvgGenerator.new
                 svg.file_name = path
                 svg.size = Qt::Size.new(Integer(scene.width * 0.8), Integer(scene.height * 0.8))

@@ -45,7 +45,7 @@ module Roby::Tasks
         end
 
         def connect_start(task) # :nodoc:
-            if old = @tasks.first
+            if (old = @tasks.first)
                 start_event.remove_signal old.start_event
                 task.success_event.signals old.start_event
             end
@@ -54,7 +54,7 @@ module Roby::Tasks
         end
 
         def connect_stop(task) # :nodoc:
-            if old = @tasks.last
+            if (old = @tasks.last)
                 old.success_event.signals task.start_event
                 old.success_event.remove_forwarding success_event
             end

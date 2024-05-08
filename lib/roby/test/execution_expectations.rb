@@ -1028,7 +1028,7 @@ module Roby
                         .find_all { |error| @matcher === error }
                     matched_exceptions =
                         @matched_execution_exceptions
-                        .map(&:exception).to_set
+                        .to_set(&:exception)
 
                     emitted_events.each do |ev|
                         next unless ev.generator.respond_to?(:symbol) &&
@@ -1090,8 +1090,8 @@ module Roby
 
                     @related_error_matcher =
                         QuarantinedTaskError
-                            .match
-                            .to_execution_exception_matcher
+                        .match
+                        .to_execution_exception_matcher
                 end
 
                 def update_match(_propagation_info)
@@ -1185,8 +1185,8 @@ module Roby
                             @reason
                         elsif @task.failure_reason
                             Queries::ExecutionExceptionMatcher
-                            .new
-                            .with_exception(@task.failure_reason)
+                                .new
+                                .with_exception(@task.failure_reason)
                         end
 
                     return unless reason

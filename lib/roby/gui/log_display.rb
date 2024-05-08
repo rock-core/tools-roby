@@ -111,7 +111,8 @@ module Roby
                     raise ArgumentError, "there is already a view of type #{name} with ID #{id}"
                 end
 
-                klass = begin constant(name)
+                begin
+                    klass = constant(name)
                 rescue NameError => e
                     Roby.warn "cannot create display of class #{name}: #{e}"
                     return
@@ -200,7 +201,7 @@ module Roby
             end
 
             def load_options(path)
-                if new_options = YAML.load(File.read(path))
+                if (new_options = YAML.load(File.read(path)))
                     apply_options(new_options)
                 end
             end
@@ -236,7 +237,7 @@ module Roby
             end
 
             def apply_widget_state(options, widget)
-                if geom = options["geometry"]
+                if (geom = options["geometry"])
                     widget.set_geometry(*geom)
                 end
             end
@@ -245,20 +246,19 @@ module Roby
                 (options["plugins"] || []).each do |plugin_name|
                     begin
                         Roby.app.using plugin_name
-                    rescue ArgumentError => e
-                        Roby.warn "the display configuration file mentions the "\
-                                  "#{plugin_name} plugin, but it is not available "\
-                                  "on this system. Some information might not "\
+                    rescue ArgumentError
+                        Roby.warn "the display configuration file mentions the " \
+                                  "#{plugin_name} plugin, but it is not available " \
+                                  "on this system. Some information might not " \
                                   "be displayed"
                     end
                 end
 
-                filters = options["plan_rebuilder"] || {}
                 apply_widget_state(options["main"] || {}, self)
                 (options["views"] || []).each do |view_options|
                     id = view_options["id"]
                     klass_name = view_options["class"]
-                    if w = display_from_id(klass_name, id)
+                    if (w = display_from_id(klass_name, id))
                         if w.class.name != klass_name
                             next
                         end

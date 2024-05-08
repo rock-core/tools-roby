@@ -41,8 +41,8 @@ module Roby
                             e = assert_raises(ArgumentError) do
                                 @interface_m.no_args.instanciate(plan, some: 10)
                             end
-                            assert_equal "unknown argument 'some' given to action "\
-                                         "TestActions.no_args. The action accepts "\
+                            assert_equal "unknown argument 'some' given to action " \
+                                         "TestActions.no_args. The action accepts " \
                                          "no arguments", e.message
                         end
                     end
@@ -67,9 +67,9 @@ module Roby
                             e = assert_raises(ArgumentError) do
                                 @interface_m.args.instanciate(plan, req: 20, some: 10)
                             end
-                            assert_equal "unknown argument 'some' given to action "\
-                                         "TestActions.args. The action accepts "\
-                                         "the following arguments: opt_with_value, "\
+                            assert_equal "unknown argument 'some' given to action " \
+                                         "TestActions.args. The action accepts " \
+                                         "the following arguments: opt_with_value, " \
                                          "opt_without_value, req", e.message
                         end
 
@@ -80,7 +80,7 @@ module Roby
                             e = assert_raises(ArgumentError) do
                                 @interface_m.args.instanciate(plan)
                             end
-                            assert_equal "required argument 'req' not given to action "\
+                            assert_equal "required argument 'req' not given to action " \
                                          "TestActions.args", e.message
                         end
 
@@ -88,7 +88,7 @@ module Roby
                             flexmock(@interface_m)
                                 .new_instances.should_receive(:args)
                                 .with(req: 42, opt_with_value: 10, opt_without_value: 20)
-                                .once.and_return(task = @task_m.new)
+                                .once.and_return(@task_m.new)
 
                             @interface_m.args.instanciate(
                                 plan, req: 42, opt_with_value: 10, opt_without_value: 20
@@ -99,7 +99,7 @@ module Roby
                             flexmock(@interface_m)
                                 .new_instances.should_receive(:args)
                                 .with(req: 42, opt_with_value: 10)
-                                .once.and_return(task = @task_m.new)
+                                .once.and_return(@task_m.new)
 
                             @interface_m.args.instanciate(plan, req: 42)
                         end
@@ -111,9 +111,9 @@ module Roby
                         @parent_task_m = Roby::Task.new_submodel
                         @task_m = @parent_task_m.new_submodel
                         flexmock(interface_m).new_instances
-                            .should_receive(:test)
-                            .explicitly
-                            .and_return(@task = @task_m.new).by_default
+                                             .should_receive(:test)
+                                             .explicitly
+                                             .and_return(@task = @task_m.new).by_default
                     end
                     it "accepts a task of the expected returned task model" do
                         @action_m.returns(@task_m)
@@ -124,7 +124,7 @@ module Roby
                         @action_m.instanciate(plan)
                     end
                     it "rejects a task of an unexpected task model" do
-                        @action_m.returns(expected_m = Roby::Task.new_submodel)
+                        @action_m.returns(Roby::Task.new_submodel)
                         assert_raises(MethodAction::InvalidReturnedType) do
                             @action_m.instanciate(plan)
                         end
@@ -135,9 +135,9 @@ module Roby
                         e = assert_raises(MethodAction::InvalidReturnedType) do
                             @action_m.instanciate(plan)
                         end
-                        assert_equal "action 'TestActions.test' was expected "\
-                            "to return a task of type #{expected_m}, "\
-                            "but returned #{@task}", e.message
+                        assert_equal "action 'TestActions.test' was expected " \
+                                     "to return a task of type #{expected_m}, " \
+                                     "but returned #{@task}", e.message
                         pp_message = <<~MESSAGE
                             action 'TestActions.test' was expected to return
                             a task of type #{PP.pp(expected_m, ''.dup, 0).chomp},
@@ -165,9 +165,9 @@ module Roby
                         @action_m.returns(@task_m)
                         task = @task_m.new
                         flexmock(interface_m).new_instances
-                            .should_receive(:test)
-                            .explicitly
-                            .and_return(flexmock(as_plan: task))
+                                             .should_receive(:test)
+                                             .explicitly
+                                             .and_return(flexmock(as_plan: task))
 
                         assert_equal task, @action_m.instanciate(plan)
                     end
@@ -212,10 +212,10 @@ module Roby
                         it "registers the return type model even if the action already exists" do
                             droby_remote = droby_to_remote(@action_m)
                             flexmock(droby_remote_marshaller).should_receive(:local_object)
-                                .with(droby_remote.returned_type, any).once
-                                .pass_thru
+                                                             .with(droby_remote.returned_type, any).once
+                                                             .pass_thru
                             flexmock(droby_remote_marshaller).should_receive(:local_object)
-                                .pass_thru
+                                                             .pass_thru
                             droby_remote_marshaller.local_object(droby_remote)
                         end
                     end

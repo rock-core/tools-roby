@@ -49,12 +49,12 @@ module Roby
 
             # Returns the proxying module for +object+
             def self.proxying_module_for(klass)
-                if proxying_module = klass.transaction_proxy_module
+                if (proxying_module = klass.transaction_proxy_module)
                     return proxying_module
                 end
 
                 modules = klass.ancestors.map do |ancestor|
-                    if mod_proxy = @@proxy_for[ancestor]
+                    if (mod_proxy = @@proxy_for[ancestor])
                         mod_proxy
                     end
                 end.compact

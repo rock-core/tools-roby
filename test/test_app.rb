@@ -170,11 +170,11 @@ module Roby
                 it "handles concurrent path creation properly" do
                     FileUtils.mkdir_p app.log_base_dir
                     flexmock(FileUtils).should_receive(:mkdir)
-                        .with(File.join(app.log_base_dir, "tag"))
-                        .pass_thru { raise Errno::EEXIST }
+                                       .with(File.join(app.log_base_dir, "tag"))
+                                       .pass_thru { raise Errno::EEXIST }
                     flexmock(FileUtils).should_receive(:mkdir)
-                        .with(File.join(app.log_base_dir, "tag.1"))
-                        .pass_thru
+                                       .with(File.join(app.log_base_dir, "tag.1"))
+                                       .pass_thru
                     existing_dirs = app.created_log_dirs.to_set
                     created = app.find_and_create_log_dir("tag")
                     assert_equal File.join(app.log_base_dir, "tag.1"), created
@@ -343,17 +343,17 @@ module Roby
 
             it "raises ArgumentError if there are no matches" do
                 planner.should_receive(:find_all_actions_by_type).once
-                    .with(task_m).and_return([])
+                       .with(task_m).and_return([])
                 assert_raises(ArgumentError) { app.action_from_model(task_m) }
             end
             it "returns the action if there is a single match" do
                 planner.should_receive(:find_all_actions_by_type).once
-                    .with(task_m).and_return([action = flexmock(name: "A")])
+                       .with(task_m).and_return([action = flexmock(name: "A")])
                 assert_equal [planner, action], app.action_from_model(task_m)
             end
             it "raises if there are more than one match" do
                 planner.should_receive(:find_all_actions_by_type).once
-                    .with(task_m).and_return([flexmock(name: "A"), flexmock(name: "B")])
+                       .with(task_m).and_return([flexmock(name: "A"), flexmock(name: "B")])
                 assert_raises(ArgumentError) { app.action_from_model(task_m) }
             end
         end
@@ -462,19 +462,19 @@ module Roby
             it "merges configuration options in robot-specific sections" do
                 before = app.options.dup
                 app.robot "test"
-                create_app_yml("robots" => Hash["test" => Hash["interface" => "test"]])
+                create_app_yml("robots" => { "test" => { "interface" => "test" } })
                 assert_equal before.merge("interface" => "test"), app.load_config_yaml
             end
             it "does a recursive merge for hash entries" do
-                app.options["test"] = Hash["kept" => 10, "overriden" => 20]
+                app.options["test"] = { "kept" => 10, "overriden" => 20 }
                 app.robot "test"
-                create_app_yml("robots" => Hash["test" => Hash["test" => Hash["overriden" => 30]]])
-                assert_equal Hash["kept" => 10, "overriden" => 30], app.load_config_yaml["test"]
+                create_app_yml("robots" => { "test" => { "test" => { "overriden" => 30 } } })
+                assert_equal({ "kept" => 10, "overriden" => 30 }, app.load_config_yaml["test"])
             end
             it "simply overrides non-hash entries" do
                 app.options["overriden"] = 10
                 app.robot "test"
-                create_app_yml("robots" => Hash["test" => Hash["overriden" => 30]])
+                create_app_yml("robots" => { "test" => { "overriden" => 30 } })
                 assert_equal 30, app.load_config_yaml["overriden"]
             end
         end
@@ -492,7 +492,7 @@ module Roby
             it "falls back to droby.host for backward compatibility" do
                 flexmock(Roby).should_receive(:warn_deprecated).with(/droby\.host/).once
                 app.should_receive(:apply_config_interface).with(host_port = flexmock).once
-                app.apply_config("droby" => Hash["host" => host_port])
+                app.apply_config("droby" => { "host" => host_port })
             end
         end
 
@@ -543,7 +543,7 @@ module Roby
         end
 
         describe "#find_dirs" do
-            it "interprets the first element of search_path "\
+            it "interprets the first element of search_path " \
                "as being the most specific" do
                 least_specific = make_tmppath
                 (least_specific / "test").mkdir
@@ -582,10 +582,10 @@ module Roby
                 before do
                     @task_m = Roby::Task.new_submodel(name: "Test")
                     flexmock(app).should_receive(:test_files_for)
-                        .with(task_m).once
-                        .and_return([@path = flexmock])
+                                 .with(task_m).once
+                                 .and_return([@path = flexmock])
                     flexmock(app).should_receive(:test_files_for)
-                        .and_return([])
+                                 .and_return([])
                 end
 
                 it "registers models using #test_files_for" do
@@ -593,7 +593,7 @@ module Roby
                 end
                 it "registers models that private_specializations? defined but are not specialized" do
                     flexmock(task_m).should_receive(:private_specialization?).explicitly
-                        .and_return(false)
+                                    .and_return(false)
                     assert_equal [[path, Set[task_m].to_set]], app.each_test_file_for_loaded_models.to_a
                 end
             end
@@ -604,9 +604,9 @@ module Roby
                 before do
                     @task_m = Roby::Task.new_submodel(name: "Test")
                     flexmock(app).should_receive(:test_files_for)
-                        .with(task_m).never
+                                 .with(task_m).never
                     flexmock(app).should_receive(:test_files_for)
-                        .and_return([])
+                                 .and_return([])
                 end
 
                 it "ignores models that have no names" do
@@ -616,13 +616,13 @@ module Roby
 
                 it "ignores event models" do
                     flexmock(task_m).should_receive(:has_ancestor?)
-                        .with(Roby::Event).and_return(true)
+                                    .with(Roby::Event).and_return(true)
                     assert_equal [], app.each_test_file_for_loaded_models.to_a
                 end
 
                 it "ignores private specializations" do
                     flexmock(task_m).should_receive(:private_specialization?)
-                        .explicitly.and_return(true)
+                                    .explicitly.and_return(true)
                     assert_equal [], app.each_test_file_for_loaded_models.to_a
                 end
             end
@@ -650,7 +650,7 @@ module Roby
                 assert_equal [path], app.each_test_file_in_app.to_a
             end
 
-            it "only loads the test file in test/robots/ that match the current "\
+            it "only loads the test file in test/robots/ that match the current " \
                "robot name" do
                 touch_test_files \
                     %w[robots test_current_robot.rb],
@@ -662,7 +662,7 @@ module Roby
                 assert_equal [path], app.each_test_file_in_app.to_a
             end
 
-            it "falls back to the robot type test if there is one and none for the "\
+            it "falls back to the robot type test if there is one and none for the " \
                "robot type" do
                 touch_test_files \
                     %w[robots test_current_robot_type.rb],
@@ -704,7 +704,7 @@ module Roby
                 end
                 it "parses the value in YAML" do
                     flexmock(YAML).should_receive(:load)
-                        .with("random_string").and_return(value = flexmock)
+                                  .with("random_string").and_return(value = flexmock)
                     parser.parse(["--set=a.deep.value=random_string"])
                     assert_equal value, Conf.a.deep.value
                 end
@@ -771,9 +771,9 @@ module Roby
             it "returns the unmarshalled contents of the info.yml file" do
                 app.log_dir = make_tmpdir
                 File.open(File.join(app.log_dir, "info.yml"), "w") do |io|
-                    YAML.dump(Hash["test" => true], io)
+                    YAML.dump({ "test" => true }, io)
                 end
-                assert_equal Hash["test" => true], app.log_read_metadata
+                assert_equal({ "test" => true }, app.log_read_metadata)
             end
         end
 
@@ -782,19 +782,19 @@ module Roby
                 @opt = OptionParser.new
             end
             it "sets the host/port pair if both are given" do
-                Application.host_options(@opt, options = Hash[host: "test", port: 666])
+                Application.host_options(@opt, options = { host: "test", port: 666 })
                 @opt.parse(["--host=bla:90"])
                 assert_equal "bla", options[:host]
                 assert_equal 90, options[:port]
             end
             it "sets only the host and leaves the port if no port is given" do
-                Application.host_options(@opt, options = Hash[host: "test", port: 666])
+                Application.host_options(@opt, options = { host: "test", port: 666 })
                 @opt.parse(["--host=bla"])
                 assert_equal "bla", options[:host]
                 assert_equal 666, options[:port]
             end
             it "does not modify the options if no --host argument is given" do
-                Application.host_options(@opt, options = Hash[host: "test", port: 666])
+                Application.host_options(@opt, options = { host: "test", port: 666 })
                 @opt.parse([])
                 assert_equal "test", options[:host]
                 assert_equal 666, options[:port]
@@ -878,7 +878,7 @@ module Roby
                 capture_log(Robot, :info) { server = @app.setup_rest_interface }
                 server.wait_start
                 returned_value = RestClient
-                    .get("http://localhost:#{server.port}/api/extended")
+                                 .get("http://localhost:#{server.port}/api/extended")
                 assert_equal 42, Integer(returned_value)
             end
         end
@@ -1006,7 +1006,7 @@ module Roby
             it "handles properly if the engine's run method raises unexpectedly" do
                 error = Class.new(RuntimeError).exception("test")
                 flexmock(@app.execution_engine).should_receive(:run)
-                    .and_raise(error)
+                                               .and_raise(error)
                 run_thread = Thread.new do
                     if (t = Thread.current).respond_to?(:report_on_exception=)
                         t.report_on_exception = false
@@ -1122,12 +1122,12 @@ module Roby
         end
 
         def touch_test_files(*paths)
-            paths.map do |p|
+            paths.to_set do |p|
                 full_p = File.join(app.app_dir, "test", *p)
                 FileUtils.mkdir_p File.dirname(full_p)
                 FileUtils.touch full_p
                 full_p
-            end.to_set
+            end
         end
     end
 end

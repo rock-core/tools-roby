@@ -25,7 +25,7 @@ module Roby
                 def proxy(peer)
                     # We have to manually call find_local_model here as it
                     # resolves classes by name as well as by ID
-                    if m = peer.find_local_model(self)
+                    if (m = peer.find_local_model(self))
                         m
                     elsif !superclass # this class was supposed to be present
                         raise NoLocalObject, "cannot find local class #{name} as expected by the protocol"

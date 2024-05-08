@@ -20,7 +20,8 @@ module Roby
                                 graph.add_edge(
                                     peer.local_object(u),
                                     peer.local_object(v),
-                                    peer.local_object(info))
+                                    peer.local_object(info)
+                                )
                             end
                         end
                         graph
@@ -48,7 +49,8 @@ module Roby
                         name,
                         peer.known_siblings_for(self),
                         DRobyModel.dump_supermodel(peer, self),
-                        DRobyModel.dump_provided_models_of(peer, self))
+                        DRobyModel.dump_provided_models_of(peer, self)
+                    )
                 end
             end
 
@@ -72,7 +74,7 @@ module Roby
                     def proxy(peer)
                         exception = super
                         exception.original_exceptions
-                            .concat(peer.local_object(self.original_exceptions))
+                                 .concat(peer.local_object(self.original_exceptions))
                         exception
                     end
                 end
@@ -123,7 +125,7 @@ module Roby
                                 :original_exceptions, :formatted_message
 
                     def initialize(model, failure_point, fatal, message, backtrace,
-                                   original_exceptions, formatted_message = [])
+                        original_exceptions, formatted_message = [])
                         @model, @failure_point, @fatal, @message, @backtrace,
                             @original_exceptions, @formatted_message =
                             model, failure_point, fatal, message, backtrace,
@@ -214,7 +216,8 @@ module Roby
                             arguments,
                             DRobyModel.dump_supermodel(peer, self),
                             DRobyModel.dump_provided_models_of(peer, self),
-                            each_event.map { |_, ev| [ev.symbol, ev.controlable?, ev.terminal?] })
+                            each_event.map { |_, ev| [ev.symbol, ev.controlable?, ev.terminal?] }
+                        )
                     end
 
                     class DRoby < DRobyModel
@@ -237,11 +240,13 @@ module Roby
                         end
 
                         def update(peer, local_object, fresh_proxy: false)
-                            if @argument_set # Backward compatibility
-                                arguments = @argument_set.map { |name| [name, false, nil, nil] }
-                            end
+                            # Backward compatibility, @argument_set is not nil
+                            # in older logs
+                            arguments =
+                                @argument_set&.map { |name| [name, false, nil, nil] } ||
+                                @arguments
 
-                            @arguments.each do |name, has_default, default, doc|
+                            arguments.each do |name, has_default, default, doc|
                                 unless local_object.has_argument?(name)
                                     unless has_default
                                         default = Roby::Models::Task::NO_DEFAULT_ARGUMENT
@@ -249,6 +254,7 @@ module Roby
                                     local_object.argument name, default: peer.local_object(default), doc: doc
                                 end
                             end
+
                             events.each do |name, controlable, terminal|
                                 unless local_object.has_event?(name)
                                     local_object.event name, controlable: controlable, terminal: terminal
@@ -453,7 +459,8 @@ module Roby
                         peer.dump(self.class),
                         peer.dump(@object),
                         @methods,
-                        @weak)
+                        @weak
+                    )
                 end
 
                 class DRoby
@@ -588,7 +595,8 @@ module Roby
                             DRobyConstant.new(self.class), droby_id,
                             tasks, task_events, free_events,
                             mission_tasks, permanent_tasks, permanent_events,
-                            task_relation_graphs, event_relation_graphs)
+                            task_relation_graphs, event_relation_graphs
+                        )
                     end
                 end
 
@@ -596,9 +604,9 @@ module Roby
                     attr_reader :plan_class, :droby_id, :groups, :tasks, :task_events, :free_events, :mission_tasks, :permanent_tasks, :permanent_events, :task_relation_graphs, :event_relation_graphs
 
                     def initialize(plan_class, droby_id,
-                                   tasks, task_events, free_events,
-                                   mission_tasks, permanent_tasks, permanent_events,
-                                   task_relation_graphs, event_relation_graphs)
+                        tasks, task_events, free_events,
+                        mission_tasks, permanent_tasks, permanent_events,
+                        task_relation_graphs, event_relation_graphs)
                         @plan_class            = plan_class
                         @droby_id              = droby_id
                         @tasks                 = tasks
@@ -704,7 +712,7 @@ module Roby
 
                         def proxy_from_existing(peer)
                             interface_model = peer.local_object(@action_interface_model)
-                            if action = interface_model.find_action_by_name(name)
+                            if (action = interface_model.find_action_by_name(name))
                                 # Load the return type and the default values, we must
                                 # make sure that any dumped droby-identifiable object
                                 # is loaded nonetheless
@@ -871,7 +879,8 @@ module Roby
                     def droby_dump(peer)
                         DRoby.new(
                             peer.dump(exception_matcher),
-                            peer.dump(involved_tasks_matchers))
+                            peer.dump(involved_tasks_matchers)
+                        )
                     end
                 end
 
@@ -899,7 +908,8 @@ module Roby
                     def droby_dump(peer)
                         DRoby.new(
                             peer.dump_model(model),
-                            peer.dump(failure_point_matcher))
+                            peer.dump(failure_point_matcher)
+                        )
                     end
                 end
 

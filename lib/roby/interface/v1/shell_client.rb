@@ -114,7 +114,7 @@ module Roby
                 end
 
                 def __jobs
-                    call Hash[retry: true], [], :jobs
+                    call({ retry: true }, [], :jobs)
                 end
 
                 def jobs
@@ -256,7 +256,7 @@ module Roby
                 end
 
                 def resolve_job_id(job_id)
-                    if job_info = __jobs[job_id]
+                    if (job_info = __jobs[job_id])
                         job_info
                     else
                         STDERR.puts Roby.color("No job #{job_id}", :bold, :bright_red)
@@ -265,7 +265,7 @@ module Roby
 
                 def kill_job(job_id)
                     if safe?
-                        if @batch_job_info[job_id] = resolve_job_id(job_id)
+                        if (@batch_job_info[job_id] = resolve_job_id(job_id))
                             @batch.kill_job job_id
                             review
                         end
@@ -277,7 +277,7 @@ module Roby
 
                 def drop_job(job_id)
                     if safe?
-                        if @batch_job_info[job_id] = resolve_job_id(job_id)
+                        if (@batch_job_info[job_id] = resolve_job_id(job_id))
                             @batch.drop_job job_id
                             review
                         end
@@ -289,7 +289,7 @@ module Roby
 
                 def review
                     if safe?
-                        puts "#{@batch.__calls.size} actions queued in the current batch, "\
+                        puts "#{@batch.__calls.size} actions queued in the current batch, " \
                              "use #process to send, #cancel to delete"
                         @batch.__calls.each do |context, m, *args|
                             if %i[drop_job kill_job].include?(m)
@@ -323,9 +323,9 @@ module Roby
                 end
 
                 def method_missing(m, *args)
-                    if sub = client.find_subcommand_by_name(m.to_s)
+                    if (sub = client.find_subcommand_by_name(m.to_s))
                         ShellSubcommand.new(self, m.to_s, sub.description, sub.commands)
-                    elsif act = client.find_action_by_name(m.to_s)
+                    elsif (act = client.find_action_by_name(m.to_s))
                         Roby::Actions::Action.new(act, *args)
                     elsif @batch && m.to_s =~ /(.*)!$/
                         action_name = $1
@@ -334,7 +334,7 @@ module Roby
                         nil
                     else
                         begin
-                            call Hash[], [], m, *args
+                            call({}, [], m, *args)
                         rescue NoMethodError => e
                             if e.message =~ /undefined method .#{m}./
                                 puts "invalid command name #{m}, call 'help' for more information"

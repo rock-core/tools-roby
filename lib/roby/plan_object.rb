@@ -173,12 +173,12 @@ module Roby
             if removed_at
                 if PlanObject.debug_finalization_place?
                     raise ArgumentError,
-                          "#{self} has been removed from plan, cannot add it back\n"\
+                          "#{self} has been removed from plan, cannot add it back\n" \
                           "Removed at\n  #{removed_at.join("\n  ")}"
                 else
                     raise ArgumentError,
-                          "#{self} has been removed from plan, cannot add it back. "\
-                          "Set PlanObject.debug_finalization_place to true to get "\
+                          "#{self} has been removed from plan, cannot add it back. " \
+                          "Set PlanObject.debug_finalization_place to true to get " \
                           "the backtrace of where (in the code) the object got finalized"
                 end
             end
@@ -188,7 +188,7 @@ module Roby
             if new_plan&.executable?
                 @execution_engine = new_plan.execution_engine
                 @promise_executor = Concurrent::SerializedExecutionDelegator
-                    .new(@execution_engine.thread_pool)
+                                    .new(@execution_engine.thread_pool)
             else
                 @execution_engine = nil
                 @promise_executor = nil
@@ -241,7 +241,8 @@ module Roby
 
             merged_relations(
                 proc { |o, &b| o.each_in_neighbour(relation, &b) },
-                intrusive, &block)
+                intrusive, &block
+            )
         end
 
         def each_out_neighbour_merged(relation, intrusive: nil, &block)
@@ -251,7 +252,8 @@ module Roby
 
             merged_relations(
                 proc { |o, &b| o.each_out_neighbour(relation, &b) },
-                intrusive, &block)
+                intrusive, &block
+            )
         end
 
         # call-seq:
@@ -314,10 +316,10 @@ module Roby
                 enumerator.call(object) do |related_object|
                     next if next_plan[related_object, create: false]
 
-                    if !intrusive
-                        yield(object, related_object)
-                    else
+                    if intrusive
                         new_objects << related_object
+                    else
+                        yield(object, related_object)
                     end
                 end
 

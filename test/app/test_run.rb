@@ -58,7 +58,7 @@ module Roby
                             assert_match(/^Roby.app.robot_type=sometype$/, cmd.stdout)
                         end
 
-                        it "runs the controller script named as the type "\
+                        it "runs the controller script named as the type " \
                            "if there is none for the robot name" do
                             write_file "scripts/controllers/sometype.rb", <<~DISPLAY
                                 puts "Roby.app.robot_name=\#{Roby.app.robot_name}"
@@ -109,7 +109,7 @@ module Roby
                         assert_match(/TASK STOPPED/, cmd.stdout)
                     end
 
-                    it "raises if configuration files exist in config/robots/ "\
+                    it "raises if configuration files exist in config/robots/ " \
                        "and the robot name does not match one" do
                         cmd = run_roby_and_stop "run -r somename", fail_on_error: false
                         assert_equal 1, cmd.exit_status
@@ -126,7 +126,7 @@ module Roby
                             DISPLAY
                         end
 
-                        it "uses the files in config/robots/ to determine the list of "\
+                        it "uses the files in config/robots/ to determine the list of " \
                            "available names" do
                             cmd = run_roby "run -r somename"
                             run_roby_and_stop "wait"
@@ -194,7 +194,7 @@ module Roby
                             assert_equal 1, status.exitstatus
                         end
                         assert_match(
-                            Regexp.new("does_not_exist.rb, given as a model script "\
+                            Regexp.new("does_not_exist.rb, given as a model script " \
                                        "on the command line, does not exist"), out
                         )
                     end
@@ -207,7 +207,7 @@ module Roby
                             assert_equal 1, status.exitstatus
                         end
                         assert_match(
-                            Regexp.new("does_not_exist, given as an action on "\
+                            Regexp.new("does_not_exist, given as an action on " \
                                        "the command line, does not exist"), out
                         )
                     end
@@ -222,7 +222,7 @@ module Roby
                             assert_equal 1, status.exitstatus
                         end
                         assert_match(
-                            Regexp.new("does_not_exist.rb, given as a controller "\
+                            Regexp.new("does_not_exist.rb, given as a controller " \
                                        "script on the command line, does not exist"), out
                         )
                     end
@@ -280,10 +280,10 @@ module Roby
                     interface = "--interface-versions=#{@roby_app_interface_version}"
                     port = @interface_ports.at(@roby_app_interface_version)
                     if cmd.start_with?("run")
-                        cmd + " #{interface} "\
+                        cmd + " #{interface} " \
                               "--port-v#{@roby_app_interface_version}=#{port}"
                     else
-                        cmd + " --interface-version=#{@roby_app_interface_version} "\
+                        cmd + " --interface-version=#{@roby_app_interface_version} " \
                               "--host=localhost:#{port}"
                     end
                 end

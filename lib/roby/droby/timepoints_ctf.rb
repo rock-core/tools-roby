@@ -21,7 +21,7 @@ module Roby
                 end
 
                 def make_timestamp(time)
-                    (time.tv_sec - clock_base) * 1_000_000 + time.tv_usec
+                    ((time.tv_sec - clock_base) * 1_000_000) + time.tv_usec
                 end
 
                 def addr_from_name(name)
@@ -39,7 +39,7 @@ module Roby
                 end
 
                 def thread_id_of(thread_id)
-                    if id = thread_ids[thread_id]
+                    if (id = thread_ids[thread_id])
                         id
                     else
                         thread_ids[thread_id] = thread_ids.size
@@ -61,7 +61,7 @@ module Roby
 
                 def self.generate_metadata(path, uuid, _clock_base)
                     uuid_s = uuid.map { |v| format("%02x", v) }.join
-                    uuid_s = "#{uuid_s[0, 8]}-#{uuid_s[8, 4]}-#{uuid_s[12, 4]}-"\
+                    uuid_s = "#{uuid_s[0, 8]}-#{uuid_s[8, 4]}-#{uuid_s[12, 4]}-" \
                              "#{uuid_s[16, 4]}-#{uuid_s[20, 12]}"
                     ERB.new(path.read).result(binding)
                 end
@@ -75,7 +75,6 @@ module Roby
                 end
 
                 def marshal_event(time, event_id, thread_id, thread_name, name)
-                    timestamp = make_timestamp(time)
                     event_header =
                         [0xFFFF, event_id, make_timestamp(time)]
                         .pack("S<L<Q<")

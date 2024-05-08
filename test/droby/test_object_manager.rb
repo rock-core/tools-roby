@@ -15,8 +15,8 @@ module Roby
                     subject.register_siblings(obj, peer_id => sibling_id)
                     peer_id_2, sibling_id_2 = flexmock, flexmock
                     subject.register_siblings(obj, peer_id_2 => sibling_id_2)
-                    assert_equal Hash[peer_id => sibling_id, peer_id_2 => sibling_id_2],
-                                 subject.known_siblings_for(obj)
+                    assert_equal({ peer_id => sibling_id, peer_id_2 => sibling_id_2 },
+                                 subject.known_siblings_for(obj))
                 end
             end
 
@@ -29,7 +29,7 @@ module Roby
                     subject.register_siblings(obj, peer_id_2 => sibling_id_2)
 
                     subject.deregister_siblings(obj, peer_id_2 => sibling_id_2)
-                    assert_equal Hash[peer_id => sibling_id], subject.known_siblings_for(obj)
+                    assert_equal({ peer_id => sibling_id }, subject.known_siblings_for(obj))
                     assert subject.include?(obj)
                 end
 
@@ -125,8 +125,8 @@ module Roby
                 it "returns the local ID if the object is not registered" do
                     local_droby_id = flexmock
                     local = flexmock(droby_id: local_droby_id)
-                    assert_equal Hash[local_id => local_droby_id],
-                                 subject.known_siblings_for(local)
+                    assert_equal({ local_id => local_droby_id },
+                                 subject.known_siblings_for(local))
                 end
 
                 it "returns the registered IDs if the object is registered" do
@@ -136,9 +136,8 @@ module Roby
                     subject.register_object(local,
                                             local_id => override_local_droby_id,
                                             remote_id => remote_droby_id)
-                    assert_equal Hash[
-                        local_id => override_local_droby_id,
-                        remote_id => remote_droby_id], subject.known_siblings_for(local)
+                    assert_equal({ local_id => override_local_droby_id,
+                                   remote_id => remote_droby_id }, subject.known_siblings_for(local))
                 end
             end
 
@@ -166,13 +165,13 @@ module Roby
                 it "returns the object's known sibling on the peer" do
                     peer_id, sibling_id = flexmock, flexmock
                     flexmock(subject).should_receive(:find_by_id).with(peer_id, sibling_id)
-                        .and_return(obj = flexmock)
+                                     .and_return(obj = flexmock)
                     assert_equal obj, subject.fetch_by_id(peer_id, sibling_id)
                 end
 
                 it "raises UnknownSibling for an object that cannot be resolved" do
                     flexmock(subject).should_receive(:find_by_id)
-                        .and_return(nil)
+                                     .and_return(nil)
                     assert_raises(UnknownSibling) do
                         subject.fetch_by_id(flexmock, flexmock)
                     end

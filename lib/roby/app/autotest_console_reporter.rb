@@ -50,7 +50,7 @@ module Roby
             # @raise [ArgumentError] if the slave has not been registered with
             #   {#register_slave} first
             def register_slave_pid(slave)
-                if slave_id = slave_to_id[slave]
+                if (slave_id = slave_to_id[slave])
                     pid_to_slave[slave.pid] = slave
                     slave_id
                 else
@@ -67,7 +67,7 @@ module Roby
             #   slave ID
             # @raise [ArgumentError] if no slave is registered for this PID
             def slave_from_pid(pid)
-                if slave = pid_to_slave[pid]
+                if (slave = pid_to_slave[pid])
                     [slave, slave_to_id[slave]]
                 else
                     raise ArgumentError, "no slave registered for PID #{pid}"
@@ -83,7 +83,7 @@ module Roby
             # @raise [ArgumentError] if there is no slave associated with the
             #   PID
             def deregister_slave_pid(pid)
-                if slave = pid_to_slave.delete(pid)
+                if (slave = pid_to_slave.delete(pid))
                     [slave, slave_to_id[slave]]
                 else
                     raise ArgumentError, "no slave known for #{pid}"
@@ -125,7 +125,7 @@ module Roby
                     io.puts "[##{slave_id}] #{slave_to_s(slave)} started testing"
                 end
                 server.on_test_result do |pid, file, test_case_name, test_name, failures, assertions, time|
-                    slave, slave_id = slave_from_pid(pid)
+                    _, slave_id = slave_from_pid(pid)
                     io.puts "[##{slave_id}] #{test_case_name}##{test_name}: #{failures.size} failures and #{assertions.size} assertions (#{time})"
                     failures.each do |e|
                         Roby.display_exception(io, e)

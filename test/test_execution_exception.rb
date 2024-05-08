@@ -64,7 +64,7 @@ module Roby
 
         describe "#fork" do
             it "isolates the traces" do
-                task, t1, t2, t3 = prepare_plan add: 5
+                task, t1, t2, = prepare_plan add: 5
                 e = create_exception_from(task)
                 s = e.fork
 
@@ -77,7 +77,7 @@ module Roby
 
         describe "#merge" do
             it "keeps the origin" do
-                task, t1, t2, t3 = prepare_plan add: 5
+                task, t1, t2, = prepare_plan add: 5
                 e = create_exception_from(task)
                 s = e.fork
                 e.propagate(task, t1)
@@ -87,7 +87,7 @@ module Roby
             end
 
             it "does not duplicate tasks" do
-                task, t1, t2, t3 = prepare_plan add: 5
+                task, t1, t2, = prepare_plan add: 5
                 e = create_exception_from(task)
                 s = e.fork
 

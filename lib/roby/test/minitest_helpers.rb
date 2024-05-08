@@ -38,8 +38,6 @@ module Roby
                         plan.execution_engine.display_exceptions?, display_exceptions
                 end
 
-                msg = exp.pop if String === exp.last
-
                 matchers = exp.dup
                 exp = exp.map do |e|
                     if e.kind_of?(Queries::LocalizedErrorMatcher)
@@ -64,7 +62,7 @@ module Roby
                 rescue ::Exception => root_e # rubocop:disable Naming/RescuedExceptionsVariableName
                     assert_exception_can_be_pretty_printed(root_e)
                     all = Roby.flatten_exception(root_e)
-                    if actual_e = all.find { |e| matchers.any? { |expected_e| expected_e === e } }
+                    if (actual_e = all.find { |e| matchers.any? { |expected_e| expected_e === e } })
                         if return_original_exception
                             return actual_e, root_e
                         else
@@ -85,12 +83,12 @@ module Roby
             def roby_exception_to_string(*queue)
                 msg = String.new
                 seen = Set.new
-                while e = queue.shift
+                while (e = queue.shift)
                     next if seen.include?(e)
 
                     seen << e
                     e_bt = Minitest.filter_backtrace(e.backtrace).join "\n    "
-                    msg << "\n\n" << Roby.format_exception(e).join("\n") + "\n    #{e_bt}"
+                    msg << "\n\n" << (Roby.format_exception(e).join("\n") + "\n    #{e_bt}")
 
                     queue.concat(e.original_exceptions) if e.respond_to?(:original_exceptions)
                 end

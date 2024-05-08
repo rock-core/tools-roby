@@ -22,7 +22,7 @@ module Roby
             poll do
                 dx = x - State.pos.x
                 dy = y - State.pos.y
-                d = Math.sqrt(dx**2 + dy**2)
+                d = Math.sqrt((dx**2) + (dy**2))
                 if d > speed
                     State.pos.x += speed * dx / d
                     State.pos.y += speed * dy / d

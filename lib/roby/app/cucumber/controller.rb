@@ -71,7 +71,7 @@ module Roby
                 def roby_interface
                     if @roby_port == 0
                         raise InvalidState,
-                              "you passed port: 0 to .new, but has not yet "\
+                              "you passed port: 0 to .new, but has not yet " \
                               "called #roby_start"
                     end
 
@@ -98,7 +98,7 @@ module Roby
                 )
                     if roby_running?
                         raise InvalidState,
-                              "a Roby controller is already running, "\
+                              "a Roby controller is already running, " \
                               "call #roby_stop and #roby_join first"
                     end
 
@@ -158,14 +158,14 @@ module Roby
                         _, status = Process.waitpid2(roby_pid, Process::WNOHANG)
                         if status
                             raise InvalidState,
-                                  "remote Roby controller quit before "\
+                                  "remote Roby controller quit before " \
                                   "we could get a connection"
                         end
                         roby_interface.wait(timeout: timeout / 10)
 
                         if Time.now > deadline
                             raise ConnectionTimeout,
-                                  "failed to connect to a Roby controller in less than "\
+                                  "failed to connect to a Roby controller in less than " \
                                   "#{timeout}s"
                         end
                     end
@@ -192,8 +192,8 @@ module Roby
                               "cannot call #roby_stop if no controllers were started"
                     elsif !roby_connected?
                         raise InvalidState,
-                              "you need to successfully connect to the Roby "\
-                              "controller with #roby_connect before you can call "\
+                              "you need to successfully connect to the Roby " \
+                              "controller with #roby_connect before you can call " \
                               "#roby_stop"
                     end
 
@@ -250,7 +250,7 @@ module Roby
                             sleep 0.1
                             if Time.now > deadline
                                 raise JoinTimedOut,
-                                      "roby_join timed out waiting for end of "\
+                                      "roby_join timed out waiting for end of " \
                                       "PID #{roby_pid}"
                             end
                         end
@@ -279,8 +279,8 @@ module Roby
                 def roby_enable_backtrace_filtering(enable: true)
                     unless roby_connected?
                         raise InvalidState,
-                              "you need to successfully connect to the Roby "\
-                              "controller with #roby_connect before you can call "\
+                              "you need to successfully connect to the Roby " \
+                              "controller with #roby_connect before you can call " \
                               "#roby_enable_backtrace_filtering"
                     end
                     roby_interface.client.enable_backtrace_filtering(enable: enable)
@@ -494,7 +494,7 @@ module Roby
                         has_arg = arguments.key?(arg_sym)
                         if !has_arg && arg.required?
                             raise InvalidJob,
-                                  "#{m} requires an argument named #{arg.name} "\
+                                  "#{m} requires an argument named #{arg.name} " \
                                   "which is not provided"
                         end
                         arguments.delete(arg_sym)
@@ -502,7 +502,7 @@ module Roby
                     return if arguments.empty?
 
                     raise InvalidJob,
-                          "arguments #{arguments.keys.map(&:to_s).sort.join(', ')} "\
+                          "arguments #{arguments.keys.map(&:to_s).sort.join(', ')} " \
                           "are not declared arguments of #{m}"
                 end
 

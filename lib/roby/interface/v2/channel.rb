@@ -34,7 +34,7 @@ module Roby
 
                 def initialize(
                     io, client,
-                    max_write_buffer_size: 25 * 1024**2
+                    max_write_buffer_size: 25 * (1024**2)
                 )
                     @io = io
                     @io.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
@@ -93,7 +93,7 @@ module Roby
                 # @return [Boolean] falsy if the timeout was reached, true
                 #   otherwise
                 def read_wait(timeout: nil)
-                    IO.select([io], [], [], timeout)
+                    io.wait_readable(timeout)
                 end
 
                 # Read one packet from {#io} and unmarshal it
@@ -131,7 +131,7 @@ module Roby
                 end
 
                 def read_data_from_io(remaining_time)
-                    return unless IO.select([@io], [], [], remaining_time)
+                    return unless io.wait_readable(remaining_time)
 
                     @incoming << @read_buffer if io.sysread(1024**2, @read_buffer)
                 rescue Errno::EWOULDBLOCK, Errno::EAGAIN # rubocop:disable Lint/SuppressedException
@@ -160,7 +160,7 @@ module Roby
                     Marshal.dump(object)
                 rescue TypeError => e
                     invalid = self.class.find_invalid_marshalling_object(object)
-                    message = "failed to marshal #{invalid} of class "\
+                    message = "failed to marshal #{invalid} of class " \
                               "#{invalid.class} in #{object}: #{e.message}"
                     Marshal.dump report_error(message)
                 rescue RuntimeError => e
@@ -219,7 +219,7 @@ module Roby
                         return marshaller[self, object]
                     end
 
-                    message = "object '#{object}' of class #{object.class} "\
+                    message = "object '#{object}' of class #{object.class} " \
                               "not allowed on this interface"
                     report_error(message)
                 end
@@ -229,8 +229,8 @@ module Roby
                     when Array
                         object.map { marshal_filter_object(_1) }
                     when Set
-                        object.each_with_object(Set.new) do
-                            _2 << marshal_filter_object(_1)
+                        object.each_with_object(Set.new) do |o, s|
+                            s << marshal_filter_object(o)
                         end
                     when Hash
                         object.transform_values { marshal_filter_object(_1) }
@@ -295,7 +295,7 @@ module Roby
                     return if @write_thread == Thread.current
 
                     raise InternalError,
-                          "cross-thread access to channel while writing: "\
+                          "cross-thread access to channel while writing: " \
                           "expected #{@write_thread} to #{Thread.current}"
                 end
 
@@ -304,7 +304,7 @@ module Roby
                     return if @read_thread == Thread.current
 
                     raise InternalError,
-                          "cross-thread access to channel while reading: "\
+                          "cross-thread access to channel while reading: " \
                           "expected #{@read_thread} but got #{Thread.current}"
                 end
 
@@ -312,8 +312,8 @@ module Roby
                     return if @write_buffer.size <= max_write_buffer_size
 
                     raise ComError,
-                          "channel reached an internal buffer size of "\
-                          "#{@write_buffer.size}, which is bigger than the limit "\
+                          "channel reached an internal buffer size of " \
+                          "#{@write_buffer.size}, which is bigger than the limit " \
                           "of #{max_write_buffer_size}, bailing out"
                 end
             end

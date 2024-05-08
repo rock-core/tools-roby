@@ -93,9 +93,9 @@ module Roby
                 it "discovers actions and commands on connection" do
                     interface.should_receive(actions: [stub_action("Test")])
                     commands = CommandLibrary::InterfaceCommands.new(
-                        "", nil, Hash[test: stub_command(:test)]
+                        "", nil, { test: stub_command(:test) }
                     )
-                    interface.should_receive(commands: Hash["" => commands])
+                    interface.should_receive(commands: { "" => commands })
 
                     commands, actions = connect do |client|
                         [client.commands, client.actions]
@@ -260,9 +260,9 @@ module Roby
                             ret = while_polling_server { client.process_batch(batch) }
                             assert_kind_of Client::BatchContext::Return, ret
                             expected =
-                                [[[[], :start_job, "Test", Hash[arg: 10]], 1],
+                                [[[[], :start_job, "Test", { arg: 10 }], 1],
                                  [[[], :kill_job, 1], 2],
-                                 [[[], :start_job, "Test", Hash[arg: 20]], 3]]
+                                 [[[], :start_job, "Test", { arg: 20 }], 3]]
                                 .map do |call, call_ret|
                                     Client::BatchContext::Return::Element.new(call, call_ret)
                                 end
@@ -289,8 +289,8 @@ module Roby
                             batch.Test!(arg: 20)
                             ret = while_polling_server { client.process_batch(batch) }
                             expected =
-                                [[[[], :start_job, "Test", Hash[arg: 10]], 1],
-                                 [[[], :start_job, "Test", Hash[arg: 20]], 3]]
+                                [[[[], :start_job, "Test", { arg: 10 }], 1],
+                                 [[[], :start_job, "Test", { arg: 20 }], 3]]
                                 .map do |call, call_ret|
                                     Client::BatchContext::Return::Element.new(call, call_ret)
                                 end
@@ -518,13 +518,13 @@ module Roby
                     end
 
                     def async_call_and_expect_ordered(client, exp_error, exp_result,
-                                                      seq, path, m, *args)
+                        seq, path, m, *args)
                         client.async_call(path, m, *args) do |error, result|
-                            if !exp_error.nil?
+                            if exp_error.nil?
+                                assert_nil error
+                            else
                                 assert_kind_of exp_error.class, error
                                 assert_equal exp_error.message, error.message
-                            else
-                                assert_nil error
                             end
                             assert_equal [exp_result], [result]
                             watch.ping(seq)

@@ -35,8 +35,8 @@ module Roby
                 RunPlanners.deregister_planning_handler(@handler_class) if @handler_class
             end
 
-            it "raises right away if the argument is not a task and cannot be converted "\
-               "to one" do
+            it "raises right away if the argument is not a task and " \
+               "cannot be converted to one" do
                 obj = flexmock
                 e = assert_raises(ArgumentError) do
                     run_planners(obj)
@@ -80,7 +80,7 @@ module Roby
             end
 
             describe "recursive: false" do
-                it "runs the planner of the toplevel tasks and "\
+                it "runs the planner of the toplevel tasks and " \
                    "returns the planned task" do
                     plan.add(root_task1 = @action_m.test_action(id: 0).as_plan)
                     plan.add(root_task2 = @action_m.test_action(id: 1).as_plan)
@@ -113,7 +113,7 @@ module Roby
             end
 
             describe "recursive: true" do
-                it "runs the planner of all tasks that require "\
+                it "runs the planner of all tasks that require " \
                    "it in the root task's subplan" do
                     plan.add(root_task1 = @action_m.test_action(id: 0).as_plan)
                     plan.add(root_task2 = @action_m.test_action(id: 1).as_plan)
@@ -142,7 +142,7 @@ module Roby
                     end
                 end
 
-                it "reacts to failures in a way that is compatible with "\
+                it "reacts to failures in a way that is compatible with " \
                    "the expectations" do
                     # NOTE: since all of this is done under execution context,
                     # the execution_expectation harness *will* report the

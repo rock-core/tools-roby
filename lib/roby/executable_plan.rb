@@ -116,8 +116,8 @@ module Roby
                     handler.activate(error, table.arguments)
                     return
                 rescue Exception => e
-                    Robot.warn "ignored exception handler #{handler} "\
-                                "because of exception"
+                    Robot.warn "ignored exception handler #{handler} " \
+                               "because of exception"
                     Roby.log_exception_with_backtrace(e, Robot, :warn)
                 end
             end
@@ -235,7 +235,7 @@ module Roby
             last_dag = relations.find_all(&:dag?).last
             if last_dag && child.relation_graph_for(last_dag).reachable?(child, parent)
                 raise Relations::CycleFoundError,
-                      "adding an edge from #{parent} to #{child} would create "\
+                      "adding an edge from #{parent} to #{child} would create " \
                       "a cycle in #{last_dag}"
             end
 
@@ -577,7 +577,7 @@ module Roby
         def remove_task(object, timestamp = nil)
             if object.respond_to?(:running?) && object.running? && object.self_owned?
                 raise ArgumentError,
-                      "attempting to remove #{object}, which is a running task, "\
+                      "attempting to remove #{object}, which is a running task, " \
                       "from an executable plan"
             end
 

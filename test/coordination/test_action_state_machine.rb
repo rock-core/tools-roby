@@ -77,20 +77,20 @@ module Roby
                 task = start_machine(action_m.test)
                 start = task.current_task_child
                 assert_kind_of task_m, start
-                assert_equal Hash[id: :start], start.arguments
+                assert_equal({ id: :start }, start.arguments)
             end
 
             it "starting state can be overridden by passing start_state argument" do
                 state_machine "test" do
                     start = state start_task
-                    second = state next_task
+                    state next_task
                     start(start)
                 end
 
                 task = start_machine(action_m.test, start_state: "second")
                 start = task.current_task_child
                 assert_kind_of task_m, start
-                assert_equal Hash[id: :next], start.arguments
+                assert_equal({ id: :next }, start.arguments)
             end
 
             it "state_machines check for accidentally given arg \"start_state\"" do
@@ -121,8 +121,8 @@ module Roby
                     end
                     assert_equal 2, task.children.size
                     refute task.children.include?(monitor) # task is restarted on transition
-                    assert_equal Hash[id: "monitoring"], task.monitor_state_child.arguments
-                    assert_equal Hash[id: :next], task.current_task_child.arguments
+                    assert_equal({ id: "monitoring" }, task.monitor_state_child.arguments)
+                    assert_equal({ id: :next }, task.current_task_child.arguments)
                 end
 
                 it "can transition using an event from a state-local dependency" do
@@ -140,7 +140,7 @@ module Roby
                         monitor.start!
                         monitor.success_event.emit
                     end
-                    assert_equal Hash[id: :next], task.current_task_child.arguments
+                    assert_equal({ id: :next }, task.current_task_child.arguments)
                 end
 
                 it "removes the dependency from the root task to the current state's task" do
@@ -153,7 +153,7 @@ module Roby
                         transition(start_state, monitor.start_event, next_state)
                     end
                     task = start_machine(action_m.test)
-                    assert_equal Hash[id: :start], task.current_task_child.arguments
+                    assert_equal({ id: :start }, task.current_task_child.arguments)
                     assert_equal 2, task.children.to_a.size
                     assert_equal([task.current_task_child, task.monitor_child].to_set, task.children.to_set)
                 end
@@ -170,13 +170,13 @@ module Roby
                     end
 
                     task = start_machine(action_m.test)
-                    assert_equal Hash[id: :start], task.current_task_child.arguments
+                    assert_equal({ id: :start }, task.current_task_child.arguments)
                     execute { task.monitor_child.start! }
-                    assert_equal Hash[id: :start], task.current_task_child.arguments
+                    assert_equal({ id: :start }, task.current_task_child.arguments)
                     execute { task.monitor_child.success_event.emit }
-                    assert_equal Hash[id: :next], task.current_task_child.arguments
+                    assert_equal({ id: :next }, task.current_task_child.arguments)
                     execute { task.monitor_child.start! }
-                    assert_equal Hash[id: :start], task.current_task_child.arguments
+                    assert_equal({ id: :start }, task.current_task_child.arguments)
                 end
 
                 # It makes no sense ... that's a regression test
@@ -191,7 +191,7 @@ module Roby
                     end
                     task = start_machine(action_m.test)
                     flexmock(task.each_coordination_object.first).should_receive(:instanciate_state_transition)
-                        .once.pass_thru
+                                                                 .once.pass_thru
                     execute do
                         task.monitor_child.start!
                         task.monitor_child.success_event.emit
@@ -284,7 +284,7 @@ module Roby
                     task = start_machine(action_m.test)
                     state_machine = task.each_coordination_object.first
                     flexmock(state_machine).should_receive(:instanciate_state_transition)
-                        .and_raise(error_m = Class.new(RuntimeError))
+                                           .and_raise(error_m = Class.new(RuntimeError))
 
                     expect_execution do
                         task.current_task_child.start!
@@ -328,7 +328,7 @@ module Roby
                 end
                 task = start_machine(action_m.test)
                 event = expect_execution { task.start_state_child.start! }
-                    .to { emit task.success_event }
+                        .to { emit task.success_event }
                 assert_equal [10], event.context
             end
 
@@ -419,7 +419,7 @@ module Roby
                     start_machine_child(test_task)
                     execute { test_task.current_task_child.stop! }
                     assert_equal 42, test_task.current_task_child.planning_task
-                        .action_arguments[:arg]
+                                              .action_arguments[:arg]
                 end
 
                 it "can capture a root event's context" do
@@ -439,7 +439,7 @@ module Roby
                         test_task.current_task_child.stop!
                     end
                     assert_equal 42, test_task.current_task_child.planning_task
-                        .action_arguments[:arg]
+                                              .action_arguments[:arg]
                 end
 
                 it "allows to filter the context with a block" do
@@ -457,7 +457,7 @@ module Roby
                     start_machine_child(test_task)
                     execute { test_task.current_task_child.stop! }
                     assert_equal 21, test_task.current_task_child.planning_task
-                        .action_arguments[:arg]
+                                              .action_arguments[:arg]
                 end
 
                 it "raises Unbound on transitions using an unbound capture" do
@@ -479,13 +479,13 @@ module Roby
                         expect_execution { test_task.current_task_child.stop! }
                         .to do
                             have_error_matching ActionStateTransitionFailed.match
-                                .with_origin(test_task)
-                                .with_original_exception(Models::Capture::Unbound)
+                                                                           .with_origin(test_task)
+                                                                           .with_original_exception(Models::Capture::Unbound)
                         end
 
                     assert_equal(
-                        "in the action state machine #{action_m}.test running on "\
-                        "#{test_task} while starting followup_state, capture:arg "\
+                        "in the action state machine #{action_m}.test running on " \
+                        "#{test_task} while starting followup_state, capture:arg " \
                         "is not bound yet",
                         execution_exception.exception.original_exceptions.first.message
                     )
@@ -543,7 +543,7 @@ module Roby
                 task = action_m.test.instanciate(plan, machine_arg: 10)
                 execute { task.start! }
                 table = plan.active_fault_response_tables.first
-                assert_equal Hash[arg: 10], table.arguments
+                assert_equal({ arg: 10 }, table.arguments)
             end
 
             it "does not instanciate transitions if the root task is finished" do

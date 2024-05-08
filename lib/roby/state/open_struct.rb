@@ -221,7 +221,7 @@ module Roby
         end
 
         def __root
-            if p = __parent
+            if (p = __parent)
                 p.__root
             else
                 self
@@ -462,7 +462,7 @@ module Roby
 
             if @members.has_key?(name)
                 member = @members[name]
-            elsif alias_to = @aliases[name]
+            elsif (alias_to = @aliases[name])
                 return send(alias_to)
             elsif stable?
                 raise NoMethodError, "no such attribute #{name} (#{self} is stable)"

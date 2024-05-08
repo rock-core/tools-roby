@@ -46,7 +46,7 @@ module Roby
 
                         if arg.required
                             raise ArgumentError,
-                                  "#{arg.name} is required by #{self}, but is "\
+                                  "#{arg.name} is required by #{self}, but is " \
                                   "not provided (given arguments: #{arguments})"
                         end
 

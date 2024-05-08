@@ -49,12 +49,12 @@ module Roby
                 aliases.each do |name_alias, name|
                     unless has_robot?(name)
                         raise ArgumentError,
-                              "cannot use #{name_alias} as an alias to #{name}: "\
+                              "cannot use #{name_alias} as an alias to #{name}: " \
                               "#{name} is not a declared robot"
                     end
                     if has_robot?(name_alias)
                         raise ArgumentError,
-                              "cannot use #{name_alias} as an alias to #{name}: "\
+                              "cannot use #{name_alias} as an alias to #{name}: " \
                               "#{name_alias} is already a declared robot"
                     end
                 end
@@ -118,8 +118,8 @@ module Roby
                 if !robot_name
                     error(
                         ArgumentError,
-                        "no robot name given and no default name declared in "\
-                        "app.yml, defaulting to #{default_robot_name}:"\
+                        "no robot name given and no default name declared in " \
+                        "app.yml, defaulting to #{default_robot_name}:" \
                         "#{default_robot_type}"
                     )
                     [default_robot_name, default_robot_type]
@@ -129,7 +129,7 @@ module Roby
                     if type != robot_type
                         error(
                             ArgumentError,
-                            "invalid robot type when resolving #{name}:#{type}, "\
+                            "invalid robot type when resolving #{name}:#{type}, " \
                             "#{name} is declared to be of type #{robot_type}"
                         )
                     end
@@ -138,8 +138,8 @@ module Roby
                     if !robots.empty? || strict?
                         error(
                             Application::NoSuchRobot,
-                            "#{name} is neither a robot name, nor an alias. "\
-                            "Known names: #{robots.keys.sort.join(', ')}, "\
+                            "#{name} is neither a robot name, nor an alias. " \
+                            "Known names: #{robots.keys.sort.join(', ')}, " \
                             "known aliases: #{aliases.keys.join(', ')}"
                         )
                     end

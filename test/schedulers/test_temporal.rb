@@ -21,7 +21,7 @@ class TC_Schedulers_Temporal < Minitest::Test
         t1, t2, t3 = prepare_plan add: 3, model: Tasks::Simple
         e1 = t1.start_event
         e2 = t2.start_event
-        e3 = t3.start_event
+        t3.start_event
         t1.executable = false
 
         e2.should_emit_after(e1, min_t: 5, max_t: 10)

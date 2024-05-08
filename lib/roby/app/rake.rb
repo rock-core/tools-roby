@@ -270,7 +270,7 @@ module Roby
                                 report_name: "#{robot_name}:#{robot_type}"
                             )
                             unless result
-                                raise Failed.new("failed to run tests for "\
+                                raise Failed.new("failed to run tests for " \
                                                  "#{robot_name}:#{robot_type}"),
                                       "tests failed"
                             end
@@ -282,7 +282,7 @@ module Roby
                         failures = []
                         keep_going = args.fetch(:keep_going, "1") == "1"
                         each_robot do |robot_name, robot_type|
-                            coverage_name = "#{task_name}:all-robots:"\
+                            coverage_name = "#{task_name}:all-robots:" \
                                             "#{robot_name}-#{robot_type}"
                             result = run_roby_test(
                                 "-r", "#{robot_name},#{robot_type}",
@@ -322,7 +322,7 @@ module Roby
                     msg = failures
                           .map { |name, type| "#{name}:#{type}" }
                           .join(", ")
-                    raise Failed.new("failed to run the following test(s): "\
+                    raise Failed.new("failed to run the following test(s): " \
                                      "#{msg}"), "failed ot run tests"
                 end
 
@@ -553,7 +553,7 @@ module Roby
                             report_name: "#{robot_name}:#{robot_type}"
                         )
                         unless result
-                            raise Failed.new("failed to run tests for "\
+                            raise Failed.new("failed to run tests for " \
                                              "#{robot_name}:#{robot_type}"),
                                   "tests failed"
                         end

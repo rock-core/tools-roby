@@ -144,12 +144,12 @@ module Roby
         end
 
         def wrap_plan_object(object, proxy_map)
-            if object.plan != plan
-                raise ArgumentError,
-                      "#{object} is in #{object.plan}, "\
-                      "this transaction #{self} applies on #{plan}"
-            else
+            if object.plan == plan
                 object.create_transaction_proxy(self)
+            else
+                raise ArgumentError,
+                      "#{object} is in #{object.plan}, " \
+                      "this transaction #{self} applies on #{plan}"
             end
         end
 
@@ -192,7 +192,7 @@ module Roby
                       "don't know how to wrap containers of class #{object.class}"
             else
                 raise TypeError,
-                      "don't know how to wrap #{object || 'nil'} of type "\
+                      "don't know how to wrap #{object || 'nil'} of type " \
                       "#{object.class.ancestors}"
             end
         end
@@ -349,7 +349,7 @@ module Roby
 
             if actual_plan != self
                 raise InternalError,
-                      "inconsistency: #{proxy || object} plan is #{actual_plan}, "\
+                      "inconsistency: #{proxy || object} plan is #{actual_plan}, " \
                       "was expected to be #{self}"
             end
             [object, proxy]
@@ -978,7 +978,7 @@ module Roby
 
             unless missing_relations.empty?
                 invalidate(
-                    "plan added a relation #{parent} -> #{child} "\
+                    "plan added a relation #{parent} -> #{child} " \
                     "in #{relations} with info #{info}"
                 )
                 control.adding_plan_relation(self, parent, child, relations, info)
@@ -1046,7 +1046,7 @@ module Roby
         def validate_transaction_not_frozen
             if frozen?
                 raise FrozenTransaction,
-                      "transaction #{self} has been either committed or discarded. "\
+                      "transaction #{self} has been either committed or discarded. " \
                       "No modification allowed"
             end
 

@@ -182,7 +182,7 @@ class TC_OpenStruct < Minitest::Test
 
     def test_empty
         r = OpenStruct.new
-        c = r.child
+        r.child
         assert(r.empty?)
         r.child = 10
         assert(!r.empty?)
@@ -399,8 +399,6 @@ class TC_OpenStruct < Minitest::Test
 
         s.on_change(:substruct) {}
         s.filter(:value) { |v| Numeric === v }
-
-        str = nil
         str = Marshal.dump(s)
         s = Marshal.load(str)
         assert_equal(42, s.value)

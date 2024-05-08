@@ -37,7 +37,7 @@ module Roby
             NO_DEFAULT_ARGUMENT = Object.new
             def NO_DEFAULT_ARGUMENT.evaluate_delayed_argument
                 raise NotImplementedError,
-                      "trying to evaluate Roby::Models::Task::NO_DEFAULT_ARGUMENT "\
+                      "trying to evaluate Roby::Models::Task::NO_DEFAULT_ARGUMENT " \
                       "which is an internal null object"
             end
             NO_DEFAULT_ARGUMENT.freeze

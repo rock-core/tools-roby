@@ -140,7 +140,7 @@ module Roby
                     return if child.fullfills?(*model_agent)
 
                     raise Roby::ModelViolation,
-                          "execution agent #{child} does not fullfill "\
+                          "execution agent #{child} does not fullfill " \
                           "the expected #{model_agent}"
                 end
 
@@ -193,7 +193,7 @@ module Roby
             end
 
             def pretty_print(pp)
-                pp.text "attempted to start a task that is "\
+                pp.text "attempted to start a task that is " \
                         "expecting an execution agent but has none"
                 pp.breakable
                 failed_task.pretty_print(pp)
@@ -248,7 +248,7 @@ module Roby
                           "cannot start #{task}, its agent is not ready"
                 elsif task.model.execution_agent
                     raise MissingRequiredExecutionAgent.new(task),
-                          "the model of #{task} requires an execution agent, "\
+                          "the model of #{task} requires an execution agent, " \
                           "but the task has none"
                 end
             end

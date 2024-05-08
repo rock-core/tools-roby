@@ -58,9 +58,9 @@ module Roby
                 @plan = plan || Roby.plan
                 @include_children = include_children
                 @query = self.plan.find_tasks
-                    .executable
-                    .pending
-                    .self_owned
+                             .executable
+                             .pending
+                             .self_owned
 
                 @can_schedule_cache = {}
                 @enabled = true
@@ -129,9 +129,9 @@ module Roby
                 time = Time.now
 
                 not_executable = self.plan.find_tasks
-                    .not_executable
-                    .pending
-                    .self_owned
+                                     .not_executable
+                                     .pending
+                                     .self_owned
 
                 not_executable.each do |task|
                     # Try to figure out why ...

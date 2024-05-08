@@ -121,7 +121,7 @@ module Roby
         def do_poll(task)
             begin
                 proxy.poll(task)
-            rescue NoMethodError => e
+            rescue NoMethodError
                 # poll only if the state has a poll handler defined
             end
         end
@@ -147,9 +147,7 @@ module Roby
                     # Get transitions that match event
                     if current_event == transition.event
                         # expand first set of transactions
-                        if !initialized
-                            new_paths << [transition]
-                        else
+                        if initialized
                             # find transitions that lead to the last transition
                             paths.each do |path|
                                 if path.last.from_name == transition.to_name
@@ -157,6 +155,8 @@ module Roby
                                     new_paths << path
                                 end
                             end
+                        else
+                            new_paths << [transition]
                         end
                     end
                 end
@@ -253,7 +253,7 @@ module Roby
             # If a parent_model exists, prepare the proxy class accordingly
             # The proxy allows us to use the state_machine library even
             # with instances
-            if parent_model = self.superclass.state_machine
+            if (parent_model = self.superclass.state_machine)
                 proxy_model = Class.new(parent_model.owner_class)
             else
                 proxy_model = Class.new(Proxy)

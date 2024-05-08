@@ -187,7 +187,7 @@ module Roby
                     AsPlanProxy.new(self, arguments)
                 else
                     raise NoMethodError,
-                          "#with_arguments is invalid on #self, as #self does not "\
+                          "#with_arguments is invalid on #self, as #self does not " \
                           "have an #as_plan method"
                 end
             end
@@ -226,7 +226,7 @@ module Roby
             rescue Application::ActionResolutionError
                 if abstract?
                     raise Application::ActionResolutionError,
-                          "#{self} is abstract and no planning method exists "\
+                          "#{self} is abstract and no planning method exists " \
                           "that returns it"
                 end
 
@@ -339,21 +339,21 @@ module Roby
             def signal(mappings)
                 mappings.each do |from, to|
                     from    = event_model(from)
-                    targets = Array[*to].map { |ev| event_model(ev) }
+                    targets = [*to].map { |ev| event_model(ev) }
 
                     if from.terminal?
                         non_terminal = targets.find_all { |ev| !ev.terminal? }
                         unless non_terminal.empty?
                             raise ArgumentError,
-                                  "trying to establish a signal from the terminal "\
-                                  "event #{from} to the non-terminal "\
+                                  "trying to establish a signal from the terminal " \
+                                  "event #{from} to the non-terminal " \
                                   "events #{non_terminal}"
                         end
                     end
                     non_controlable = targets.find_all { |ev| !ev.controlable? }
                     unless non_controlable.empty?
                         raise ArgumentError,
-                              "trying to signal #{non_controlable.join(' ')} which "\
+                              "trying to signal #{non_controlable.join(' ')} which " \
                               "is/are not controlable"
                     end
 
@@ -382,7 +382,7 @@ module Roby
                 mappings.each do |from, to|
                     from = event_model(from).symbol
                     causal_link_sets[from].merge(
-                        Array[*to].map { |ev| event_model(ev).symbol }
+                        [*to].map { |ev| event_model(ev).symbol }
                     )
                 end
                 update_terminal_flag
@@ -409,7 +409,7 @@ module Roby
             def forward(mappings)
                 mappings.each do |from, to|
                     from    = event_model(from).symbol
-                    targets = Array[*to].map { |ev| event_model(ev).symbol }
+                    targets = [*to].map { |ev| event_model(ev).symbol }
 
                     if event_model(from).terminal?
                         non_terminal = targets.find_all do |name|
@@ -417,8 +417,8 @@ module Roby
                         end
                         unless non_terminal.empty?
                             raise ArgumentError,
-                                  "trying to establish a forwarding relation from "\
-                                  "the terminal event #{from} to the non-terminal "\
+                                  "trying to establish a forwarding relation from " \
+                                  "the terminal event #{from} to the non-terminal " \
                                   "event(s) #{targets}"
                         end
                     end
@@ -660,7 +660,7 @@ module Roby
 
                 unless valid_command
                     raise ArgumentError,
-                          "Allowed values for :command option: true, false, nil and "\
+                          "Allowed values for :command option: true, false, nil and " \
                           "an object responding to #call. Got #{options[:command]}"
                 end
 
@@ -680,11 +680,11 @@ module Roby
                 if (old_event = find_event_model(event_name))
                     if old_event.terminal? && !options[:terminal]
                         raise ArgumentError,
-                              "trying to override #{old_event.symbol} in #{self} "\
+                              "trying to override #{old_event.symbol} in #{self} " \
                               "which is terminal into a non-terminal event"
                     elsif old_event.controlable? && !options[:command]
                         raise ArgumentError,
-                              "trying to override #{old_event.symbol} in "\
+                              "trying to override #{old_event.symbol} in " \
                               "#{self} which is controlable into a non-controlable event"
                     end
                 end
@@ -734,7 +734,7 @@ module Roby
                         all_events = each_event.map { |name, _| name }
                         unless ev_model
                             raise ArgumentError,
-                                  "#{model_def} is not an event of #{name}: "\
+                                  "#{model_def} is not an event of #{name}: " \
                                   "#{all_events}"
                         end
                     end
@@ -744,7 +744,7 @@ module Roby
                     ev_model = event_model(model_def.symbol)
                     if ev_model != model_def
                         raise ArgumentError,
-                              "the event model #{model_def} is not a model for "\
+                              "the event model #{model_def} is not a model for " \
                               "#{name} (found #{ev_model} with the same name)"
                     end
                 else
@@ -778,7 +778,7 @@ module Roby
                     from = event_model(from).symbol
                     if user_handler
                         method_name =
-                            "event_handler_#{from}_"\
+                            "event_handler_#{from}_" \
                             "#{Object.address_from_id(user_handler.object_id).to_s(16)}"
                         define_method(method_name, &user_handler)
 

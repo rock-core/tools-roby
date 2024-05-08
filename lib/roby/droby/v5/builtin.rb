@@ -19,7 +19,8 @@ module Roby
                         DRobyClass.new(
                             name,
                             peer.known_siblings_for(self),
-                            super_c)
+                            super_c
+                        )
                     end
                 end
 
@@ -29,7 +30,8 @@ module Roby
                         droby = droby_class.new(
                             peer.dump(self.class),
                             formatted,
-                            message)
+                            message
+                        )
                         droby.set_backtrace backtrace
                         droby
                     end

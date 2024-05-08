@@ -42,7 +42,7 @@ module Roby
                 GC.enable
             end
 
-            it "handles refs whose object have been recycled colliding "\
+            it "handles refs whose object have been recycled colliding " \
                "with objects being added" do
                 collide_me = Class.new do
                     def hash

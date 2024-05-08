@@ -21,8 +21,8 @@ def random_plan(plan, num_tasks, num_task_relations, num_event_relations)
         if from_group > to_group
             from_group, to_group = to_group, from_group
         end
-        from_i = from_group * 10 + rand(10)
-        to_i   = to_group * 10 + rand(10)
+        from_i = (from_group * 10) + rand(10)
+        to_i   = (to_group * 10) + rand(10)
 
         from = tasks[from_i]
         to   = tasks[to_i]
@@ -41,8 +41,8 @@ def random_plan(plan, num_tasks, num_task_relations, num_event_relations)
         if from_group > to_group
             from_group, to_group = to_group, from_group
         end
-        from_i = from_group * 10 + rand(10)
-        to_i   = to_group * 10 + rand(10)
+        from_i = (from_group * 10) + rand(10)
+        to_i   = (to_group * 10) + rand(10)
 
         from = events[from_i]
         to   = events[to_i]
@@ -63,7 +63,7 @@ Benchmark.bm(70) do |x|
 
     x.report("creating #{COUNT} transactions") do
         COUNT.times do
-            trsc = Roby::Transaction.new(plan)
+            Roby::Transaction.new(plan)
         end
     end
     x.report("import non-connected task from plan (#{COUNT} times)") do

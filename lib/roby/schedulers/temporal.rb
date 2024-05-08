@@ -20,7 +20,7 @@ module Roby
                 super(with_children, plan)
                 @basic_constraints = with_basic
                 @scheduling_constraints_graph = self.plan
-                    .event_relation_graph_for(EventStructure::SchedulingConstraints)
+                                                    .event_relation_graph_for(EventStructure::SchedulingConstraints)
             end
 
             def can_schedule?(task, time = Time.now, stack = [])
@@ -45,10 +45,10 @@ module Roby
 
                 meets_constraints = start_event.meets_temporal_constraints?(time, &event_filter)
                 unless meets_constraints
-                    if failed_temporal = start_event.find_failed_temporal_constraint(time, &event_filter)
+                    if (failed_temporal = start_event.find_failed_temporal_constraint(time, &event_filter))
                         report_holdoff "temporal constraints not met (%2: %3)", task, failed_temporal[0], failed_temporal[1]
                     end
-                    if failed_occurence = start_event.find_failed_occurence_constraint(true, &event_filter)
+                    if (failed_occurence = start_event.find_failed_occurence_constraint(true, &event_filter))
                         report_holdoff "occurence constraints not met (%2)", task, failed_occurence
                     end
                     return false

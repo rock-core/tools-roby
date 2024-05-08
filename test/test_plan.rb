@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 require "roby/test/self"
-require_relative "./behaviors/plan_common_behavior"
-require_relative "./behaviors/plan_replace_behaviors"
+require_relative "behaviors/plan_common_behavior"
+require_relative "behaviors/plan_replace_behaviors"
 
 module Roby
     describe Plan do
@@ -23,58 +23,58 @@ module Roby
         end
 
         describe "#initialize" do
-            it "instanciates graphs for all the relation graphs "\
+            it "instanciates graphs for all the relation graphs " \
                "registered on Roby::Task" do
-                space = flexmock(instanciate: Hash[1 => 2])
+                space = flexmock(instanciate: { 1 => 2 })
                 flexmock(Roby::Task)
                     .should_receive(:all_relation_spaces).and_return([space])
                 plan = Roby::Plan.new
-                assert_equal Hash[1 => 2], plan.task_relation_graphs
+                assert_equal({ 1 => 2 }, plan.task_relation_graphs)
             end
-            it "instanciates graphs for all the relation graphs "\
+            it "instanciates graphs for all the relation graphs " \
                "registered on Roby::Task's submodels" do
-                root_space = flexmock(instanciate: Hash[1 => 2])
-                submodel_space = flexmock(instanciate: Hash[41 => 42])
-                task_m = Roby::Task.new_submodel
+                root_space = flexmock(instanciate: { 1 => 2 })
+                submodel_space = flexmock(instanciate: { 41 => 42 })
+                Roby::Task.new_submodel
                 flexmock(Roby::Task)
                     .should_receive(:all_relation_spaces)
                     .and_return([root_space, submodel_space])
                 plan = Roby::Plan.new
-                assert_equal Hash[1 => 2, 41 => 42], plan.task_relation_graphs
+                assert_equal({ 1 => 2, 41 => 42 }, plan.task_relation_graphs)
             end
-            it "configures #task_relation_graphs to raise "\
+            it "configures #task_relation_graphs to raise " \
                "if an invalid graph is being resolved" do
                 space = flexmock
                 flexmock(Roby::Task)
                     .should_receive(:all_relation_spaces).and_return([space])
                 assert_raises(ArgumentError) do
-                    plan.task_relation_graphs[invalid = flexmock]
+                    plan.task_relation_graphs[flexmock]
                 end
             end
-            it "configures #task_relation_graphs to return nil "\
+            it "configures #task_relation_graphs to return nil " \
                "if nil is being resolved" do
                 plan = Roby::Plan.new
                 assert_nil plan.task_relation_graphs[nil]
             end
 
-            it "instanciates graphs for all the relation graphs "\
+            it "instanciates graphs for all the relation graphs " \
                "registered on Roby::EventGenerator" do
-                space = flexmock(instanciate: Hash[1 => 2])
+                space = flexmock(instanciate: { 1 => 2 })
                 flexmock(Roby::EventGenerator)
                     .should_receive(:all_relation_spaces).and_return([space])
                 plan = Roby::Plan.new
-                assert_equal Hash[1 => 2], plan.event_relation_graphs
+                assert_equal({ 1 => 2 }, plan.event_relation_graphs)
             end
-            it "configures #event_relation_graphs to raise "\
+            it "configures #event_relation_graphs to raise " \
                "if an invalid graph is being resolved" do
                 space = flexmock
                 flexmock(Roby::EventGenerator)
                     .should_receive(:all_relation_spaces).and_return([space])
                 assert_raises(ArgumentError) do
-                    plan.event_relation_graphs[invalid = flexmock]
+                    plan.event_relation_graphs[flexmock]
                 end
             end
-            it "configures #task_relation_graphs to return nil if nil "\
+            it "configures #task_relation_graphs to return nil if nil " \
                "is being resolved" do
                 plan = Roby::Plan.new
                 assert_nil plan.event_relation_graphs[nil]
@@ -87,7 +87,7 @@ module Roby
                 @tasks.each { |t| plan.add(t) }
             end
 
-            it "computes the merge of all strong relation graphs "\
+            it "computes the merge of all strong relation graphs " \
                "from locally useful roots" do
                 @tasks[0].depends_on @tasks[1]
                 @tasks[1].planned_by @tasks[2]
@@ -127,7 +127,7 @@ module Roby
                 @tasks.each { |t| plan.add(t) }
             end
 
-            it "computes the merge of all strong relation graphs "\
+            it "computes the merge of all strong relation graphs " \
                "from locally useful roots" do
                 @tasks[0].depends_on @tasks[1]
                 @tasks[1].planned_by @tasks[2]
@@ -160,7 +160,7 @@ module Roby
                 assert_equal [@tasks[1]].to_set, plan.locally_useful_tasks
             end
 
-            it "allows to explicitely pass tasks to be used as root "\
+            it "allows to explicitely pass tasks to be used as root " \
                "beyond locally_useful_roots" do
                 flexmock(plan).should_receive(:locally_useful_roots)
                               .and_return(Set[])
@@ -262,7 +262,7 @@ module Roby
                 end
                 plan.add task
             end
-            it "yields tasks whose modifications within the transaction "\
+            it "yields tasks whose modifications within the transaction " \
                "created a match" do
                 recorder.should_receive(:called).once.with(task)
                 plan.add_trigger task_m.query.mission do |task|
@@ -330,7 +330,7 @@ module Roby
                 plan.add(target = Roby::Task.new)
                 graph.add_edge(parent, source, info = flexmock)
                 new, removed =
-                    plan.compute_subplan_replacement(Hash[source => target], [graph])
+                    plan.compute_subplan_replacement({ source => target }, [graph])
                 assert_equal [[graph, parent, target, info]], new
                 assert_equal [[graph, parent, source]], removed
             end
@@ -340,7 +340,7 @@ module Roby
                 plan.add(target = Roby::Task.new)
                 graph.add_edge(source, child, info = flexmock)
                 new, removed =
-                    plan.compute_subplan_replacement(Hash[source => target], [graph])
+                    plan.compute_subplan_replacement({ source => target }, [graph])
                 assert_equal [[graph, target, child, info]], new
                 assert_equal [[graph, source, child]], removed
             end
@@ -351,7 +351,7 @@ module Roby
                 plan.add(child_target = Roby::Task.new)
                 graph.add_edge(parent, child, flexmock)
                 new, removed = plan.compute_subplan_replacement(
-                    Hash[parent => parent_target, child => child_target], [graph]
+                    { parent => parent_target, child => child_target }, [graph]
                 )
                 assert_equal [], new
                 assert_equal [], removed
@@ -364,7 +364,7 @@ module Roby
                 graph.add_edge(root, parent, flexmock)
                 graph.add_edge(parent, child, flexmock)
                 new, removed = plan.compute_subplan_replacement(
-                    Hash[parent => nil, child => child_target], [graph]
+                    { parent => nil, child => child_target }, [graph]
                 )
                 assert_equal [], new
                 assert_equal [], removed
@@ -374,10 +374,11 @@ module Roby
                 plan.add(child = Roby::Task.new)
                 plan.add(child_target = Roby::Task.new)
                 graph.add_edge(parent, child, info = flexmock)
-                mapping = Hash[child => child_target]
+                mapping = { child => child_target }
                 resolver = ->(t) { mapping[t] }
                 new, removed = plan.compute_subplan_replacement(
-                    Hash[child => [nil, resolver]], [graph])
+                    { child => [nil, resolver] }, [graph]
+                )
                 assert_equal [[graph, parent, child_target, info]], new
                 assert_equal [[graph, parent, child]], removed
             end
@@ -387,7 +388,8 @@ module Roby
                 plan.add(parent_target = Roby::Task.new)
                 graph.add_edge(parent, child, flexmock)
                 new, removed = plan.compute_subplan_replacement(
-                    Hash[parent => parent_target], [graph], child_objects: false)
+                    { parent => parent_target }, [graph], child_objects: false
+                )
                 assert_equal [], new
                 assert_equal [], removed
             end
@@ -396,13 +398,13 @@ module Roby
                 plan.add(source = Roby::Task.new)
                 plan.add(target = Roby::Task.new)
                 graph = Roby::Relations::Graph.new(strong: true)
-                graph.add_edge(parent, source, info = flexmock)
+                graph.add_edge(parent, source, flexmock)
                 new, removed =
-                    plan.compute_subplan_replacement(Hash[source => target], [graph])
+                    plan.compute_subplan_replacement({ source => target }, [graph])
                 assert_equal [], new
                 assert_equal [], removed
             end
-            it "copies relations instead of moving them "\
+            it "copies relations instead of moving them " \
                "if the graph is copy_on_replace" do
                 plan.add(parent = Roby::Task.new)
                 plan.add(source = Roby::Task.new)
@@ -410,7 +412,7 @@ module Roby
                 graph = Roby::Relations::Graph.new(copy_on_replace: true)
                 graph.add_edge(parent, source, info = flexmock)
                 new, removed =
-                    plan.compute_subplan_replacement(Hash[source => target], [graph])
+                    plan.compute_subplan_replacement({ source => target }, [graph])
                 assert_equal [[graph, parent, target, info]], new
                 assert_equal [], removed
             end
@@ -422,7 +424,7 @@ module Roby
                 assert_equal [ev].to_set, plan.unneeded_events.to_set
             end
             it "does not return free events that are reachable from a permanent event" do
-                plan.add_permanent_event(ev = Roby::EventGenerator.new)
+                plan.add_permanent_event(Roby::EventGenerator.new)
                 assert plan.unneeded_events.empty?
             end
             it "does not return free events that are reachable from a task event" do
@@ -594,7 +596,7 @@ module Roby
             end
 
             it "returns false for a plan with a missing task" do
-                plan.add(task = Task.new)
+                plan.add(Task.new)
                 assert !plan.same_plan?(copy, {})
             end
 
@@ -689,13 +691,13 @@ module Roby
                 @tested_task.depends_on @reference_task
                 refute plan.in_useful_subplan?(@reference_task, @tested_task)
             end
-            it "returns true if the argument is a descendant of the child "\
+            it "returns true if the argument is a descendant of the child " \
                "through a single graph" do
                 @reference_task.depends_on(intermediate = Roby::Task.new)
                 intermediate.depends_on @tested_task
                 assert plan.in_useful_subplan?(@reference_task, @tested_task)
             end
-            it "returns true if the argument is a descendant of the child "\
+            it "returns true if the argument is a descendant of the child " \
                "through multiple graphs" do
                 @reference_task.depends_on(intermediate = Roby::Task.new)
                 intermediate.start_event.handle_with @tested_task
@@ -816,14 +818,14 @@ module Roby
         describe "#num_events" do
             it "returns the sum of free and task events" do
                 plan.add(t = Task.new)
-                plan.add(ev = EventGenerator.new)
+                plan.add(EventGenerator.new)
                 assert_equal (t.each_event.to_a.size + 1), plan.num_events
             end
         end
 
         describe "#num_tasks" do
             it "returns the sum of tasks" do
-                plan.add(t = Task.new)
+                plan.add(Task.new)
                 assert_equal 1, plan.num_tasks
             end
         end
@@ -942,7 +944,7 @@ module Roby
                 plan.should_receive(:finalize_task).with(@task, time).once
                 plan.remove_task(@task, time)
             end
-            it "calls the finalized_plan_task hook on active transactions "\
+            it "calls the finalized_plan_task hook on active transactions " \
                "that have a proxy" do
                 plan.in_transaction do |trsc|
                     proxy = trsc[@task]
@@ -952,14 +954,14 @@ module Roby
             end
             it "does not call the finalized_plan_task hook on disabled transactions" do
                 plan.in_transaction do |trsc|
-                    proxy = trsc[@task]
+                    trsc[@task]
                     flexmock(trsc).should_receive(:finalized_plan_task).never
                     trsc.disable_proxying do
                         plan.remove_task(@task)
                     end
                 end
             end
-            it "does not call the finalized_plan_task hook on active transactions "\
+            it "does not call the finalized_plan_task hook on active transactions " \
                "that do not have a proxy" do
                 plan.in_transaction do |trsc|
                     flexmock(trsc).should_receive(:finalized_plan_task).never
@@ -1045,7 +1047,7 @@ module Roby
                 plan.should_receive(:finalize_event).with(@event, time).once
                 plan.remove_free_event!(@event, time)
             end
-            it "calls the finalized_plan_event hook on active transactions "\
+            it "calls the finalized_plan_event hook on active transactions " \
                "that have a proxy" do
                 plan.in_transaction do |trsc|
                     proxy = trsc[@event]
@@ -1055,14 +1057,14 @@ module Roby
             end
             it "does not call the finalized_plan_event hook on disabled transactions" do
                 plan.in_transaction do |trsc|
-                    proxy = trsc[@event]
+                    trsc[@event]
                     flexmock(trsc).should_receive(:finalized_plan_event).never
                     trsc.disable_proxying do
                         plan.remove_free_event!(@event)
                     end
                 end
             end
-            it "does not call the finalized_plan_event hook on transactions "\
+            it "does not call the finalized_plan_event hook on transactions " \
                "that do not have a proxy" do
                 plan.in_transaction do |trsc|
                     flexmock(trsc).should_receive(:finalized_plan_event).never
@@ -1126,7 +1128,7 @@ module Roby
                 flexmock(task).should_receive(running?: true)
                 flexmock(Roby)
                     .should_receive(:warn)
-                    .with("1 tasks remaining after clearing the plan "\
+                    .with("1 tasks remaining after clearing the plan " \
                           "as they are still running").once
                 flexmock(Roby).should_receive(:warn).with("  #{task}").once
                 plan.clear

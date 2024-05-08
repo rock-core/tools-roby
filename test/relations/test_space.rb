@@ -36,7 +36,7 @@ module Roby
                     assert_same r, space::R1
                 end
                 it "defines child accessors" do
-                    r = space.relation :R1, child_name: :child
+                    space.relation :R1, child_name: :child
                     n = create_node
                     assert n.respond_to?(:each_child)
                     assert n.respond_to?(:add_child)
@@ -45,7 +45,7 @@ module Roby
                 end
 
                 it "defines parent accessors if a parent_name is given" do
-                    r = space.relation :R1, parent_name: :parent
+                    space.relation :R1, parent_name: :parent
                     assert create_node.respond_to?(:each_parent)
                 end
 
@@ -166,7 +166,8 @@ module Roby
                         it "sets the accessors to nil if the relation is removed" do
                             @planned_task.planned_by(@planning_task)
                             @trsc[@planned_task].remove_planning_task(
-                                @trsc[@planning_task])
+                                @trsc[@planning_task]
+                            )
                             @trsc.commit_transaction
                             assert_nil @planned_task.planning_task
                         end
@@ -174,9 +175,11 @@ module Roby
                         it "updates the accessors if updated in the transaction" do
                             @planned_task.planned_by(@planning_task)
                             @trsc[@planned_task].remove_planning_task(
-                                @trsc[@planning_task])
+                                @trsc[@planning_task]
+                            )
                             @trsc[@planned_task].planned_by(
-                                new_planning_task = Roby::Task.new)
+                                new_planning_task = Roby::Task.new
+                            )
                             @trsc.commit_transaction
                             assert_equal new_planning_task, @planned_task.planning_task
                         end
@@ -185,9 +188,11 @@ module Roby
                             @planned_task.planned_by(@planning_task)
                             new_planned_task = Roby::Task.new
                             @trsc[@planned_task].remove_planning_task(
-                                @trsc[@planning_task])
+                                @trsc[@planning_task]
+                            )
                             new_planned_task.planned_by(
-                                @trsc[@planning_task])
+                                @trsc[@planning_task]
+                            )
                             @trsc.commit_transaction
                             assert_equal @planning_task, new_planned_task.planning_task
                         end
@@ -196,9 +201,11 @@ module Roby
                             @planned_task.planned_by(@planning_task)
                             @plan.add(new_planned_task = Roby::Task.new)
                             @trsc[@planned_task].remove_planning_task(
-                                @trsc[@planning_task])
+                                @trsc[@planning_task]
+                            )
                             @trsc[new_planned_task].planned_by(
-                                @trsc[@planning_task])
+                                @trsc[@planning_task]
+                            )
                             @trsc.commit_transaction
                             assert_equal @planning_task, new_planned_task.planning_task
                         end
@@ -265,7 +272,7 @@ module Roby
                         end
 
                         it "yields the child only if its argument is false" do
-                            subject.add_child(child = create_node, info = flexmock)
+                            subject.add_child(child = create_node, flexmock)
                             recorder.should_receive(:called).with([child]).once
                             assert_nil subject.find_child(false) { |*c| recorder.called(c) }
                         end
@@ -293,12 +300,12 @@ module Roby
                             subject.each_child { |*c| recorder.called(c) }
                         end
                         it "does not enumerate the info if with_info is false" do
-                            subject.add_child(child = create_node, info = flexmock)
+                            subject.add_child(child = create_node, flexmock)
                             recorder.should_receive(:called).with([child]).once
                             subject.each_child(false) { |*c| recorder.called(c) }
                         end
                         it "passes the with_info parameter to a generated enumerator" do
-                            subject.add_child(child = create_node, info = flexmock)
+                            subject.add_child(child = create_node, flexmock)
                             assert_equal [child], subject.each_child(false).to_a
                         end
                     end

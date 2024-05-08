@@ -59,7 +59,7 @@ module Roby
                     if text.empty?
                         chronicle.filter = nil
                     else
-                        chronicle.filter = Regexp.new(text.split(" ").join("|"))
+                        chronicle.filter = Regexp.new(text.split.join("|"))
                     end
                 end
                 @menu_layout.add_widget(@filter_lbl)
@@ -70,7 +70,7 @@ module Roby
                     if text.empty?
                         chronicle.filter_out = nil
                     else
-                        chronicle.filter_out = Regexp.new(text.split(" ").join("|"))
+                        chronicle.filter_out = Regexp.new(text.split.join("|"))
                     end
                 end
                 @menu_layout.add_widget(@filter_out_lbl)
@@ -209,16 +209,16 @@ module Roby
 
             # Apply saved configuration
             def apply_options(options)
-                if scale = options["time_scale"]
+                if (scale = options["time_scale"])
                     chronicle.time_scale = scale
                 end
-                if mode = options["show_mode"]
+                if (mode = options["show_mode"])
                     @act_show[mode].checked = true
                 end
-                if mode = options["sort_mode"]
+                if (mode = options["sort_mode"])
                     @act_sort[mode].checked = true
                 end
-                if mode = options["restrict_to_jobs"]
+                if options["restrict_to_jobs"]
                     @restrict_to_jobs_btn.checked = true
                 end
             end

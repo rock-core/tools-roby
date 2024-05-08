@@ -15,8 +15,8 @@ module Roby
             # prefix length
             def update_prefixes_removal
                 @prefixes_removal = removed_prefixes.to_a
-                    .sort_by(&:length)
-                    .reverse
+                                                    .sort_by(&:length)
+                                                    .reverse
             end
 
             def filtered_out_label?(label)

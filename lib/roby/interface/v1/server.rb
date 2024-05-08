@@ -38,7 +38,8 @@ module Roby
                                 :cycle_end,
                                 @interface.execution_engine.cycle_index,
                                 @interface.execution_engine.cycle_start
-                            ], defer_exceptions: true)
+                            ], defer_exceptions: true
+                        )
                     end
                     listeners << @interface.on_notification do |*args|
                         if notifications_enabled?

@@ -33,7 +33,7 @@ module Roby
                     assert_equal 0, JSON.parse(get("/test").body)
                 end
 
-                it "gives access to the same roby_storage object that is used "\
+                it "gives access to the same roby_storage object that is used " \
                    "by the API itself" do
                     roby_storage["read"] = 42
                     assert_equal 42, JSON.parse(get("/storage_value").body)

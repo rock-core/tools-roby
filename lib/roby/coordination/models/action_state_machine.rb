@@ -91,8 +91,8 @@ module Roby
                 def start(state)
                     parse_names
                     if @starting_state
-                        raise ArgumentError, "this state machine already has a starting "\
-                            "state, use #depends_on to run more than one task at startup"
+                        raise ArgumentError, "this state machine already has a starting " \
+                                             "state, use #depends_on to run more than one task at startup"
                     end
                     @starting_state = validate_task(state)
                 end
@@ -127,11 +127,7 @@ module Roby
                     end
 
                     filter =
-                        if block
-                            lambda(&block)
-                        else
-                            ->(ev) { ev.context.first }
-                        end
+                        block || ->(ev) { ev.context.first }
 
                     capture = Capture.new(filter)
                     captures[capture] = [state, event]
@@ -148,8 +144,8 @@ module Roby
                 def validate_task(object)
                     unless object.kind_of?(Coordination::Models::Task)
                         raise ArgumentError,
-                              "expected a state object, got #{object}. States need "\
-                              "to be created from e.g. actions by calling #state "\
+                              "expected a state object, got #{object}. States need " \
+                              "to be created from e.g. actions by calling #state " \
                               "before they can be used in the state machine"
                     end
 
@@ -175,7 +171,7 @@ module Roby
                         end
                     end
 
-                    transitions.map(&:first).to_set
+                    transitions.to_set(&:first)
                 end
 
                 # Overloaded from Actions to validate the state machine definition
@@ -194,7 +190,7 @@ module Roby
                     unreachable = compute_unreachable_states
                     unless unreachable.empty?
                         raise UnreachableStateUsed.new(unreachable),
-                              "#{unreachable.size} states are used in transitions "\
+                              "#{unreachable.size} states are used in transitions " \
                               "but are actually not reachable"
                     end
                 end
@@ -223,8 +219,8 @@ module Roby
                         validate_task(new_state)
                         unless event_active_in_state?(state_event, state)
                             raise EventNotActiveInState,
-                                  "cannot transition on #{state_event} while in "\
-                                  "state #{state} as the event is not active "\
+                                  "cannot transition on #{state_event} while in " \
+                                  "state #{state} as the event is not active " \
                                   "in this state"
                         end
 
