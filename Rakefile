@@ -84,7 +84,7 @@ task "test" => "test:core"
 task "test" => "test:interface:v2"
 
 task "rubocop" do
-    system(ENV["RUBOCOP_CMD"] || "rubocop", exception: true)
+    raise "rubocop failed" unless system(ENV["RUBOCOP_CMD"] || "rubocop")
 end
 task "test" => "rubocop" if ENV["RUBOCOP"] != "0"
 
