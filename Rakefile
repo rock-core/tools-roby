@@ -8,8 +8,6 @@ require "yard"
 require "yard/rake/yardoc_task"
 
 ENV.delete("ROBY_PLUGIN_PATH")
-puts ENV["PATH"]
-system("which", "rubocop", exception: true)
 
 task :default
 
@@ -86,7 +84,7 @@ task "test" => "test:core"
 task "test" => "test:interface:v2"
 
 task "rubocop" do
-    system(ENV["RUBOCOP_CMD"] || "rubocop", exception: true)
+    raise "rubocop failed" unless system(ENV["RUBOCOP_CMD"] || "rubocop")
 end
 task "test" => "rubocop" if ENV["RUBOCOP"] != "0"
 
