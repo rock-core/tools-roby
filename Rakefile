@@ -8,8 +8,6 @@ require "yard"
 require "yard/rake/yardoc_task"
 
 ENV.delete("ROBY_PLUGIN_PATH")
-puts ENV["PATH"]
-system("which", "rubocop", exception: true)
 
 task :default
 
