@@ -599,7 +599,7 @@ module Roby
             #   "trueish" value)
             def verify(&block)
                 all_propagation_info = ExecutionEngine::PropagationInfo.new
-                timeout_deadline = Time.now + @timeout
+                timeout_deadline = Time.now_without_mock_time + @timeout
 
                 @execute_blocks << block if block
 
@@ -640,7 +640,7 @@ module Roby
                         validate_has_no_unexpected_error(all_propagation_info)
                     end
 
-                    remaining_timeout = timeout_deadline - Time.now
+                    remaining_timeout = timeout_deadline - Time.now_without_mock_time
                     break if remaining_timeout < 0
 
                     if engine.has_waiting_work? && @join_all_waiting_work
@@ -843,7 +843,7 @@ module Roby
                         .with_origin(@generator)
                         .to_execution_exception_matcher
 
-                    @deadline = Time.now + within
+                    @deadline = Time.now_without_mock_time + within
                 end
 
                 def to_s
@@ -856,7 +856,7 @@ module Roby
                         .emitted_events
                         .find_all { |ev| ev.generator == @generator }
 
-                    @emitted_events.empty? if Time.now >= @deadline
+                    @emitted_events.empty? if Time.now_without_mock_time >= @deadline
                 end
 
                 def unachievable?(_propagation_info)
@@ -886,7 +886,7 @@ module Roby
                     @generators = []
                     @related_error_matchers = []
                     @emitted_events = []
-                    @deadline = Time.now + within
+                    @deadline = Time.now_without_mock_time + within
                 end
 
                 def to_s
@@ -908,7 +908,7 @@ module Roby
                                 .to_execution_exception_matcher
                         end
 
-                    @emitted_events.empty? if Time.now > @deadline
+                    @emitted_events.empty? if Time.now_without_mock_time > @deadline
                 end
 
                 def unachievable?(_propagation_info)
@@ -1255,7 +1255,7 @@ module Roby
                     @at_least_during = at_least_during
                     @description = description || @backtrace[0].to_s
                     @block = block
-                    @deadline = Time.now + at_least_during
+                    @deadline = Time.now_without_mock_time + at_least_during
                     @failed = false
                 end
 
@@ -1263,7 +1263,7 @@ module Roby
                     if !@block.call(propagation_info)
                         @failed = true
                         false
-                    elsif Time.now > @deadline
+                    elsif Time.now_without_mock_time > @deadline
                         true
                     end
                 end
