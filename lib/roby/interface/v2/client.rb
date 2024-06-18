@@ -463,8 +463,12 @@ module Roby
                         __push([], :kill_job, [job_id])
                     end
 
-                    def respond_to_missing?(m, include_private)
-                        (m =~ /(.*)!$/) || super
+                    def respond_to?(m, _include_private = false)
+                        return true if BatchContext.method_defined?(m)
+
+                        return unless (action_match = /(.*)!$/.match(m.to_s))
+
+                        @context.has_action?(action_match[1])
                     end
 
                     # @api private
