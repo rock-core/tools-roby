@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 <% if robot_name != 'default' %>## A common pattern is to load the 'default' robot configuration
-require_relative "./default"
+require_relative "default"
 
 <% end %>## One can require the configuration from another robot, for instance if one has
 ## a common robot class with minor modifications
@@ -9,7 +9,7 @@ require_relative "./default"
 # require 'config/robots/robot_class'
 
 # Block evaluated at the very beginning of the Roby app initialization
-Robot.init do
+Robot.init do # rubocop:disable Lint/EmptyBlock
     ## Make models from another Roby app accessible
     # Relative paths are resolved from the root of this app
     # Roby.app.register_app('../separate_path')
@@ -17,17 +17,17 @@ end
 
 # Block evaluated to configure the system, that is set up values in Roby's Conf
 # and State
-Robot.setup do
+Robot.setup do # rubocop:disable Lint/EmptyBlock
 end
 
 # Block evaluated to load the models this robot requires
 #
 # This is called after `setup`
-Robot.requires do
+Robot.requires do # rubocop:disable Lint/EmptyBlock
 end
 
 # The opposite of 'setup' (and 'requires')
-Robot.cleanup do
+Robot.cleanup do # rubocop:disable Lint/EmptyBlock
 end
 
 # Setup of the robot's main action interface
@@ -40,17 +40,17 @@ end
 #
 #   use_profile <%= Roby.app.module_name %>::Profiles::BaseProfile
 #
-Robot.actions do
+Robot.actions do # rubocop:disable Lint/EmptyBlock
 end
 
 # Block evaluated when the Roby app is fully setup, and the robot ready to
 # start. This is where one usually adds permanent tasks and/or status lines
-Robot.controller do
+Robot.controller do # rubocop:disable Lint/EmptyBlock
 end
 
 # Block evaluated right after the execution, but before the cleanup
 #
 # In particular, this is executed at teardown between each tests. Mostly, undo
 # things here that the controller block would have registered.
-Robot.shutdown do
+Robot.shutdown do # rubocop:disable Lint/EmptyBlock
 end
