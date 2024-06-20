@@ -805,16 +805,20 @@ module Roby
             )
                 return false unless Rake.use_rubocop?
 
-                begin
-                    require "rubocop/rake_task"
-                rescue LoadError
-                    raise if required
-
-                    return
+                if detect_rubocop?
+                    define_rubocop(junit: junit, report_dir: report_dir)
+                elsif required
+                    raise "rubocop required but not present"
                 end
 
-                define_rubocop(junit: junit, report_dir: report_dir)
                 true
+            end
+
+            def self.detect_rubocop?
+                run_rubocop("--version", out: :close, err: :close)
+                true
+            rescue Errno::ENOENT
+                false
             end
 
             def self.define_rubocop(
@@ -822,9 +826,10 @@ module Roby
             )
                 options = []
                 if junit
-                    junit_output =
-                        File.join(report_dir, "#{report_dir}/rubocop.junit.xml")
-                    options.concat(["-f", "junit", "--out", junit_output])
+                    options.concat(
+                        ["-f", "junit", "--out",
+                         File.join(report_dir, "#{report_dir}/rubocop.junit.xml")]
+                    )
                 end
 
                 ::Rake::Task.define_task "rubocop" do
