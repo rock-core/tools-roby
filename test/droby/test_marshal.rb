@@ -86,7 +86,7 @@ module Roby
                     flexmock(object_manager, :strict).should_receive(:find_by_id)
                         .with(remote_id, remote_object_id).and_return(obj = flexmock)
                     flexmock(object_manager, :strict).should_receive(:register_siblings)
-                        .once.with(obj, remote_id => remote_object_id)
+                        .once.with(obj, { remote_id => remote_object_id })
                     assert_equal [true, obj], subject.find_local_object(marshalled)
                 end
 
