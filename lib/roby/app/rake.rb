@@ -651,9 +651,9 @@ module Roby
             )
                 options = []
                 if junit
-                    options <<
-                        "-f" << "junit" <<
-                        "--out" << File.join(report_dir, "#{report_dir}/rubocop.junit.xml")
+                    junit_output =
+                        File.join(report_dir, "#{report_dir}/rubocop.junit.xml")
+                    options.concat(["-f", "junit", "--out", junit_output])
                 end
 
                 ::Rake::Task.define_task "rubocop" do
@@ -662,7 +662,8 @@ module Roby
             end
 
             def self.run_rubocop(*arguments, **options)
-                system(ENV["RUBOCOP_CMD"] || "rubocop", *arguments, exception: true, **options)
+                system(ENV["RUBOCOP_CMD"] || "rubocop", *arguments,
+                       exception: true, **options)
             end
         end
     end

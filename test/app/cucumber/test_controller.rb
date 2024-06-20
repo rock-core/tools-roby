@@ -320,7 +320,9 @@ module Roby
                             )
                             controller.apply_current_batch
                             jobs = controller.roby_interface.client.each_job.to_a
-                            assert_equal([2], jobs.map { |t| t.placeholder_task.arguments[:arg] })
+
+                            args = jobs.map { |t| t.placeholder_task.arguments[:arg] }
+                            assert_equal [2], args
                         end
                         it "does allow to queue new jobs again after a run_job" do
                             controller.start_job(
@@ -335,8 +337,10 @@ module Roby
                             )
                             controller.apply_current_batch
                             jobs = controller.roby_interface.client.each_job.to_a
-                            assert_equal [2, 3],
-                                         jobs.map { |t| t.placeholder_task.arguments[:arg] }.sort
+                            assert_equal(
+                                [2, 3],
+                                jobs.map { |t| t.placeholder_task.arguments[:arg] }.sort
+                            )
                         end
                         it "passes arguments to the action" do
                             controller.start_job(
@@ -393,7 +397,8 @@ module Roby
                             )
                             controller.apply_current_batch
                             jobs = controller.roby_interface.client.each_job.to_a
-                            assert_equal Hash[arg: 20], jobs.first.task.arguments[:action_arguments]
+                            assert_equal Hash[arg: 20],
+                                         jobs.first.task.arguments[:action_arguments]
                         end
                         it "registers the job as a monitoring job" do
                             job = controller.start_monitoring_job(

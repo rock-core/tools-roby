@@ -107,13 +107,6 @@ module Roby
                               "called #roby_start"
                     end
 
-                    interface_class =
-                        if @interface_version == 1
-                            Roby::Interface::V1::Async::Interface
-                        else
-                            Roby::Interface::V2::Async::Interface
-                        end
-
                     @roby_interface ||=
                         roby_interface_module::Async::Interface
                         .new("localhost", port: @roby_port)
@@ -145,7 +138,8 @@ module Roby
                     options << "--log-dir=#{log_dir}" if log_dir
                     if @roby_port == 0
                         server = TCPServer.new("localhost", 0)
-                        options << "--interface-v#{@interface_version}-fd=#{server.fileno}"
+                        options <<
+                            "--interface-v#{@interface_version}-fd=#{server.fileno}"
                         spawn_options = spawn_options.merge({ server => server })
                         @roby_port = server.local_address.ip_port
                     else

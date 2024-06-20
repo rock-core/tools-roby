@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-puts ENV["PATH"]
-
 require "bundler/gem_tasks"
 require "rake/testtask"
 require "yard"

@@ -232,7 +232,7 @@ module Roby
                 # @param [Channel] channel
                 # @param [Roby::Task] task
                 # @return [TaskModel]
-                def self.marshal_task_model(channel, task_model)
+                def self.marshal_task_model(_channel, task_model)
                     TaskModel.new(name: task_model.name)
                 end
 
