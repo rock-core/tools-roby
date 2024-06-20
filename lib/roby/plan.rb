@@ -1947,7 +1947,7 @@ module Roby
         #   {#remove_fault_response_table}
         # @return [void]
         # @see remove_fault_response_table
-        def use_fault_response_table(table_model, arguments = {})
+        def use_fault_response_table(table_model, **arguments)
             table = table_model.new(self, arguments)
             table.attach_to(self)
             active_fault_response_tables << table

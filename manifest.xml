@@ -47,5 +47,6 @@
   <test_depend package="rack-test" />
   <test_depend package="rubocop" />
   <test_depend package="rubocop-rock" />
+  <test_depend package="yard" />
 </package>
 

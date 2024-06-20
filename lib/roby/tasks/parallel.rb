@@ -8,7 +8,7 @@ module Roby::Tasks
 
         attr_reader :children_success
 
-        def initialize(arguments = {})
+        def initialize(**arguments)
             super
 
             @children_success = Roby::AndGenerator.new

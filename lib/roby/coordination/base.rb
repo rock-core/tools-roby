@@ -92,7 +92,7 @@ module Roby
                             val
                         end
                     end
-                    root_task.use_fault_response_table(table, arguments)
+                    root_task.use_fault_response_table(table, **arguments)
                 end
             end
 

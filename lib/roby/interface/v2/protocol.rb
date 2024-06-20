@@ -64,11 +64,20 @@ module Roby
                     end
                 end
 
+                TaskModel = Struct.new(
+                    :name, keyword_init: true
+                ) do
+                    def pretty_print(pp)
+                        pp.text name
+                    end
+                end
+
                 Task = Struct.new(
                     :id, :model, :state, :started_since, :arguments, keyword_init: true
                 ) do
                     def pretty_print(pp)
-                        pp.text "#{model}<id:#{id}> #{state}"
+                        model.pretty_print(pp)
+                        pp.text "<id:#{id}> #{state}"
                         if started_since
                             pp.breakable
                             pp.text "Started for: #{started_since}"
@@ -225,11 +234,20 @@ module Roby
                 def self.marshal_task(channel, task)
                     Task.new(
                         id: task.droby_id.id,
-                        model: task.model.name,
+                        model: marshal_task_model(channel, task.model),
                         state: task.current_state,
                         started_since: task.start_event.last&.time,
                         arguments: marshal_task_arguments(channel, task.arguments)
                     )
+                end
+
+                # Convert a {Roby::Models::Task}
+                #
+                # @param [Channel] channel
+                # @param [Roby::Task] task
+                # @return [TaskModel]
+                def self.marshal_task_model(_channel, task_model)
+                    TaskModel.new(name: task_model.name)
                 end
 
                 # Convert a {Roby::TaskArguments}

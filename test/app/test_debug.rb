@@ -34,12 +34,12 @@ module Roby
                 end
                 it "passes the mode, interval and raw arguments to StackProf" do
                     mode, interval, raw = flexmock, flexmock, flexmock
-                    flexmock(StackProf).should_receive(:start).with(mode: mode, interval: interval, raw: raw).once
+                    flexmock(StackProf).should_receive(:start).with({ mode: mode, interval: interval, raw: raw }).once
                     debug.stackprof_start(mode: mode, interval: interval, raw: raw)
                 end
                 it "saves after the specified number of cycles" do
                     mock_context do |debug, stackprof|
-                        stackprof.should_receive(:start).once
+                        stackprof.should_receive(:start).with_any_kw_args.once
                         debug.stackprof_start(cycles: 5)
                     end
                     2.times do
@@ -57,7 +57,7 @@ module Roby
                 end
                 it "stops and saves after the specified number of cycles if one_shot is set" do
                     mock_context do |debug, stackprof|
-                        stackprof.should_receive(:start).once
+                        stackprof.should_receive(:start).with_any_kw_args.once
                         debug.stackprof_start(one_shot: true, cycles: 5)
                     end
                     mock_context do |debug, stackprof|
@@ -103,13 +103,13 @@ module Roby
 
             describe "#stackprof_stop" do
                 it "stops profiling" do
-                    flexmock(StackProf).should_receive(:start).once
+                    flexmock(StackProf).should_receive(:start).with_any_kw_args.once
                     flexmock(StackProf).should_receive(:stop).once
                     debug.stackprof_start
                     debug.stackprof_stop
                 end
                 it "disables the one_shot handler" do
-                    flexmock(StackProf).should_receive(:start).once
+                    flexmock(StackProf).should_receive(:start).with_any_kw_args.once
                     flexmock(StackProf).should_receive(:stop).once
                     debug.stackprof_start(one_shot: true)
                     debug.stackprof_stop

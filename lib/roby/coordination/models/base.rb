@@ -182,7 +182,7 @@ module Roby
 
                 # Declare that this fault response table should be active as long as
                 # this coordination model is
-                def use_fault_response_table(table_model, arguments = {})
+                def use_fault_response_table(table_model, **arguments)
                     arguments = table_model.validate_arguments(arguments)
                     used_fault_response_tables << [table_model, arguments]
                 end

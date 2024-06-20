@@ -14,7 +14,7 @@ module Roby
                 end
 
                 def as_plan
-                    @model.as_plan(@arguments)
+                    @model.as_plan(**@arguments)
                 end
             end
 

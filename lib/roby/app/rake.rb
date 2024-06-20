@@ -820,13 +820,21 @@ module Roby
             def self.define_rubocop(
                 junit: Rake.use_junit?, report_dir: Rake.report_dir
             )
-                require "rubocop/rake_task"
-                RuboCop::RakeTask.new do |t|
-                    if junit
-                        t.formatters << "junit"
-                        t.options << "-o" << "#{report_dir}/rubocop.junit.xml"
-                    end
+                options = []
+                if junit
+                    junit_output =
+                        File.join(report_dir, "#{report_dir}/rubocop.junit.xml")
+                    options.concat(["-f", "junit", "--out", junit_output])
                 end
+
+                ::Rake::Task.define_task "rubocop" do
+                    run_rubocop(*options)
+                end
+            end
+
+            def self.run_rubocop(*arguments, **options)
+                system(ENV["RUBOCOP_CMD"] || "rubocop", *arguments,
+                       exception: true, **options)
             end
         end
     end

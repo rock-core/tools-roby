@@ -3,6 +3,7 @@
 require "stackprof"
 require "rbtrace"
 require "objspace"
+require "roby/interface/core"
 
 module Roby
     module App
@@ -27,7 +28,7 @@ module Roby
                              else
                                  1000
                              end
-                StackProf.start(mode: mode, interval: interval, raw: raw)
+                StackProf.start({ mode: mode, interval: interval, raw: raw })
 
                 if one_shot && !cycles
                     cycles = 1
@@ -48,7 +49,7 @@ module Roby
                                     execution_engine.remove_propagation_handler(@cycle_counter_handler)
                                     @cycle_counter_handler = nil
                                 else
-                                    StackProf.start(mode: mode, interval: interval)
+                                    StackProf.start({ mode: mode, interval: interval })
                                 end
                             end
                         end
