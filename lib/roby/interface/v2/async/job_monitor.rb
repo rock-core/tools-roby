@@ -114,7 +114,7 @@ module Roby
 
                     # Returns the arguments that were passed to the action
                     def action_arguments
-                        task&.action_arguments if action_task?
+                        task.arguments[:action_arguments] if action_task?
                     end
 
                     # @api private

@@ -142,7 +142,7 @@ module Roby
             # This registers the mapping for the local process (local_id =>
             # local_object.droby_id), along with known siblings if provided
             def register_object(local_object, known_siblings = {})
-                register_siblings(local_object, local_id => local_object.droby_id)
+                register_siblings(local_object, { local_id => local_object.droby_id })
                 register_siblings(local_object, known_siblings)
             end
 
