@@ -115,9 +115,14 @@ module Roby
                 end
 
                 @marshallers = {}
+                @allowed_objects = Set.new
 
                 def self.allow_classes(*classes)
                     add_marshaller(*classes) { _2 }
+                end
+
+                def self.allow_objects(*objects)
+                    @allowed_objects.merge(objects)
                 end
 
                 def self.add_marshaller(*classes, &block)
@@ -160,6 +165,8 @@ module Roby
                     each_marshaller do |klass, block|
                         channel.add_marshaller(klass, &block)
                     end
+
+                    channel.allow_objects(*@allowed_objects)
                 end
 
                 # Convert a {Actions::Models::Action::Argument}
