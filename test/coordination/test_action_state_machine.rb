@@ -78,6 +78,8 @@ module Roby
                 start = task.current_task_child
                 assert_kind_of task_m, start
                 assert_equal Hash[id: :start], start.arguments
+                assert_equal "start_state",
+                             task.each_coordination_object.first.current_state.name
             end
 
             it "starting state can be overridden by passing start_state argument" do
@@ -104,6 +106,25 @@ module Roby
             end
 
             describe "transitions" do
+                it "register the state when transitioning" do
+                    state_machine "test" do
+                        depends_on(monitor = state(monitoring_task))
+                        start_state = state start_task
+                        next_state  = state next_task
+                        start(start_state)
+                        transition(start_state, monitor.success_event, next_state)
+                    end
+
+                    task = start_machine(action_m.test)
+                    monitor = plan.find_tasks.with_arguments(id: "monitoring").first
+                    execute do
+                        monitor.start!
+                        monitor.success_event.emit
+                    end
+                    assert_equal "next_state_state",
+                                 task.each_coordination_object.first.current_state.name
+                end
+
                 it "can transition using an event from a globally defined dependency" do
                     state_machine "test" do
                         depends_on(monitor = state(monitoring_task))
@@ -404,6 +425,26 @@ module Roby
                     start_machine_child(test_task)
                     execute { test_task.current_task_child.stop! }
                     assert_same 10, value
+                end
+
+                it "register the state when transitioning after a capture" do
+                    action_m = state_machine do
+                        start_state = state first
+                        start(start_state)
+
+                        arg = capture(start_state.stop_event)
+                        followup_state = state(self.followup(arg: arg))
+
+                        transition(start_state.stop_event, followup_state)
+                    end
+
+                    test_task = start_machine(action_m.test)
+                    assert_equal "start_state_state",
+                                 test_task.each_coordination_object.first.current_state.name
+                    start_machine_child(test_task)
+                    execute { test_task.current_task_child.stop! }
+                    assert_equal "followup_state_state",
+                                 test_task.each_coordination_object.first.current_state.name
                 end
 
                 it "passes captured event contexts as arguments to followup states" do

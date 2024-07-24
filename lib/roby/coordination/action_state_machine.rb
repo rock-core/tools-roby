@@ -47,6 +47,7 @@ module Roby
 
                 root_task.execute do
                     if start_state
+                        @current_state = start_state
                         instanciate_state(instance_for(start_state))
                     end
                 end
@@ -124,6 +125,7 @@ module Roby
             def instanciate_state_transition(task, new_state)
                 remove_current_task
                 instanciate_state(new_state)
+                @current_state = new_state
                 run_hook :on_transition, task, new_state
             end
         end
