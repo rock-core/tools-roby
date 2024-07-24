@@ -52,10 +52,10 @@ module Roby
                     # @return [Integer] the job ID
                     attr_reader :job_id
 
-                    # @return [Roby::Task] the job's main task
+                    # @return [Protocol::Task] the job's main task
                     attr_reader :task
 
-                    # @return [Roby::Task] the job's placeholder task
+                    # @return [Protocol::Task] the job's placeholder task
                     attr_reader :placeholder_task
 
                     # @return [Symbol] the job's current state
@@ -88,8 +88,9 @@ module Roby
                     end
 
                     def job_name
-                        args = task&.arguments
-                        (args[:job_name] if args) || action_name
+                        return unless task
+
+                        task.arguments[:job_name] || action_name
                     end
 
                     def action_task?
@@ -114,7 +115,7 @@ module Roby
 
                     # Returns the arguments that were passed to the action
                     def action_arguments
-                        task&.action_arguments if action_task?
+                        task.arguments[:action_arguments] if action_task?
                     end
 
                     # @api private
