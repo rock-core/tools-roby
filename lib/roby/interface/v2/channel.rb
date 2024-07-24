@@ -58,6 +58,7 @@ module Roby
                     @write_thread = nil
 
                     @marshallers = {}
+                    @allowed_objects = Set.new
                     @resolved_marshallers = {}
                     Protocol.setup_channel(self)
                 end
@@ -211,9 +212,19 @@ module Roby
 
                 None = Object.new
 
+                def allow_objects(*objects)
+                    @allowed_objects.merge(objects)
+                end
+
+                def allowed_object?(object)
+                    @allowed_objects.include?(object)
+                end
+
                 def marshal_filter_object(object)
                     marshalled = marshal_basic_object(object)
                     return marshalled if marshalled != None
+
+                    return object if allowed_object?(object)
 
                     if (marshaller = find_marshaller(object))
                         return marshaller[self, object]

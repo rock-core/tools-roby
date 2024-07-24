@@ -285,6 +285,13 @@ module Roby
                         assert_equal o, @channel.marshal_filter_object(o)
                     end
 
+                    it "returns any objects which has been allowed explicitly" do
+                        objects = [Class.new.new, Object.new]
+                        @channel.allow_objects(*objects)
+                        assert_equal objects,
+                                     @channel.marshal_filter_object(objects)
+                    end
+
                     it "allows setting up marshallers for specific classes" do
                         k = Class.new
                         o = k.new
