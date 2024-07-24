@@ -166,6 +166,35 @@ module Roby
                         assert_kind_of Protocol::VoidClass, arg_out.example
                     end
 
+                    it "marshals an exception object" do
+                        e =
+                            begin
+                                raise ArgumentError, "text"
+                            rescue ArgumentError => e
+                                e
+                            end
+
+                        @server.write_packet(e)
+                        ret = @client.read_packet
+                        assert_kind_of Protocol::Error, ret
+                        assert_equal "ArgumentError", ret.class_name
+                        assert_equal "text (ArgumentError)", ret.message
+                        assert_equal e.backtrace, ret.backtrace
+                    end
+
+                    it "normalizes the backtrace if it is nil" do
+                        # Known issue ... never could resolve it
+                        e = ArgumentError.exception("text")
+                        flexmock(e).should_receive(backtrace: nil)
+
+                        @server.write_packet(e)
+                        ret = @client.read_packet
+                        assert_kind_of Protocol::Error, ret
+                        assert_equal "ArgumentError", ret.class_name
+                        assert_equal "text (ArgumentError)", ret.message
+                        assert_equal [], ret.backtrace
+                    end
+
                     it "marshals an execution exception object" do
                         plan.add(parent = Task.new)
                         plan.add(child = Task.new)

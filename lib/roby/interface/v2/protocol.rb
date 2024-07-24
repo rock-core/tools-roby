@@ -242,10 +242,10 @@ module Roby
                 # @param [Exception] exception
                 # @return [Error]
                 def self.marshal_exception(_channel, exception)
-                    message = PP.pp(exception, +"")
+                    message = PP.pp(exception, +"").chomp
                     Error.new(
                         class_name: exception.class.name, message: message,
-                        backtrace: exception.backtrace
+                        backtrace: exception.backtrace || []
                     )
                 end
 
