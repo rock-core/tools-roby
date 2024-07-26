@@ -18,6 +18,106 @@ module Roby
                         Roby::Interface
                     end
 
+                    describe "#job_name" do
+                        it "returns a specified job name" do
+                            monitor = make_job_monitor_from_arguments(job_name: "test")
+                            assert_equal "test", monitor.job_name
+                        end
+
+                        it "returns the action name if there are no job names" do
+                            monitor = make_job_monitor_from_arguments(
+                                action_model: Protocol::ActionModel.new(name: "test")
+                            )
+                            assert_equal "test", monitor.job_name
+                        end
+
+                        it "returns nil for a task that is not an action task" do
+                            monitor = make_job_monitor_from_arguments
+                            assert_nil monitor.job_name
+                        end
+
+                        it "returns nil if there are no tasks" do
+                            monitor = JobMonitor.new(flexmock, 1)
+                            assert_nil monitor.job_name
+                        end
+                    end
+
+                    describe "#action_task?" do
+                        it "returns false if there are no tasks" do
+                            refute JobMonitor.new(flexmock, 1).action_task?
+                        end
+
+                        it "returns true if the task has an action model" do
+                            monitor = make_job_monitor_from_arguments(action_model: "test")
+                            assert monitor.action_task?
+                        end
+
+                        it "returns false if the task has no model" do
+                            monitor = make_job_monitor_from_arguments
+                            refute monitor.action_task?
+                        end
+                    end
+
+                    describe "#action_model" do
+                        it "returns nil if there are no tasks" do
+                            assert_nil JobMonitor.new(flexmock, 1).action_model
+                        end
+
+                        it "returns nil if the task has no model" do
+                            monitor = make_job_monitor_from_arguments
+                            assert_nil monitor.action_model
+                        end
+
+                        it "returns the action model" do
+                            monitor = make_job_monitor_from_arguments(action_model: "test")
+                            assert_equal "test", monitor.action_model
+                        end
+                    end
+
+                    describe "#action_name" do
+                        it "returns nil if there are no tasks" do
+                            assert_nil JobMonitor.new(flexmock, 1).action_name
+                        end
+
+                        it "returns nil if the task has no model" do
+                            monitor = make_job_monitor_from_arguments
+                            assert_nil monitor.action_name
+                        end
+
+                        it "returns the action model's name" do
+                            monitor = make_job_monitor_from_arguments(
+                                action_model: Protocol::ActionModel.new(name: "test")
+                            )
+                            assert_equal "test", monitor.action_name
+                        end
+                    end
+
+                    describe "#action_arguments" do
+                        it "returns nil if there are no tasks" do
+                            assert_nil JobMonitor.new(flexmock, 1).action_arguments
+                        end
+
+                        it "returns nil if the task has no model" do
+                            monitor = make_job_monitor_from_arguments
+                            assert_nil monitor.action_arguments
+                        end
+
+                        it "returns the action arguments if the task is an action task" do
+                            monitor = make_job_monitor_from_arguments(
+                                action_model: Protocol::ActionModel.new(name: "test"),
+                                action_arguments: { some: "args" }
+                            )
+                            assert_equal({ some: "args" }, monitor.action_arguments)
+                        end
+                    end
+
+                    def make_job_monitor_from_arguments(**arguments)
+                        JobMonitor.new(
+                            flexmock, 1,
+                            task: Protocol::Task.new(arguments: arguments)
+                        )
+                    end
+
                     describe "state management" do
                         it "has none of the predicates set "\
                            "when initialized in REACHABLE state" do
