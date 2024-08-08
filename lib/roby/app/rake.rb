@@ -112,6 +112,10 @@ module Roby
                 ENV["ROBY_TEST_COVERAGE"] == "1"
             end
 
+            def self.report_sync_mutex
+                @report_sync_mutex ||= Mutex.new
+            end
+
             # Rake task to run the Roby tests
             #
             # To use, add the following to your Rakefile:
@@ -278,23 +282,29 @@ module Roby
                     end
 
                     desc "run tests for all known robots"
-                    task "#{task_name}:all-robots", [:keep_going] do |t, args|
+                    task "#{task_name}:all-robots",
+                         [:keep_going, :synchronize_output] do |t, args|
                         failures = []
                         keep_going = args.fetch(:keep_going, "1") == "1"
+                        synchronize_output = args.fetch(:synchronize_output, "1") == "1"
                         each_robot do |robot_name, robot_type|
                             coverage_name = "#{task_name}:all-robots:"\
                                             "#{robot_name}-#{robot_type}"
-                            result = run_roby_test(
+                            result, output = run_roby_test(
                                 "-r", "#{robot_name},#{robot_type}",
                                 coverage_name: coverage_name,
-                                report_name: "#{robot_name}:#{robot_type}"
+                                report_name: "#{robot_name}:#{robot_type}",
+                                capture_output: synchronize_output
                             )
+                            write_output_sync(output) if synchronize_output
 
                             unless result
                                 failures << [robot_name, robot_type]
+
                                 handle_test_failures(failures) unless keep_going
                             end
                         end
+
 
                         handle_test_failures(failures)
                     end
@@ -313,6 +323,12 @@ module Roby
                     else
                         desc "run all robot tests"
                         task task_name => "#{task_name}:all-robots"
+                    end
+                end
+
+                def write_output_sync(output)
+                    Rake.report_sync_mutex.synchronize do
+                        puts output
                     end
                 end
 
@@ -342,7 +358,8 @@ module Roby
                 # Path to the JUnit/Rubocop reports (if enabled)
                 attr_accessor :report_dir
 
-                def run_roby_test(*args, report_name: "report", coverage_name: "roby")
+                def run_roby_test(*args, report_name: "report", coverage_name: "roby",
+                    capture_output: false)
                     args += excludes.flat_map do |pattern|
                         ["--exclude", pattern]
                     end
@@ -371,21 +388,37 @@ module Roby
                     args += test_files.map(&:to_s)
 
                     puts "Running roby test #{args.join(' ')}"
-                    run_roby("test", *args)
+                    run_roby("test", *args, capture_output: capture_output)
                 end
 
-                def run_roby(*args)
+                def run_roby(*args, capture_output: false)
                     roby_bin = File.expand_path(
                         File.join("..", "..", "..", "bin", "roby"),
                         __dir__
                     )
-                    pid = spawn(Gem.ruby, roby_bin, *args)
-                    begin
-                        _, status = Process.waitpid2(pid)
-                        status.success?
-                    rescue Interrupt
-                        Process.kill "TERM", pid
-                        Process.waitpid(pid)
+                    kw_args = { err: :out }
+                    if capture_output
+                        stdout_r, stdout_w = IO.pipe
+                        kw_args[:out] = stdout_w
+                    end
+                    pid = spawn(Gem.ruby, roby_bin, *args, **kw_args)
+                    stdout_w&.close
+
+                    success =
+                        begin
+                            _, status = Process.waitpid2(pid)
+                            status.success?
+                        rescue Interrupt
+                            Process.kill "TERM", pid
+                            Process.waitpid(pid)
+                            return
+                        end
+                    if capture_output
+                        output = stdout_r.read
+                        stdout_r.close
+                        [success, output]
+                    else
+                        [success]
                     end
                 end
 
