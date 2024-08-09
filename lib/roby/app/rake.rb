@@ -281,30 +281,40 @@ module Roby
                         end
                     end
 
+                    test_args = %i[keep_going synchronize_output omit_tests_success]
+
                     desc "run tests for all known robots"
-                    task "#{task_name}:all-robots",
-                         [:keep_going, :synchronize_output] do |t, args|
+                    task "#{task_name}:all-robots", test_args do |t, args|
                         failures = []
                         keep_going = args.fetch(:keep_going, "1") == "1"
-                        synchronize_output = args.fetch(:synchronize_output, "1") == "1"
+                        synchronize_output = args.fetch(:synchronize_output, "0") == "1"
+                        omit_tests_success = args.fetch(:omit_tests_success, "0") == "1"
+                        capture_output = synchronize_output || omit_tests_success
                         each_robot do |robot_name, robot_type|
                             coverage_name = "#{task_name}:all-robots:"\
                                             "#{robot_name}-#{robot_type}"
-                            result, output = run_roby_test(
+                            success, output = run_roby_test(
                                 "-r", "#{robot_name},#{robot_type}",
                                 coverage_name: coverage_name,
                                 report_name: "#{robot_name}:#{robot_type}",
-                                capture_output: synchronize_output
+                                capture_output: capture_output
                             )
-                            write_output_sync(output) if synchronize_output
 
-                            unless result
+                            if success
+                                puts "\n#{robot_name}:#{robot_type} tests succeeded.\n"
+                            end
+                            if capture_output
+                                write_captured_output(
+                                    success, output, synchronize_output,
+                                    omit_tests_success
+                                )
+                            end
+
+                            unless success
                                 failures << [robot_name, robot_type]
-
                                 handle_test_failures(failures) unless keep_going
                             end
                         end
-
 
                         handle_test_failures(failures)
                     end
@@ -322,13 +332,23 @@ module Roby
                         task task_name => "#{task_name}:all"
                     else
                         desc "run all robot tests"
-                        task task_name => "#{task_name}:all-robots"
+                        task task_name, test_args => "#{task_name}:all-robots"
                     end
                 end
 
-                def write_output_sync(output)
+                def write_captured_output_sync(success, output, omit_tests_success)
                     Rake.report_sync_mutex.synchronize do
-                        puts output
+                        puts output unless omit_tests_success && success
+                    end
+                end
+
+                def write_captured_output(
+                    success, output, synchronize_output, omit_tests_success
+                )
+                    if synchronize_output
+                        write_captured_output_sync(success, output, omit_tests_success)
+                    else
+                        puts output unless omit_tests_success && success
                     end
                 end
 
@@ -400,6 +420,7 @@ module Roby
                     if capture_output
                         stdout_r, stdout_w = IO.pipe
                         kw_args[:out] = stdout_w
+                        kw_args[:err] = stdout_w
                     end
                     pid = spawn(Gem.ruby, roby_bin, *args, **kw_args)
                     stdout_w&.close
