@@ -301,7 +301,7 @@ module Roby
                             )
 
                             if success
-                                puts "\n#{robot_name}:#{robot_type} tests succeeded.\n"
+                                puts "#{robot_name}:#{robot_type} tests succeeded.\n\n"
                             end
                             if capture_output
                                 write_captured_output(
@@ -425,6 +425,14 @@ module Roby
                     pid = spawn(Gem.ruby, roby_bin, *args, **kw_args)
                     stdout_w&.close
 
+                    if capture_output
+                        output = []
+                        while (output_fragment = stdout_r.read)
+                            output << output_fragment
+                        end
+                        output = output.join ""
+                    end
+
                     success =
                         begin
                             _, status = Process.waitpid2(pid)
@@ -435,8 +443,6 @@ module Roby
                             return
                         end
                     if capture_output
-                        output = stdout_r.read
-                        stdout_r.close
                         [success, output]
                     else
                         [success]
