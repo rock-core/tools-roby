@@ -120,54 +120,54 @@ exception = Roby.display_exception do
     if Roby.app.public_logs?
         STDOUT.puts "Test logs are saved in #{Roby.app.log_dir}"
     end
+
+    test_files = test_files.flat_map do |file|
+        next file unless file =~ /ROBOT/
+
+        Roby.app.robot_configuration_names.map do |replacement|
+            resolved_file = File.join(Roby.app.app_dir, file.gsub("ROBOT", replacement))
+            resolved_file if File.file?(resolved_file)
+        end.compact
+    end
+
+    test_files = test_files.flat_map do |arg|
+        Dir.enum_for(:glob, arg).to_a
+    end
+
+    if test_files.empty?
+        test_files = discover_test_files(all: all, only_self: only_self, base_dir: base_dir)
+    elsif force_discovery
+        test_files += discover_test_files(all: all, only_self: only_self, base_dir: base_dir)
+    end
+
+    if list_tests
+        puts "Would load #{test_files.size} test files"
+        test_files.each do |path|
+            puts "  #{path}"
+        end
+
+        all_existing_tests = Roby.app.find_dirs("test", order: :specific_first, all: !only_self).inject(Set.new) do |all, dir|
+            all.merge(Find.enum_for(:find, dir).find_all { |f| f =~ /\/test_.*\.rb$/ && File.file?(f) }.to_set)
+        end
+        not_run = (all_existing_tests - test_files.to_set)
+        unless not_run.empty?
+            puts "\nWould NOT load #{not_run.size} tests"
+            not_run.to_a.sort.each do |not_loaded|
+                puts "  #{not_loaded}"
+            end
+        end
+        exit 0
+    end
+
+    test_files.sort.each do |arg|
+        next if excluded_patterns.any? { |pattern| File.fnmatch?(pattern, arg) }
+
+        require arg
+    end
+
     passed =
         begin
             Roby.app.prepare
-
-            test_files = test_files.flat_map do |file|
-                next file unless file =~ /ROBOT/
-
-                Roby.app.robot_configuration_names.map do |replacement|
-                    resolved_file = File.join(Roby.app.app_dir, file.gsub("ROBOT", replacement))
-                    resolved_file if File.file?(resolved_file)
-                end.compact
-            end
-
-            test_files = test_files.flat_map do |arg|
-                Dir.enum_for(:glob, arg).to_a
-            end
-
-            if test_files.empty?
-                test_files = discover_test_files(all: all, only_self: only_self, base_dir: base_dir)
-            elsif force_discovery
-                test_files += discover_test_files(all: all, only_self: only_self, base_dir: base_dir)
-            end
-
-            if list_tests
-                puts "Would load #{test_files.size} test files"
-                test_files.each do |path|
-                    puts "  #{path}"
-                end
-
-                all_existing_tests = Roby.app.find_dirs("test", order: :specific_first, all: !only_self).inject(Set.new) do |all, dir|
-                    all.merge(Find.enum_for(:find, dir).find_all { |f| f =~ /\/test_.*\.rb$/ && File.file?(f) }.to_set)
-                end
-                not_run = (all_existing_tests - test_files.to_set)
-                unless not_run.empty?
-                    puts "\nWould NOT load #{not_run.size} tests"
-                    not_run.to_a.sort.each do |not_loaded|
-                        puts "  #{not_loaded}"
-                    end
-                end
-                exit 0
-            end
-
-            test_files.sort.each do |arg|
-                next if excluded_patterns.any? { |pattern| File.fnmatch?(pattern, arg) }
-
-                require arg
-            end
-
             Roby::Test::MinitestPlugin.register
             Minitest.run(testrb_args)
         ensure
