@@ -465,7 +465,6 @@ module Roby
                         File.join("..", "..", "..", "bin", "roby"),
                         __dir__
                     )
-                    kw_args = { err: :out }
                     capture_output = synchronize_output || omit_success
                     if capture_output
                         pid, read_pipe = spawn_process_capturing_output(roby_bin, *args)
@@ -635,12 +634,20 @@ module Roby
                 class Failed < RuntimeError; end
 
                 def define
+                    test_args = %i[keep_going synchronize_output omit_tests_success]
+
                     desc "run the tests for configuration #{robot_name}:#{robot_type}"
-                    task task_name do
+                    task task_name, test_args  do |t, args|
+                        keep_going = args.fetch(:keep_going, "1") == "1"
+                        synchronize_output = args.fetch(:synchronize_output, "0") == "1"
+                        omit_tests_success = args.fetch(:omit_tests_success, "0") == "1"
+
                         result = run_roby_test(
                             "-r", "#{robot_name},#{robot_type}",
                             coverage_name: task_name,
-                            report_name: "#{robot_name}:#{robot_type}"
+                            report_name: "#{robot_name}:#{robot_type}",
+                            synchronize_output: synchronize_output,
+                            omit_tests_success: omit_tests_success
                         )
                         unless result
                             raise Failed.new("failed to run tests for "\
@@ -666,7 +673,70 @@ module Roby
                 # Path to the JUnit/Rubocop reports (if enabled)
                 attr_accessor :report_dir
 
-                def run_roby_test(*args, report_name: "report", coverage_name: "roby")
+                def write_captured_output_sync(success, output, omit_tests_success)
+                    Rake.report_sync_mutex.synchronize do
+                        puts output unless omit_tests_success && success
+                    end
+                end
+
+                def write_captured_output(
+                    success, output, synchronize_output, omit_tests_success
+                )
+                    if synchronize_output
+                        write_captured_output_sync(success, output, omit_tests_success)
+                    else
+                        puts output unless omit_tests_success && success
+                    end
+                end
+
+                def spawn_process_capturing_output(bin, *args)
+                    stdout_r, stdout_w = IO.pipe
+                    pid = spawn(Gem.ruby, bin, *args, out: stdout_w, err: stdout_w)
+                    stdout_w.close
+                    [pid, stdout_r]
+                end
+
+                def read_captured_output_from_pipe(pid, read_pipe)
+                    output = []
+                    begin
+                        while (output_fragment = read_pipe.read(512))
+                            output << output_fragment
+                        end
+                        output.join ""
+                    rescue Interrupt
+                        Process.kill "TERM", pid
+                        Process.waitpid pid
+                        return
+                    end
+                end
+
+                def wait_process_with_captured_output(
+                    pid, read_pipe, synchronize_output:, omit_success:
+                )
+                    output = read_captured_output_from_pipe(pid, read_pipe)
+                    _, status = Process.waitpid2(pid)
+                    success = status.success?
+                    write_captured_output(
+                        success, output, synchronize_output, omit_success
+                    )
+                    puts "#{task_name} tests succeeded.\n\n" if success
+                    success
+                end
+
+                def spawn_process(bin, *args)
+                    pid = spawn(Gem.ruby, bin, *args)
+                    begin
+                        _, status = Process.waitpid2(pid)
+                        status.success?
+                    rescue Interrupt
+                        Process.kill "TERM", pid
+                        Process.waitpid pid
+                        return
+                    end
+                end
+
+                def run_roby_test(*args, report_name: "report", coverage_name: "roby",
+                    synchronize_output: false, omit_tests_success: false)
                     args += excludes.flat_map do |pattern|
                         ["--exclude", pattern]
                     end
@@ -695,21 +765,26 @@ module Roby
                     args += test_files.map(&:to_s)
 
                     puts "Running roby test #{args.join(' ')}"
-                    run_roby("test", *args)
+                    run_roby("test", *args,
+                        synchronize_output: synchronize_output,
+                        omit_tests_success: omit_tests_success)
                 end
 
-                def run_roby(*args)
+                def run_roby(*args, synchronize_output: false, omit_tests_success: false)
                     roby_bin = File.expand_path(
                         File.join("..", "..", "..", "bin", "roby"),
                         __dir__
                     )
-                    pid = spawn(Gem.ruby, roby_bin, *args)
-                    begin
-                        _, status = Process.waitpid2(pid)
-                        status.success?
-                    rescue Interrupt
-                        Process.kill "TERM", pid
-                        Process.waitpid(pid)
+                    capture_output = synchronize_output || omit_tests_success
+                    if capture_output
+                        pid, read_pipe = spawn_process_capturing_output(roby_bin, *args)
+                        wait_process_with_captured_output(
+                            pid, read_pipe,
+                            synchronize_output: synchronize_output,
+                            omit_success: omit_tests_success
+                        )
+                    else
+                        spawn_process(roby_bin, *args)
                     end
                 end
             end
