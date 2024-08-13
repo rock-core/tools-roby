@@ -393,7 +393,7 @@ module Roby
                         end
                         output.join ""
                     rescue Interrupt
-                        Process.kill "TERM", pid
+                        Process.kill "INT", pid
                         Process.waitpid pid
                     end
                 end
@@ -417,7 +417,7 @@ module Roby
                         _, status = Process.waitpid2(pid)
                         status.success?
                     rescue Interrupt
-                        Process.kill "TERM", pid
+                        Process.kill "INT", pid
                         Process.waitpid pid
                     end
                 end
@@ -699,7 +699,7 @@ module Roby
                         end
                         output.join ""
                     rescue Interrupt
-                        Process.kill "TERM", pid
+                        Process.kill "INT", pid
                         Process.waitpid pid
                     end
                 end
@@ -723,7 +723,7 @@ module Roby
                         _, status = Process.waitpid2(pid)
                         status.success?
                     rescue Interrupt
-                        Process.kill "TERM", pid
+                        Process.kill "INT", pid
                         Process.waitpid pid
                     end
                 end
