@@ -319,8 +319,6 @@ module Roby
                     task "#{task_name}:all", test_args do |t, args|
                         synchronize_output = args.fetch(:synchronize_output, "0") == "1"
                         omit_tests_success = args.fetch(:omit_tests_success, "0") == "1"
-                        pp synchronize_output
-                        pp omit_tests_success
                         unless run_roby_test(coverage_name: "all",
                                              synchronize_output: synchronize_output,
                                              omit_success: omit_tests_success)
@@ -397,7 +395,6 @@ module Roby
                     rescue Interrupt
                         Process.kill "TERM", pid
                         Process.waitpid pid
-                        return
                     end
                 end
 
@@ -422,7 +419,6 @@ module Roby
                     rescue Interrupt
                         Process.kill "TERM", pid
                         Process.waitpid pid
-                        return
                     end
                 end
 
@@ -637,8 +633,7 @@ module Roby
                     test_args = %i[keep_going synchronize_output omit_tests_success]
 
                     desc "run the tests for configuration #{robot_name}:#{robot_type}"
-                    task task_name, test_args  do |t, args|
-                        keep_going = args.fetch(:keep_going, "1") == "1"
+                    task task_name, test_args do |t, args|
                         synchronize_output = args.fetch(:synchronize_output, "0") == "1"
                         omit_tests_success = args.fetch(:omit_tests_success, "0") == "1"
 
@@ -706,7 +701,6 @@ module Roby
                     rescue Interrupt
                         Process.kill "TERM", pid
                         Process.waitpid pid
-                        return
                     end
                 end
 
@@ -731,7 +725,6 @@ module Roby
                     rescue Interrupt
                         Process.kill "TERM", pid
                         Process.waitpid pid
-                        return
                     end
                 end
 
@@ -766,8 +759,8 @@ module Roby
 
                     puts "Running roby test #{args.join(' ')}"
                     run_roby("test", *args,
-                        synchronize_output: synchronize_output,
-                        omit_tests_success: omit_tests_success)
+                             synchronize_output: synchronize_output,
+                             omit_tests_success: omit_tests_success)
                 end
 
                 def run_roby(*args, synchronize_output: false, omit_tests_success: false)
