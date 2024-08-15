@@ -44,23 +44,29 @@ module Roby
                 server&.close
             end
 
-            def run_command_and_stop(*args, fail_on_error: true)
-                cmd = run_command(*args)
+            def run_command_and_stop(cmd, fail_on_error: true, exit_timeout: 45, **opts)
+                opts[:exit_timeout] ||= exit_timeout
+                cmd = run_command(cmd, **opts)
                 cmd.stop
                 assert_command_finished_successfully(cmd) if fail_on_error
                 cmd
             end
 
-            def run_command(*args)
-                @aruba_api.run_command(*args)
+            def run_command(cmd, exit_timeout: 45, **opts)
+                opts[:exit_timeout] ||= exit_timeout
+                @aruba_api.run_command(cmd, opts)
             end
 
-            def run_roby_and_stop(cmd, *args, fail_on_error: true, **opts)
+            def run_roby_and_stop(
+                cmd, *args, fail_on_error: true, exit_timeout: 45, **opts
+            )
+                opts[:exit_timeout] ||= exit_timeout
                 run_command_and_stop("#{Gem.ruby} #{roby_bin} #{cmd}", *args,
                                      fail_on_error: fail_on_error, **opts)
             end
 
-            def run_roby(cmd, *args, fail_on_error: true, **opts)
+            def run_roby(cmd, *args, fail_on_error: true, exit_timeout: 45, **opts)
+                opts[:exit_timeout] ||= exit_timeout
                 run_command("#{Gem.ruby} #{roby_bin} #{cmd}", *args,
                             fail_on_error: fail_on_error, **opts)
             end
