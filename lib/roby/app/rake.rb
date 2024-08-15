@@ -337,8 +337,10 @@ module Roby
                 end
 
                 def write_captured_output_sync(success, output, omit_tests_success)
+                    return if omit_tests_success && success
+
                     Rake.report_sync_mutex.synchronize do
-                        puts output unless omit_tests_success && success
+                        puts output
                     end
                 end
 
@@ -669,8 +671,10 @@ module Roby
                 attr_accessor :report_dir
 
                 def write_captured_output_sync(success, output, omit_tests_success)
+                    return if omit_tests_success && success
+
                     Rake.report_sync_mutex.synchronize do
-                        puts output unless omit_tests_success && success
+                        puts output
                     end
                 end
 
