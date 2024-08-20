@@ -53,6 +53,7 @@ module Roby
                         assert_raises(REST::Server::Timeout) do
                             @server.start(wait_timeout: 0.01)
                         end
+                        @server.stop
                     end
                 end
 
