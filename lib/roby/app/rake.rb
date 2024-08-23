@@ -321,7 +321,8 @@ module Roby
                         omit_tests_success = args.fetch(:omit_tests_success, "0") == "1"
                         unless run_roby_test(coverage_name: "all",
                                              synchronize_output: synchronize_output,
-                                             omit_success: omit_tests_success)
+                                             omit_success: omit_tests_success,
+                                             report_name: task_name)
                             raise Failed.new("failed to run tests"),
                                   "failed to run tests"
                         end
@@ -336,21 +337,24 @@ module Roby
                     end
                 end
 
-                def write_captured_output_sync(success, output, omit_tests_success)
-                    return if omit_tests_success && success
-
-                    Rake.report_sync_mutex.synchronize do
-                        puts output
-                    end
-                end
-
-                def write_captured_output(
-                    success, output, synchronize_output, omit_tests_success
+                def write_captured_output( # rubocop:disable Metrics/ParameterLists
+                    success, output, synchronize_output, omit_tests_success, *args,
+                    report_name: "report"
                 )
                     if synchronize_output
-                        write_captured_output_sync(success, output, omit_tests_success)
+                        Rake.report_sync_mutex.synchronize do
+                            write_captured_output(
+                                success, output, false, omit_tests_success, *args,
+                                report_name: report_name
+                            )
+                        end
                     else
-                        puts output unless omit_tests_success && success
+                        puts "Running #{report_name}: roby #{args.join(' ')}"
+                        if omit_tests_success && success
+                            puts "#{report_name} tests succeeded."
+                        else
+                            puts output
+                        end
                     end
                 end
 
@@ -361,7 +365,7 @@ module Roby
                           .map { |name, type| "#{name}:#{type}" }
                           .join(", ")
                     raise Failed.new("failed to run the following test(s): "\
-                                     "#{msg}"), "failed ot run tests"
+                                     "#{msg}"), "failed to run tests"
                 end
 
                 def task_name_for_robot(robot_name, robot_type)
@@ -400,16 +404,17 @@ module Roby
                     end
                 end
 
-                def wait_process_with_captured_output(
-                    pid, read_pipe, synchronize_output:, omit_success:
+                def wait_process_with_captured_output( # rubocop:disable Metrics/ParameterLists
+                    pid, read_pipe, *args, synchronize_output:, omit_success:,
+                    report_name: "report"
                 )
                     output = read_captured_output_from_pipe(pid, read_pipe)
                     _, status = Process.waitpid2(pid)
                     success = status.success?
                     write_captured_output(
-                        success, output, synchronize_output, omit_success
+                        success, output, *args, synchronize_output, omit_success,
+                        report_name: report_name
                     )
-                    puts "#{task_name} tests succeeded.\n\n" if success
                     success
                 end
 
@@ -453,12 +458,13 @@ module Roby
 
                     args += test_files.map(&:to_s)
 
-                    puts "Running roby test #{args.join(' ')}"
-                    run_roby("test", *args, synchronize_output: synchronize_output,
-                                            omit_success: omit_success)
+                    run_roby("test", *args,
+                             synchronize_output: synchronize_output,
+                             omit_success: omit_success, report_name: report_name)
                 end
 
-                def run_roby(*args, synchronize_output: false, omit_success: false)
+                def run_roby(*args, synchronize_output: false, omit_success: false,
+                    report_name: "report")
                     roby_bin = File.expand_path(
                         File.join("..", "..", "..", "bin", "roby"),
                         __dir__
@@ -467,11 +473,12 @@ module Roby
                     if capture_output
                         pid, read_pipe = spawn_process_capturing_output(roby_bin, *args)
                         wait_process_with_captured_output(
-                            pid, read_pipe,
+                            pid, read_pipe, *args,
                             synchronize_output: synchronize_output,
-                            omit_success: omit_success
+                            omit_success: omit_success, report_name: report_name
                         )
                     else
+                        puts "Running #{report_name}: roby #{args.join(' ')}"
                         spawn_process(roby_bin, *args)
                     end
                 end
@@ -670,21 +677,24 @@ module Roby
                 # Path to the JUnit/Rubocop reports (if enabled)
                 attr_accessor :report_dir
 
-                def write_captured_output_sync(success, output, omit_tests_success)
-                    return if omit_tests_success && success
-
-                    Rake.report_sync_mutex.synchronize do
-                        puts output
-                    end
-                end
-
-                def write_captured_output(
-                    success, output, synchronize_output, omit_tests_success
+                def write_captured_output( # rubocop:disable Metrics/ParameterLists
+                    success, output, synchronize_output, omit_tests_success, *args,
+                    report_name: "report"
                 )
                     if synchronize_output
-                        write_captured_output_sync(success, output, omit_tests_success)
+                        Rake.report_sync_mutex.synchronize do
+                            write_captured_output(
+                                success, output, false, omit_tests_success, *args,
+                                report_name: report_name
+                            )
+                        end
                     else
-                        puts output unless omit_tests_success && success
+                        puts "Running #{report_name}: roby #{args.join(' ')}"
+                        if omit_tests_success && success
+                            puts "#{report_name} tests succeeded."
+                        else
+                            puts output
+                        end
                     end
                 end
 
@@ -708,16 +718,17 @@ module Roby
                     end
                 end
 
-                def wait_process_with_captured_output(
-                    pid, read_pipe, synchronize_output:, omit_success:
+                def wait_process_with_captured_output( # rubocop:disable Metrics/ParameterLists
+                    pid, read_pipe, *args, synchronize_output:, omit_success:,
+                    report_name: "report"
                 )
                     output = read_captured_output_from_pipe(pid, read_pipe)
                     _, status = Process.waitpid2(pid)
                     success = status.success?
                     write_captured_output(
-                        success, output, synchronize_output, omit_success
+                        success, output, synchronize_output, omit_success, *args,
+                        report_name: report_name
                     )
-                    puts "#{task_name} tests succeeded.\n\n" if success
                     success
                 end
 
@@ -760,14 +771,14 @@ module Roby
                     end
 
                     args += test_files.map(&:to_s)
-
-                    puts "Running roby test #{args.join(' ')}"
                     run_roby("test", *args,
                              synchronize_output: synchronize_output,
-                             omit_tests_success: omit_tests_success)
+                             omit_tests_success: omit_tests_success,
+                             report_name: report_name)
                 end
 
-                def run_roby(*args, synchronize_output: false, omit_tests_success: false)
+                def run_roby(*args, synchronize_output: false, omit_tests_success: false,
+                    report_name: "report")
                     roby_bin = File.expand_path(
                         File.join("..", "..", "..", "bin", "roby"),
                         __dir__
@@ -778,9 +789,11 @@ module Roby
                         wait_process_with_captured_output(
                             pid, read_pipe,
                             synchronize_output: synchronize_output,
-                            omit_success: omit_tests_success
+                            omit_success: omit_tests_success,
+                            report_name: report_name
                         )
                     else
+                        puts "Running #{report_name}: roby #{args.join(' ')}"
                         spawn_process(roby_bin, *args)
                     end
                 end
