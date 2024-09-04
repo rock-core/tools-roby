@@ -25,6 +25,7 @@
   <depend package="rgl" />
   <depend package="thor" />
   <depend package="autorespawn" optional="1" />
+  <depend package="irb" />
 
   <depend package="qtruby" optional='1' />
   <depend package="graphviz" optional='1' />
