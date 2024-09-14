@@ -695,6 +695,11 @@ module Roby
                 raise_framework_errors || error.kind_of?(SignalException)
             end
             if error
+                if Roby.app.display_all_threads_state_on_abort?
+                    fatal "State of all running threads:"
+                    Roby.log_all_threads_backtraces(self, :fatal)
+                end
+
                 raise error, "in #{source}: #{error.message}", error.backtrace
             end
         end

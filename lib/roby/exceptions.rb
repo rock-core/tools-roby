@@ -425,9 +425,7 @@ module Roby
         logger.send level, color("= Backtrace", :bold, :red)
 
         backtrace = e.backtrace
-        if filter
-            backtrace = filter_backtrace(backtrace)
-        end
+        backtrace = filter_backtrace(backtrace) if filter
         if !backtrace || backtrace.empty?
             logger.send level, color("= No backtrace", :bold, :red)
         else
@@ -440,6 +438,23 @@ module Roby
             e.original_exceptions.each do |orig_e|
                 log_exception_with_backtrace(orig_e, logger, level, with_original_exceptions: true)
             end
+        end
+    end
+
+    def self.log_callers(callers, logger, level)
+        logger = logger.logger if logger.respond_to?(:logger)
+
+        logger.nest(2, level) do
+            callers.each { |line| logger.send(level, line) }
+        end
+    end
+
+    def self.log_all_threads_backtraces(logger, level)
+        current = Thread.current
+        Thread.list.each do |thr|
+            current = " CURRENT" if current == thr
+            logger.send level, "Thread #{thr}#{current}"
+            log_callers(thr.backtrace, logger, level)
         end
     end
 
