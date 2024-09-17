@@ -3,6 +3,7 @@
 require "minitest/spec"
 require "roby/test/assertions"
 require "flexmock/minitest"
+require "flexmock/version"
 require "timecop"
 
 # simplecov must be loaded FIRST. Only the files required after it gets loaded
@@ -305,7 +306,16 @@ module Roby
 
         # Use to call the original method on a partial mock
         def flexmock_invoke_original(object, method, *args, &block)
-            object.instance_variable_get(:@flexmock_proxy).proxy.flexmock_invoke_original(method, args, &block)
+            if FlexMock::VERSION >= "3.0.0"
+                object.instance_variable_get(:@flexmock_proxy)
+                      .proxy.flexmock_invoke_original(method, args, {}, block)
+            elsif FlexMock::VERSION >= "2.4.0"
+                object.instance_variable_get(:@flexmock_proxy)
+                      .proxy.flexmock_invoke_original(method, args, block)
+            else
+                object.instance_variable_get(:@flexmock_proxy)
+                      .proxy.flexmock_invoke_original(method, *args, &block)
+            end
         end
 
         # The list of children started using #remote_process
