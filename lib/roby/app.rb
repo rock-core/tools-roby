@@ -844,6 +844,9 @@ module Roby
         # The default is yes
         attr_predicate :shell_abort_on_exception?, true
 
+        # Display the backtrace of all running threads on abort
+        attr_predicate :display_all_threads_state_on_abort?, true
+
         def initialize(plan: ExecutablePlan.new)
             @plan = plan
             @argv_set = []
@@ -887,6 +890,8 @@ module Roby
             @rest_interface = nil
             @rest_interface_host = nil
             @rest_interface_port = Interface::DEFAULT_REST_PORT
+
+            @display_all_threads_state_on_abort = true
 
             @automatic_testing = true
             @registered_exceptions = []

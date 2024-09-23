@@ -5,10 +5,14 @@ require "./test/mockups/tasks"
 
 module Roby
     describe ExecutionEngine do
+        before do
+            @display_all_threads_state_on_abort = app.display_all_threads_state_on_abort?
+            app.display_all_threads_state_on_abort = false
+        end
+
         after do
-            if @engine_thread&.alive?
-                stop_engine_in_thread
-            end
+            app.display_all_threads_state_on_abort = @display_all_threads_state_on_abort
+            stop_engine_in_thread if @engine_thread&.alive?
         end
 
         describe "#scheduler=" do
@@ -572,6 +576,7 @@ module Roby
                     end
                 end
             end
+
             it "raises on the downmost call if called recursively" do
                 flexmock(execution_engine).should_receive(:fatal).with("Application error in inside").once
                 recorder = flexmock
@@ -605,6 +610,21 @@ module Roby
                     end
                 end
                 assert_equal ["Application error in inside"], log_message
+            end
+
+            it "optionally displays all threads states" do
+                app.display_all_threads_state_on_abort = true
+                logs = capture_log(execution_engine.logger, :fatal) do
+                    assert_raises(error_m, display_exceptions: true) do
+                        execution_engine.gather_framework_errors "test" do
+                            execution_engine.add_framework_error(error_m.exception, "test")
+                        end
+                    end
+                end
+                matching_line = logs.find do |line|
+                    /#{Thread.current} CURRENT/.match?(line)
+                end
+                assert matching_line
             end
 
             describe "raise_caught_exceptions: false" do
