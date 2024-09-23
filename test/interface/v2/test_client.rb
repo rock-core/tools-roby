@@ -241,6 +241,27 @@ module Roby
                 end
 
                 describe "command batches" do
+                    it "responds to existing actions bang methods" do
+                        interface.should_receive(actions: [stub_action("Test")])
+                        batch = open_client.create_batch
+                        assert batch.respond_to?(:Test!)
+                    end
+
+                    it "does not respond to bang methods that are not existing actions" do
+                        batch = open_client.create_batch
+                        refute batch.respond_to?(:does_not_exist!)
+                    end
+
+                    it "does not respond to non-existing methods" do
+                        batch = open_client.create_batch
+                        refute batch.respond_to?(:does_not_exist)
+                    end
+
+                    it "responds to its own methods" do
+                        batch = open_client.create_batch
+                        assert batch.respond_to?(:kill_job)
+                    end
+
                     describe "nominal cases" do
                         before do
                             interface.should_receive(actions: [stub_action("Test")])
