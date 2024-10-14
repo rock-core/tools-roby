@@ -142,6 +142,21 @@ module Roby
                     refute action1.arguments.key?(:t)
                     assert_equal 20, action2.arguments[:t]
                 end
+
+                it "fills optional arguments that are set with delayed arguments with " \
+                   "their default values" do
+                    @interface_m.describe("test_action")
+                                .optional_arg("t", "", 20)
+                    @interface_m.class_eval { def test_action(*args); end }
+                    delayed = Class.new do
+                        def evaluate_delayed_argument(task)
+                            Struct.new(:field).new(10)
+                        end
+                    end.new
+                    action = @interface_m.test_action(t: delayed)
+                    action.with_example_arguments
+                    assert_equal 20, action.arguments[:t]
+                end
             end
         end
     end
