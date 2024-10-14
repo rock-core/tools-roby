@@ -153,7 +153,7 @@ module Roby
                         action_model.name = "action_model"
                         action_model.arguments <<
                             Actions::Models::Action::Argument.new(
-                                "arg", "bla", false, nil, Actions::Models::Action::Void
+                                "arg", "bla", false, nil, Roby::Void
                             )
                         @server.write_packet(action_model)
                         ret = @client.read_packet

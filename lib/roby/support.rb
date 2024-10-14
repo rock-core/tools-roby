@@ -204,4 +204,7 @@ module Roby
 
         path if File.executable?(path)
     end
+
+    VoidClass = Class.new
+    Void = VoidClass.new.freeze
 end
