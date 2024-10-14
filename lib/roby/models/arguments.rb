@@ -8,7 +8,7 @@ module Roby
             extend MetaRuby::Attributes
 
             # Representation of one argument
-            Argument = Struct.new :name, :default, :doc do
+            Argument = Struct.new :name, :default, :doc, :example do
                 # Tests whether this argument has a default
                 def has_default?
                     default != NO_DEFAULT_ARGUMENT
@@ -17,6 +17,10 @@ module Roby
                 # Tests whether this argument has a delayed argument as default
                 def has_delayed_default?
                     has_default? && TaskArguments.delayed_argument?(default)
+                end
+
+                def example_defined?
+                    example != Void
                 end
             end
 
@@ -51,6 +55,9 @@ module Roby
             #   @param doc documentation string for the argument. If left
             #     to nil, the method will attempt to extract the argument's
             #     documentation block.
+            #   @param example set an example to be used when doesnt have a default value
+            #     for unit tests.
+            #
             #
             # @example getting an argument at runtime from another object
             #   argument :target_point, default: from(:planned_task).target_point
@@ -58,13 +65,16 @@ module Roby
             #   argument :target_point, default: from_conf.target_position
             # @example defining 'nil' as a default value
             #   argument :main_direction, default: nil
-            def argument(name, default: NO_DEFAULT_ARGUMENT, doc: nil)
+            # @example defining an example value
+            #   argument :maximum_current, example: 42
+            def argument(name, default: NO_DEFAULT_ARGUMENT, doc: nil,
+                    example: Void)
                 name = name.to_sym
                 unless TaskArguments.delayed_argument?(default)
                     default = DefaultArgument.new(default)
                 end
                 doc ||= MetaRuby::DSLs.parse_documentation_block(/\.rb$/, "argument")
-                __arguments[name] = Argument.new(name, default, doc)
+                __arguments[name] = Argument.new(name, default, doc, example)
 
                 if name =~ /^\w+$/ && !method_defined?(name)
                     define_method(name) { arguments[name] }
