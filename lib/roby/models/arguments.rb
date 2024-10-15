@@ -68,7 +68,7 @@ module Roby
             # @example defining an example value
             #   argument :maximum_current, example: 42
             def argument(name, default: NO_DEFAULT_ARGUMENT, doc: nil,
-                    example: Void)
+                example: Void)
                 name = name.to_sym
                 unless TaskArguments.delayed_argument?(default)
                     default = DefaultArgument.new(default)

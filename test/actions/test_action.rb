@@ -149,7 +149,7 @@ module Roby
                                 .optional_arg("t", "", 20)
                     @interface_m.class_eval { def test_action(*args); end }
                     delayed = Class.new do
-                        def evaluate_delayed_argument(task)
+                        def evaluate_delayed_argument(*)
                             Struct.new(:field).new(10)
                         end
                     end.new
