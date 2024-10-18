@@ -150,7 +150,7 @@ module Roby
                     )
                     protocol.add_marshaller(Actions::Action, &method(:marshal_action))
                     protocol.add_marshaller(Roby::Task, &method(:marshal_task))
-                    protocol.add_marshaller(Actions::Models::Action::VoidClass) { Void }
+                    protocol.add_marshaller(Roby::VoidClass) { Void }
                     protocol.add_marshaller(::Exception, &method(:marshal_exception))
                     protocol.add_marshaller(
                         Roby::ExecutionException, &method(:marshal_execution_exception)

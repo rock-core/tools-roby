@@ -24,6 +24,14 @@ module Roby
                     TaskFromVariable.new(name, task_model)
                 end
 
+                def strong?
+                    true
+                end
+
+                def can_merge?(*)
+                    false
+                end
+
                 def evaluate_delayed_argument(task)
                     throw :no_value
                 end

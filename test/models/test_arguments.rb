@@ -55,6 +55,12 @@ module Roby
                 assert_equal "Programmatically",
                              model.find_argument(:test).doc
             end
+
+            it "allows to set an example to required arguments" do
+                # This is a documentation block
+                model.argument :test, example: 42
+                assert_equal 42, model.find_argument(:test).example
+            end
         end
     end
 end

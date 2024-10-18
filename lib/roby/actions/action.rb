@@ -51,7 +51,13 @@ module Roby
             # Fill missing required arguments with example arguments when available
             def with_example_arguments
                 new_args = missing_required_arguments.each_with_object({}) do |arg, h|
-                    h[arg.name.to_sym] = arg.example if arg.example_defined?
+                    # If an argument has a default value but it received a delayed
+                    # argument, then use the default value as its example
+                    if !arg.required?
+                        h[arg.name.to_sym] = arg.default
+                    elsif arg.example_defined?
+                        h[arg.name.to_sym] = arg.example
+                    end
                 end
                 with_arguments(**new_args)
             end
