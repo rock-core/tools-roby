@@ -89,6 +89,37 @@ module Roby
                                 assert_equal 2, current_state_task.id
                             end
                         end
+
+                        it "yields the current state dependencies' tasks" do
+                            @interface.describe "the state machine action"
+                            @interface
+                                .action_state_machine "with_third_party_transition" do
+                                    s0 = state(some_action(id: 0))
+                                    s1 = state(some_action(id: 1))
+
+                                    s0.depends_on s1
+                                    start s0
+
+                                    s2 = state(some_action(id: 2))
+
+                                    transition s0, s1.success_event, s2
+                            end
+
+                            test = self
+                            validate_state_machine(
+                                @interface.new(plan).with_third_party_transition
+                             ) do
+                                 assert_transitions_to_state(
+                                    "s2", yield_dependencies: true
+                                 ) do |s0_task, s1|
+                                     test.assert_equal "s1_state", s1.name
+                                     s1_task = s1.task
+
+                                     execute { s1_task.start! }
+                                     execute { s1_task.success_event.emit }
+                                 end
+                            end
+                        end
                     end
                 end
 

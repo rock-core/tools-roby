@@ -79,7 +79,8 @@ module Roby
             # @yieldparam [Roby::Task] the current state's task
             # @param [String,Symbol] state_name the name of the target state
             # @param [Numeric] timeout
-            def assert_transitions_to_state(state_name, timeout: 5)
+            def assert_transitions_to_state(state_name, timeout: 5,
+                yield_dependencies: false)
                 matchers = state_name_patterns(state_name)
 
                 done = false
@@ -90,7 +91,17 @@ module Roby
                         end
                     end
                 end
-                yield(current_state_task) if block_given?
+                dependencies_instances =
+                    if yield_dependencies
+                        @state_machines.map do |sm|
+                            deps = sm.current_state.dependencies.map(&:first)
+                            sm.instances.select { |action, _| deps.include? action }
+                              .values
+                        end.flatten
+                    else
+                        []
+                    end
+                yield(current_state_task, *dependencies_instances) if block_given?
                 expect_execution.timeout(timeout).to { achieve { done } }
                 @test.run_planners(@toplevel_task)
                 @toplevel_task.current_task_child
