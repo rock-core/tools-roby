@@ -531,6 +531,10 @@ module Roby
         #   (it is the opposite of setup)
         attr_reader :cleanup_handlers
 
+        # @return [Array<#call>] list of objects called just before runtime. This is
+        #   called during test setup as well
+        attr_reader :prepare_handlers
+
         # @return [Array<#call>] list of objects called when the app shuts down,
         #   that is when the plan is being tore down but before cleanup. This is
         #   called during test teardown as well
@@ -912,6 +916,7 @@ module Roby
             @require_handlers      = []
             @clear_models_handlers = []
             @cleanup_handlers      = []
+            @prepare_handlers      = []
             @shutdown_handlers     = []
             @controllers           = []
             @action_handlers       = []
@@ -1152,7 +1157,12 @@ module Roby
                 end
             end
 
+            run_prepare_blocks
             call_plugins(:prepare, self)
+        end
+
+        def run_prepare_blocks
+            prepare_handlers.each(&:call)
         end
 
         # The inverse of #prepare. It gets called either at the end of #run or
@@ -1242,6 +1252,20 @@ module Roby
             end
 
             add_lifecyle_hook(clear_models_handlers, block, user: user)
+        end
+
+        # Registers a callback to prepare to run
+        #
+        # This is called just before actual execution. Do things here that
+        # are required only at runtime, and not to load/interpret models
+        #
+        # Most operations done here must be undone in a shutdown block
+        def on_prepare(user: false, &block)
+            unless block
+                raise ArgumentError, "missing expected block argument"
+            end
+
+            add_lifecyle_hook(prepare_handlers, block, user: user)
         end
 
         # Registers a callback to perform cleanup just after an execution
