@@ -89,6 +89,32 @@ module Roby
                                 assert_equal 2, current_state_task.id
                             end
                         end
+
+                        it "validates transitions caused by a child state" do
+                            @interface.describe("complex transition")
+                            @interface.action_state_machine "with_complex_transition" do
+                                s0 = state(some_action(id: 1))
+                                s1 = state(some_action(id: 2))
+                                s0.depends_on s1, role: "transition_trigger"
+                                start s0
+
+                                s2 = state(some_action(id: 3))
+                                transition s0, s1.success_event, s2
+                            end
+
+                            test = self
+                            validate_state_machine(
+                                @interface.new(plan).with_complex_transition
+                            ) do
+                                assert_transitions_to_state "s2" do |task|
+                                    test.assert_equal 1, task.id
+                                    execute { task.start! }
+                                    s1_task = toplevel_task.transition_trigger_child
+                                    execute { s1_task.start! }
+                                    execute { s1_task.success_event.emit }
+                                end
+                            end
+                        end
                     end
                 end
 
