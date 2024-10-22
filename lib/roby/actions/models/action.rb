@@ -5,6 +5,9 @@ module Roby
         module Models
             # Basic description of an action
             class Action
+                VoidClass = Roby::VoidClass
+                Void = Roby::Void
+
                 # Structure that stores the information about planning method arguments
                 #
                 # See MethodDescription
