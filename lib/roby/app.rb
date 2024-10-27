@@ -425,14 +425,40 @@ module Roby
             end
         end
 
-        def register_app(path)
-            path = File.expand_path(path, app_dir)
-            app_name = File.basename(path)
+        # Add a path to the search path, with the highest priority for e.g. find_files
+        #
+        # This path will be put in front of the app dir itself
+        def prepend_search_path(path)
+            @search_path ||= self.search_path
+            @search_path.unshift path
+            update_load_path
+        end
+
+        # Add a path to the search path, just after the app dir in search priority
+        def shift_search_path(path)
+            @search_path ||= self.search_path
+            i = @search_path.index(app_dir)
+            @search_path.insert(i + 1, path)
+            update_load_path
+        end
+
+        # Add a path to the search path, with the lowest search priority
+        def push_search_path(path)
             @search_path ||= self.search_path
             @search_path << path
+            update_load_path
+        end
 
-            libdir = File.join(path, "lib")
-            $LOAD_PATH << libdir if File.directory?(libdir)
+        # Register another Roby app
+        #
+        # The call both adds the app to the search path
+        #
+        # @param [String] path the path to the Roby app dir itselfc
+        def register_app(path, where: :push)
+            path = File.expand_path(path, app_dir)
+            app_name = File.basename(path)
+            send("#{where}_search_path", path)
+
             @registered_apps[app_name] = path
         end
 
