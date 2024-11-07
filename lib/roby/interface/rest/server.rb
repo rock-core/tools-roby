@@ -42,6 +42,7 @@ module Roby
                                api: REST::API,
                                main_route: "/api",
                                storage: {},
+                               threads: 1,
                                middlewares: [Rack::CommonLogger, Rack::ShowExceptions],
                                **thin_options)
 
@@ -64,6 +65,8 @@ module Roby
                     end
                     @server = Thin::Server.new(host, port, rack_app,
                                                signals: false, **thin_options)
+                    @server.threaded = (threads != 1)
+                    @server.threadpool_size = threads
                     @server.silent = true
                     if @server.backend.respond_to?(:port)
                         @original_port = port
