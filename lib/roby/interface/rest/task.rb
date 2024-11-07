@@ -27,6 +27,11 @@ module Roby
                 # Whether all requests are to be displayed
                 argument :verbose, default: false
 
+                # How many threads should answer
+                #
+                # Set to 1 to disable multithreading
+                argument :threads, default: 1
+
                 event :start do |_event|
                     @rest_server = Server.new(roby_app, **rest_server_args)
                     start_event.achieve_asynchronously do
@@ -35,7 +40,7 @@ module Roby
                 end
 
                 def rest_server_args
-                    base_args = { host: host, port: port,
+                    base_args = { host: host, port: port, threads: threads,
                                   main_route: main_route, api: rest_api }
                     base_args[:middlewares] = [] unless verbose
                     base_args
