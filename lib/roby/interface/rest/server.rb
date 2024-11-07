@@ -25,6 +25,8 @@ module Roby
                 # @return [String]
                 attr_reader :main_route
 
+                VERBOSE_MIDDLEWARES = [Rack::CommonLogger, Rack::ShowExceptions].freeze
+
                 # Create a new server
                 #
                 # @param [Roby::Application] the application this server will
@@ -43,7 +45,7 @@ module Roby
                                main_route: "/api",
                                storage: {},
                                threads: 1,
-                               middlewares: [Rack::CommonLogger, Rack::ShowExceptions],
+                               middlewares: VERBOSE_MIDDLEWARES,
                                **thin_options)
 
                     @app = app

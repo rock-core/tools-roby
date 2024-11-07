@@ -12,6 +12,7 @@ module Roby
                 #
                 # Default is 0.0.0.0 (i.e. listen to all IPs)
                 argument :host, default: "0.0.0.0"
+
                 # The port on which the REST API should be listening
                 #
                 # Default is 20202
@@ -19,6 +20,7 @@ module Roby
                 # Use 0 for testing purposes, and discover the port using
                 # {#actual_port}
                 argument :port, default: DEFAULT_REST_PORT
+
                 # The path under which this API will be available, e.g. /api
                 #
                 # Default is '/api'
@@ -39,11 +41,34 @@ module Roby
                     end
                 end
 
+                # List of arguments passed to {Server}
+                #
+                # @see rack_middlewares rest_storage
                 def rest_server_args
-                    base_args = { host: host, port: port, threads: threads,
-                                  main_route: main_route, api: rest_api }
-                    base_args[:middlewares] = [] unless verbose
-                    base_args
+                    {
+                        host: host, port: port, threads: threads,
+                        main_route: main_route, api: rest_api,
+                        middlewares: rack_middlewares,
+                        storage: rest_storage
+                    }
+                end
+
+                # List of Rack middlewares that should be added to the thin server
+                #
+                # @return [Array]
+                def rack_middlewares
+                    return [] unless verbose
+
+                    Server::VERBOSE_MIDDLEWARES
+                end
+
+                # Permanent storage object for REST::Server
+                #
+                # Overload to inject fields
+                #
+                # @return [Hash]
+                def rest_storage
+                    {}
                 end
 
                 # The Roby app that is being exposed
