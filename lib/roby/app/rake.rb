@@ -815,7 +815,7 @@ module Roby
             end
 
             def self.detect_rubocop?
-                run_rubocop("--version", out: :close, err: :close)
+                run_rubocop("--version", out: :close)
                 true
             rescue Errno::ENOENT
                 false
