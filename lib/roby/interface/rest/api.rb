@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "roby/interface/rest/helpers"
+
 module Roby
     module Interface
         module REST
