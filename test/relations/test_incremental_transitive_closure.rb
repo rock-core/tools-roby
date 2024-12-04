@@ -47,6 +47,49 @@ module Roby
                     refute incremental_transitive_closure.reachable?(2,0)
                   end
                 end
+
+                describe "removing relations" do
+                  it "removes edge" do
+                    incremental_transitive_closure.added_vertex(0)
+                    incremental_transitive_closure.added_vertex(1)
+                    incremental_transitive_closure.added_vertex(2)
+                    incremental_transitive_closure.added_edge(0,1)
+                    incremental_transitive_closure.added_edge(1,2)
+                    incremental_transitive_closure.removed_edge(1,2)
+                    assert_equal(incremental_transitive_closure.graph.num_vertices, 3) 
+                    refute incremental_transitive_closure.graph.has_edge?(1,2)
+                  end
+
+                  it "resets representation if removed edge of node containing children" do
+                    incremental_transitive_closure.added_vertex(0)
+                    incremental_transitive_closure.added_vertex(1)
+                    incremental_transitive_closure.added_vertex(2)
+                    incremental_transitive_closure.added_edge(0,1)
+                    incremental_transitive_closure.added_edge(1,2)
+                    incremental_transitive_closure.removed_edge(0,1)
+                    assert_equal(incremental_transitive_closure.graph.num_vertices, 0) 
+                  end
+
+                  it "removes vertex" do
+                    incremental_transitive_closure.added_vertex(0)
+                    incremental_transitive_closure.added_vertex(1)
+                    incremental_transitive_closure.added_vertex(2)
+                    incremental_transitive_closure.added_edge(0,1)
+                    incremental_transitive_closure.added_edge(1,2)
+                    incremental_transitive_closure.removed_vertex(2)
+                    assert_equal(incremental_transitive_closure.graph.num_vertices, 2) 
+                  end
+
+                  it "resets representation if removed vertex containing children" do
+                    incremental_transitive_closure.added_vertex(0)
+                    incremental_transitive_closure.added_vertex(1)
+                    incremental_transitive_closure.added_vertex(2)
+                    incremental_transitive_closure.added_edge(0,1)
+                    incremental_transitive_closure.added_edge(1,2)
+                    incremental_transitive_closure.removed_vertex(1)
+                    assert_equal(incremental_transitive_closure.graph.num_vertices, 0) 
+                  end
+                end
             end
         end
     end

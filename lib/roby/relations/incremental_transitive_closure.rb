@@ -23,9 +23,19 @@ module Roby
             end
 
             def removed_vertex(vertex)
+                if @graph.adjacent_vertices(vertex).empty?
+                    @graph.remove_vertex(vertex)
+                else
+                    @graph = RGL::DirectedAdjacencyGraph.new
+                end
             end
-            
+
             def removed_edge(from, to)
+                if @graph.adjacent_vertices(to).empty?
+                    @graph.remove_edge(from, to)
+                else
+                    @graph = RGL::DirectedAdjacencyGraph.new
+                end
             end
             
             def reachable?(from, to)
