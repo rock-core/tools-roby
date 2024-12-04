@@ -815,7 +815,8 @@ module Roby
             end
 
             def self.detect_rubocop?
-                run_rubocop("--version", out: :close)
+                # Do NOT use out: :close here, it breaks bundler in some ways
+                run_rubocop("--version", out: "/dev/null")
                 true
             rescue Errno::ENOENT
                 false
