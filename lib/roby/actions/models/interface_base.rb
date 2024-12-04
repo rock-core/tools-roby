@@ -373,7 +373,7 @@ module Roby
 
                 # Declare that this fault response table should be used on all plans
                 # that are going to use this action interface
-                def use_fault_response_table(table_model, arguments = {})
+                def use_fault_response_table(table_model, **arguments)
                     table_model.validate_arguments(arguments)
                     fault_response_tables << [table_model, arguments]
                 end
