@@ -41,6 +41,13 @@ module Roby
                     assert incremental_transitive_closure.graph.has_edge?(3,1)
                     assert incremental_transitive_closure.graph.has_edge?(3,2)
                     refute incremental_transitive_closure.graph.has_edge?(3,0)
+
+                    incremental_transitive_closure.added_vertex(4)
+                    incremental_transitive_closure.added_vertex(5)
+                    incremental_transitive_closure.added_edge(4,5)
+                    incremental_transitive_closure.added_edge(2,4)
+                    assert incremental_transitive_closure.graph.has_edge?(2,5)
+                    assert incremental_transitive_closure.graph.has_edge?(1,5)
                   end
 
                   it "tests reachability from direct and indirect vertex" do

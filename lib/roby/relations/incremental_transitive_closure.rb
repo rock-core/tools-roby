@@ -27,8 +27,9 @@ module Roby
             
             # Adds an edge from 'source' to 'target' to the graph
             # It also ensures that transitive reachability is updated by adding edges
-            # from the 'source's parents vertices to 'target'. As well as adding edges
-            # from the from 'source' to 'target's children vertices 
+            # from the 'source's parents vertices to 'target'. Adding edges
+            # from the from 'source' to 'target's children vertices.
+            # As well as adding edges from 'source's parent vertices to 'target's children
             #
             # @param source [Object] The source vertex
             # @param target [Object] The target vertex
@@ -36,8 +37,14 @@ module Roby
                 return if @graph.has_edge?(source, target)
 
                 @graph.add_edge(source, target)
-                add_edges_to_parents(source, target)
-                add_edges_to_children(source, target)
+
+                parents = parent_vertices(source)
+                add_edges_vertices_to_vertex(parents, target)
+
+                children = @graph.adjacent_vertices(target)
+                add_edges_vertex_to_vertices(source, children)
+
+                add_edges_vertices_to_vertices(parents, children)
             end
 
             # Removes a vertex from the graph if it has no adjacent vertices 
@@ -84,16 +91,14 @@ module Roby
                 @graph.has_edge?(source, target)
             end
 
-            # Updates the transitive closure by adding edges from the 'source's parents 
-            # vertices to 'target', thus ensuring that the graph's 
-            # reachability is consistent.
+            # Updates the transitive closure by adding edges from source vertices to a target 
+            # vertex
             #
-            # @param source [Object] The source vertex
             # @param target [Object] The target vertex
-            def add_edges_to_parents(source, target)
-                parents = parent_vertices(source)
-                parents.each do |parent|
-                    @graph.add_edge(parent, target) unless @graph.has_edge?(parent, target)
+            # @param vertices [Array<Object>] An array of source vertices
+            def add_edges_vertices_to_vertex(vertices, target)
+                vertices.each do |vertex|
+                    @graph.add_edge(vertex, target) unless @graph.has_edge?(vertex, target)
                 end
             end
 
@@ -107,16 +112,27 @@ module Roby
                 return @graph.edges.select { |edge| edge.target == vertex }.map(&:source)
             end
 
-            # Updates the transitive closure by adding edges from 'source' to
-            # the 'target's children vertices, thus ensuring that the graph's 
-            # reachability is consistent.
+            # Updates the transitive closure by adding edges from a source vertex to 
+            # target vertices
             #
             # @param source [Object] The source vertex
-            # @param target [Object] The target vertex
-            def add_edges_to_children(source, target)
-                children = @graph.adjacent_vertices(target)
-                children.each do |child|
-                    @graph.add_edge(source, child) unless @graph.has_edge?(source, child)
+            # @param vertices [Array<Object>] An array of target vertices
+            def add_edges_vertex_to_vertices(source, vertices)
+                vertices.each do |vertex|
+                    @graph.add_edge(source, vertex) unless @graph.has_edge?(source, vertex)
+                end
+            end
+
+            # Updates the transitive closure by adding edges from source vertices to target 
+            # vertices
+            #
+            # @param source_vertices [Array<Object>] An array of source vertices
+            # @param target_vertices [Array<Object>] An array of target vertices
+            def add_edges_vertices_to_vertices(source_vertices, target_vertices)
+                source_vertices.each do |source|
+                    target_vertices.each do |target|
+                        @graph.add_edge(source, target) unless @graph.has_edge?(source, target)
+                    end
                 end
             end
         end
