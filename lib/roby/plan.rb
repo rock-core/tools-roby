@@ -1609,6 +1609,17 @@ module Roby
             event.finalized!(timestamp)
         end
 
+        # Copy plan marks from one into the other, additive only i.e. it does not remove
+        # marks from the destination task
+        #
+        # @param from_task The task whose marks will be copyed
+        # @param to_task The task who will be marked just as replaced_task
+        def copy_marks!(from_task:, to_task:)
+            add_permanent_task to_task if permanent_task?(from_task)
+
+            add_mission_task to_task if mission_task? from_task
+        end
+
         def remove_task(task, timestamp = Time.now)
             verify_plan_object_finalization_sanity(task)
             remove_task!(task, timestamp)
