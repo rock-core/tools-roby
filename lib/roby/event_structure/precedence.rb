@@ -34,18 +34,6 @@ module Roby
                     Relations::IncrementalTransitiveClosure.new
             end
 
-            def add_vertex(object)
-                super(object)
-                @incremental_transitive_closure.added_vertex(object)
-            end
-
-
-            def add_edge(a, b, info)
-                super(a, b, info)
-                @incremental_transitive_closure.added_edge(a, b)
-            end
-
-
             def remove_edge(source,target)
                 super(source,target)
                 @incremental_transitive_closure.removed_edge(source,target)
@@ -57,15 +45,7 @@ module Roby
             end
 
             def reachable?(source,target)
-                return true if @incremental_transitive_closure.reachable?(source,target)
-                depth_first_visit(source) do |visited_vertex|
-                    return true if visited_vertex == target
-                    @incremental_transitive_closure.added_vertex(visited_vertex)
-                    adjacent_vertices(visited_vertex).each do |adjecent_vertex|
-                        @incremental_transitive_closure.added_vertex(adjecent_vertex)
-                        @incremental_transitive_closure.added_edge(visited_vertex, adjecent_vertex)
-                    end
-                end
+                @incremental_transitive_closure.reachable?(source,target,self)
             end
         end
     end
