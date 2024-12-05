@@ -885,6 +885,38 @@ module Roby
             end
         end
 
+        describe "#copy_task_marks" do
+            attr_reader :task_1, :task_2
+
+            before do
+                plan.add(@task_1 = Roby::Task.new)
+                plan.add(@task_2 = Roby::Task.new)
+            end
+
+            it "copies mission mark from one task to the other" do
+                plan.add_mission_task(task_1)
+
+                plan.copy_task_marks(from: task_1, to: task_2)
+                assert_equal plan.mission_task?(task_1), plan.mission_task?(task_2)
+            end
+
+            it "copies permanent mark from one task to the other" do
+                plan.add_permanent_task(task_1)
+
+                plan.copy_task_marks(from: task_1, to: task_2)
+                assert_equal plan.permanent_task?(task_1), plan.permanent_task?(task_2)
+            end
+
+            it "does not unmark +to+ task" do
+                plan.add_mission_task(task_2)
+
+                plan.copy_task_marks(from: task_1, to: task_2)
+
+                refute plan.permanent_task?(task_2)
+                assert plan.mission_task?(task_2)
+            end
+        end
+
         describe "#remove_task" do
             before do
                 plan.add(@task = Roby::Task.new)
