@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "roby/test/self"
-require "lib/roby/relations/incremental_transitive_closure.rb"
+require "roby/relations/incremental_transitive_closure.rb"
 
 module Roby
     module Relations

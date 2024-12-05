@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
-require 'rgl/adjacency'
-require 'rgl/transitivity'
+require 'roby/relations/bidirectional_directed_adjacency_graph'
 
 module Roby
     module Relations
@@ -11,9 +10,9 @@ module Roby
         class IncrementalTransitiveClosure
             attr_reader :graph
 
-            # Initializes an empty directed graph using RGL's DirectedAdjacencyGraph
+            # Initializes an empty directed graph using BidirectionalDirectedAdjacencyGraph
             def initialize
-                @graph = RGL::DirectedAdjacencyGraph.new
+                @graph = Relations::BidirectionalDirectedAdjacencyGraph.new
             end
         
             # Adds a new vertex to the graph if it doesn't already exist
@@ -38,13 +37,19 @@ module Roby
 
                 @graph.add_edge(source, target)
 
-                parents = parent_vertices(source)
-                add_edges_vertices_to_vertex(parents, target)
+                @graph.each_out_neighbour(target) do |out_neighbor|
+                    @graph.add_edge(source, out_neighbor)
+                end
+                                
+                @graph.each_in_neighbour(source) do |in_neighbor|
+                    @graph.add_edge(in_neighbor, target)
+                end
 
-                children = @graph.adjacent_vertices(target)
-                add_edges_vertex_to_vertices(source, children)
-
-                add_edges_vertices_to_vertices(parents, children)
+                @graph.each_out_neighbour(target) do |out_neighbor|
+                    @graph.each_in_neighbour(source) do |in_neighbor|
+                        @graph.add_edge(in_neighbor, out_neighbor)
+                    end
+                end
             end
 
             # Removes a vertex from the graph if it has no adjacent vertices 
@@ -56,7 +61,7 @@ module Roby
             def removed_vertex(vertex)
                 return unless @graph.has_vertex?(vertex)
 
-                if @graph.adjacent_vertices(vertex).empty?
+                if @graph.leaf?(vertex)
                     @graph.remove_vertex(vertex)
                 else
                     @graph = RGL::DirectedAdjacencyGraph.new
@@ -72,7 +77,7 @@ module Roby
             def removed_edge(source, target)
                 return unless @graph.has_edge?(source, target)
 
-                if @graph.adjacent_vertices(target).empty? && parent_vertices(source).empty?
+                if @graph.leaf?(target) && @graph.root?(source)
                     @graph.remove_edge(source, target)
                 else
                     @graph = RGL::DirectedAdjacencyGraph.new
@@ -89,51 +94,6 @@ module Roby
             # to 'target', false otherwise
             def reachable?(source, target)
                 @graph.has_edge?(source, target)
-            end
-
-            # Updates the transitive closure by adding edges from source vertices to a target 
-            # vertex
-            #
-            # @param target [Object] The target vertex
-            # @param vertices [Array<Object>] An array of source vertices
-            def add_edges_vertices_to_vertex(vertices, target)
-                vertices.each do |vertex|
-                    @graph.add_edge(vertex, target) unless @graph.has_edge?(vertex, target)
-                end
-            end
-
-            # Return the parent vertices of the provided vertex
-            #
-            # @param from [Object] The source vertex
-            #
-            # @return [Array<Object>] An array of parent vertices (those that point to 
-            # the given vertex).
-            def parent_vertices(vertex)
-                return @graph.edges.select { |edge| edge.target == vertex }.map(&:source)
-            end
-
-            # Updates the transitive closure by adding edges from a source vertex to 
-            # target vertices
-            #
-            # @param source [Object] The source vertex
-            # @param vertices [Array<Object>] An array of target vertices
-            def add_edges_vertex_to_vertices(source, vertices)
-                vertices.each do |vertex|
-                    @graph.add_edge(source, vertex) unless @graph.has_edge?(source, vertex)
-                end
-            end
-
-            # Updates the transitive closure by adding edges from source vertices to target 
-            # vertices
-            #
-            # @param source_vertices [Array<Object>] An array of source vertices
-            # @param target_vertices [Array<Object>] An array of target vertices
-            def add_edges_vertices_to_vertices(source_vertices, target_vertices)
-                source_vertices.each do |source|
-                    target_vertices.each do |target|
-                        @graph.add_edge(source, target) unless @graph.has_edge?(source, target)
-                    end
-                end
             end
         end
     end
