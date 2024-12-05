@@ -2,6 +2,7 @@
 
 require "roby/test/self"
 require "roby/relations/incremental_transitive_closure.rb"
+require "rgl/mutable"
 
 module Roby
     module Relations
@@ -50,21 +51,15 @@ module Roby
                     assert incremental_transitive_closure.graph.has_edge?(1,5)
                   end
 
-                  it "tests reachability from direct and indirect vertex" do
+                  it "ignores add edge if both edges are the same" do
                     incremental_transitive_closure.added_vertex(0)
                     incremental_transitive_closure.added_vertex(1)
                     incremental_transitive_closure.added_vertex(2)
                     incremental_transitive_closure.added_edge(0,1)
                     incremental_transitive_closure.added_edge(1,2)
-                    incremental_transitive_closure.added_vertex(3)
-                    incremental_transitive_closure.added_edge(3,1)
-                    assert incremental_transitive_closure.reachable?(0,2)
-                    assert incremental_transitive_closure.reachable?(1,2)
-                    assert incremental_transitive_closure.reachable?(3,2)
-                    refute incremental_transitive_closure.reachable?(2,1)
-                    refute incremental_transitive_closure.reachable?(2,0)
-                    refute incremental_transitive_closure.reachable?(2,0)
-                    refute incremental_transitive_closure.reachable?(0,3)
+                    assert_equal(incremental_transitive_closure.graph.num_edges, 3)
+                    incremental_transitive_closure.added_edge(2,2)
+                    assert_equal(incremental_transitive_closure.graph.num_edges, 3)
                   end
                 end
 
@@ -153,6 +148,74 @@ module Roby
                     incremental_transitive_closure.removed_vertex(1)
                     assert_equal(incremental_transitive_closure.graph.num_vertices, 0)
                     assert_equal(incremental_transitive_closure.graph.num_edges, 0)
+                  end
+                end
+                describe "reachability A" do
+                  it "tests reachability of cached graph" do
+                    g = Relations::BidirectionalDirectedAdjacencyGraph.new
+                    
+                    g.add_vertex(0)
+                    incremental_transitive_closure.added_vertex(0)
+                    g.add_vertex(1)
+                    incremental_transitive_closure.added_vertex(1)
+                    g.add_vertex(2)
+                    incremental_transitive_closure.added_vertex(2)
+                    g.add_edge(0,1)
+                    incremental_transitive_closure.added_edge(0,1)
+                    g.add_edge(1,2)
+                    incremental_transitive_closure.added_edge(1,2)
+
+                    g.add_vertex(3)
+                    incremental_transitive_closure.added_vertex(3)
+                    g.add_edge(3,1)
+                    incremental_transitive_closure.added_edge(3,1)
+
+                    assert_equal(incremental_transitive_closure.graph.num_vertices, 4)
+                    assert incremental_transitive_closure.reachable?(0,2,g)
+                    assert incremental_transitive_closure.reachable?(1,2,g)
+                    assert incremental_transitive_closure.reachable?(3,2,g)
+                    refute incremental_transitive_closure.reachable?(2,1,g)
+                    refute incremental_transitive_closure.reachable?(2,0,g)
+                    refute incremental_transitive_closure.reachable?(2,0,g)
+                    refute incremental_transitive_closure.reachable?(0,3,g)
+                  end
+
+                  it "tests direct reachability by exploring graph" do
+                    g = Relations::BidirectionalDirectedAdjacencyGraph.new
+                    
+                    g.add_vertex(0)
+                    g.add_vertex(1)
+                    g.add_vertex(2)
+                    g.add_edge(0,1)
+                    g.add_edge(1,2)
+                    g.add_vertex(3)
+                    g.add_edge(3,1)
+
+                    assert_equal(incremental_transitive_closure.graph.num_vertices, 0)
+                    assert incremental_transitive_closure.reachable?(0,1,g)
+                    assert_equal(incremental_transitive_closure.graph.num_vertices, 3)
+                    assert incremental_transitive_closure.reachable?(3,1,g)
+                    assert_equal(incremental_transitive_closure.graph.num_vertices, 4)
+                    refute incremental_transitive_closure.reachable?(2,1,g)
+                  end
+
+                  it "tests indirect reachability by exploring graph" do
+                    g = Relations::BidirectionalDirectedAdjacencyGraph.new
+                    
+                    g.add_vertex(0)
+                    g.add_vertex(1)
+                    g.add_vertex(2)
+                    g.add_edge(0,1)
+                    g.add_edge(1,2)
+                    g.add_vertex(3)
+                    g.add_edge(3,1)
+
+                    assert_equal(incremental_transitive_closure.graph.num_vertices, 0)
+                    assert incremental_transitive_closure.reachable?(0,2,g)
+                    assert_equal(incremental_transitive_closure.graph.num_vertices, 3)
+                    assert incremental_transitive_closure.reachable?(3,2,g)
+                    assert_equal(incremental_transitive_closure.graph.num_vertices, 4)
+                    refute incremental_transitive_closure.reachable?(2,0,g)
                   end
                 end
             end

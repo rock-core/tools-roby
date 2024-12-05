@@ -1,9 +1,34 @@
 # frozen_string_literal: true
 
 require 'roby/relations/bidirectional_directed_adjacency_graph'
+require "rgl/traversal"
 
 module Roby
     module Relations
+        # Class of visitor used for dfs a graph, in case a vertex is already present in the
+        # transitive closure, the path is ignored.
+        #
+        # This should be used the the IncrementalTransitiveClosure#discover_vertex to fill
+        # unpopulated paths, ignoring those already seen. 
+        class IncrementalTransitiveClosureVisitor < RGL::DFSVisitor
+            def initialize(graph,transitive_closure)
+                super(graph)
+                @g = graph
+                @tc = transitive_closure
+            end
+
+            def follow_edge?(u, v)
+                if @tc.graph.has_vertex?(v)
+                    @tc.added_edge(u, v)
+                    false
+                else
+                    @tc.added_vertex(v)
+                    @tc.added_edge(u, v)
+                    super(u,v)
+                end
+            end
+        end
+
         # This class represents an incremental transitive closure graph, 
         # where edges and vertices can be added or removed incrementally, 
         # while keeping track of reachability information (i.e., transitive closure).
@@ -33,7 +58,7 @@ module Roby
             # @param source [Object] The source vertex
             # @param target [Object] The target vertex
             def added_edge(source, target)
-                return if @graph.has_edge?(source, target)
+                return if @graph.has_edge?(source, target) || source == target
 
                 @graph.add_edge(source, target)
 
@@ -64,7 +89,7 @@ module Roby
                 if @graph.leaf?(vertex)
                     @graph.remove_vertex(vertex)
                 else
-                    @graph = RGL::DirectedAdjacencyGraph.new
+                    @graph = Relations::BidirectionalDirectedAdjacencyGraph.new
                 end
             end
 
@@ -80,7 +105,7 @@ module Roby
                 if @graph.leaf?(target) && @graph.root?(source)
                     @graph.remove_edge(source, target)
                 else
-                    @graph = RGL::DirectedAdjacencyGraph.new
+                    @graph = Relations::BidirectionalDirectedAdjacencyGraph.new
                 end
             end
             
@@ -89,11 +114,31 @@ module Roby
             #
             # @param source [Object] The source vertex
             # @param target [Object] The target vertex
+            # @param g [Graph] The graph to check for the edge
             #
             # @return [Boolean] Returns true if there is a direct edge from 'source' 
             # to 'target', false otherwise
-            def reachable?(source, target)
+            def reachable?(source, target, g)
+                unless @graph.has_vertex?(source)
+                    discover_vertex(source, target, g)
+                end
+                
                 @graph.has_edge?(source, target)
+            end
+
+            # Discovers vertices reachable from 'source' and adds them to the 
+            # transitive closure. This method performs a DFS to explore the graph 
+            # incrementally.
+            #
+            # @param source [Object] The source vertex to start the DFS
+            # @param target [Object] The target vertex (DFS will stop once this is reached)
+            # @param g [Graph] The graph to explore during the DFS
+            def discover_vertex(source, target, g)
+                vis = IncrementalTransitiveClosureVisitor.new(g, self)
+                added_vertex(source)
+                g.depth_first_visit(source,vis) do |visited_vertex|
+                    return if visited_vertex == target
+                end
             end
         end
     end
