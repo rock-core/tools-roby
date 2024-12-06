@@ -116,7 +116,11 @@ module Roby
             end
 
             # Checks if there is a directed edge from 'source' to 'target'
-            # (i.e., if 'target' is reachable from 'source')
+            # (i.e., if 'target' is reachable from 'source').
+            #
+            # If the incremental transitive closure already has this node discovered,
+            # it will simply test if this edge exists. If not, it will execute a depth
+            # first visit, exploring the nodes and their relations along the way.
             #
             # @param source [Object] The source vertex
             # @param target [Object] The target vertex
