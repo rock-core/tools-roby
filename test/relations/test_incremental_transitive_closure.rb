@@ -15,36 +15,23 @@ module Roby
                 end
 
                 describe "adding relations" do
-                    it "adds vertex" do
-                        incremental_transitive_closure.added_vertex(0)
-                        assert incremental_transitive_closure.graph.has_vertex?(0)
-                    end
-
                     it "adds edge between vertex" do
-                        incremental_transitive_closure.added_vertex(0)
-                        incremental_transitive_closure.added_vertex(1)
                         incremental_transitive_closure.added_edge(0, 1)
                         assert incremental_transitive_closure.graph.has_edge?(0, 1)
                         refute incremental_transitive_closure.graph.has_edge?(1, 0)
                     end
 
                     it "adds indirect edges between vertex" do
-                        incremental_transitive_closure.added_vertex(0)
-                        incremental_transitive_closure.added_vertex(1)
-                        incremental_transitive_closure.added_vertex(2)
                         incremental_transitive_closure.added_edge(0, 1)
                         incremental_transitive_closure.added_edge(1, 2)
                         assert incremental_transitive_closure.graph.has_edge?(0, 2)
                         refute incremental_transitive_closure.graph.has_edge?(2, 0)
 
-                        incremental_transitive_closure.added_vertex(3)
                         incremental_transitive_closure.added_edge(3, 1)
                         assert incremental_transitive_closure.graph.has_edge?(3, 1)
                         assert incremental_transitive_closure.graph.has_edge?(3, 2)
                         refute incremental_transitive_closure.graph.has_edge?(3, 0)
 
-                        incremental_transitive_closure.added_vertex(4)
-                        incremental_transitive_closure.added_vertex(5)
                         incremental_transitive_closure.added_edge(4, 5)
                         incremental_transitive_closure.added_edge(2, 4)
                         assert incremental_transitive_closure.graph.has_edge?(2, 5)
@@ -52,9 +39,6 @@ module Roby
                     end
 
                     it "ignores add edge if both edges are the same" do
-                        incremental_transitive_closure.added_vertex(0)
-                        incremental_transitive_closure.added_vertex(1)
-                        incremental_transitive_closure.added_vertex(2)
                         incremental_transitive_closure.added_edge(0, 1)
                         incremental_transitive_closure.added_edge(1, 2)
                         assert_equal(incremental_transitive_closure.graph.num_edges, 3)
@@ -65,10 +49,6 @@ module Roby
 
                 describe "removing relations" do
                     it "removes edge" do
-                        incremental_transitive_closure.added_vertex(0)
-                        incremental_transitive_closure.added_vertex(1)
-                        incremental_transitive_closure.added_vertex(2)
-                        incremental_transitive_closure.added_vertex(3)
                         incremental_transitive_closure.added_edge(0, 1)
                         incremental_transitive_closure.added_edge(1, 2)
                         incremental_transitive_closure.added_edge(3, 2)
@@ -81,22 +61,16 @@ module Roby
                     end
 
                     it "does nothing if it removes non-existent edge" do
-                        incremental_transitive_closure.added_vertex(0)
-                        incremental_transitive_closure.added_vertex(1)
-                        incremental_transitive_closure.added_vertex(2)
                         incremental_transitive_closure.added_edge(0, 1)
-                        assert_equal(incremental_transitive_closure.graph.num_vertices, 3)
+                        assert_equal(incremental_transitive_closure.graph.num_vertices, 2)
                         assert_equal(incremental_transitive_closure.graph.num_edges, 1)
                         incremental_transitive_closure.removed_edge(1, 2)
-                        assert_equal(incremental_transitive_closure.graph.num_vertices, 3)
+                        assert_equal(incremental_transitive_closure.graph.num_vertices, 2)
                         assert_equal(incremental_transitive_closure.graph.num_edges, 1)
                     end
 
                     it "resets representation if removed edge of target vertex"\
                        "containing children" do
-                        incremental_transitive_closure.added_vertex(0)
-                        incremental_transitive_closure.added_vertex(1)
-                        incremental_transitive_closure.added_vertex(2)
                         incremental_transitive_closure.added_edge(0, 1)
                         incremental_transitive_closure.added_edge(1, 2)
                         incremental_transitive_closure.removed_edge(0, 1)
@@ -106,9 +80,6 @@ module Roby
 
                     it "resets representation if removed edge of source vertex "\
                        "containing parents" do
-                        incremental_transitive_closure.added_vertex(0)
-                        incremental_transitive_closure.added_vertex(1)
-                        incremental_transitive_closure.added_vertex(2)
                         incremental_transitive_closure.added_edge(0, 1)
                         incremental_transitive_closure.added_edge(1, 2)
                         incremental_transitive_closure.removed_edge(1, 2)
@@ -117,11 +88,9 @@ module Roby
                     end
 
                     it "removes vertex" do
-                        incremental_transitive_closure.added_vertex(0)
-                        incremental_transitive_closure.added_vertex(1)
-                        incremental_transitive_closure.added_vertex(2)
                         incremental_transitive_closure.added_edge(0, 1)
                         incremental_transitive_closure.added_edge(1, 2)
+                        assert_equal(incremental_transitive_closure.graph.num_vertices, 3)
                         assert_equal(incremental_transitive_closure.graph.num_edges, 3)
                         incremental_transitive_closure.removed_vertex(2)
                         assert_equal(incremental_transitive_closure.graph.num_vertices, 2)
@@ -129,21 +98,15 @@ module Roby
                     end
 
                     it "does nothing if it removes inexistent vertex" do
-                        incremental_transitive_closure.added_vertex(0)
-                        incremental_transitive_closure.added_vertex(1)
-                        incremental_transitive_closure.added_vertex(2)
                         incremental_transitive_closure.added_edge(0, 1)
-                        assert_equal(incremental_transitive_closure.graph.num_vertices, 3)
+                        assert_equal(incremental_transitive_closure.graph.num_vertices, 2)
                         assert_equal(incremental_transitive_closure.graph.num_edges, 1)
                         incremental_transitive_closure.removed_vertex(3)
-                        assert_equal(incremental_transitive_closure.graph.num_vertices, 3)
+                        assert_equal(incremental_transitive_closure.graph.num_vertices, 2)
                         assert_equal(incremental_transitive_closure.graph.num_edges, 1)
                     end
 
                     it "resets representation if removed vertex containing children" do
-                        incremental_transitive_closure.added_vertex(0)
-                        incremental_transitive_closure.added_vertex(1)
-                        incremental_transitive_closure.added_vertex(2)
                         incremental_transitive_closure.added_edge(0, 1)
                         incremental_transitive_closure.added_edge(1, 2)
                         assert_equal(incremental_transitive_closure.graph.num_edges, 3)
@@ -152,23 +115,20 @@ module Roby
                         assert_equal(incremental_transitive_closure.graph.num_edges, 0)
                     end
                 end
+
                 describe "reachability tests" do
                     it "verifies reachability of cached graph" do
                         g = Relations::BidirectionalDirectedAdjacencyGraph.new
 
                         g.add_vertex(0)
-                        incremental_transitive_closure.added_vertex(0)
                         g.add_vertex(1)
-                        incremental_transitive_closure.added_vertex(1)
                         g.add_vertex(2)
-                        incremental_transitive_closure.added_vertex(2)
                         g.add_edge(0, 1)
                         incremental_transitive_closure.added_edge(0, 1)
                         g.add_edge(1, 2)
                         incremental_transitive_closure.added_edge(1, 2)
 
                         g.add_vertex(3)
-                        incremental_transitive_closure.added_vertex(3)
                         g.add_edge(3, 1)
                         incremental_transitive_closure.added_edge(3, 1)
 

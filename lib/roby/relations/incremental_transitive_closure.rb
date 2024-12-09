@@ -18,14 +18,11 @@ module Roby
             end
 
             def follow_edge?(source, target)
-                if @tc.graph.has_vertex?(target)
-                    @tc.added_edge(source, target)
-                    false
-                else
-                    @tc.added_vertex(target)
-                    @tc.added_edge(source, target)
-                    super(source, target)
-                end
+                has_vertex = @tc.graph.has_vertex?(target)
+
+                @tc.added_edge(source, target)
+
+                has_vertex ? false : super(source, target)
             end
         end
 
@@ -40,15 +37,6 @@ module Roby
             def initialize
                 @graph =
                     Relations::BidirectionalDirectedAdjacencyGraph.new
-            end
-
-            # Adds a new vertex to the graph if it doesn't already exist
-            #
-            # @param vertex [Object] The vertex to be added
-            def added_vertex(vertex)
-                return if @graph.has_vertex?(vertex)
-
-                @graph.add_vertex(vertex)
             end
 
             # Adds an edge from 'source' to 'target' to the graph
@@ -130,7 +118,6 @@ module Roby
             # @param graph [Graph] The graph to explore during the DFS
             def discover_vertex(source, source_graph)
                 vis = IncrementalTransitiveClosureVisitor.new(source_graph, self)
-                added_vertex(source)
                 source_graph.depth_first_visit(source, vis) {}
             end
         end

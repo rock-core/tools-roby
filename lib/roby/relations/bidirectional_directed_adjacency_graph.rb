@@ -25,8 +25,8 @@ module Roby
             #      out_neighbours[target] # => info for the source -> target edge
             #
             # @return [Hash<Object,Hash<Object,Object>>]
-
             attr_reader :forward_edges_with_info
+
             # Set of in neighbours for a particular vertex
             #
             # The hash value associated with the in-neighbour is not used. A
