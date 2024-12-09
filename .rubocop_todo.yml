@@ -1266,7 +1266,6 @@ Metrics/ParameterLists:
     - 'lib/roby/models/task_event.rb'
     - 'lib/roby/queries/transaction_query_result.rb'
     - 'lib/roby/relations/graph.rb'
-    - 'lib/roby/event_structure/precedence.rb'
     - 'lib/roby/relations/models/graph.rb'
     - 'lib/roby/relations/space.rb'
     - 'lib/roby/state/pos.rb'

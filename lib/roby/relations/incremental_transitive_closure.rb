@@ -129,9 +129,7 @@ module Roby
             # @return [Boolean] Returns true if there is a direct edge from 'source'
             # to 'target', false otherwise
             def reachable?(source, target, source_graph)
-                unless @graph.has_vertex?(source)
-                    discover_vertex(source, target, source_graph)
-                end
+                discover_vertex(source, source_graph) unless @graph.has_vertex?(source)
 
                 @graph.has_edge?(source, target)
             end
@@ -141,15 +139,11 @@ module Roby
             # incrementally.
             #
             # @param source [Object] The source vertex to start the DFS
-            # @param target [Object] The target vertex (DFS will stop once this is
-            # reached)
             # @param graph [Graph] The graph to explore during the DFS
-            def discover_vertex(source, target, source_graph)
+            def discover_vertex(source, source_graph)
                 vis = IncrementalTransitiveClosureVisitor.new(source_graph, self)
                 added_vertex(source)
-                source_graph.depth_first_visit(source, vis) do |visited_vertex|
-                    break if visited_vertex == target
-                end
+                source_graph.depth_first_visit(source, vis) {}
             end
         end
     end

@@ -201,6 +201,25 @@ module Roby
                         refute incremental_transitive_closure.reachable?(2, 1, g)
                     end
 
+                    it "verifies reachability by exploring vertex fully" do
+                        g = Relations::BidirectionalDirectedAdjacencyGraph.new
+
+                        g.add_vertex(0)
+                        g.add_vertex(1)
+                        g.add_vertex(2)
+                        g.add_vertex(3)
+                        g.add_vertex(4)
+                        g.add_vertex(5)
+                        g.add_edge(0, 1)
+                        g.add_edge(1, 2)
+                        g.add_edge(2, 3)
+                        g.add_edge(2, 5)
+                        g.add_edge(3, 4)
+
+                        assert incremental_transitive_closure.reachable?(0, 4, g)
+                        assert incremental_transitive_closure.reachable?(0, 5, g)
+                    end
+
                     it "verifies indirect reachability by exploring graph" do
                         g = Relations::BidirectionalDirectedAdjacencyGraph.new
 
