@@ -65,19 +65,7 @@ module Roby
 
                 @graph.add_edge(source, target)
 
-                @graph.each_out_neighbour(target) do |out_neighbor|
-                    @graph.add_edge(source, out_neighbor)
-                end
-
-                @graph.each_in_neighbour(source) do |in_neighbor|
-                    @graph.add_edge(in_neighbor, target)
-                end
-
-                @graph.each_out_neighbour(target) do |out_neighbor|
-                    @graph.each_in_neighbour(source) do |in_neighbor|
-                        @graph.add_edge(in_neighbor, out_neighbor)
-                    end
-                end
+                @graph.propagate_transitive_closure(source, target)
             end
 
             # Removes a vertex from the graph if it has no adjacent vertices
