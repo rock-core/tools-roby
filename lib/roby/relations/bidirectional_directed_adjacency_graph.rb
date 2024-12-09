@@ -12,10 +12,28 @@ module Roby
         # that is not in the graph, e.g.
         #
         #     graph.out_neighbours(random_object) -> Set.new
+        #
+        # The class guarantees that there can't be duplicate edges
         class BidirectionalDirectedAdjacencyGraph
             include RGL::MutableGraph
 
-            attr_reader :forward_edges_with_info, :backward_edges
+            # Mapping from a vertex to the association of out neighbours
+            #
+            # That is,
+            #      out_neighbours = forward_edges_with_info[source]
+            #      out_neighbours.keys # => list of out neighbours for 'source'
+            #      out_neighbours[target] # => info for the source -> target edge
+            #
+            # @return [Hash<Object,Hash<Object,Object>>]
+            attr_reader :forward_edges_with_info
+
+            # Set of in neighbours for a particular vertex
+            #
+            # That is,
+            #      in_neighbours = backward_edges[target]
+            #
+            # @return [Hash<Object,Hash<Object,Object>>]
+            attr_reader :backward_edges
 
             # Shortcut for creating a DirectedAdjacencyGraph:
             #
@@ -516,6 +534,19 @@ module Roby
                 end
 
                 [new, removed, updated]
+            end
+
+            # Incremental update of a transitive closure, adding the from -> to edge
+            def propagate_transitive_closure(from, to)
+                from_in_neighbours = @backward_edges[from]
+                @backward_edges[to].merge!(from_in_neighbours)
+                @forward_edges_with_info[to].each_key do |v|
+                    @backward_edges[v].merge!(from_in_neighbours)
+                end
+
+                @backward_edges[from].each_key do |u|
+                    @forward_edges_with_info[u].merge!(@forward_edges_with_info[to])
+                end
             end
         end
     end
