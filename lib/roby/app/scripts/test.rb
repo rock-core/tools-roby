@@ -5,6 +5,12 @@ require "roby/test/spec"
 require "roby/test/minitest_plugin"
 require "optparse"
 
+module Minitest # :nodoc:
+    def self.run_after_blocks
+        @@after_run.reverse_each(&:call)
+    end
+end
+
 Robot.logger.level = Logger::WARN
 
 app = Roby.app
@@ -176,6 +182,7 @@ exception = Roby.display_exception do
         end
 
     SimpleCov.run_exit_tasks! if defined?(SimpleCov)
+    Minitest.run_after_blocks
     exit(passed ? 0 : 1)
 end
 exit(exception ? 1 : 0)
