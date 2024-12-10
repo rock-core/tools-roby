@@ -1578,10 +1578,10 @@ module Roby
 
         # Add some metadata to {#app_metadata}, and save it to the log dir's
         # info.yml if it is already created
-        def add_app_metadata(metadata)
+        def add_app_metadata(metadata, append: true)
             app_extra_metadata.merge!(metadata)
             if created_log_dir?
-                log_save_metadata
+                log_save_metadata(append: append)
             end
         end
 
