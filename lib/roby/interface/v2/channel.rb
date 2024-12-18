@@ -284,7 +284,7 @@ module Roby
                     guard_write_thread
 
                     @write_buffer.concat(new_bytes) if new_bytes
-                    written_bytes = io.syswrite(@write_buffer)
+                    written_bytes = io.write_nonblock(@write_buffer)
 
                     @write_buffer = @write_buffer[written_bytes..-1]
                     !@write_buffer.empty?

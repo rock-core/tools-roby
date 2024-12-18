@@ -6,6 +6,7 @@ begin
     Roby::CLI::Display.start(ARGV)
     exit 0
 rescue Interrupt
+    require "roby"
     Roby.info "Interrupted by user"
     exit 1
 rescue Exception => e

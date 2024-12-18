@@ -10,7 +10,14 @@ module Roby
     describe "run" do
         include Test::ArubaMinitest
 
-        (1..2).each do |interface_version|
+        interface_versions =
+            if RUBY_VERSION >= "3.0"
+                [2]
+            else
+                [1, 2]
+            end
+
+        interface_versions.each do |interface_version|
             before do
                 @roby_app_interface_version = interface_version
             end
