@@ -103,13 +103,12 @@ module Roby
                 end
 
                 def format_arguments(hash)
-                    hash.keys.map do |k|
-                        v = hash[k]
+                    hash.map do |k, v|
                         v = if !v || v.respond_to?(:to_str) then v.inspect
                             else
                                 v
                             end
-                        "#{k} => #{v}"
+                        "#{k}: #{v}"
                     end.join(", ")
                 end
 
