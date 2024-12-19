@@ -697,9 +697,19 @@ module Roby
             elsif version == 2
                 require "roby/interface/v2"
                 call_plugins(:setup_interface_v2_protocol)
+                require_v2_protocol_extensions
                 Roby::Interface::V2
             else
                 raise ArgumentError, "remote interface version #{version} does not exist"
+            end
+        end
+
+        # Require the protocol extension files defined in interface.protocol_extensions
+        #
+        # The usual place to set those is in config/app.yml
+        def require_v2_protocol_extensions
+            (@options.dig("v2_protocol", "extensions") || []).each do |ext|
+                require ext
             end
         end
 
