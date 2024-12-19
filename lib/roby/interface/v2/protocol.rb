@@ -108,6 +108,9 @@ module Roby
                     :exception, :failed_task, :involved_tasks, keyword_init: true
                 )
 
+                DelayedArgumentFromState =
+                    Struct.new(:object, :path, keyword_init: true)
+
                 class VoidClass; end
                 Void = VoidClass.new.freeze
                 def self.void?(value)
@@ -154,6 +157,10 @@ module Roby
                     protocol.add_marshaller(::Exception, &method(:marshal_exception))
                     protocol.add_marshaller(
                         Roby::ExecutionException, &method(:marshal_execution_exception)
+                    )
+                    protocol.add_marshaller(
+                        Roby::DelayedArgumentFromState,
+                        &method(:marshal_delayed_argument_from_state)
                     )
                 end
 
@@ -264,6 +271,23 @@ module Roby
                         involved_tasks: channel.marshal_filter_object(
                             execution_exception.each_involved_task.to_a
                         )
+                    )
+                end
+
+                # Converts a {DelayedArgumentFromState}
+                def self.marshal_delayed_argument_from_state(_channel, delayed_arg)
+                    object =
+                        case delayed_arg.__object__
+                        when Conf
+                            :Conf
+                        when State
+                            :State
+                        else
+                            delayed_arg.__object__.to_s
+                        end
+
+                    DelayedArgumentFromState.new(
+                        object: object, path: delayed_arg.__methods__
                     )
                 end
             end
