@@ -81,6 +81,11 @@ module Roby
                     @commands = @handshake_results[:commands]
                 end
 
+                # (see Channel#stats)
+                def stats
+                    io.stats
+                end
+
                 # Whether the communication channel to the server is closed
                 def closed?
                     io.closed?
