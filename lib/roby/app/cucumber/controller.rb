@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "roby/interface/v1/async"
-
 module Roby
     module App
         module Cucumber
@@ -24,6 +22,9 @@ module Roby
 
                 # Actions that would be started by {#current_batch}
                 attr_reader :pending_actions
+
+                # The remote interface version to use
+                attr_accessor :interface_version
 
                 # Whether the process should abort when an error is detected, or
                 # keep running the actions as-is. The latter is useful for
@@ -50,19 +51,50 @@ module Roby
                     @roby_interface&.connected?
                 end
 
+                def self.roby_default_interface_version
+                    if (v = ENV["ROBY_DEFAULT_INTERFACE_VERSION"])
+                        Integer(v)
+                    elsif RUBY_VERSION >= "3.0"
+                        2
+                    else
+                        1
+                    end
+                end
+
+                def self.roby_default_interface_port(version)
+                    roby_interface_module(version)::DEFAULT_PORT
+                end
+
+                def self.roby_interface_module(version)
+                    if version == 1
+                        Roby::Interface::V1
+                    else
+                        Roby::Interface::V2
+                    end
+                end
+
                 # @param [Integer] port the port through which we should connect
                 #   to the Roby interface. Set to zero to pick a random port.
                 def initialize(
-                    port: Roby::Interface::DEFAULT_PORT,
                     keep_running: (ENV["CUCUMBER_KEEP_RUNNING"] == "1"),
-                    validation_mode: (ENV["ROBY_VALIDATE_STEPS"] == "1")
+                    validation_mode: (ENV["ROBY_VALIDATE_STEPS"] == "1"),
+                    interface_version: self.class.roby_default_interface_version,
+                    port: self.class.roby_default_interface_port(interface_version)
                 )
+                    require "roby/interface/v#{interface_version}/async"
+
                     @roby_pid = nil
                     @roby_port = port
                     @background_jobs = []
                     @keep_running = keep_running
                     @validation_mode = validation_mode
+                    @interface_version = interface_version
+                    @port = port
                     @pending_actions = []
+                end
+
+                def roby_interface_module
+                    self.class.roby_interface_module(@interface_version)
                 end
 
                 # The object used to communicate with the Roby instance
@@ -76,7 +108,7 @@ module Roby
                     end
 
                     @roby_interface ||=
-                        Roby::Interface::V1::Async::Interface
+                        roby_interface_module::Async::Interface
                         .new("localhost", port: @roby_port)
                 end
 
@@ -106,7 +138,8 @@ module Roby
                     options << "--log-dir=#{log_dir}" if log_dir
                     if @roby_port == 0
                         server = TCPServer.new("localhost", 0)
-                        options << "--interface-fd=#{server.fileno}"
+                        options <<
+                            "--interface-v#{@interface_version}-fd=#{server.fileno}"
                         spawn_options = spawn_options.merge({ server => server })
                         @roby_port = server.local_address.ip_port
                     else
@@ -116,6 +149,7 @@ module Roby
                         Gem.ruby, File.join(Roby::BIN_DIR, "roby"), "run",
                         "--robot=#{robot_name},#{robot_type}",
                         "--controller",
+                        "--interface-versions=#{@interface_version}",
                         "--quiet",
                         *options,
                         *state.map { |k, v| "--set=#{k}=#{v}" },
@@ -358,7 +392,7 @@ module Roby
                         return
                     end
 
-                    action = Interface::V1::Async::ActionMonitor.new(
+                    action = roby_interface_module::Async::ActionMonitor.new(
                         roby_interface, m, arguments
                     )
                     action.restart(batch: current_batch)
@@ -434,7 +468,7 @@ module Roby
                         return
                     end
 
-                    action = Interface::V1::Async::ActionMonitor.new(
+                    action = roby_interface_module::Async::ActionMonitor.new(
                         roby_interface, m, arguments
                     )
                     action.restart(batch: current_batch)
