@@ -73,6 +73,7 @@ module Roby
                 end
                 register_plan(plan)
 
+                app.run_prepare_blocks
                 super
             end
 
