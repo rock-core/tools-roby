@@ -563,6 +563,33 @@ module Roby
             @weak = weak
         end
 
+        # The object from which the delayed argument is derived
+        #
+        # The __ markers are used to avoid possible collisions with an actual method
+        #
+        # @return [Object]
+        def __object__
+            @object
+        end
+
+        # The chain of methods that are called on {__object__} to find the argument
+        #
+        # The __ markers are used to avoid possible collisions with an actual method
+        #
+        # @return [Array<Symbol>]
+        def __methods__
+            @methods.dup
+        end
+
+        # The expected class of the resolved argument
+        #
+        # The __ markers are used to avoid possible collisions with an actual method
+        #
+        # @return [Class]
+        def __expected_class__
+            @expected_class
+        end
+
         def of_type(expected_class)
             @expected_class = expected_class
             self
