@@ -161,6 +161,14 @@ module Roby
                         @new_job_listeners = []
                     end
 
+                    # I/O statistics of the current connection
+                    #
+                    # @return [Channel::Stats,nil] the statistics or nil if not
+                    #   currently connected
+                    def stats
+                        client&.stats
+                    end
+
                     # Schedules an async call on the client
                     #
                     # @see Client#async_call

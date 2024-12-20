@@ -32,6 +32,11 @@ module Roby
                     Range
                 ].freeze
 
+                Stats = Struct.new :tx, :rx, keyword_init: true
+
+                # @return [Stats] I/O statistics
+                attr_reader :stats
+
                 def initialize(
                     io, client,
                     max_write_buffer_size: 25 * 1024**2
@@ -39,6 +44,7 @@ module Roby
                     @io = io
                     @io.fcntl(Fcntl::F_SETFL, Fcntl::O_NONBLOCK)
                     @client = client
+                    @stats = Stats.new(tx: 0, rx: 0)
                     @websocket_packet =
                         if client
                             WebSocket::Frame::Outgoing::Client
@@ -135,6 +141,7 @@ module Roby
                     return unless IO.select([@io], [], [], remaining_time)
 
                     @incoming << @read_buffer if io.sysread(1024**2, @read_buffer)
+                    @stats.rx += @read_buffer.size
                 rescue Errno::EWOULDBLOCK, Errno::EAGAIN # rubocop:disable Lint/SuppressedException
                 end
 
@@ -284,7 +291,8 @@ module Roby
                     guard_write_thread
 
                     @write_buffer.concat(new_bytes) if new_bytes
-                    written_bytes = io.syswrite(@write_buffer)
+                    written_bytes = io.write_nonblock(@write_buffer)
+                    @stats.tx += written_bytes
 
                     @write_buffer = @write_buffer[written_bytes..-1]
                     !@write_buffer.empty?
