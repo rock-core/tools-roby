@@ -103,13 +103,12 @@ module Roby
                 end
 
                 def format_arguments(hash)
-                    hash.keys.map do |k|
-                        v = hash[k]
+                    hash.map do |k, v|
                         v = if !v || v.respond_to?(:to_str) then v.inspect
                             else
                                 v
                             end
-                        "#{k} => #{v}"
+                        "#{k}: #{v}"
                     end.join(", ")
                 end
 
@@ -308,13 +307,19 @@ module Roby
                     if safe?
                         puts "#{@batch.__calls.size} actions queued in the current batch, "\
                              "use #process to send, #cancel to delete"
-                        @batch.__calls.each do |context, m, *args|
+                        @batch.__calls.each do |path, m, args, kw|
                             if %i[drop_job kill_job].include?(m)
                                 job_id = args.first
-                                job_info = format_job_info(job_id, *@batch_job_info[job_id])
-                                puts "#{Roby.color(m.to_s, :bold, :bright_red)} #{job_info}"
+                                if (job_info = @batch_job_info[job_id])
+                                    formatted_job_info = format_job_info(job_id, *job_info)
+                                else
+                                    formatted_job_info = "##{job_id}"
+                                end
+
+                                puts "#{Roby.color(m.to_s, :bold, :bright_red)} " \
+                                     "#{formatted_job_info}"
                             elsif m == :start_job
-                                puts "#{Roby.color("#{args[0]}!", :bright_blue)}(#{args[1]})"
+                                puts "#{Roby.color("#{args[0]}!", :bright_blue)}(#{format_arguments(kw)})"
                             else
                                 puts "#{Roby.color("#{m}!", :bright_blue)}(#{args.first})"
                             end
