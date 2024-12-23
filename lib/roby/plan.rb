@@ -110,11 +110,11 @@ module Roby
 
         def create_null_relations
             @null_task_relation_graphs, @null_event_relation_graphs =
-                self.class.instanciate_relation_graphs(graph_observer: graph_observer)
-            @null_task_relation_graphs.freeze
+                self.class.instanciate_relation_graphs
             @null_task_relation_graphs.each_value(&:freeze)
-            @null_event_relation_graphs.freeze
+            @null_task_relation_graphs.freeze
             @null_event_relation_graphs.each_value(&:freeze)
+            @null_event_relation_graphs.freeze
         end
 
         def create_relations
