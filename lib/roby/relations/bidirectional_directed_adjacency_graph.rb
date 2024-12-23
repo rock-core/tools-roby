@@ -12,10 +12,34 @@ module Roby
         # that is not in the graph, e.g.
         #
         #     graph.out_neighbours(random_object) -> Set.new
+        #
+        # The class guarantees that there can't be duplicate edges
         class BidirectionalDirectedAdjacencyGraph
             include RGL::MutableGraph
 
-            attr_reader :forward_edges_with_info, :backward_edges
+            # Mapping from a vertex to the association of out neighbours
+            #
+            # That is,
+            #      out_neighbours = forward_edges_with_info[source]
+            #      out_neighbours.keys # => list of out neighbours for 'source'
+            #      out_neighbours[target] # => info for the source -> target edge
+            #
+            # @return [Hash<Object,Hash<Object,Object>>]
+            attr_reader :forward_edges_with_info
+
+            # Set of in neighbours for a particular vertex
+            #
+            # The hash value associated with the in-neighbour is not used. A
+            # hash is used for optimization only
+            #
+            # That is,
+            #      in_neighbours = backward_edges[target]
+            #      in_neighbours.keys # => list of in neighbours for 'target'
+            #      in_neighbours.key?(v) # test if 'v' is a in-neighbour of target
+            #      in_neighbours[v] # => always nil
+            #
+            # @return [Hash<Object,Hash<Object,Object>>]
+            attr_reader :backward_edges
 
             # Shortcut for creating a DirectedAdjacencyGraph:
             #
@@ -516,6 +540,35 @@ module Roby
                 end
 
                 [new, removed, updated]
+            end
+
+            # Incremental update of a transitive closure, adding the from -> to edge
+            def propagate_transitive_closure(from, to)
+                from_in_neighbours = @backward_edges[from]
+                # Adds 'from_in_neighbours' to 'to's in neighbors
+                @backward_edges[to].merge!(from_in_neighbours)
+                @forward_edges_with_info[to].each_key do |v|
+                    # Adds 'from_in_neighbours' to 'to_out_neighbors's in neighbors
+                    @backward_edges[v].merge!(from_in_neighbours)
+
+                    # Adds 'from' to 'to_out_neighbors's in neighbors
+                    v_in = (@backward_edges[v] ||= IdentityHash.new)
+                    @forward_edges_with_info[v] ||= IdentityHash.new
+                    v_in[from] = nil
+                end
+
+                to_out_neighbours = @forward_edges_with_info[to]
+                # Adds 'to_out_neighbors' to 'from's out neighbors
+                @forward_edges_with_info[from].merge!(to_out_neighbours)
+                @backward_edges[from].each_key do |u|
+                    # Adds 'to_out_neighbors' to 'from_in_neighbors's out neighbors
+                    @forward_edges_with_info[u].merge!(to_out_neighbours)
+
+                    # Adds 'to' to 'from_in_neighbors's out neighbors
+                    u_out = (@forward_edges_with_info[u] ||= IdentityHash.new)
+                    @backward_edges[u] ||= IdentityHash.new
+                    u_out[to] = nil
+                end
             end
         end
     end

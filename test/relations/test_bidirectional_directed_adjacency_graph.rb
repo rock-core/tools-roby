@@ -572,6 +572,36 @@ module Roby
                     end
                 end
             end
+
+            describe "propagate transitive closure" do
+                it "propagates 'from in neighbors' to 'to'" do
+                    g = create_graph(1, 2, 3)
+                    g.add_edge(1, 2)
+                    g.add_edge(2, 3)
+
+                    g.propagate_transitive_closure(2, 3)
+                    assert g.has_edge?(1, 3)
+                end
+
+                it "propagates 'from' to 'to out neighbors'" do
+                    g = create_graph(1, 2, 3)
+                    g.add_edge(1, 2)
+                    g.add_edge(2, 3)
+
+                    g.propagate_transitive_closure(1, 2)
+                    assert g.has_edge?(1, 3)
+                end
+
+                it "propagates 'from in neighbors' to 'to out neighbors'" do
+                    g = create_graph(1, 2, 3, 4)
+                    g.add_edge(1, 2)
+                    g.add_edge(2, 3)
+                    g.add_edge(3, 4)
+
+                    g.propagate_transitive_closure(2, 3)
+                    assert g.has_edge?(1, 4)
+                end
+            end
         end
     end
 end
