@@ -19,9 +19,21 @@ module Roby
         module ClassMethods
             include ::Hooks::ClassMethods
 
+            def define_hook_writer(name)
+                define_method name do |method = nil, &block|
+                    _hooks[name] << (method || block)
+                    item = _hooks[name].last
+                    Roby.disposable { _hooks[name].delete(item) }
+                end
+            end
+
             def define_hooks(callback, scope: ->(c, s) { s unless c.proc? })
                 super
             end
+        end
+
+        module InstanceHooks
+            include ::Hooks::InstanceHooks
         end
     end
 end
