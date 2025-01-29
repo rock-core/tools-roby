@@ -1609,6 +1609,15 @@ module Roby
             event.finalized!(timestamp)
         end
 
+        # Apply to +to+ the marks (permanent, mission) of +from+
+        #
+        # It does not remove any marks from +from+
+        def copy_task_marks(to:, from:)
+            add_permanent_task(to) if permanent_task?(from)
+
+            add_mission_task(to) if mission_task?(from)
+        end
+
         def remove_task(task, timestamp = Time.now)
             verify_plan_object_finalization_sanity(task)
             remove_task!(task, timestamp)
