@@ -1492,7 +1492,11 @@ module Roby
                 if @log_base_dir ||= log["dir"]
                     @log_base_dir
                 elsif (global_base_dir = ENV["ROBY_BASE_LOG_DIR"])
-                    File.join(global_base_dir, app_name)
+                    if ENV["ROBY_ADD_APP_NAME_TO_BASE_LOG_DIR"] == "1"
+                        global_base_dir
+                    else
+                        File.join(global_base_dir, app_name)
+                    end
                 else
                     "logs"
                 end
