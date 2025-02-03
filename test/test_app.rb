@@ -144,6 +144,10 @@ module Roby
                     ENV.delete("ROBY_ADD_APP_NAME_TO_BASE_LOG_DIR")
                     app.log.delete("dir")
                 end
+                after do
+                    ENV.delete("ROBY_APP_DIR")
+                    ENV.delete("ROBY_ADD_APP_NAME_TO_BASE_LOG_DIR")
+                end
                 it "it uses log[dir] when no ENV variable is set and log is set" do
                     app.log["dir"] = "strawberry"
                     log_base_dir = app.log_base_dir
