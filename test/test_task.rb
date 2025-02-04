@@ -1539,7 +1539,8 @@ module Roby
             end
             it "creates a promise using the serialized task executor otherwise" do
                 flexmock(execution_engine).should_receive(:promise).once
-                    .with(->(h) { h[:executor].equal?(task.promise_executor) }, Proc)
+                    .with(Proc)
+                    .with_kw_args(hsh(executor: task.promise_executor))
                     .and_return(ret = flexmock)
                 assert_equal(ret, task.promise {})
             end
