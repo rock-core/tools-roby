@@ -138,6 +138,58 @@ module Roby
                 end
             end
 
+            describe "#log_base_dir" do
+                before do
+                    ENV.delete("ROBY_BASE_LOG_DIR")
+                    ENV.delete("ROBY_ADD_APP_NAME_TO_BASE_LOG_DIR")
+                    app.log.delete("dir")
+                end
+                after do
+                    ENV.delete("ROBY_APP_DIR")
+                    ENV.delete("ROBY_ADD_APP_NAME_TO_BASE_LOG_DIR")
+                end
+                it "it uses log[dir] when no ENV variable is set and log is set" do
+                    app.log["dir"] = "strawberry"
+                    log_base_dir = app.log_base_dir
+
+                    assert_equal(File.join(app_dir, "strawberry"), log_base_dir)
+                end
+                it "it uses ROBY_BASE_LOG_DIR with app name if no "\
+                   "ROBY_ADD_APP_NAME_TO_BASE_LOG_DIR is set" do
+                    ENV["ROBY_BASE_LOG_DIR"] = "pineaple"
+                    log_base_dir = app.log_base_dir
+
+                    expected_no_app_base_dir = File.join(app_dir, "pineaple")
+                    expected_base_dir = File.join(expected_no_app_base_dir, app.app_name)
+                    assert_equal(expected_base_dir, log_base_dir)
+                end
+                it "it uses ROBY_BASE_LOG_DIR with app name if "\
+                   "ROBY_ADD_APP_NAME_TO_BASE_LOG_DIR is set to true" do
+                    ENV["ROBY_BASE_LOG_DIR"] = "banana"
+                    ENV["ROBY_ADD_APP_NAME_TO_BASE_LOG_DIR"] = "1"
+                    log_base_dir = app.log_base_dir
+
+                    expected_no_app_base_dir = File.join(app_dir, "banana")
+                    expected_base_dir = File.join(expected_no_app_base_dir, app.app_name)
+                    assert_equal(expected_base_dir, log_base_dir)
+                end
+                it "it uses ROBY_BASE_LOG_DIR without app name if "\
+                   "ROBY_ADD_APP_NAME_TO_BASE_LOG_DIR is set to false" do
+                    ENV["ROBY_BASE_LOG_DIR"] = "coconut"
+                    ENV["ROBY_ADD_APP_NAME_TO_BASE_LOG_DIR"] = "0"
+                    log_base_dir = app.log_base_dir
+
+                    expected_no_app_base_dir = File.join(app_dir, "coconut")
+                    assert_equal(expected_no_app_base_dir, log_base_dir)
+                end
+                it "if nothing is set, it defaults to logs as base logs dir" do
+                    log_base_dir = app.log_base_dir
+
+                    expected_no_app_base_dir = File.join(app_dir, "logs")
+                    assert_equal(expected_no_app_base_dir, log_base_dir)
+                end
+            end
+
             describe "#find_and_create_log_dir" do
                 before do
                     app.log_base_dir = File.join(make_tmpdir, "log", "path")
