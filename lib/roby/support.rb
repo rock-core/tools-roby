@@ -207,4 +207,13 @@ module Roby
 
     VoidClass = Class.new
     Void = VoidClass.new.freeze
+
+    # Time in seconds since an arbitrary point in time, unaffected by time corrections
+    #
+    # Use this time for e.g. compute timeouts or durations since a certain timepoint
+    #
+    # @return [Float]
+    def self.monotonic_time
+        Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    end
 end
