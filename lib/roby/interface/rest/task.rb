@@ -99,11 +99,31 @@ module Roby
                 end
 
                 poll do
-                    stop_event.emit unless @rest_server.running?
+                    unless @rest_server.running?
+                        if interrupt_event.pending?
+                            interrupt_event.emit
+                        else
+                            failed_event.emit
+                        end
+                    end
                 end
 
-                event :stop do |_event|
+                # Stop the internal REST server object
+                #
+                # This is exposed here mainly for testing. Use the stop event to stop
+                # the task cleanly
+                def rest_server_stop
                     @rest_server.stop(join_timeout: 0)
+                end
+
+                event :interrupt do |_event|
+                    rest_server_stop
+                end
+
+                forward interrupt: :failed
+
+                event :stop do |_event|
+                    interrupt_event.call
                 end
             end
         end

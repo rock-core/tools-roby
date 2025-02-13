@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "roby/test/self"
+require "roby/interface/core"
 require "roby/interface/rest/task"
 require "roby/interface/rest/server"
 
@@ -40,6 +41,27 @@ module Roby
                     assert_raises(REST::Server::InvalidServer) do
                         Server.server_alive?(
                             "127.0.0.1", rest_task.actual_port, main_route: "/api")
+                    end
+                end
+
+                it "stops the server when stopped" do
+                    expect_execution { rest_task.stop! }
+                        .to { emit rest_task.stop_event }
+
+                    refute Server.server_alive?(
+                        "127.0.0.1", rest_task.actual_port, main_route: "/root")
+                end
+
+                it "detects that the server stopped and emits failed" do
+                    @rest_task.rest_server_stop
+                    expect_execution.to { emit rest_task.failed_event }
+                end
+
+                it "emits interrupt and failed when explicitly stopped" do
+                    @rest_task.rest_server_stop
+                    expect_execution { rest_task.stop! }.to do
+                        emit rest_task.interrupt_event
+                        emit rest_task.failed_event
                     end
                 end
 
