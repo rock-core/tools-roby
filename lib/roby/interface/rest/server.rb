@@ -45,6 +45,7 @@ module Roby
                                main_route: "/api",
                                storage: {},
                                threads: 1,
+                               roby_execute: true,
                                middlewares: VERBOSE_MIDDLEWARES,
                                **thin_options)
 
@@ -55,7 +56,7 @@ module Roby
                     @wait_start = Concurrent::IVar.new
 
                     api = self.class.attach_api_to_interface(
-                        api, @interface, storage
+                        api, @interface, storage, roby_execute: roby_execute
                     )
                     rack_app = Rack::Builder.new do
                         yield(self) if block_given?
@@ -65,8 +66,9 @@ module Roby
                             run api
                         end
                     end
-                    @server = Thin::Server.new(host, port, rack_app,
-                                               signals: false, **thin_options)
+                    @server = Thin::Server.new(
+                        host, port, rack_app, signals: false, **thin_options
+                    )
                     @server.threaded = (threads != 1)
                     @server.threadpool_size = threads
                     @server.silent = true
@@ -85,16 +87,24 @@ module Roby
                 class RackMiddleware
                     attr_reader :interface, :storage
 
-                    def initialize(api, interface, storage = {})
+                    def initialize(api, interface, storage = {}, roby_execute: true)
                         @api = api
                         @interface = interface
                         @storage = storage
+                        @roby_execute = roby_execute
                     end
 
                     def call(env)
                         env["roby.interface"] = interface
                         env["roby.storage"] = storage
-                        @api.call(env)
+
+                        if @roby_execute
+                            interface.app.execution_engine.execute do
+                                @api.call(env)
+                            end
+                        else
+                            @api.call(env)
+                        end
                     end
                 end
 
@@ -103,8 +113,12 @@ module Roby
                 # Helper method that transforms a Grape API class so that it
                 # gets an #interface accessor that provides the interface
                 # object the API is meant to work on
-                def self.attach_api_to_interface(api, interface, storage = {})
-                    RackMiddleware.new(api, interface, storage)
+                def self.attach_api_to_interface(
+                    api, interface, storage = {}, roby_execute: true
+                )
+                    RackMiddleware.new(
+                        api, interface, storage, roby_execute: roby_execute
+                    )
                 end
 
                 # Starts the server
