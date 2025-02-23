@@ -7,10 +7,6 @@ module Roby
     module Interface
         module REST
             describe Server do
-                before do
-                    @app = Roby::Application.new
-                end
-
                 after do
                     if @server&.running?
                         @server.wait_start
@@ -22,7 +18,7 @@ module Roby
 
                 describe "#running?" do
                     before do
-                        @server = REST::Server.new(@app, port: 0)
+                        @server = REST::Server.new(app, port: 0)
                     end
                     it "returns false before the call to #start" do
                         refute @server.running?
@@ -40,14 +36,14 @@ module Roby
 
                 describe "the start timeout behavior" do
                     it "does not wait at all if the start timeout is zero" do
-                        @server = REST::Server.new(@app, port: 0)
+                        @server = REST::Server.new(app, port: 0)
                         flexmock(@server).should_receive(:wait_start).never
                         @server.start(wait_timeout: 0)
                     end
 
                     it "raises if the thread is not functional after "\
                        "the alloted timeout" do
-                        @server = REST::Server.new(@app, port: 0)
+                        @server = REST::Server.new(app, port: 0)
                         flexmock(@server).should_receive(:create_thin_thread)
                                          .and_return { Thread.new {} }
                         assert_raises(REST::Server::Timeout) do
@@ -67,18 +63,74 @@ module Roby
                         end
                     end
                     storage = { test_storage_value: 10 }
-                    @server = REST::Server.new(@app, port: 0, api: api, storage: storage)
+                    @server = REST::Server.new(app, api: api, storage: storage, port: 0)
                     @server.start
 
-                    assert_equal "10", RestClient.get(
+                    assert_equal "10", get(
                         "http://127.0.0.1:#{@server.port}/api/storage_value"
                     )
+                end
+
+                it "synchronizes calls with the underlying execution engine" do
+                    call_thread = nil
+                    api = Class.new(Grape::API) do
+                        mount API
+
+                        get "/sync_test" do
+                            call_thread = Thread.current
+                            nil
+                        end
+                    end
+                    @server = REST::Server.new(app, api: api, port: 0)
+                    @server.start
+
+                    get "http://127.0.0.1:#{@server.port}/api/sync_test"
+                    assert_equal Thread.current, call_thread
+                end
+
+                it "allows that endpoints call roby_execute" do
+                    call_thread = nil
+                    api = Class.new(Grape::API) do
+                        mount API
+                        helpers Helpers
+
+                        get "/sync_test" do
+                            roby_execute do
+                                call_thread = Thread.current
+                            end
+                            nil
+                        end
+                    end
+                    @server = REST::Server.new(app, api: api, port: 0)
+                    @server.start
+
+                    get("http://127.0.0.1:#{@server.port}/api/sync_test")
+                    assert_equal Thread.current, call_thread
+                end
+
+                it "allows to disable synchronization with the engine" do
+                    call_thread = nil
+                    api = Class.new(Grape::API) do
+                        mount API
+
+                        get "/sync_test" do
+                            call_thread = Thread.current
+                            nil
+                        end
+                    end
+                    @server = REST::Server.new(
+                        app, api: api, port: 0, roby_execute: false
+                    )
+                    @server.start
+
+                    get "http://127.0.0.1:#{@server.port}/api/sync_test"
+                    refute_equal Thread.current, call_thread
                 end
 
                 describe "over TCP" do
                     describe "a given port of zero" do
                         before do
-                            @server = REST::Server.new(@app, port: 0)
+                            @server = REST::Server.new(app, port: 0, roby_execute: false)
                         end
 
                         it "spawns a working server and waits for it to be functional" do
@@ -116,7 +168,9 @@ module Roby
                             server = ::TCPServer.new(0)
                             @port = server.local_address.ip_port
                             server.close
-                            @server = REST::Server.new(@app, port: @port)
+                            @server = REST::Server.new(
+                                app, port: @port, roby_execute: false
+                            )
                         end
 
                         it "spawns a working server and waits for it to be functional" do
@@ -148,6 +202,16 @@ module Roby
                             end
                         end
                     end
+                end
+
+                def get(*args)
+                    execute_promise { RestClient.get(*args) }
+                end
+
+                def execute_promise(&block)
+                    promise = execution_engine.promise(&block)
+                    execute { promise.execute }
+                    promise.value!
                 end
             end
         end
