@@ -56,8 +56,12 @@ module Roby
                     SETUP_METHODS.include?(m)
                 end
 
-                def method_missing(m, *args, &block)
-                    expectations.public_send(m, *args, &block)
+                def method_missing(m, *args, **kw, &block)
+                    if (to_method = m.to_s.match(/^to_/))
+                        return to { send(to_method.post_match, *args, **kw, &block) }
+                    end
+
+                    expectations.public_send(m, *args, **kw, &block)
                     self
                 end
 
