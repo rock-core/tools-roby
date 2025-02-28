@@ -785,6 +785,8 @@ module Roby
             "engine" => {}
         }.freeze
 
+        LOCK_FILE_EXT = ".lock"
+
         # @!method public_rest_interface?
         # @!method public_rest_interface=(flag)
         #
@@ -955,6 +957,8 @@ module Roby
             @robots = App::RobotNames.new
 
             @base_setup_done = false
+
+            @lock_file = nil
         end
 
         # Loads the base configuration
@@ -1031,7 +1035,9 @@ module Roby
 
             load_base_config
             unless @log_dir
+                unlock_log_dir
                 find_and_create_log_dir
+                lock_log_dir
             end
             setup_loggers(redirections: true)
 
@@ -1039,6 +1045,44 @@ module Roby
             call_plugins(:base_setup, self)
 
             @base_setup_done = true
+        end
+
+        def lock_log_dir
+            return if log_dir_locked?
+
+            return unless @lock_file
+
+            @lock_file ||= File.open(
+                File.join(@log_dir, LOCK_FILE_EXT),
+                File::RDWR | File::CREAT, 0o644
+            )
+            @lock_file.flock(File::LOCK_EX | File::LOCK_NB)
+        rescue Errno::ENOENT, Errno::EACCES, RuntimeError => e
+            warn "Failed to lock directory #{@log_dir}: #{e.message}"
+        end
+
+        def unlock_log_dir
+            return unless log_dir_locked?
+
+            return unless @lock_file
+
+            @lock_file.flock(File::LOCK_UN)
+            @lock_file.close
+            @lock_file = nil
+        rescue Errno::ENOENT, Errno::EACCES, RuntimeError => e
+            warn "Failed to unlock directory #{@log_dir}: " \
+                 "#{e.message}"
+        end
+
+        def log_dir_locked?
+            return unless @lock_file
+
+            File.open(@lock_file) do |file|
+                return !file.flock(File::LOCK_EX | File::LOCK_NB)
+            end
+        rescue Errno::ENOENT, Errno::EACCES => e
+            warn "Failed to check lock status for log directory " \
+                 "#{@log_dir}: #{e.message}"
         end
 
         # The inverse of #base_setup
