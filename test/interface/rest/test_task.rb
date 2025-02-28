@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require "roby/test/self"
+require "roby/interface/core"
+require "roby/interface/v1"
 require "roby/interface/rest/task"
 require "roby/interface/rest/server"
 
