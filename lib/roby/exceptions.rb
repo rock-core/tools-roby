@@ -153,7 +153,7 @@ module Roby
         end
 
         def pretty_print(pp)
-            pp.text "from #{origin} with trace "
+            pp.text "from #{origin} with trace"
             pp.nest(2) do
                 pp.nest(2) do
                     trace.each_edge do |a, b, _|
