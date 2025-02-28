@@ -386,8 +386,8 @@ module Roby
                 @forward_edges_with_info.each do |u, out_edges|
                     out_edges.each do |v, info|
                         @backward_edges[v][u] = info
-                        out_edges[v] = nil
                     end
+                    out_edges.transform_values! { nil }
                 end
                 @forward_edges_with_info, @backward_edges =
                     @backward_edges, @forward_edges_with_info
