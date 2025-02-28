@@ -245,8 +245,17 @@ module Roby
         end
     end
 
-    # Raised when an error occurs on a task while we were terminating it
+    # Exception raised when a quarantined task is in use by other parts of the plan
+    #
+    # Quarantines are used to indicate a failure of the framework to control a task.
+    # The most common case is a failure to stop the task.
+    #
+    # @see Task#quarantined!
     class QuarantinedTaskError < LocalizedError
+        # @return [String,Exception] a reason for the quarantine, either as a plain
+        #   message, or as the exception object that caused it. In the latter case, the
+        #   exception object will be registered as one of the error's
+        #   {#original_exceptions}
         attr_reader :reason
 
         def initialize(task)
@@ -256,16 +265,21 @@ module Roby
             report_exceptions_from(reason)
         end
 
+        def message
+            if @reason.respond_to?(:to_str)
+                @reason
+            elsif original_exceptions.include?(reason)
+                super
+            else
+                PP.pp(reason, +"")
+            end
+        end
+
         def pretty_print(pp)
             pp.text "The following task has been put in quarantine"
             pp.breakable
 
             super
-            pp.breakable
-
-            unless original_exceptions.include?(reason)
-                reason.pretty_print(pp)
-            end
         end
     end
 

@@ -428,6 +428,39 @@ module Roby
             end
         end
 
+        describe "the quarantine reason" do
+            it "supports a plain message" do
+                @task_m = Tasks::Simple.new_submodel
+                plan.add(parent = @task_m.new)
+                parent.depends_on(child = @task_m.new)
+                execute do
+                    parent.start!
+                    child.start!
+                end
+
+                e = expect_execution { child.quarantined!(reason: "some message") }
+                    .to { have_error_matching QuarantinedTaskError.match }
+
+                message = PP.pp(e, +"")
+                expected = <<~MESSAGE
+                    from <id:XX>(id:XX) with trace
+                        <id:XX>(id:XX) => <id:XX>(id:XX)
+                      Exception:
+                        The following task has been put in quarantine
+                        Roby::QuarantinedTaskError: some message
+                        <id:XX>
+                          no owners
+                          arguments:
+                            id:XX
+                MESSAGE
+                assert_equal expected, roby_normalize_exception_message(message)
+
+                # Force-kill the task, the automated shutdown won't do it for us
+                expect_execution { child.stop_event.emit }
+                    .to { emit child.stop_event }
+            end
+        end
+
         describe "model-level event handlers" do
             attr_reader :task_m
 
