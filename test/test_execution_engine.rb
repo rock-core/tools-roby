@@ -99,8 +99,13 @@ module Roby
         end
 
         describe "promise handling" do
-            it "queues promises in the #waiting_work list" do
+            it "does not queue a promise in #waiting_work on creation" do
                 p = execution_engine.promise {}
+                refute execution_engine.waiting_work.include?(p)
+            end
+
+            it "queues a promise in #waiting_work on execution" do
+                p = execution_engine.promise {}.execute
                 assert execution_engine.waiting_work.include?(p)
             end
 

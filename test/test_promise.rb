@@ -9,10 +9,6 @@ module Roby
         before do
             @recorder = flexmock
         end
-        it "registers the promise as pending work on the engine" do
-            p = execution_engine.promise {}
-            assert execution_engine.waiting_work.include?(p)
-        end
 
         it "executes the promised work" do
             recorder.should_receive(:called).once
