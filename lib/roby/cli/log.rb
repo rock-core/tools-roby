@@ -244,7 +244,8 @@ module Roby
                 require "roby/droby/plan_rebuilder"
 
                 stream = Roby::DRoby::Logfile::Reader.open(file)
-                if replay = options[:replay]
+                replay = options[:replay]
+                if replay != "no"
                     replay_debug = (replay == "debug")
                     rebuilder = Roby::DRoby::PlanRebuilder.new
                 end
