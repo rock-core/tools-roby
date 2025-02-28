@@ -562,7 +562,7 @@ module Roby
         # Mark the task as quarantined
         #
         # Quarantined tasks are essentially tasks that are present in the plan, but
-        # cannot be reused because they are known to misbehave *and* themselves can't
+        # cannot be used because they are known to misbehave *and* themselves can't
         # be killed. The prime example is a task the system tried to stop but for
         # which the stop process failed.
         #
@@ -570,9 +570,10 @@ module Roby
         # error as long as there are tasks that depend on the task, to make sure that
         # anything that depend on it either stops using it, or is killed itself.
         #
-        # @param [Exception,nil] reason if the quarantine was caused by an exception,
-        #   pass it.there. It will be stored in {#quarantine_reason} and will be
-        #   made available in the {Quarantine} error
+        # @param [Exception,String,nil] reason if the quarantine was caused by an
+        #   exception, pass it.there. It will be stored in {#quarantine_reason} and will
+        #   be made available in the {Quarantine} error. Otherwise, pass a message
+        #   that explains the quarantine
         def quarantined!(reason: nil)
             return if quarantined?
 
