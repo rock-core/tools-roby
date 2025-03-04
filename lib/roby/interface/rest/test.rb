@@ -39,12 +39,13 @@ module Roby
                 #
                 # Overloaded from Rack::Test to inject the app and plan
                 # and make them available to the API
-                def build_rack_mock_session
+                def build_rack_mock_session(roby_execute: false)
                     interface = Roby::Interface::Interface.new(app)
                     actual_api =
                         Roby::Interface::REST::Server
                         .attach_api_to_interface(
-                            rest_api, interface, roby_storage
+                            rest_api, interface, roby_storage,
+                            roby_execute: roby_execute
                         )
                     Rack::MockSession.new(actual_api)
                 end
