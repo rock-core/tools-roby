@@ -13,7 +13,7 @@ module Roby
                 attr_reader :rest_task
 
                 before do
-                    @rest_task = Task.new(host: "127.0.0.1", port: 0)
+                    @rest_task = Task.new(host: "127.0.0.1", port: 0, roby_execute: false)
                     plan.add(rest_task)
 
                     expect_execution { rest_task.start! }
@@ -32,7 +32,9 @@ module Roby
                 end
 
                 it "can be configured with a different mounting point" do
-                    @rest_task = Task.new(host: "127.0.0.1", port: 0, main_route: "/root")
+                    @rest_task = Task.new(
+                        host: "127.0.0.1", port: 0, main_route: "/root", roby_execute: false
+                    )
                     plan.add(rest_task)
                     expect_execution { rest_task.start! }
                         .to { emit rest_task.start_event }
@@ -80,7 +82,7 @@ module Roby
                     end
 
                     it "does not install reporting middlewares if verbose is false" do
-                        plan.add(task = @task_m.new(port: 0, verbose: false))
+                        plan.add(task = @task_m.new(port: 0, verbose: false, roby_execute: false))
                         expect_execution { task.start! }.to { emit task.start_event }
 
                         _, err = capture_subprocess_io do
@@ -95,7 +97,7 @@ module Roby
 
                     it "installs both the logger and error reporting middlewares if "\
                        "verbose is true" do
-                        plan.add(task = @task_m.new(port: 0, verbose: true))
+                        plan.add(task = @task_m.new(port: 0, verbose: true, roby_execute: false))
                         expect_execution { task.start! }.to { emit task.start_event }
 
                         _, err = capture_subprocess_io do
@@ -128,7 +130,7 @@ module Roby
                         end
                     end
 
-                    plan.add(task = task_m.new(port: 0))
+                    plan.add(task = task_m.new(port: 0, roby_execute: false))
                     expect_execution { task.start! }.to { emit task.start_event }
 
                     assert_equal "10", RestClient.get(
@@ -139,7 +141,7 @@ module Roby
                 describe "#url_for" do
                     it "returns the full URL to an API path" do
                         rest_task = Task.new(host: "127.0.0.1", port: 0,
-                                             main_route: "/root")
+                                             main_route: "/root", roby_execute: false)
                         plan.add(rest_task)
                         expect_execution { rest_task.start! }
                             .to { emit rest_task.start_event }
