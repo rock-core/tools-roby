@@ -1007,7 +1007,7 @@ module Roby
                 capture_log(Robot, :info) { server = @app.setup_rest_interface }
                 assert_same @app, server.app
                 server.wait_start
-                assert server.server_alive?
+                execute_in_thread { server.server_alive? }
             end
             it "allows to extend the API through plugins" do
                 plugin = Module.new do
@@ -1019,9 +1019,22 @@ module Roby
                 server = nil
                 capture_log(Robot, :info) { server = @app.setup_rest_interface }
                 server.wait_start
-                returned_value = RestClient
+                returned_value = execute_in_thread do
+                    RestClient
                     .get("http://localhost:#{server.port}/api/extended")
+                end
                 assert_equal 42, Integer(returned_value)
+            end
+
+            def execute_in_thread(plan: @app.plan)
+                done = false
+                t = Thread.new do
+                    result = yield
+                    done = true
+                    result
+                end
+                expect_execution(plan: plan).to { achieve { done } }
+                t.value
             end
         end
 
