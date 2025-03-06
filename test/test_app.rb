@@ -1026,15 +1026,10 @@ module Roby
                 assert_equal 42, Integer(returned_value)
             end
 
-            def execute_in_thread(plan: @app.plan)
-                done = false
-                t = Thread.new do
-                    result = yield
-                    done = true
-                    result
-                end
-                expect_execution(plan: plan).to { achieve { done } }
-                t.value
+            def execute_in_thread(plan: @app.plan, &block)
+                p = plan.execution_engine.promise(&block)
+                execute(plan: plan) { p.execute }
+                p.value!
             end
         end
 

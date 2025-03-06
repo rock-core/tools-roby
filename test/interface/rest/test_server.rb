@@ -205,14 +205,9 @@ module Roby
                 end
 
                 def get(*args)
-                    done = false
-                    t = Thread.new do
-                        result = RestClient.get(*args)
-                        done = true
-                        result
-                    end
-                    expect_execution.to { achieve { done } }
-                    t.value
+                    p = execution_engine.promise { RestClient.get(*args) }
+                    execute { p.execute }
+                    p.value!
                 end
             end
         end
