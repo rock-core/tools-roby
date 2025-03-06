@@ -739,6 +739,17 @@ module Roby
                 end
                 nil
             end
+
+            # Remove variations from an exception message that are run-dependent
+            #
+            # This allows to validate the formatation of a message within unit tests
+            def roby_normalize_exception_message(msg)
+                msg.gsub(/id:\s*"?\d+"?/, "id:XX")
+                   .gsub(/\[[\d:.]* @\d+\]/, "[XX]")
+                   .gsub(/^\s+$/, "")
+                   .gsub(/\.rb:\d+:/, ".rb:XXX:")
+                   .gsub(%r{/.*tools/roby/}, "") # paths may be absolute or relative
+            end
         end
     end
 end
