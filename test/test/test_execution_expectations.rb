@@ -142,6 +142,17 @@ module Roby
                     end
                 end
 
+                describe "promise handling" do
+                    it "handles waiting work that interacts with the execution thread" do
+                        executed = false
+                        thread = Thread.new do
+                            execution_engine.execute { executed = true }
+                        end
+                        expect_execution.to { achieve { executed } }
+                        thread.join
+                    end
+                end
+
                 describe "exit conditions" do
                     describe "with join_all_waiting_work set" do
                         before do

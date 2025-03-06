@@ -603,8 +603,8 @@ module Roby
 
                 @execute_blocks << block if block
 
+                engine = @plan.execution_engine
                 loop do
-                    engine = @plan.execution_engine
                     engine.start_new_cycle
                     with_execution_engine_setup do
                         propagation_info = engine.process_events(
@@ -616,6 +616,11 @@ module Roby
                                 true
                             end
                             @poll_blocks.each(&:call)
+
+                            if engine.has_waiting_work?
+                                engine.process_waiting_work
+                                Thread.pass
+                            end
                         end
                         all_propagation_info.merge(propagation_info)
 
@@ -643,18 +648,23 @@ module Roby
                     remaining_timeout = timeout_deadline - Time.now_without_mock_time
                     break if remaining_timeout < 0
 
-                    if engine.has_waiting_work? && @join_all_waiting_work
-                        _, propagation_info = with_execution_engine_setup do
-                            engine.join_all_waiting_work(timeout: remaining_timeout)
-                        end
-                        all_propagation_info.merge(propagation_info)
-                    elsif !has_pending_execute_blocks? && unmet.empty?
+                    if @join_all_waiting_work && engine.has_waiting_work?
+                        next
+                    elsif has_pending_execute_blocks?
+                        next
+                    elsif unmet.empty?
+                        break
+                    elsif !@wait_until_timeout
                         break
                     end
+                end
 
-                    break unless has_pending_execute_blocks? ||
-                                 @wait_until_timeout ||
-                                 (engine.has_waiting_work? && @join_all_waiting_work)
+                if @join_all_waiting_work && engine.has_waiting_work?
+                    e = ExecutionEngine::JoinAllWaitingWorkTimeout.new(
+                        engine.waiting_work
+                    )
+                    raise UnexpectedErrors.new([e]),
+                          "some asynchronous work did not finish"
                 end
 
                 unmet = find_all_unmet_expectations(all_propagation_info)
@@ -669,9 +679,6 @@ module Roby
                 else
                     compute_returned_objects([@return_objects]).first
                 end
-            rescue ExecutionEngine::JoinAllWaitingWorkTimeout => e
-                raise UnexpectedErrors.new([e]),
-                      "some asynchronous work did not finish"
             end
 
             # Process the value returned by the `.to { }` block to convert it to
