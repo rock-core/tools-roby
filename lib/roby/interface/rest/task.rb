@@ -34,6 +34,14 @@ module Roby
                 # Set to 1 to disable multithreading
                 argument :threads, default: 1
 
+                # Whether all requests should be synchronized with the Roby
+                # event thread
+                #
+                # The behaviour before the introduction of this argument was equivalent
+                # to 'false'. It has been turned on by default given how likely that
+                # the current API implementations got some things wrong in this regard.
+                argument :roby_execute, default: true
+
                 event :start do |_event|
                     @rest_server = Server.new(roby_app, **rest_server_args)
                     start_event.achieve_asynchronously do
@@ -49,7 +57,7 @@ module Roby
                         host: host, port: port, threads: threads,
                         main_route: main_route, api: rest_api,
                         middlewares: rack_middlewares,
-                        storage: rest_storage
+                        storage: rest_storage, roby_execute: roby_execute
                     }
                 end
 
