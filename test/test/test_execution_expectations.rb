@@ -54,6 +54,18 @@ module Roby
                     ret1.should_receive(:filter_result).with(10).and_return(15).once
                     assert_equal([15, 42], expect_execution.to { [ret1, 42] })
                 end
+
+                it "handles any #to_PREDICATE call for " \
+                   "simpler single-expectation syntax" do
+                    result = expect_execution.to_achieve { 20 }
+                    assert_equal 20, result
+                end
+
+                it "forwards arguments of to_PREDICATE to the predicate" do
+                    plan.add(task = Roby::Task.new)
+                    expect_execution { task.quarantined! }
+                        .to_quarantine(task)
+                end
             end
 
             describe "#verify" do
