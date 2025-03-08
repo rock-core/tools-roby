@@ -9,8 +9,14 @@ module Roby
                 plan.add(@task = Roby::Task.new)
             end
 
-            it "matches a plain CodeError object as-is" do
+            it "matches a plain CodeError with exception as-is" do
                 error = CodeError.new(Exception.new, @task)
+                matcher = CodeErrorMatcher.new
+                assert_operator matcher, :===, error
+            end
+
+            it "matches a plain CodeError without exception as-is" do
+                error = CodeError.new(nil, @task)
                 matcher = CodeErrorMatcher.new
                 assert_operator matcher, :===, error
             end

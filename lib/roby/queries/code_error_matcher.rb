@@ -11,7 +11,7 @@ module Roby
 
             def initialize
                 super
-                @ruby_exception_class = ::Exception
+                @ruby_exception_class = Any
                 with_model(CodeError)
             end
 
