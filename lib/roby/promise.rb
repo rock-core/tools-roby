@@ -39,7 +39,6 @@ module Roby
             executor: execution_engine.thread_pool, description: "promise", &block
         )
             @execution_engine = execution_engine
-            execution_engine.waiting_work << self
             @description = description
 
             @pipeline = []
@@ -260,6 +259,7 @@ module Roby
         end
 
         def execute
+            execution_engine.waiting_work << self
             promise.execute
             self
         end
