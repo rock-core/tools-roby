@@ -910,7 +910,7 @@ module Roby
             before do
                 @command_hook = flexmock
                 command_hook.should_receive(:call).by_default
-                plan.add(@generator = Roby::EventGenerator.new { command_hook.call })
+                plan.add(@generator = Roby::EventGenerator.new { |*| command_hook.call })
                 flexmock(generator)
                 flexmock(execution_engine)
             end
@@ -964,9 +964,9 @@ module Roby
             describe "the command raises before the emission" do
                 it "does not itself remove pending" do
                     command_hook.should_receive(:call).and_raise(RuntimeError)
-                    generator.should_receive(:emit_failed).once.and_return do |*args|
+                    generator.should_receive(:emit_failed).once.and_return do |*args, **kw|
                         assert generator.pending?
-                        flexmock_invoke_original(generator, :emit_failed, *args)
+                        generator.invoke_original(:emit_failed, *args, **kw)
                     end
                     expect_execution { generator.call }
                         .to { have_error_matching CommandFailed }
