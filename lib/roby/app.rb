@@ -785,6 +785,8 @@ module Roby
             "engine" => {}
         }.freeze
 
+        LOCK_FILE_EXT = ".lock"
+
         # @!method public_rest_interface?
         # @!method public_rest_interface=(flag)
         #
@@ -883,6 +885,8 @@ module Roby
         # Display the backtrace of all running threads on abort
         attr_predicate :display_all_threads_state_on_abort?, true
 
+        attr_reader :lock_file
+
         def initialize(plan: ExecutablePlan.new)
             @plan = plan
             @argv_set = []
@@ -955,6 +959,8 @@ module Roby
             @robots = App::RobotNames.new
 
             @base_setup_done = false
+
+            @lock_file = nil
         end
 
         # Loads the base configuration
@@ -1031,7 +1037,13 @@ module Roby
 
             load_base_config
             unless @log_dir
+                unlock_log_dir
                 find_and_create_log_dir
+                lock_log_dir
+                # when the log dir exists but no lock file exists yet
+                # we should interpret it as the process is still in the process
+                # of creating the lock file
+                # because dir creation needs to always come with lock
             end
             setup_loggers(redirections: true)
 
@@ -1039,6 +1051,27 @@ module Roby
             call_plugins(:base_setup, self)
 
             @base_setup_done = true
+        end
+
+        def lock_log_dir
+            return if log_dir_locked?
+
+            @lock_file ||= File.open(
+                File.join(log_dir, LOCK_FILE_EXT),
+                File::RDWR | File::CREAT, 0o644
+            )
+            @lock_file.flock(File::LOCK_EX | File::LOCK_NB)
+        end
+
+        def unlock_log_dir
+            return unless log_dir_locked?
+
+            @lock_file.close if @lock_file
+            @lock_file = nil
+        end
+
+        def log_dir_locked?
+            !!@lock_file
         end
 
         # The inverse of #base_setup

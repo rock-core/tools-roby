@@ -190,6 +190,35 @@ module Roby
                 end
             end
 
+            describe "lock and unlock log dir" do
+                before do
+                    app.log_base_dir = File.join(make_tmpdir, "log", "path")
+                end
+
+                it "locks directory" do
+                    full_path = app.find_and_create_log_dir("tag")
+                    app.lock_log_dir
+
+                    assert app.log_dir_locked?
+                    assert_equal File.join(full_path, ".lock"), app.lock_file.path
+                end
+
+                it "raises LogDirNotInitialized when trying to lock " \
+                   "an unexisting directory" do
+                    assert_raises(Roby::Application::LogDirNotInitialized) do
+                        app.lock_log_dir
+                    end
+                end
+
+                it "unlocks directory" do
+                    full_path = app.find_and_create_log_dir("tag")
+                    app.lock_log_dir
+                    app.unlock_log_dir
+
+                    refute app.log_dir_locked?
+                end
+            end
+
             describe "#find_and_create_log_dir" do
                 before do
                     app.log_base_dir = File.join(make_tmpdir, "log", "path")
