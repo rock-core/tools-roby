@@ -1065,7 +1065,7 @@ module Roby
         def unlock_log_dir
             return unless log_dir_locked?
 
-            @lock_file.close if @lock_file
+            @lock_file&.close
             @lock_file = nil
         end
 

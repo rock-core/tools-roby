@@ -211,7 +211,7 @@ module Roby
                 end
 
                 it "unlocks directory when it is reset" do
-                    full_path = app.find_and_create_log_dir("tag")
+                    app.find_and_create_log_dir("tag")
                     app.lock_log_dir
                     app.reset_log_dir
 
