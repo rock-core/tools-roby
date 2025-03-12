@@ -587,7 +587,7 @@ module Roby
         # @return [Array<String>]
         attr_reader :created_log_base_dirs
 
-        # Additional metadata saved in log_dir/info.yml by the app
+        # Additional metadata saved in log_dir/[MACHINE_NAME].yml by the app
         #
         # Do not modify directly, use {#add_app_metadata} instead
         attr_reader :app_extra_metadata
@@ -1591,8 +1591,8 @@ module Roby
         end
 
         # Add some metadata to {#app_metadata}, and save it to the log dir's
-        # info.yml if it is already created
-        def add_app_metadata(metadata, machine_name, append: true)
+        # [MACHINE_NAME].yml if it is already created
+        def add_app_metadata(metadata, machine_name: "info", append: true)
             app_extra_metadata.merge!(metadata)
             if created_log_dir?
                 log_save_metadata(machine_name, append: append)
@@ -1601,7 +1601,7 @@ module Roby
 
         # Metadata used to describe the app
         #
-        # It is saved in the app's log directory under info.yml
+        # It is saved in the app's log directory under [MACHINE_NAME].yml
         #
         # @see add_app_metadata
         def app_metadata
@@ -1621,7 +1621,7 @@ module Roby
         # @param [Boolean] append if true (the default), the value returned by
         #   {#app_metadata} is appended to the existing data. Otherwise, it
         #   replaces the last entry in the file
-        def log_save_metadata(machine_name, append: true)
+        def log_save_metadata(machine_name: "info", append: true)
             path = File.join(log_dir, "#{machine_name}.yml")
 
             current =
@@ -1648,8 +1648,8 @@ module Roby
             rescue ArgumentError # rubocop:disable Lint/SuppressedException
             end
 
-            if dir && File.exist?(File.join(dir, "info.yml"))
-                YAML.safe_load(File.read(File.join(dir, "info.yml")))
+            if dir && File.exist?(File.join(dir, "*.yml"))
+                YAML.safe_load(File.read(File.join(dir, "*.yml")))
             else
                 []
             end
@@ -1682,7 +1682,7 @@ module Roby
             if metadata.empty?
                 raise NoCurrentLog,
                       "#{log_current_dir} is not a valid Roby log dir, "\
-                      "it does not have an info.yml metadata file"
+                      "it does not have a .yml metadata file"
             elsif !(robot_name = metadata.map { |h| h["robot_name"] }.compact.last)
                 raise NoCurrentLog,
                       "#{log_current_dir}'s metadata does not specify the robot name"

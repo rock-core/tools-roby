@@ -816,11 +816,11 @@ module Roby
                 flexmock(app).should_receive(:log_current_dir).and_raise(ArgumentError)
                 assert_equal [], app.log_read_metadata
             end
-            it "returns an empty array if the log directory does not have an info.yml file" do
+            it "returns an empty array if the log directory does not have a .yml file" do
                 app.log_dir = make_tmpdir
                 assert_equal [], app.log_read_metadata
             end
-            it "returns the unmarshalled contents of the info.yml file" do
+            it "returns the unmarshalled contents of the .yml file" do
                 app.log_dir = make_tmpdir
                 File.open(File.join(app.log_dir, "info.yml"), "w") do |io|
                     YAML.dump(Hash["test" => true], io)
