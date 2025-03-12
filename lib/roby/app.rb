@@ -1592,10 +1592,10 @@ module Roby
 
         # Add some metadata to {#app_metadata}, and save it to the log dir's
         # info.yml if it is already created
-        def add_app_metadata(metadata, append: true)
+        def add_app_metadata(metadata, machine_name, append: true)
             app_extra_metadata.merge!(metadata)
             if created_log_dir?
-                log_save_metadata(append: append)
+                log_save_metadata(machine_name, append: append)
             end
         end
 
@@ -1617,11 +1617,12 @@ module Roby
 
         # Save {#app_metadata} in the log directory
         #
+        # @param [String] machine_name the name of the yml file
         # @param [Boolean] append if true (the default), the value returned by
         #   {#app_metadata} is appended to the existing data. Otherwise, it
         #   replaces the last entry in the file
-        def log_save_metadata(append: true)
-            path = File.join(log_dir, "info.yml")
+        def log_save_metadata(machine_name, append: true)
+            path = File.join(log_dir, "#{machine_name}.yml")
 
             current =
                 if File.file?(path)
