@@ -811,6 +811,24 @@ module Roby
             end
         end
 
+        describe "#log_save_metadata" do
+            before do
+                app.log_dir = make_tmpdir
+            end
+
+            it "uses 'info' if no machine_name was given" do
+                app.log_save_metadata
+
+                File.exist?(File.join(app.log_dir, "info.yml"))
+            end
+
+            it "uses machine_name if it was provided" do
+                app.log_save_metadata(machine_name: "nilvo")
+
+                File.exist?(File.join(app.log_dir, "nilvo.yml"))
+            end
+        end
+
         describe "#log_read_metadata" do
             it "returns an empty array if the current log directory cannot be determined" do
                 flexmock(app).should_receive(:log_current_dir).and_raise(ArgumentError)
