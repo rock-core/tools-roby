@@ -811,16 +811,34 @@ module Roby
             end
         end
 
+        describe "#log_save_metadata" do
+            before do
+                app.log_dir = make_tmpdir
+            end
+
+            it "uses 'info' if no machine_name was given" do
+                app.log_save_metadata
+
+                File.exist?(File.join(app.log_dir, "info.yml"))
+            end
+
+            it "uses machine_name if it was provided" do
+                app.log_save_metadata(machine_name: "nilvo")
+
+                File.exist?(File.join(app.log_dir, "nilvo.yml"))
+            end
+        end
+
         describe "#log_read_metadata" do
             it "returns an empty array if the current log directory cannot be determined" do
                 flexmock(app).should_receive(:log_current_dir).and_raise(ArgumentError)
                 assert_equal [], app.log_read_metadata
             end
-            it "returns an empty array if the log directory does not have an info.yml file" do
+            it "returns an empty array if the log directory does not have a .yml file" do
                 app.log_dir = make_tmpdir
                 assert_equal [], app.log_read_metadata
             end
-            it "returns the unmarshalled contents of the info.yml file" do
+            it "returns the unmarshalled contents of the .yml file" do
                 app.log_dir = make_tmpdir
                 File.open(File.join(app.log_dir, "info.yml"), "w") do |io|
                     YAML.dump(Hash["test" => true], io)
