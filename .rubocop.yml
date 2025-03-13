@@ -54,7 +54,7 @@ Metrics/ModuleLength:
     - '**/test/**/*_test.rb'
 
 Metrics/BlockLength:
-  ExcludedMethods:
+  AllowedMethods:
       - describe
       - it
 

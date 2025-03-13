@@ -117,10 +117,11 @@ module Roby
         describe "#promise" do
             it "creates a promise using the object's own executor" do
                 plan.add(object = Task.new)
-                flexmock(Promise).should_receive(:new)
-                    .with(execution_engine,
-                          ->(h) { h[:executor].equal?(object.promise_executor) && h[:description] == "promise description" },
-                          Proc).once.and_return(promise = flexmock)
+                flexmock(Promise)
+                    .should_receive(:new)
+                    .with(execution_engine, Proc)
+                    .with_kw_args(executor: object.promise_executor, description: "promise description")
+                    .once.and_return(promise = flexmock)
                 assert_equal promise, object.promise(description: "promise description") {}
             end
         end
