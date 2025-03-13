@@ -1049,16 +1049,13 @@ module Roby
         end
 
         def lock_log_dir
-            return if log_dir_locked?
+            temp_lock_path = File.join(log_dir, "#{LOCK_FILE_EXT}.tmp")
+            final_lock_path = File.join(log_dir, LOCK_FILE_EXT)
 
-            temp_lock_file = File.join(log_dir, "#{LOCK_FILE_EXT}.tmp")
-            final_lock_file = File.join(log_dir, LOCK_FILE_EXT)
-
-            @lock_file = File.open(temp_lock_file, File::RDWR | File::CREAT, 0o644)
-            if @lock_file.flock(File::LOCK_EX | File::LOCK_NB)
-                File.rename(temp_lock_file, final_lock_file)
-                @lock_file.close
-                @lock_file = File.open(final_lock_file, File::RDWR | File::CREAT, 0o644)
+            lock_file = File.open(temp_lock_path, File::RDWR | File::CREAT, 0o644)
+            if lock_file.flock(File::LOCK_EX | File::LOCK_NB)
+                File.rename(temp_lock_path, final_lock_path)
+                @lock_file = lock_file
             end
         end
 
