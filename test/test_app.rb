@@ -191,16 +191,38 @@ module Roby
             end
 
             describe "lock and unlock log dir" do
-                before do
-                    app.log_base_dir = File.join(make_tmpdir, "log", "path")
+                def locked?(path)
+                    return true unless File.exist?(File.join(path, ".lock"))
+
+                    File.open(File.join(path, ".lock"), "r") do |file|
+                        !file.flock(File::LOCK_EX | File::LOCK_NB)
+                    end
                 end
 
-                it "locks directory" do
+                it "expects dir to be locked if there is no .lock file" do
+                    full_path = app.find_and_create_log_dir("tag")
+
+                    refute File.exist?(File.join(full_path, ".lock"))
+                    assert locked?(full_path)
+                end
+
+                it "expects dir to be locked if .lock file exists and " \
+                   "the lock was taken" do
                     full_path = app.find_and_create_log_dir("tag")
                     app.lock_log_dir
 
-                    assert app.log_dir_locked?
-                    assert_equal File.join(full_path, ".lock"), app.lock_file.path
+                    assert File.exist?(File.join(full_path, ".lock"))
+                    assert locked?(full_path)
+                end
+
+                it "expects dir to not be locked if .lock file exists but " \
+                   "lock was not taken" do
+                    full_path = app.find_and_create_log_dir("tag")
+                    lock_file_path = File.join(full_path, ".lock")
+                    File.open(lock_file_path, File::RDWR | File::CREAT, 0o644) {}
+
+                    assert File.exists?(lock_file_path)
+                    refute locked?(full_path)
                 end
 
                 it "raises LogDirNotInitialized when trying to lock " \
@@ -210,28 +232,20 @@ module Roby
                     end
                 end
 
-                it "unlocks directory when it is reset" do
-                    app.find_and_create_log_dir("tag")
+                it "expects dir to be unlocked after calling unlock_log_dir" do
+                    full_path = app.find_and_create_log_dir("tag")
+                    app.lock_log_dir
+                    app.unlock_log_dir
+
+                    refute locked?(full_path)
+                end
+
+                it "expects reset_log_dir to remove the lock" do
+                    full_path = app.find_and_create_log_dir("tag")
                     app.lock_log_dir
                     app.reset_log_dir
 
-                    refute app.log_dir_locked?
-                end
-
-                it "makes sure locks directory using the temp file" do
-                    full_path = app.find_and_create_log_dir("tag")
-                    temp_lock_file = File.join(full_path, ".lock.tmp")
-                    final_lock_file = File.join(full_path, ".lock")
-
-                    refute File.exist?(final_lock_file)
-                    refute app.log_dir_locked?
-
-                    app.lock_log_dir
-
-                    refute File.exist?(temp_lock_file)
-                    assert File.exist?(final_lock_file)
-                    assert app.log_dir_locked?
-                    assert_equal final_lock_file, app.lock_file.path
+                    refute locked?(full_path)
                 end
             end
 
