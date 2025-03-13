@@ -1060,16 +1060,17 @@ module Roby
         end
 
         def unlock_log_dir
-            return unless log_dir_locked?
-
             @lock_file&.close
             @lock_file = nil
         end
 
-        def log_dir_locked?
-            return unless @lock_file
+        def self.log_dir_locked?(path)
+            lock_file_path = File.join(path, LOCK_FILE_EXT)
+            return true unless File.exist?(lock_file_path)
 
-            @lock_file.path.end_with?(LOCK_FILE_EXT)
+            File.open(lock_file_path, "r") do |file|
+                return !file.flock(File::LOCK_EX | File::LOCK_NB)
+            end
         end
 
         # The inverse of #base_setup
@@ -1596,7 +1597,6 @@ module Roby
         # Reset the current log dir so that {#setup} picks a new one
         def reset_log_dir
             unlock_log_dir
-            @log_dir = nil
         end
 
         # Reset the plan to a new Plan object
