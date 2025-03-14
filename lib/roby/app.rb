@@ -785,6 +785,8 @@ module Roby
             "engine" => {}
         }.freeze
 
+        LOCK_FILE_EXT = ".lock"
+
         # @!method public_rest_interface?
         # @!method public_rest_interface=(flag)
         #
@@ -883,6 +885,8 @@ module Roby
         # Display the backtrace of all running threads on abort
         attr_predicate :display_all_threads_state_on_abort?, true
 
+        attr_reader :lock_file
+
         def initialize(plan: ExecutablePlan.new)
             @plan = plan
             @argv_set = []
@@ -955,6 +959,8 @@ module Roby
             @robots = App::RobotNames.new
 
             @base_setup_done = false
+
+            @lock_file = nil
         end
 
         # Loads the base configuration
@@ -1032,6 +1038,7 @@ module Roby
             load_base_config
             unless @log_dir
                 find_and_create_log_dir
+                lock_log_dir
             end
             setup_loggers(redirections: true)
 
@@ -1039,6 +1046,31 @@ module Roby
             call_plugins(:base_setup, self)
 
             @base_setup_done = true
+        end
+
+        def lock_log_dir
+            temp_lock_path = File.join(log_dir, "#{LOCK_FILE_EXT}.tmp")
+            final_lock_path = File.join(log_dir, LOCK_FILE_EXT)
+
+            lock_file = File.open(temp_lock_path, File::RDWR | File::CREAT, 0o644)
+            if lock_file.flock(File::LOCK_EX | File::LOCK_NB)
+                File.rename(temp_lock_path, final_lock_path)
+                @lock_file = lock_file
+            end
+        end
+
+        def unlock_log_dir
+            @lock_file&.close
+            @lock_file = nil
+        end
+
+        def self.log_dir_locked?(path)
+            lock_file_path = File.join(path, LOCK_FILE_EXT)
+            return true unless File.exist?(lock_file_path)
+
+            File.open(lock_file_path, "r") do |file|
+                return !file.flock(File::LOCK_EX | File::LOCK_NB)
+            end
         end
 
         # The inverse of #base_setup
@@ -1564,7 +1596,7 @@ module Roby
 
         # Reset the current log dir so that {#setup} picks a new one
         def reset_log_dir
-            @log_dir = nil
+            unlock_log_dir
         end
 
         # Reset the plan to a new Plan object
