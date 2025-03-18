@@ -1047,14 +1047,15 @@ module Roby
         end
 
         def lock_log_dir
-            temp_lock_path = File.join(log_dir, "#{LOCK_FILE_EXT}.tmp")
             final_lock_path = File.join(log_dir, LOCK_FILE_EXT)
-
+            temp_lock_path = "#{final_lock_path}.tmp"
             lock_file = File.open(temp_lock_path, File::RDWR | File::CREAT, 0o644)
-            if lock_file.flock(File::LOCK_EX | File::LOCK_NB)
-                File.rename(temp_lock_path, final_lock_path)
-                @lock_file = lock_file
+            unless lock_file.flock(File::LOCK_EX | File::LOCK_NB)
+                raise RuntimeError, "could not lock the log directory on setup"
             end
+
+            File.rename(temp_lock_path, final_lock_path)
+            @lock_file = lock_file
         end
 
         def unlock_log_dir
