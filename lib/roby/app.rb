@@ -1068,7 +1068,7 @@ module Roby
             return true unless File.exist?(lock_file_path)
 
             File.open(lock_file_path, "r") do |file|
-                return !file.flock(File::LOCK_EX | File::LOCK_NB)
+                !file.flock(File::LOCK_SH | File::LOCK_NB)
             end
         end
 

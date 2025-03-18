@@ -191,6 +191,17 @@ module Roby
             end
 
             describe "log dir lock management" do
+                it "checks if a log dir is locked in a concurrent-safe way" do
+                    full_path = app.find_and_create_log_dir("tag")
+                    app.lock_log_dir
+                    app.unlock_log_dir
+
+                    threads = 500.times.map do
+                        Thread.new { Application.log_dir_locked?(full_path) }
+                    end
+                    refute threads.map(&:value).inject(:|)
+                end
+
                 it "expects dir to be locked if there is no .lock file" do
                     full_path = app.find_and_create_log_dir("tag")
 
