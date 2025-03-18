@@ -885,8 +885,6 @@ module Roby
         # Display the backtrace of all running threads on abort
         attr_predicate :display_all_threads_state_on_abort?, true
 
-        attr_reader :lock_file
-
         def initialize(plan: ExecutablePlan.new)
             @plan = plan
             @argv_set = []
