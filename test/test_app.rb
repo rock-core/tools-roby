@@ -190,20 +190,12 @@ module Roby
                 end
             end
 
-            describe "lock and unlock log dir" do
-                def locked?(path)
-                    return true unless File.exist?(File.join(path, ".lock"))
-
-                    File.open(File.join(path, ".lock"), "r") do |file|
-                        !file.flock(File::LOCK_EX | File::LOCK_NB)
-                    end
-                end
-
+            describe "log dir lock management" do
                 it "expects dir to be locked if there is no .lock file" do
                     full_path = app.find_and_create_log_dir("tag")
 
                     refute File.exist?(File.join(full_path, ".lock"))
-                    assert locked?(full_path)
+                    assert Application.log_dir_locked?(full_path)
                 end
 
                 it "expects dir to be locked if .lock file exists and " \
@@ -212,17 +204,17 @@ module Roby
                     app.lock_log_dir
 
                     assert File.exist?(File.join(full_path, ".lock"))
-                    assert locked?(full_path)
+                    assert Application.log_dir_locked?(full_path)
                 end
 
                 it "expects dir to not be locked if .lock file exists but " \
                    "lock was not taken" do
                     full_path = app.find_and_create_log_dir("tag")
                     lock_file_path = File.join(full_path, ".lock")
-                    File.open(lock_file_path, File::RDWR | File::CREAT, 0o644) {}
+                    File.write(lock_file_path, "")
 
                     assert File.exists?(lock_file_path)
-                    refute locked?(full_path)
+                    refute Application.log_dir_locked?(full_path)
                 end
 
                 it "raises LogDirNotInitialized when trying to lock " \
@@ -237,7 +229,7 @@ module Roby
                     app.lock_log_dir
                     app.unlock_log_dir
 
-                    refute locked?(full_path)
+                    refute Application.log_dir_locked?(full_path)
                 end
 
                 it "expects reset_log_dir to remove the lock" do
@@ -245,7 +237,7 @@ module Roby
                     app.lock_log_dir
                     app.reset_log_dir
 
-                    refute locked?(full_path)
+                    refute Application.log_dir_locked?(full_path)
                 end
             end
 
