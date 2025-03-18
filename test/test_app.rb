@@ -224,7 +224,7 @@ module Roby
                     lock_file_path = File.join(full_path, ".lock")
                     File.write(lock_file_path, "")
 
-                    assert File.exists?(lock_file_path)
+                    assert File.exist?(lock_file_path)
                     refute Application.log_dir_locked?(full_path)
                 end
 
