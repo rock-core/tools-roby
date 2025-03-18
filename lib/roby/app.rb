@@ -1596,6 +1596,7 @@ module Roby
         # Reset the current log dir so that {#setup} picks a new one
         def reset_log_dir
             unlock_log_dir
+            @log_dir = nil
         end
 
         # Reset the plan to a new Plan object
