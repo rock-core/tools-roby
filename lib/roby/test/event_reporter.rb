@@ -59,7 +59,7 @@ module Roby
                            @filters.any? { |pattern| pattern === event.to_s }
                 return unless included
 
-                excluded = @filters_out.empty? ||
+                excluded = !@filters_out.empty? &&
                            @filters_out.none? { |pattern| pattern === event.to_s }
                 !excluded
             end
@@ -69,8 +69,8 @@ module Roby
             end
 
             # This is the API used by Roby to actually log events
-            def dump(m, time, *args)
-                received_events << [m, time, *args]
+            def dump(m, time, args)
+                received_events << [m, time, args]
                 return unless enabled? && matches_filter?(m)
 
                 @io.puts "#{time.to_hms} #{m}(#{args.map(&:to_s).join(', ')})"
