@@ -580,6 +580,7 @@ module Roby
             @quarantined = true
             @quarantine_reason = reason
 
+            fatal "#{self} entered quarantine: #{reason}"
             plan.register_quarantined_task(self)
         end
 
