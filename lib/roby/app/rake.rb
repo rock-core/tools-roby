@@ -95,6 +95,14 @@ module Roby
             #
             # This is false by default, true if the JUNIT environment variable
             # is set to 1
+            def self.keep_logs?
+                ENV["ROBY_TEST_KEEP_LOGS"] == "1"
+            end
+
+            # Whether the tests and rubocop should generate a JUnit report
+            #
+            # This is false by default, true if the JUNIT environment variable
+            # is set to 1
             def self.use_junit?
                 ENV["JUNIT"] == "1"
             end
@@ -238,6 +246,12 @@ module Roby
                     @coverage
                 end
 
+                # Whether the tests should save the normal syskit logs as part of the
+                # test results
+                def keep_logs?
+                    @keep_logs
+                end
+
                 def initialize(task_name = "test", all_by_default: false)
                     super()
 
@@ -254,6 +268,7 @@ module Roby
 
                     @coverage = Rake.coverage?
                     @use_junit = Rake.use_junit?
+                    @keep_logs = Rake.keep_logs?
                     @report_dir = Rake.report_dir
 
                     yield self if block_given?
@@ -384,9 +399,9 @@ module Roby
                 # Path to the JUnit/Rubocop reports (if enabled)
                 attr_accessor :report_dir
 
-                def spawn_process_capturing_output(bin, *args)
+                def spawn_process_capturing_output(bin, *args, env: {})
                     stdout_r, stdout_w = IO.pipe
-                    pid = spawn(Gem.ruby, bin, *args, out: stdout_w, err: stdout_w)
+                    pid = spawn(env, Gem.ruby, bin, *args, out: stdout_w, err: stdout_w)
                     stdout_w.close
                     [pid, stdout_r]
                 end
@@ -405,8 +420,8 @@ module Roby
                 end
 
                 def wait_process_with_captured_output( # rubocop:disable Metrics/ParameterLists
-                    pid, read_pipe, *args, synchronize_output:, omit_success:,
-                    report_name: "report"
+                    pid, read_pipe, *args,
+                    synchronize_output:, omit_success:, report_name: "report"
                 )
                     output = read_captured_output_from_pipe(pid, read_pipe)
                     _, status = Process.waitpid2(pid)
@@ -418,8 +433,8 @@ module Roby
                     success
                 end
 
-                def spawn_process(bin, *args)
-                    pid = spawn(Gem.ruby, bin, *args)
+                def spawn_process(bin, *args, env: {})
+                    pid = spawn(env, Gem.ruby, bin, *args)
                     begin
                         _, status = Process.waitpid2(pid)
                         status.success?
@@ -429,8 +444,11 @@ module Roby
                     end
                 end
 
-                def run_roby_test(*args, report_name: "report", coverage_name: "roby",
-                    synchronize_output: false, omit_success: false)
+                def run_roby_test(
+                    *args,
+                    report_name: "report", coverage_name: "roby",
+                    synchronize_output: false, omit_success: false
+                )
                     args += excludes.flat_map do |pattern|
                         ["--exclude", pattern]
                     end
@@ -443,6 +461,14 @@ module Roby
                     args << "--force-discovery" if force_discovery?
                     args << "--self" if self_only?
                     args << "--coverage=#{coverage_name}" if coverage?
+
+                    env = {}
+                    if keep_logs?
+                        args << "--keep_logs"
+                        env["ROBY_BASE_LOG_DIR"] = report_dir
+                        FileUtils.mkdir_p report_dir
+                    end
+
                     args << "--"
                     if (minitest_opts = ENV["TESTOPTS"])
                         args.concat(Shellwords.split(minitest_opts))
@@ -458,20 +484,28 @@ module Roby
 
                     args += test_files.map(&:to_s)
 
-                    run_roby("test", *args,
-                             synchronize_output: synchronize_output,
-                             omit_success: omit_success, report_name: report_name)
+                    run_roby(
+                        "test", *args,
+                        synchronize_output: synchronize_output,
+                        omit_success: omit_success, report_name: report_name,
+                        env: env
+                    )
                 end
 
-                def run_roby(*args, synchronize_output: false, omit_success: false,
-                    report_name: "report")
+                def run_roby(
+                    *args,
+                    synchronize_output: false, omit_success: false,
+                    report_name: "report", env: {}
+                )
                     roby_bin = File.expand_path(
                         File.join("..", "..", "..", "bin", "roby"),
                         __dir__
                     )
                     capture_output = synchronize_output || omit_success
                     if capture_output
-                        pid, read_pipe = spawn_process_capturing_output(roby_bin, *args)
+                        pid, read_pipe = spawn_process_capturing_output(
+                            roby_bin, *args, env: env
+                        )
                         wait_process_with_captured_output(
                             pid, read_pipe, *args,
                             synchronize_output: synchronize_output,
@@ -479,7 +513,7 @@ module Roby
                         )
                     else
                         puts "Running #{report_name}: roby #{args.join(' ')}"
-                        spawn_process(roby_bin, *args)
+                        spawn_process(roby_bin, *args, env: env)
                     end
                 end
 
@@ -698,9 +732,9 @@ module Roby
                     end
                 end
 
-                def spawn_process_capturing_output(bin, *args)
+                def spawn_process_capturing_output(bin, *args, env: {})
                     stdout_r, stdout_w = IO.pipe
-                    pid = spawn(Gem.ruby, bin, *args, out: stdout_w, err: stdout_w)
+                    pid = spawn(env, Gem.ruby, bin, *args, out: stdout_w, err: stdout_w)
                     stdout_w.close
                     [pid, stdout_r]
                 end
@@ -732,8 +766,8 @@ module Roby
                     success
                 end
 
-                def spawn_process(bin, *args)
-                    pid = spawn(Gem.ruby, bin, *args)
+                def spawn_process(bin, *args, env: {})
+                    pid = spawn(env, Gem.ruby, bin, *args)
                     begin
                         _, status = Process.waitpid2(pid)
                         status.success?
@@ -743,8 +777,11 @@ module Roby
                     end
                 end
 
-                def run_roby_test(*args, report_name: "report", coverage_name: "roby",
-                    synchronize_output: false, omit_tests_success: false)
+                def run_roby_test(
+                    *args,
+                    report_name: "report", coverage_name: "roby",
+                    synchronize_output: false, omit_tests_success: false
+                )
                     args += excludes.flat_map do |pattern|
                         ["--exclude", pattern]
                     end
@@ -757,6 +794,14 @@ module Roby
                     args << "--force-discovery" if force_discovery?
                     args << "--self" if self_only?
                     args << "--coverage=#{coverage_name}" if coverage?
+
+                    env = {}
+                    if keep_logs?
+                        args << "--keep-logs"
+                        env["ROBY_BASE_LOG_DIR"] = report_dir
+                        FileUtils.mkdir_p report_dir
+                    end
+
                     args << "--"
                     if (minitest_opts = ENV["TESTOPTS"])
                         args.concat(Shellwords.split(minitest_opts))
@@ -774,18 +819,23 @@ module Roby
                     run_roby("test", *args,
                              synchronize_output: synchronize_output,
                              omit_tests_success: omit_tests_success,
-                             report_name: report_name)
+                             report_name: report_name, env: env)
                 end
 
-                def run_roby(*args, synchronize_output: false, omit_tests_success: false,
-                    report_name: "report")
+                def run_roby(
+                    *args,
+                    synchronize_output: false, omit_tests_success: false,
+                    report_name: "report", env: {}
+                )
                     roby_bin = File.expand_path(
                         File.join("..", "..", "..", "bin", "roby"),
                         __dir__
                     )
                     capture_output = synchronize_output || omit_tests_success
                     if capture_output
-                        pid, read_pipe = spawn_process_capturing_output(roby_bin, *args)
+                        pid, read_pipe = spawn_process_capturing_output(
+                            roby_bin, *args, env: env
+                        )
                         wait_process_with_captured_output(
                             pid, read_pipe,
                             synchronize_output: synchronize_output,
@@ -794,7 +844,7 @@ module Roby
                         )
                     else
                         puts "Running #{report_name}: roby #{args.join(' ')}"
-                        spawn_process(roby_bin, *args)
+                        spawn_process(roby_bin, *args, env: env)
                     end
                 end
             end
