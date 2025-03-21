@@ -94,6 +94,12 @@ module Roby
         extend Models::Task
         provides TaskService
 
+        extend Logger::Hierarchy
+        include Logger::Hierarchy
+
+        # TaskContext uses the Robot for logging by default
+        self.logger = ::Robot.logger
+
         # The task arguments
         #
         # @return [TaskArguments]
