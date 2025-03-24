@@ -785,6 +785,8 @@ module Roby
             "engine" => {}
         }.freeze
 
+        LOCK_FILE_EXT = ".lock"
+
         # @!method public_rest_interface?
         # @!method public_rest_interface=(flag)
         #
@@ -955,6 +957,8 @@ module Roby
             @robots = App::RobotNames.new
 
             @base_setup_done = false
+
+            @lock_file = nil
         end
 
         # Loads the base configuration
@@ -1032,6 +1036,7 @@ module Roby
             load_base_config
             unless @log_dir
                 find_and_create_log_dir
+                lock_log_dir
             end
             setup_loggers(redirections: true)
 
@@ -1039,6 +1044,32 @@ module Roby
             call_plugins(:base_setup, self)
 
             @base_setup_done = true
+        end
+
+        def lock_log_dir
+            final_lock_path = File.join(log_dir, LOCK_FILE_EXT)
+            temp_lock_path = "#{final_lock_path}.tmp"
+            lock_file = File.open(temp_lock_path, File::RDWR | File::CREAT, 0o644)
+            unless lock_file.flock(File::LOCK_EX | File::LOCK_NB)
+                raise "could not lock the log directory on setup"
+            end
+
+            File.rename(temp_lock_path, final_lock_path)
+            @lock_file = lock_file
+        end
+
+        def unlock_log_dir
+            @lock_file&.close
+            @lock_file = nil
+        end
+
+        def self.log_dir_locked?(path)
+            lock_file_path = File.join(path, LOCK_FILE_EXT)
+            return true unless File.exist?(lock_file_path)
+
+            File.open(lock_file_path, "r") do |file|
+                !file.flock(File::LOCK_SH | File::LOCK_NB)
+            end
         end
 
         # The inverse of #base_setup
@@ -1564,6 +1595,7 @@ module Roby
 
         # Reset the current log dir so that {#setup} picks a new one
         def reset_log_dir
+            unlock_log_dir
             @log_dir = nil
         end
 

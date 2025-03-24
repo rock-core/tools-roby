@@ -190,6 +190,68 @@ module Roby
                 end
             end
 
+            describe "log dir lock management" do
+                it "checks if a log dir is locked in a concurrent-safe way" do
+                    full_path = app.find_and_create_log_dir("tag")
+                    app.lock_log_dir
+                    app.unlock_log_dir
+
+                    threads = 500.times.map do
+                        Thread.new { Application.log_dir_locked?(full_path) }
+                    end
+                    refute threads.map(&:value).inject(:|)
+                end
+
+                it "expects dir to be locked if there is no .lock file" do
+                    full_path = app.find_and_create_log_dir("tag")
+
+                    refute File.exist?(File.join(full_path, ".lock"))
+                    assert Application.log_dir_locked?(full_path)
+                end
+
+                it "expects dir to be locked if .lock file exists and " \
+                   "the lock was taken" do
+                    full_path = app.find_and_create_log_dir("tag")
+                    app.lock_log_dir
+
+                    assert File.exist?(File.join(full_path, ".lock"))
+                    assert Application.log_dir_locked?(full_path)
+                end
+
+                it "expects dir to not be locked if .lock file exists but " \
+                   "lock was not taken" do
+                    full_path = app.find_and_create_log_dir("tag")
+                    lock_file_path = File.join(full_path, ".lock")
+                    File.write(lock_file_path, "")
+
+                    assert File.exist?(lock_file_path)
+                    refute Application.log_dir_locked?(full_path)
+                end
+
+                it "raises LogDirNotInitialized when trying to lock " \
+                   "an unexisting directory" do
+                    assert_raises(Roby::Application::LogDirNotInitialized) do
+                        app.lock_log_dir
+                    end
+                end
+
+                it "expects dir to be unlocked after calling unlock_log_dir" do
+                    full_path = app.find_and_create_log_dir("tag")
+                    app.lock_log_dir
+                    app.unlock_log_dir
+
+                    refute Application.log_dir_locked?(full_path)
+                end
+
+                it "expects reset_log_dir to remove the lock" do
+                    full_path = app.find_and_create_log_dir("tag")
+                    app.lock_log_dir
+                    app.reset_log_dir
+
+                    refute Application.log_dir_locked?(full_path)
+                end
+            end
+
             describe "#find_and_create_log_dir" do
                 before do
                     app.log_base_dir = File.join(make_tmpdir, "log", "path")
