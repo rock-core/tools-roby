@@ -124,6 +124,245 @@ module Roby
                 @report_sync_mutex ||= Mutex.new
             end
 
+            # Common API for {TestTask} and {RobotTestTask}
+            #
+            # TestTask is the historical helper for roby tests. It is trying to
+            # run all tests in a single shot. {RobotTestTask} is a single-robot
+            # implementation, which gives more flexibility and simplifies the
+            # code
+            #
+            # This base class is meant to factor out the common parts
+            class BaseTestTask < ::Rake::TaskLib
+                # The base test task name
+                attr_reader :task_name
+
+                # The app
+                #
+                # It defaults to Roby.app
+                attr_accessor :app
+
+                # The hash with extra configuration to be inserted into Conf
+                # for the tests we are running
+                #
+                # @return [Hash<String, String>]
+                attr_accessor :config
+
+                # The list of files that should be tested.
+                #
+                # @return [Array<String>]
+                attr_accessor :test_files
+
+                # The directory where the tests will be auto-discovered
+                #
+                # @return [String]
+                attr_accessor :base_dir
+
+                # Patterns matching excluded test files
+                #
+                # It accepts any string that File.fnmatch? accepts
+                #
+                # @return [Array<String>]
+                attr_accessor :excludes
+
+                # Sets whether the tests should be started with the --ui flag
+                attr_writer :ui
+
+                # Sets whether the tests should be started with the --force-discovery flag
+                attr_writer :force_discovery
+
+                # Only run tests that are present in this bundle
+                attr_writer :self_only
+
+                # Whether the tests should be started with the --ui flag
+                def ui?
+                    @ui
+                end
+
+                # Whether the tests should be started with the --force-discovery flag
+                def force_discovery?
+                    @force_discovery
+                end
+
+                # Whether the tests should be started with the --self flag
+                def self_only?
+                    @self_only
+                end
+
+                # Whether the tests should be started with the --self flag
+                def coverage?
+                    @coverage
+                end
+
+                # Whether the tests should save the normal syskit logs as part of the
+                # test results
+                def keep_logs?
+                    @keep_logs
+                end
+
+                def initialize(task_name)
+                    super()
+
+                    @task_name = task_name
+                    @app = Roby.app
+                    @config = {}
+                    @test_files = []
+                    @excludes = []
+                    @ui = false
+                    @force_discovery = false
+                    @self_only = false
+
+                    @coverage = Rake.coverage?
+                    @use_junit = Rake.use_junit?
+                    @keep_logs = Rake.keep_logs?
+                    @report_dir = Rake.report_dir
+                end
+
+                # Whether the tests should generate a JUnit report in {#report_dir}
+                def use_junit?
+                    @use_junit
+                end
+
+                # Path to the JUnit/Rubocop reports (if enabled)
+                attr_accessor :report_dir
+
+                def write_captured_output( # rubocop:disable Metrics/ParameterLists
+                    success, output, synchronize_output, omit_success, *args,
+                    report_name: "report"
+                )
+                    if synchronize_output
+                        Rake.report_sync_mutex.synchronize do
+                            write_captured_output(
+                                success, output, false, omit_success, *args,
+                                report_name: report_name
+                            )
+                        end
+                    else
+                        puts "Running #{report_name}: roby #{args.join(' ')}"
+                        if omit_success && success
+                            puts "#{report_name} tests succeeded."
+                        else
+                            puts output
+                        end
+                    end
+                end
+
+                def spawn_process_capturing_output(bin, *args, env: {})
+                    stdout_r, stdout_w = IO.pipe
+                    pid = spawn(env, Gem.ruby, bin, *args, out: stdout_w, err: stdout_w)
+                    stdout_w.close
+                    [pid, stdout_r]
+                end
+
+                def read_captured_output_from_pipe(pid, read_pipe)
+                    output = []
+                    begin
+                        while (output_fragment = read_pipe.read(512))
+                            output << output_fragment
+                        end
+                        output.join ""
+                    rescue Interrupt
+                        Process.kill "INT", pid
+                        Process.waitpid pid
+                    end
+                end
+
+                def wait_process_with_captured_output( # rubocop:disable Metrics/ParameterLists
+                    pid, read_pipe, *args, synchronize_output:, omit_success:,
+                    report_name: "report"
+                )
+                    output = read_captured_output_from_pipe(pid, read_pipe)
+                    _, status = Process.waitpid2(pid)
+                    success = status.success?
+                    write_captured_output(
+                        success, output, synchronize_output, omit_success, *args,
+                        report_name: report_name
+                    )
+                    success
+                end
+
+                def spawn_process(bin, *args, env: {})
+                    pid = spawn(env, Gem.ruby, bin, *args)
+                    begin
+                        _, status = Process.waitpid2(pid)
+                        status.success?
+                    rescue Interrupt
+                        Process.kill "INT", pid
+                        Process.waitpid pid
+                    end
+                end
+
+                def run_roby_test(
+                    *args,
+                    report_name: "report", coverage_name: "roby",
+                    synchronize_output: false, omit_success: false
+                )
+                    args += excludes.flat_map do |pattern|
+                        ["--exclude", pattern]
+                    end
+                    args += config.flat_map do |k, v|
+                        ["--set", "#{k}=#{v}"]
+                    end
+                    args += ["--base-dir", base_dir] if base_dir
+
+                    args << "--ui" if ui?
+                    args << "--force-discovery" if force_discovery?
+                    args << "--self" if self_only?
+                    args << "--coverage=#{coverage_name}" if coverage?
+
+                    env = {}
+                    if keep_logs?
+                        args << "--keep-logs"
+                        env["ROBY_BASE_LOG_DIR"] = report_dir
+                        FileUtils.mkdir_p report_dir
+                    end
+
+                    args << "--"
+                    if (minitest_opts = ENV["TESTOPTS"])
+                        args.concat(Shellwords.split(minitest_opts))
+                    end
+
+                    if use_junit?
+                        args += [
+                            "--junit", "--junit-jenkins",
+                            "--junit-filename=#{report_dir}/#{report_name}.junit.xml"
+                        ]
+                        FileUtils.mkdir_p report_dir
+                    end
+
+                    args += test_files.map(&:to_s)
+                    run_roby("test", *args,
+                             synchronize_output: synchronize_output,
+                             omit_success: omit_success,
+                             report_name: report_name, env: env)
+                end
+
+                def run_roby(
+                    *args,
+                    synchronize_output: false, omit_success: false,
+                    report_name: "report", env: {}
+                )
+                    roby_bin = File.expand_path(
+                        File.join("..", "..", "..", "bin", "roby"),
+                        __dir__
+                    )
+                    capture_output = synchronize_output || omit_success
+                    if capture_output
+                        pid, read_pipe = spawn_process_capturing_output(
+                            roby_bin, *args, env: env
+                        )
+                        wait_process_with_captured_output(
+                            pid, read_pipe,
+                            synchronize_output: synchronize_output,
+                            omit_success: omit_success,
+                            report_name: report_name
+                        )
+                    else
+                        puts "Running #{report_name}: roby #{args.join(' ')}"
+                        spawn_process(roby_bin, *args, env: env)
+                    end
+                end
+            end
+
             # Rake task to run the Roby tests
             #
             # To use, add the following to your Rakefile:
@@ -173,15 +412,7 @@ module Roby
             #          t.all_by_default = true
             #      end
             #
-            class TestTask < ::Rake::TaskLib
-                # The base test task name
-                attr_reader :task_name
-
-                # The app
-                #
-                # It defaults to Roby.app
-                attr_accessor :app
-
+            class TestTask < BaseTestTask
                 # The list of robot configurations on which we should run the tests
                 #
                 # Use 'default' for the default configuration. It defaults to all
@@ -190,92 +421,29 @@ module Roby
                 # @return [Array<String,(String,String)>]
                 attr_accessor :robot_names
 
-                # The hash with extra configuration to be inserted into Conf
-                # for the tests we are running
-                #
-                # @return [Hash<String, String>]
-                attr_accessor :config
-
-                # The list of files that should be tested.
-                #
-                # @return [Array<String>]
-                attr_accessor :test_files
-
-                # The directory where the tests will be auto-discovered
-                #
-                # @return [String]
-                attr_accessor :base_dir
-
-                # Patterns matching excluded test files
-                #
-                # It accepts any string that File.fnmatch? accepts
-                #
-                # @return [Array<String>]
-                attr_accessor :excludes
-
                 # Whether the 'test' target should run all robot tests (false, the
                 # default) or the 'all tests' target (true)
                 attr_predicate :all_by_default?, true
 
-                # Sets whether the tests should be started with the --ui flag
-                attr_writer :ui
-
-                # Sets whether the tests should be started with the --force-discovery flag
-                attr_writer :force_discovery
-
-                # Only run tests that are present in this bundle
-                attr_writer :self_only
-
-                # Whether the tests should be started with the --ui flag
-                def ui?
-                    @ui
-                end
-
-                # Whether the tests should be started with the --force-discovery flag
-                def force_discovery?
-                    @force_discovery
-                end
-
-                # Whether the tests should be started with the --self flag
-                def self_only?
-                    @self_only
-                end
-
-                # Whether the tests should be started with the --self flag
-                def coverage?
-                    @coverage
-                end
-
-                # Whether the tests should save the normal syskit logs as part of the
-                # test results
-                def keep_logs?
-                    @keep_logs
-                end
-
                 def initialize(task_name = "test", all_by_default: false)
-                    super()
+                    super(task_name)
 
-                    @task_name = task_name
-                    @app = Roby.app
                     @all_by_default = all_by_default
+
                     @robot_names = discover_robot_names
-                    @config = {}
-                    @test_files = []
-                    @excludes = []
-                    @ui = false
-                    @force_discovery = false
-                    @self_only = false
-
-                    @coverage = Rake.coverage?
-                    @use_junit = Rake.use_junit?
-                    @keep_logs = Rake.keep_logs?
-                    @report_dir = Rake.report_dir
-
                     yield self if block_given?
                     define
                 end
 
                 class Failed < RuntimeError; end
+
+                def task_name_for_robot(robot_name, robot_type)
+                    if robot_name == robot_type
+                        "#{task_name}:#{robot_name}"
+                    else
+                        "#{task_name}:#{robot_name}-#{robot_type}"
+                    end
+                end
 
                 def define
                     test_args = %i[keep_going synchronize_output omit_tests_success]
@@ -352,27 +520,6 @@ module Roby
                     end
                 end
 
-                def write_captured_output( # rubocop:disable Metrics/ParameterLists
-                    success, output, synchronize_output, omit_tests_success, *args,
-                    report_name: "report"
-                )
-                    if synchronize_output
-                        Rake.report_sync_mutex.synchronize do
-                            write_captured_output(
-                                success, output, false, omit_tests_success, *args,
-                                report_name: report_name
-                            )
-                        end
-                    else
-                        puts "Running #{report_name}: roby #{args.join(' ')}"
-                        if omit_tests_success && success
-                            puts "#{report_name} tests succeeded."
-                        else
-                            puts output
-                        end
-                    end
-                end
-
                 def handle_test_failures(failures)
                     return if failures.empty?
 
@@ -381,140 +528,6 @@ module Roby
                           .join(", ")
                     raise Failed.new("failed to run the following test(s): "\
                                      "#{msg}"), "failed to run tests"
-                end
-
-                def task_name_for_robot(robot_name, robot_type)
-                    if robot_name == robot_type
-                        "#{task_name}:#{robot_name}"
-                    else
-                        "#{task_name}:#{robot_name}-#{robot_type}"
-                    end
-                end
-
-                # Whether the tests should generate a JUnit report in {#report_dir}
-                def use_junit?
-                    @use_junit
-                end
-
-                # Path to the JUnit/Rubocop reports (if enabled)
-                attr_accessor :report_dir
-
-                def spawn_process_capturing_output(bin, *args, env: {})
-                    stdout_r, stdout_w = IO.pipe
-                    pid = spawn(env, Gem.ruby, bin, *args, out: stdout_w, err: stdout_w)
-                    stdout_w.close
-                    [pid, stdout_r]
-                end
-
-                def read_captured_output_from_pipe(pid, read_pipe)
-                    output = []
-                    begin
-                        while (output_fragment = read_pipe.read(512))
-                            output << output_fragment
-                        end
-                        output.join ""
-                    rescue Interrupt
-                        Process.kill "INT", pid
-                        Process.waitpid pid
-                    end
-                end
-
-                def wait_process_with_captured_output( # rubocop:disable Metrics/ParameterLists
-                    pid, read_pipe, *args,
-                    synchronize_output:, omit_success:, report_name: "report"
-                )
-                    output = read_captured_output_from_pipe(pid, read_pipe)
-                    _, status = Process.waitpid2(pid)
-                    success = status.success?
-                    write_captured_output(
-                        success, output, *args, synchronize_output, omit_success,
-                        report_name: report_name
-                    )
-                    success
-                end
-
-                def spawn_process(bin, *args, env: {})
-                    pid = spawn(env, Gem.ruby, bin, *args)
-                    begin
-                        _, status = Process.waitpid2(pid)
-                        status.success?
-                    rescue Interrupt
-                        Process.kill "INT", pid
-                        Process.waitpid pid
-                    end
-                end
-
-                def run_roby_test(
-                    *args,
-                    report_name: "report", coverage_name: "roby",
-                    synchronize_output: false, omit_success: false
-                )
-                    args += excludes.flat_map do |pattern|
-                        ["--exclude", pattern]
-                    end
-                    args += config.flat_map do |k, v|
-                        ["--set", "#{k}=#{v}"]
-                    end
-                    args += ["--base-dir", base_dir] if base_dir
-
-                    args << "--ui" if ui?
-                    args << "--force-discovery" if force_discovery?
-                    args << "--self" if self_only?
-                    args << "--coverage=#{coverage_name}" if coverage?
-
-                    env = {}
-                    if keep_logs?
-                        args << "--keep_logs"
-                        env["ROBY_BASE_LOG_DIR"] = report_dir
-                        FileUtils.mkdir_p report_dir
-                    end
-
-                    args << "--"
-                    if (minitest_opts = ENV["TESTOPTS"])
-                        args.concat(Shellwords.split(minitest_opts))
-                    end
-
-                    if use_junit?
-                        args += [
-                            "--junit", "--junit-jenkins",
-                            "--junit-filename=#{report_dir}/#{report_name}.junit.xml"
-                        ]
-                        FileUtils.mkdir_p report_dir
-                    end
-
-                    args += test_files.map(&:to_s)
-
-                    run_roby(
-                        "test", *args,
-                        synchronize_output: synchronize_output,
-                        omit_success: omit_success, report_name: report_name,
-                        env: env
-                    )
-                end
-
-                def run_roby(
-                    *args,
-                    synchronize_output: false, omit_success: false,
-                    report_name: "report", env: {}
-                )
-                    roby_bin = File.expand_path(
-                        File.join("..", "..", "..", "bin", "roby"),
-                        __dir__
-                    )
-                    capture_output = synchronize_output || omit_success
-                    if capture_output
-                        pid, read_pipe = spawn_process_capturing_output(
-                            roby_bin, *args, env: env
-                        )
-                        wait_process_with_captured_output(
-                            pid, read_pipe, *args,
-                            synchronize_output: synchronize_output,
-                            omit_success: omit_success, report_name: report_name
-                        )
-                    else
-                        puts "Running #{report_name}: roby #{args.join(' ')}"
-                        spawn_process(roby_bin, *args, env: env)
-                    end
                 end
 
                 # Enumerate the robots on which tests should be run
@@ -581,91 +594,14 @@ module Roby
             #          t.all_by_default = true
             #      end
             #
-            class RobotTestTask < ::Rake::TaskLib
-                # The base test task name
-                attr_reader :task_name
-
-                # The app
-                #
-                # It defaults to Roby.app
-                attr_accessor :app
-
+            class RobotTestTask < BaseTestTask
                 attr_accessor :robot_name, :robot_type
 
-                # The hash with extra configuration to be inserted into Conf
-                # for the tests we are running
-                #
-                # @return [Hash<String, String>]
-                attr_accessor :config
-
-                # The list of files that should be tested.
-                #
-                # @return [Array<String>]
-                attr_accessor :test_files
-
-                # The directory where the tests will be auto-discovered
-                #
-                # @return [String]
-                attr_accessor :base_dir
-
-                # Patterns matching excluded test files
-                #
-                # It accepts any string that File.fnmatch? accepts
-                #
-                # @return [Array<String>]
-                attr_accessor :excludes
-
-                # Whether the 'test' target should run all robot tests (false, the
-                # default) or the 'all tests' target (true)
-                attr_predicate :all_by_default?, true
-
-                # Sets whether the tests should be started with the --ui flag
-                attr_writer :ui
-
-                # Sets whether the tests should be started with the --force-discovery flag
-                attr_writer :force_discovery
-
-                # Only run tests that are present in this bundle
-                attr_writer :self_only
-
-                # Whether the tests should be started with the --ui flag
-                def ui?
-                    @ui
-                end
-
-                # Whether the tests should be started with the --force-discovery flag
-                def force_discovery?
-                    @force_discovery
-                end
-
-                # Whether the tests should be started with the --self flag
-                def self_only?
-                    @self_only
-                end
-
-                # Whether the tests should be started with the --self flag
-                def coverage?
-                    @coverage
-                end
-
                 def initialize(task_name = "test", robot_name:, robot_type: nil)
-                    super()
+                    super(task_name)
 
-                    @task_name = task_name
-                    @app = Roby.app
                     @robot_name = robot_name
                     @robot_type = robot_type || robot_name
-                    @config = {}
-                    @test_files = []
-                    @excludes = []
-                    @ui = false
-                    @force_discovery = false
-                    @self_only = false
-
-                    @coverage = Rake.coverage?
-                    @use_junit = Rake.use_junit?
-                    @report_dir = Rake.report_dir
-
                     yield self if block_given?
                     define
                 end
@@ -685,166 +621,13 @@ module Roby
                             coverage_name: task_name,
                             report_name: "#{robot_name}:#{robot_type}",
                             synchronize_output: synchronize_output,
-                            omit_tests_success: omit_tests_success
+                            omit_success: omit_tests_success
                         )
                         unless result
                             raise Failed.new("failed to run tests for "\
                                              "#{robot_name}:#{robot_type}"),
                                   "tests failed"
                         end
-                    end
-                end
-
-                def task_name_for_robot(robot_name, robot_type)
-                    if robot_name == robot_type
-                        "#{task_name}:#{robot_name}"
-                    else
-                        "#{task_name}:#{robot_name}-#{robot_type}"
-                    end
-                end
-
-                # Whether the tests should generate a JUnit report in {#report_dir}
-                def use_junit?
-                    @use_junit
-                end
-
-                # Path to the JUnit/Rubocop reports (if enabled)
-                attr_accessor :report_dir
-
-                def write_captured_output( # rubocop:disable Metrics/ParameterLists
-                    success, output, synchronize_output, omit_tests_success, *args,
-                    report_name: "report"
-                )
-                    if synchronize_output
-                        Rake.report_sync_mutex.synchronize do
-                            write_captured_output(
-                                success, output, false, omit_tests_success, *args,
-                                report_name: report_name
-                            )
-                        end
-                    else
-                        puts "Running #{report_name}: roby #{args.join(' ')}"
-                        if omit_tests_success && success
-                            puts "#{report_name} tests succeeded."
-                        else
-                            puts output
-                        end
-                    end
-                end
-
-                def spawn_process_capturing_output(bin, *args, env: {})
-                    stdout_r, stdout_w = IO.pipe
-                    pid = spawn(env, Gem.ruby, bin, *args, out: stdout_w, err: stdout_w)
-                    stdout_w.close
-                    [pid, stdout_r]
-                end
-
-                def read_captured_output_from_pipe(pid, read_pipe)
-                    output = []
-                    begin
-                        while (output_fragment = read_pipe.read(512))
-                            output << output_fragment
-                        end
-                        output.join ""
-                    rescue Interrupt
-                        Process.kill "INT", pid
-                        Process.waitpid pid
-                    end
-                end
-
-                def wait_process_with_captured_output( # rubocop:disable Metrics/ParameterLists
-                    pid, read_pipe, *args, synchronize_output:, omit_success:,
-                    report_name: "report"
-                )
-                    output = read_captured_output_from_pipe(pid, read_pipe)
-                    _, status = Process.waitpid2(pid)
-                    success = status.success?
-                    write_captured_output(
-                        success, output, synchronize_output, omit_success, *args,
-                        report_name: report_name
-                    )
-                    success
-                end
-
-                def spawn_process(bin, *args, env: {})
-                    pid = spawn(env, Gem.ruby, bin, *args)
-                    begin
-                        _, status = Process.waitpid2(pid)
-                        status.success?
-                    rescue Interrupt
-                        Process.kill "INT", pid
-                        Process.waitpid pid
-                    end
-                end
-
-                def run_roby_test(
-                    *args,
-                    report_name: "report", coverage_name: "roby",
-                    synchronize_output: false, omit_tests_success: false
-                )
-                    args += excludes.flat_map do |pattern|
-                        ["--exclude", pattern]
-                    end
-                    args += config.flat_map do |k, v|
-                        ["--set", "#{k}=#{v}"]
-                    end
-                    args += ["--base-dir", base_dir] if base_dir
-
-                    args << "--ui" if ui?
-                    args << "--force-discovery" if force_discovery?
-                    args << "--self" if self_only?
-                    args << "--coverage=#{coverage_name}" if coverage?
-
-                    env = {}
-                    if keep_logs?
-                        args << "--keep-logs"
-                        env["ROBY_BASE_LOG_DIR"] = report_dir
-                        FileUtils.mkdir_p report_dir
-                    end
-
-                    args << "--"
-                    if (minitest_opts = ENV["TESTOPTS"])
-                        args.concat(Shellwords.split(minitest_opts))
-                    end
-
-                    if use_junit?
-                        args += [
-                            "--junit", "--junit-jenkins",
-                            "--junit-filename=#{report_dir}/#{report_name}.junit.xml"
-                        ]
-                        FileUtils.mkdir_p report_dir
-                    end
-
-                    args += test_files.map(&:to_s)
-                    run_roby("test", *args,
-                             synchronize_output: synchronize_output,
-                             omit_tests_success: omit_tests_success,
-                             report_name: report_name, env: env)
-                end
-
-                def run_roby(
-                    *args,
-                    synchronize_output: false, omit_tests_success: false,
-                    report_name: "report", env: {}
-                )
-                    roby_bin = File.expand_path(
-                        File.join("..", "..", "..", "bin", "roby"),
-                        __dir__
-                    )
-                    capture_output = synchronize_output || omit_tests_success
-                    if capture_output
-                        pid, read_pipe = spawn_process_capturing_output(
-                            roby_bin, *args, env: env
-                        )
-                        wait_process_with_captured_output(
-                            pid, read_pipe,
-                            synchronize_output: synchronize_output,
-                            omit_success: omit_tests_success,
-                            report_name: report_name
-                        )
-                    else
-                        puts "Running #{report_name}: roby #{args.join(' ')}"
-                        spawn_process(roby_bin, *args, env: env)
                     end
                 end
             end
