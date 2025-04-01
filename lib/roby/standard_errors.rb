@@ -303,10 +303,23 @@ module Roby
     # when this constraint is not met.
     class ThreadMismatch < RuntimeError; end
 
+    # Errors that are generated inside a task
+    #
+    # {Roby::Task} defines an exception handler that transforms some plan exceptions
+    # in task-level "events", to allow for event-based error handling for these. The
+    # handler will only listen to errors of type {InternalTaskError} or one of its
+    # subclasses.
+    #
+    # For instance, an exception raised in the command block of the start event will
+    # generate an EmissionFailed error that point to that event, and this handler
+    # will turn this into a failure to start the task (which in turn makes all
+    # events unreachable and will trigger dependency errors if applicable)
+    class InternalTaskError < LocalizedError; end
+
     # Raised when a user-provided code block (i.e. a code block which is
     # outside of Roby's plan management algorithms) has raised. This includes:
     # event commands, event handlers, task polling blocks, ...
-    class CodeError < LocalizedError
+    class CodeError < InternalTaskError
         include UserExceptionWrapper
 
         # The original exception object

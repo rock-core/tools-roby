@@ -1684,7 +1684,7 @@ module Roby
         end
         private :internal_error_handler
 
-        on_exception(Roby::CodeError) do |exception|
+        on_exception(Roby::InternalTaskError) do |exception|
             internal_error_handler(exception)
         end
 
