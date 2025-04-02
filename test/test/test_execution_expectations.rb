@@ -653,15 +653,16 @@ module Roby
                         matcher.should_receive(:exception_matcher).and_return(flexmock)
                         matcher.should_receive(:===)
                                .with(exception_comes_from_start).and_return(true)
-                        expect_execution do
-                            execution_engine.add_error(
-                                LocalizedError.new(task.start_event)
-                            )
+                        error = LocalizedError.new(task.start_event)
+                        returned_error = expect_execution do
+                            execution_engine.add_error(error)
                         end.to do
                             have_error_matching(
                                 flexmock(to_execution_exception_matcher: matcher)
                             )
                         end
+
+                        assert_same error, returned_error.exception
                     end
                     it "fails if only non-matching exceptions have been raised" do
                         plan.add(task = Roby::Task.new)
@@ -731,6 +732,19 @@ module Roby
                             ),
                             predicates: proc { have_error_matching LocalizedError }
                         )
+                    end
+                    it "handles localized errors when transformed into internal_error_event" do
+                        plan.add(task = Roby::Tasks::Simple.new)
+                        execute { task.start! }
+
+                        error = InternalTaskError.new(task)
+                        returned_error = expect_execution do
+                            execution_engine.add_error(error)
+                        end.to do
+                            have_error_matching InternalTaskError.match.with_origin(task)
+                        end
+
+                        assert_same error, returned_error
                     end
                 end
 
