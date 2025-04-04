@@ -330,6 +330,7 @@ module Roby
                 @garbage_collect = false
                 @validate_unexpected_errors = true
                 @display_exceptions = false
+                @filter_out_related_errors = true
             end
 
             def find_tasks(*args)
@@ -516,6 +517,17 @@ module Roby
             #
             # @param [Boolean] enable
             dsl_attribute :garbage_collect
+
+            # @!method filter_out_related_errors(enable)
+            #
+            # When enabled, errors that are caused by something that has a matcher
+            # will not be reported as unexpected. For instance, a DependencyFailedError
+            # caused by an event, when there is the corresponding `emit` predicate.
+            #
+            # The default is true
+            #
+            # @param [Boolean] enable
+            dsl_attribute :filter_out_related_errors
 
             # @!method validate_unexpected_errors(enable)
             #
@@ -727,6 +739,8 @@ module Roby
             #
             # @param [ExecutionException,Exception] error
             def unexpected_error?(error)
+                return true unless @filter_out_related_errors
+
                 all_errors = Roby.flatten_exception(error)
                 has_related_predicate = @expectations.any? do |expectation|
                     all_errors.any? { |orig_e| expectation.relates_to_error?(orig_e) }
