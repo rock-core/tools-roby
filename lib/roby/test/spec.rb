@@ -4,6 +4,7 @@ require "utilrb/timepoints"
 require "roby/test/error"
 require "roby/test/common"
 require "roby/test/dsl"
+require "roby/test/event_reporter"
 require "roby/test/teardown_plans"
 require "roby/test/minitest_helpers"
 require "roby/test/robot_test_helpers"
@@ -73,7 +74,18 @@ module Roby
                 end
                 register_plan(plan)
 
+                @plan_original_event_logger = plan.event_logger
+                plan.event_logger = Roby::Test::EventReporter.new(STDOUT)
+
                 super
+            end
+
+            def enable_event_reporting
+                plan.event_logger.enabled = true
+            end
+
+            def disable_event_reporting
+                plan.event_logger.enabled = false
             end
 
             def teardown
@@ -88,6 +100,8 @@ module Roby
                 teardown_registered_plans
                 app.run_shutdown_blocks
             ensure
+                plan.event_logger = @plan_original_event_logger
+
                 clear_registered_plans
                 if teardown_failure
                     raise teardown_failure
