@@ -1065,7 +1065,8 @@ module Roby
                 end
 
                 def return_object
-                    @matched_execution_exceptions.first
+                    @matched_execution_exceptions.first ||
+                        @matched_exceptions.first
                 end
             end
 
