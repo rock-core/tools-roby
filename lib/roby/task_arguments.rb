@@ -614,7 +614,14 @@ module Roby
         end
 
         def merge(task, other_task, other_arg)
-            evaluate_delayed_argument(task)
+            case other_arg
+            when TaskArguments::StaticArgumentWrapper
+                other_arg.value
+            else
+                # can_merge? return false if the value cannot be resolved
+                # This is guaranteed to return a value
+                evaluate_delayed_argument(task)
+            end
         end
 
         def evaluate_delayed_argument(task)
@@ -691,11 +698,23 @@ module Roby
         end
 
         def can_merge?(task, other_task, other_arg)
-            other_arg.kind_of?(DelayedArgumentFromState) && other_arg == self
+            if other_arg.kind_of?(DelayedArgumentFromState)
+                other_arg == self
+            else
+                super
+            end
         end
 
         def merge(task, other_task, other_arg)
-            self
+            case other_arg
+            when TaskArguments::StaticArgumentWrapper
+                other_arg.value
+            else
+                catch(:no_value) do
+                    return evaluate_delayed_argument(task)
+                end
+                self
+            end
         end
 
         def evaluate_delayed_argument(task)
