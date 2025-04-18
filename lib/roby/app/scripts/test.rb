@@ -181,7 +181,7 @@ exception = Roby.display_exception do
             Roby.app.cleanup
         end
 
-    SimpleCov.run_exit_tasks! if defined?(SimpleCov)
+    SimpleCov.run_exit_tasks! if defined?(SimpleCov) && SimpleCov.running
     Minitest.run_after_blocks
     exit(passed ? 0 : 1)
 end
