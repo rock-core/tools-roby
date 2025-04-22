@@ -62,6 +62,8 @@ module Roby
             attr_reader :models_present_in_setup
 
             def setup
+                ensure_timecop_not_active
+
                 plan.execution_engine.display_exceptions = false
                 # Mark every app-defined model as permanent, so that the tests
                 # can define their own and get cleanup up properly on teardown
@@ -86,6 +88,23 @@ module Roby
 
             def disable_event_reporting
                 plan.event_logger.enabled = false
+            end
+
+            # Fails the test if Timecop is active
+            #
+            # This is called in {#setup} to ensure that any test suite that does not
+            # use the Roby harness would not have forgotten to call Timecop.return
+            #
+            # This helps with debugging these issues, which can be pretty hard to find
+            def ensure_timecop_not_active
+                return unless Timecop.frozen? || Timecop.travelled? || Timecop.scaled?
+
+                flunk(
+                    "timecop left frozen from previous tests. The Roby " \
+                    "test harness takes care of calling Timecop.return, but " \
+                    "you probably have some tests that do not use that harness " \
+                    "and use Timecop. Remember calling Timecop.return during teardown"
+                )
             end
 
             def teardown
