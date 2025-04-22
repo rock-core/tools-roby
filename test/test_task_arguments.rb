@@ -456,15 +456,15 @@ end
 
 module Roby
     describe DelayedArgumentFromObject do
+        attr_reader :task, :arg
+
+        before do
+            @task_m = Task.new_submodel { argument(:arg) }
+            @task = @task_m.new
+            @arg = DelayedArgumentFromObject.new(nil).arg.field
+        end
+
         describe "#evaluate_delayed_argument" do
-            attr_reader :task, :arg
-
-            before do
-                @task_m = Task.new_submodel { argument(:arg) }
-                @task = @task_m.new
-                @arg = DelayedArgumentFromObject.new(nil).arg.field
-            end
-
             it "resolves to a task's arguments" do
                 task.arg = Struct.new(:field).new(10)
                 assert_equal 10, arg.evaluate_delayed_argument(task)
@@ -492,33 +492,140 @@ module Roby
                     arg.evaluate_delayed_argument(task)
                 end
             end
+        end
 
-            describe "merge behavior" do
-                it "is strong" do
-                    assert @arg.strong?
+        describe "merge behavior" do
+            it "is strong" do
+                assert @arg.strong?
+            end
+
+            it "merges with another delayed argument that resolves to the same value" do
+                @task.arg = Struct.new(:field).new(10)
+                other_task = @task_m.new
+                other_task.arg = Struct.new(:field).new(10)
+
+                assert @arg.can_merge?(@task, other_task, @arg)
+                assert_equal 10, @arg.merge(@task, other_task, @arg)
+            end
+
+            it "does not merge if the receiver does not resolve" do
+                other_task = @task_m.new
+                other_task.arg = Struct.new(:field).new(10)
+
+                refute @arg.can_merge?(@task, other_task, @arg)
+            end
+
+            it "does not merge if the argument does not resolve" do
+                @task.arg = Struct.new(:field).new(10)
+                other_task = @task_m.new
+                refute @arg.can_merge?(@task, other_task, @arg)
+            end
+
+            it "directly returns a static argument if one is given" do
+                @task.arg = Struct.new(:field).new(10)
+                other_task = @task_m.new
+                static_arg = TaskArguments::StaticArgumentWrapper.new(10)
+                assert @arg.can_merge?(@task, other_task, static_arg)
+                flexmock(@arg).should_receive(:evaluate_delayed_argument).never
+                assert_equal 10, @arg.merge(@task, other_task, static_arg)
+            end
+        end
+    end
+
+    describe DelayedArgumentFromState do
+        before do
+            @state = Roby::OpenStruct.new
+        end
+
+        describe "#evaluate_delayed_argument" do
+            attr_reader :task, :arg
+
+            before do
+                @task_m = Task.new_submodel
+                @task = @task_m.new
+            end
+
+            it "resolves to a leaf value" do
+                @state.some.leaf = 10
+                arg = DelayedArgumentFromState.new(@state).some.leaf
+                assert_equal 10, arg.evaluate_delayed_argument(@task)
+            end
+            it "resolves to an intermediate node" do
+                @state.some.deep.leaf = 10
+                arg = DelayedArgumentFromState.new(@state).some.deep
+                assert_equal @state.some.deep, arg.evaluate_delayed_argument(@task)
+            end
+            it "throws no_value if trying to access a non-existent node" do
+                arg = DelayedArgumentFromState.new(@state).some
+                assert_throws(:no_value) do
+                    arg.evaluate_delayed_argument(task)
                 end
+            end
+        end
 
-                it "merges with another delayed argument that resolves to the same value" do
-                    @task.arg = Struct.new(:field).new(10)
-                    other_task = @task_m.new
-                    other_task.arg = Struct.new(:field).new(10)
+        describe "merge behavior" do
+            it "is strong" do
+                @state.some.deep.leaf = 10
+                arg = DelayedArgumentFromState.new(@state).some.deep.leaf
+                assert arg.strong?
+            end
 
-                    assert @arg.can_merge?(@task, other_task, @arg)
-                    assert_equal 10, @arg.merge(@task, other_task, @arg)
-                end
+            it "merges with another delayed argument that resolves to the same value" do
+                delayed_arg = flexmock(evaluate_delayed_argument: 10)
+                @state.some.deep.leaf = 10
+                arg = DelayedArgumentFromState.new(@state).some.deep.leaf
+                assert arg.can_merge?(@task, @task, delayed_arg)
+                assert_equal 10, arg.merge(@task, @task, delayed_arg)
+            end
 
-                it "does not merge if the receiver does not resolve" do
-                    other_task = @task_m.new
-                    other_task.arg = Struct.new(:field).new(10)
+            it "does not merge with another delayed argument that " \
+               "resolves to another value" do
+                delayed_arg = flexmock(evaluate_delayed_argument: 20)
+                @state.some.deep.leaf = 10
+                arg = DelayedArgumentFromState.new(@state).some.deep.leaf
+                refute arg.can_merge?(@task, @task, delayed_arg)
+            end
 
-                    refute @arg.can_merge?(@task, other_task, @arg)
-                end
+            it "does not merge with another delayed argument if " \
+               "it cannot be resolved itself" do
+                delayed_arg = flexmock(evaluate_delayed_argument: 20)
+                arg = DelayedArgumentFromState.new(@state).some.deep.leaf
+                refute arg.can_merge?(@task, @task, delayed_arg)
+            end
 
-                it "does not merge if the argument does not resolve" do
-                    @task.arg = Struct.new(:field).new(10)
-                    other_task = @task_m.new
-                    refute @arg.can_merge?(@task, other_task, @arg)
-                end
+            it "does not merge with another delayed argument if " \
+               "that argument cannot resolve" do
+                delayed_arg = flexmock
+                delayed_arg.should_receive(:evaluate_delayed_argument).and_throw(:no_value)
+                @state.some.deep.leaf = 10
+                arg = DelayedArgumentFromState.new(@state).some.deep.leaf
+                refute arg.can_merge?(@task, @task, delayed_arg)
+            end
+
+            it "shortcuts evaluate_delayed_argument if the other arg is a static value" do
+                delayed_arg = TaskArguments::StaticArgumentWrapper.new(10)
+                @state.some.deep.leaf = 10
+                arg = DelayedArgumentFromState.new(@state).some.deep.leaf
+                assert arg.can_merge?(@task, @task, delayed_arg)
+                flexmock(arg).should_receive(:evaluate_delayed_argument).never
+                assert_equal 10, arg.merge(@task, @task, delayed_arg)
+            end
+
+            it "merges with another DelayedArgumentFromState " \
+               "that point to the same object, with an existing value" do
+                @state.some.deep.leaf = 10
+                arg0 = DelayedArgumentFromState.new(@state).some.deep.leaf
+                arg1 = DelayedArgumentFromState.new(@state).some.deep.leaf
+                assert arg0.can_merge?(@task, @task, arg1)
+                assert_equal 10, arg0.merge(@task, @task, arg1)
+            end
+
+            it "merges with another DelayedArgumentFromState " \
+               "that point to the same object, with no value" do
+                arg0 = DelayedArgumentFromState.new(@state).some.deep.leaf
+                arg1 = DelayedArgumentFromState.new(@state).some.deep.leaf
+                assert arg0.can_merge?(@task, @task, arg1)
+                assert_equal arg0, arg0.merge(@task, @task, arg1)
             end
         end
     end
