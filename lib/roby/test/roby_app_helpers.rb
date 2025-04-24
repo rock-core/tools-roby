@@ -252,11 +252,15 @@ module Roby
                 dir
             end
 
-            def roby_app_allocate_interface_port
+            def roby_app_allocate_port
                 server = TCPServer.new(0)
                 server.local_address.ip_port
             ensure
                 server&.close
+            end
+
+            def roby_app_allocate_interface_port
+                roby_app_allocate_port
             end
 
             ROBY_PORT_COMMANDS = %w[run].freeze
@@ -300,7 +304,7 @@ module Roby
             # Helper to determine the "right" interface-related arguments in
             # {#roby_app_spawn}
             def roby_app_spawn_interface_args(command, port)
-                port ||= roby_app_allocate_interface_port
+                port ||= roby_app_allocate_port
                 if ROBY_PORT_COMMANDS.include?(command)
                     ["--interface-versions=#{@roby_app_interface_version}",
                      "--port-v#{@roby_app_interface_version}", port.to_s]
@@ -352,7 +356,7 @@ module Roby
             # @return [(Integer,Roby::Interface::Client)] the app PID and connected
             #   roby interface
             def roby_app_start(*args, port: nil, silent: false, **options)
-                port ||= roby_app_allocate_interface_port
+                port ||= roby_app_allocate_port
                 pid = roby_app_spawn(*args, port: port, silent: silent, **options)
                 interface = assert_roby_app_is_running(pid, port: port)
                 [pid, interface]
