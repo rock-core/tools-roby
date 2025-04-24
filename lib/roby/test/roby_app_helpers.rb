@@ -31,7 +31,8 @@ module Roby
             end
 
             def kill_spawned_pids(
-                pids = @spawned_pids, signal: "INT", next_signal: "KILL", timeout: 5
+                pids = @spawned_pids.map(&:pid),
+                signal: "INT", next_signal: "KILL", timeout: 5
             )
                 pending_children = pids.find_all do |pid|
                     begin
@@ -104,7 +105,13 @@ module Roby
                 start_time = Time.now
                 while (Time.now - start_time) < timeout
                     if ::Process.waitpid(pid, Process::WNOHANG)
-                        flunk "Roby app unexpectedly quit"
+                        if (captured_output = roby_app_join_capture_thread(pid))
+                            flunk "Roby app unexpectedly quit\n" \
+                                  "stdout=#{captured_output[:out]}\n" \
+                                  "stderr=#{captured_output[:err]}"
+                        else
+                            flunk "Roby app unexpectedly quit"
+                        end
                     end
 
                     begin
@@ -128,6 +135,30 @@ module Roby
                 interface&.close if interface_owned
             end
 
+            # Wait for a subprocess to exit
+            def assert_process_exits(pid, timeout: 20)
+                deadline = Time.now + timeout
+                while Time.now < deadline
+                    _, status = Process.waitpid2(pid, Process::WNOHANG)
+                    if status
+                        roby_app_join_capture_thread(pid)
+                        return status
+                    end
+
+                    sleep 0.01
+                end
+
+                if (output = roby_app_captured_output(pid))
+                    flunk(
+                        "process #{pid} did not quit within #{timeout} seconds\n" \
+                        "stdout=#{output[:out]}\n" \
+                        "stderr=#{output[:err]}"
+                    )
+                else
+                    flunk("process #{pid} did not quit within #{timeout} seconds")
+                end
+            end
+
             # Wait for the app to exit
             #
             # Unlike {#assert_roby_app_quits}, this method does not explicitly
@@ -136,14 +167,29 @@ module Roby
             #
             # @see assert_roby_app_quits
             def assert_roby_app_exits(pid, timeout: 20)
-                deadline = Time.now + timeout
-                while Time.now < deadline
-                    _, status = Process.waitpid2(pid, Process::WNOHANG)
-                    return status if status
+                assert_process_exits(pid, timeout: timeout)
+            end
 
-                    sleep 0.01
+            # Return the output captured so far for the given PID
+            #
+            # If the process has stopped and {#roby_app_quit} or {#assert_roby_app_exits}
+            # was called, the output is complete. Otherwise it might be partial
+            #
+            # @return [nil,{out: String, err: String}] nil if the PID does not exist,
+            #   or if roby_app_spawn was not configured to capture the output. Otherwise,
+            #   a hash with the stdout and stderr strings
+            def roby_app_captured_output(pid)
+                return unless (spawned = @spawned_pids.find { |p| p.pid == pid })
+                return unless (queue = spawned.capture_queue)
+
+                outputs = spawned.captured_output
+                until queue.empty?
+                    output, string = queue.pop
+                    outputs[output] << string
                 end
-                flunk("app did not quit within #{timeout} seconds")
+
+                outputs.transform_values! { |arr| [arr.join] }
+                outputs.transform_values(&:first)
             end
 
             def assert_roby_app_has_job(
@@ -162,8 +208,18 @@ module Roby
                 flunk "timed out while waiting for action #{action_name} on #{interface}"
             end
 
+            def roby_app_join_capture_thread(pid)
+                return unless (spawned = @spawned_pids.find { |p| p.pid == pid })
+                return unless (thread = spawned.capture_thread)
+
+                thread.join
+                roby_app_captured_output(pid)
+            end
+
             def roby_app_quit(interface, timeout: 2)
                 _, status = Process.waitpid2(pid)
+                roby_app_join_capture_thread(pid)
+
                 return if status.success?
 
                 raise "roby app with PID #{pid} exited with nonzero status"
@@ -210,28 +266,84 @@ module Roby
                 @roby_plugin_path << path
             end
 
+            SpawnedProcess = Struct.new(
+                :pid, :capture_thread, :capture_queue, :captured_output,
+                keyword_init: true
+            )
+
+            # @api private
+            #
+            # Start thread that pull data out of a process output pipes
+            def roby_app_spawn_output_capture_thread(out_r, err_r, queue)
+                ios = [out_r, err_r]
+                Thread.new do
+                    until ios.empty?
+                        with_events, = select(ios, [], [])
+                        with_events.each do |io|
+                            unless (data = io.read_nonblock(4096))
+                                raise EOFError
+                            end
+
+                            queue.push([io == out_r ? :out : :err, data])
+                        rescue EOFError
+                            ios.delete(io)
+                            io.close
+                        rescue IO::WaitReadable
+                            # Wait for more data
+                        end
+                    end
+                end
+            end
+
+            # @api private
+            #
+            # Helper to determine the "right" interface-related arguments in
+            # {#roby_app_spawn}
+            def roby_app_spawn_interface_args(command, port)
+                port ||= roby_app_allocate_interface_port
+                if ROBY_PORT_COMMANDS.include?(command)
+                    ["--interface-versions=#{@roby_app_interface_version}",
+                     "--port-v#{@roby_app_interface_version}", port.to_s]
+                elsif !ROBY_NO_INTERFACE_COMMANDS.include?(command)
+                    ["--interface-version=#{@roby_app_interface_version}",
+                     "--host", "localhost:#{port}"]
+                end
+            end
+
             # Spawn the roby app process
             #
             # @return [Integer] the app PID
-            def roby_app_spawn(command, *args, port: nil, silent: false, **options)
-                if silent
+            def roby_app_spawn( # rubocop:disable Metrics/ParameterLists
+                command, *args,
+                port: nil, capture_output: false, silent: false, env: {}, **options
+            )
+                if capture_output
+                    out_r, out_w = IO.pipe
+                    err_r, err_w = IO.pipe
+                    capture_queue = Queue.new
+                    capture_thread = roby_app_spawn_output_capture_thread(
+                        out_r, err_r, capture_queue
+                    )
+                    options[:out] = out_w
+                    options[:err] = err_w
+                elsif silent
                     options[:out] ||= "/dev/null"
                     options[:err] ||= "/dev/null"
                 end
-                port ||= roby_app_allocate_interface_port
-                port_args =
-                    if ROBY_PORT_COMMANDS.include?(command)
-                        ["--interface-versions=#{@roby_app_interface_version}",
-                         "--port-v#{@roby_app_interface_version}", port.to_s]
-                    elsif !ROBY_NO_INTERFACE_COMMANDS.include?(command)
-                        ["--interface-version=#{@roby_app_interface_version}",
-                         "--host", "localhost:#{port}"]
-                    end
+
+                port_args = roby_app_spawn_interface_args(command, port)
                 pid = spawn(
-                    { "ROBY_PLUGIN_PATH" => @roby_plugin_path.join(":") },
+                    { "ROBY_PLUGIN_PATH" => @roby_plugin_path.join(":") }.merge(env),
                     roby_bin, command, *port_args, *args, chdir: app_dir, **options
                 )
-                @spawned_pids << pid
+                out_w&.close
+                err_w&.close
+                @spawned_pids << SpawnedProcess.new(
+                    pid: pid,
+                    capture_thread: capture_thread,
+                    capture_queue: capture_queue,
+                    captured_output: { out: [], err: [] }
+                )
                 pid
             end
 
@@ -247,7 +359,7 @@ module Roby
             end
 
             def register_pid(pid)
-                @spawned_pids << pid
+                @spawned_pids << SpawnedProcess.new(pid: pid)
             end
 
             def roby_app_run(*args, port: nil, silent: false, **options)
