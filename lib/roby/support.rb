@@ -166,12 +166,12 @@ module Roby
     @enable_deprecation_warnings = true
     @deprecation_warnings_are_errors = (ENV["ROBY_ALL_DEPRECATIONS_ARE_ERRORS"] == "1")
 
-    def self.warn_deprecated(msg, caller_depth = 1)
+    def self.warn_deprecated(msg, caller_depth = 5)
         if deprecation_warnings_are_errors
             error_deprecated(msg, caller_depth)
         elsif enable_deprecation_warnings
             Roby.warn "Deprecation Warning: #{msg} "\
-                      "at #{caller[1, caller_depth].join("\n")}"
+                      "at #{caller[1, caller_depth].join("\n  ")}"
         end
     end
 
