@@ -384,7 +384,9 @@ module Roby
         def require_app_dir(needs_current: false, allowed_outside: true)
             guess_app_dir
             unless app_dir
-                raise ArgumentError, "your current directory does not seem to be a Roby application directory; did you forget to run 'roby init'?"
+                raise ArgumentError,
+                      "your current directory (#{Dir.pwd}) does not seem to be a Roby " \
+                      "application directory; did you forget to run 'roby init'?"
             end
 
             if needs_current
@@ -400,7 +402,9 @@ module Roby
         def needs_to_be_in_current_app(allowed_outside: true)
             guessed_dir = self.class.guess_app_dir
             if guessed_dir && (@app_dir != guessed_dir)
-                raise NotInCurrentApp, "#{@app_dir} is currently selected, but the current directory is within #{guessed_dir}"
+                raise NotInCurrentApp,
+                      "#{@app_dir} is currently selected, " \
+                      "but the current directory is within #{guessed_dir}"
             elsif !guessed_dir && !allowed_outside
                 raise NotInCurrentApp, "not currently within an app dir"
             end
