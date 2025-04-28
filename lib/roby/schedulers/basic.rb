@@ -62,7 +62,6 @@ module Roby
                     .pending
                     .self_owned
 
-                @can_schedule_cache = {}
                 @enabled = true
             end
 
@@ -125,7 +124,6 @@ module Roby
             # Starts all tasks that are eligible. See the documentation of the
             # Basic class for an in-depth description
             def initial_events
-                @can_schedule_cache.clear
                 time = Time.now
 
                 not_executable = self.plan.find_tasks
@@ -146,14 +144,7 @@ module Roby
 
                 scheduled_tasks = []
                 for task in query.reset
-                    result =
-                        if @can_schedule_cache.include?(task)
-                            @can_schedule_cache[task]
-                        else
-                            @can_schedule_cache[task] = can_schedule?(task, time, [])
-                        end
-
-                    if result
+                    if can_schedule?(task, time, [])
                         task.start!
                         report_trigger task.start_event
                         scheduled_tasks << task
