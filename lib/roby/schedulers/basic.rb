@@ -99,15 +99,7 @@ module Roby
                     return false
                 end
 
-                root_task =
-                    if task.root?(TaskStructure::Dependency)
-                        true
-                    else
-                        planned_tasks = task.planned_tasks
-                        !planned_tasks.empty? &&
-                            planned_tasks.all? { |t| !t.executable? }
-                    end
-
+                root_task = basic_scheduling_root_task?(task)
                 if root_task
                     true
                 elsif include_children && task.parents.any?(&:running?)
@@ -119,6 +111,14 @@ module Roby
                     report_holdoff "not root, and include_children is false", task
                     false
                 end
+            end
+
+            def basic_scheduling_root_task?(task)
+                return true if task.root?(TaskStructure::Dependency)
+
+                planned_tasks = task.planned_tasks
+                !planned_tasks.empty? &&
+                    planned_tasks.all? { |t| !t.executable? }
             end
 
             # Starts all tasks that are eligible. See the documentation of the
