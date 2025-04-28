@@ -3,6 +3,189 @@
 require "roby/test/self"
 require "roby/schedulers/temporal"
 
+module Roby
+    module Schedulers
+        describe Temporal do
+            before do
+                @scheduler = Roby::Schedulers::Temporal.new(true, true, plan)
+                @task_m = Tasks::Simple
+            end
+
+            describe "temporal constraints" do
+                before do
+                    plan.add(@root = @task_m.new)
+                    @root.depends_on(@child = @task_m.new)
+                end
+
+                it "lets a child start if its non-running parents are waiting for it" do
+                    plan.add(root = @task_m.new)
+                    root.depends_on(child = @task_m.new)
+                    root.should_start_after child
+
+                    refute @scheduler.can_schedule?(root, Time.now)
+                    assert @scheduler.can_schedule?(child, Time.now)
+                end
+
+                it "does not let a child start if its non-running parents " \
+                   "are waiting for it, in case the parents themselves cannot be " \
+                   "scheduled" do
+                    plan.add(root = @task_m.new)
+
+                    root.depends_on(child = @task_m.new)
+                    child.depends_on(grandchild = @task_m.new)
+                    child.should_start_after grandchild
+
+                    refute @scheduler.can_schedule?(child, Time.now)
+                    refute @scheduler.can_schedule?(grandchild, Time.now)
+                end
+
+                it "handles complex schedule_as/temporal combinations" do
+                    plan.add(root = @task_m.new)
+
+                    root.depends_on(child = @task_m.new)
+                    root.schedule_as(child)
+                    child.depends_on(grandchild = @task_m.new)
+                    child.should_start_after grandchild
+
+                    refute @scheduler.can_schedule?(root, Time.now)
+                    refute @scheduler.can_schedule?(child, Time.now)
+                    assert @scheduler.can_schedule?(grandchild, Time.now)
+                end
+            end
+
+            describe "#schedule_as" do
+                describe "a parent scheduled as its child" do
+                    before do
+                        plan.add(@root = @task_m.new)
+                        @root.depends_on(@child = @task_m.new)
+                        @root.schedule_as @child
+                    end
+
+                    it "does not schedule if the child is not executable" do
+                        @child.executable = false
+                        refute @scheduler.can_schedule?(@root)
+                    end
+
+                    it "schedules if the child is executable and " \
+                       "has no temporal constraints" do
+                        assert @scheduler.can_schedule?(@root)
+                    end
+
+                    it "does not schedule if the child's temporal constraints " \
+                       "are not met" do
+                        plan.add(prerequisite = @task_m.new)
+                        @child.should_start_after prerequisite.stop_event
+
+                        refute @scheduler.can_schedule?(@root)
+                    end
+
+                    it "schedules if the child's temporal constraints " \
+                       "are met" do
+                        plan.add(prerequisite = @task_m.new)
+                        @child.should_start_after prerequisite.start_event
+
+                        execute do
+                            prerequisite.start!
+                        end
+
+                        assert @scheduler.can_schedule?(@root)
+                    end
+
+                    it "does not schedule if the child itself is synchronized with " \
+                       "schedule_as and the constraints are not met" do
+                        @child.depends_on(grandchild = @task_m.new)
+                        @child.schedule_as grandchild
+                        grandchild.executable = false
+
+                        refute @scheduler.can_schedule?(@root)
+                    end
+
+                    it "schedules if the child itself is synchronized with " \
+                       "schedule_as and the constraints are met" do
+                        @child.depends_on(grandchild = @task_m.new)
+                        @child.schedule_as grandchild
+
+                        assert @scheduler.can_schedule?(@root)
+                    end
+                end
+
+                describe "a planning task scheduled as its planned task" do
+                    before do
+                        plan.add(@planned_task = @task_m.new)
+                        @planned_task.planned_by(@planning_task = @task_m.new)
+                        @planning_task.schedule_as @planned_task
+                        @planned_task.executable = false
+                    end
+
+                    it "schedules if the planned task is not executable" do
+                        assert @scheduler.can_schedule?(@planning_task)
+                    end
+
+                    it "schedules if the planned task is executable and " \
+                       "has no temporal constraints" do
+                        @planned_task.executable = true
+                        assert @scheduler.can_schedule?(@planning_task)
+                    end
+
+                    it "does not schedule if the child's temporal constraints " \
+                       "are not met" do
+                        plan.add(prerequisite = @task_m.new)
+                        @planned_task.should_start_after prerequisite.stop_event
+
+                        refute @scheduler.can_schedule?(@planning_task)
+                    end
+
+                    it "schedules if the child's temporal constraints " \
+                       "are met" do
+                        plan.add(prerequisite = @task_m.new)
+                        @planned_task.should_start_after prerequisite.start_event
+
+                        execute do
+                            prerequisite.start!
+                        end
+
+                        assert @scheduler.can_schedule?(@planning_task)
+                    end
+
+                    it "does not schedule if the child itself is synchronized with " \
+                       "schedule_as and the constraints are not met" do
+                        @planned_task.depends_on(grandchild = @task_m.new)
+                        @planned_task.schedule_as grandchild
+                        grandchild.executable = false
+
+                        refute @scheduler.can_schedule?(@planning_task)
+                    end
+
+                    it "schedules if the child itself is synchronized with " \
+                       "schedule_as and the constraints are met" do
+                        @planned_task.depends_on(grandchild = @task_m.new)
+                        @planned_task.schedule_as grandchild
+
+                        assert @scheduler.can_schedule?(@planning_task)
+                    end
+                end
+
+                it "start planning a granchild of tasks that are scheduled " \
+                   "as their children" do
+                    plan.add(root = @task_m.new)
+                    root.depends_on(child = @task_m.new)
+                    root.schedule_as child
+                    child.depends_on(grandchild = @task_m.new)
+                    child.schedule_as grandchild
+                    grandchild.executable = false
+                    grandchild.planned_by(planning_task = @task_m.new)
+                    planning_task.schedule_as grandchild
+
+                    refute @scheduler.can_schedule?(root)
+                    refute @scheduler.can_schedule?(child)
+                    assert @scheduler.can_schedule?(grandchild)
+                    assert @scheduler.can_schedule?(planning_task)
+                end
+            end
+        end
+    end
+end
+
 class TC_Schedulers_Temporal < Minitest::Test
     attr_reader :scheduler
 
@@ -153,15 +336,5 @@ class TC_Schedulers_Temporal < Minitest::Test
         assert scheduler.can_schedule?(t2, Time.now)
         scheduler_initial_events
         assert(t2.running?)
-    end
-
-    def test_parent_waiting_for_child
-        scheduler = Roby::Schedulers::Temporal.new(true, true, plan)
-        t0, t1 = prepare_plan add: 2, model: Tasks::Simple
-        t0.depends_on t1
-        t0.should_start_after(t1)
-
-        assert !scheduler.can_schedule?(t0, Time.now)
-        assert scheduler.can_schedule?(t1, Time.now)
     end
 end
