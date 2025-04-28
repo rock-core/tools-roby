@@ -32,27 +32,7 @@ module Roby
                 end
 
                 start_event = task.start_event
-
-                event_filter = lambda do |ev|
-                    if ev.respond_to?(:task)
-                        ev.task != task &&
-                            !stack.include?(ev.task) &&
-                            !scheduling_constraints_graph.related_tasks?(ev.task, task)
-                    else
-                        true
-                    end
-                end
-
-                meets_constraints = start_event.meets_temporal_constraints?(time, &event_filter)
-                unless meets_constraints
-                    if failed_temporal = start_event.find_failed_temporal_constraint(time, &event_filter)
-                        report_holdoff "temporal constraints not met (%2: %3)", task, failed_temporal[0], failed_temporal[1]
-                    end
-                    if failed_occurence = start_event.find_failed_occurence_constraint(true, &event_filter)
-                        report_holdoff "occurence constraints not met (%2)", task, failed_occurence
-                    end
-                    return false
-                end
+                return false unless schedule_verify_temporal_constraints(task, time, stack)
 
                 start_event.each_backward_scheduling_constraint do |parent|
                     begin
@@ -87,6 +67,29 @@ module Roby
                 else
                     true
                 end
+            end
+
+            def schedule_verify_temporal_constraints(task, time, stack)
+                start_event = task.start_event
+                event_filter = lambda do |ev|
+                    if ev.respond_to?(:task)
+                        ev.task != task &&
+                            !stack.include?(ev.task) &&
+                            !scheduling_constraints_graph.related_tasks?(ev.task, task)
+                    else
+                        true
+                    end
+                end
+
+                if (failed_temporal = start_event.find_failed_temporal_constraint(time, &event_filter))
+                    report_holdoff "temporal constraints not met (%2: %3)", task, failed_temporal[0], failed_temporal[1]
+                    return false
+                elsif (failed_occurence = start_event.find_failed_occurence_constraint(true, &event_filter))
+                    report_holdoff "occurence constraints not met (%2)", task, failed_occurence
+                    return false
+                end
+
+                true
             end
         end
     end
