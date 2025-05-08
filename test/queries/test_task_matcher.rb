@@ -14,6 +14,28 @@ module Roby
                     end
                 end
 
+                it "does not register the same positive predicate twice" do
+                    matcher = TaskMatcher.executable.executable
+                    assert_equal %I[executable?], matcher.predicates
+                end
+
+                it "does not register the same negative predicate twice" do
+                    matcher = TaskMatcher.not_executable.not_executable
+                    assert_equal %I[executable?], matcher.neg_predicates
+                end
+
+                it "does not register the same positive indexed predicate twice" do
+                    matcher = TaskMatcher.starting.starting
+                    assert_equal %I[starting?], matcher.predicates
+                    assert_equal %I[starting?], matcher.indexed_predicates
+                end
+
+                it "does not register the same negative predicate twice" do
+                    matcher = TaskMatcher.not_starting.not_starting
+                    assert_equal %I[starting?], matcher.neg_predicates
+                    assert_equal %I[starting?], matcher.indexed_neg_predicates
+                end
+
                 it "matches on #executable?" do
                     plan.add(yes = Tasks::Simple.new)
                     plan.add(no = Tasks::Simple.new)
