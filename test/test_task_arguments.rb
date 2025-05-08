@@ -464,6 +464,29 @@ module Roby
             @arg = DelayedArgumentFromObject.new(nil).arg.field
         end
 
+        it "returns a new object when a method is added" do
+            inner = flexmock(field: 20)
+            root = flexmock(arg: inner)
+
+            root_arg = DelayedArgumentFromObject.new(nil)
+            inner_arg = root_arg.arg
+            field_arg = inner_arg.field
+            assert_equal root, root_arg.evaluate_delayed_argument(root)
+            assert_equal inner, inner_arg.evaluate_delayed_argument(root)
+            assert_equal 20, field_arg.evaluate_delayed_argument(root)
+        end
+
+        it "returns a new object when the type is specified" do
+            untyped_arg = DelayedArgumentFromObject.new(nil).field
+            typed_arg = untyped_arg.of_type(TrueClass)
+
+            obj = flexmock(field: 20)
+            assert_equal 20, untyped_arg.evaluate_delayed_argument(obj)
+            catch(:no_value) do
+                typed_arg.evaluate_delayed_argument(obj)
+            end
+        end
+
         describe "#evaluate_delayed_argument" do
             it "resolves to a task's arguments" do
                 task.arg = Struct.new(:field).new(10)

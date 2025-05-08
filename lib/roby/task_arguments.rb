@@ -591,6 +591,10 @@ module Roby
         end
 
         def of_type(expected_class)
+            dup.of_type!(expected_class)
+        end
+
+        def of_type!(expected_class)
             @expected_class = expected_class
             self
         end
@@ -600,7 +604,7 @@ module Roby
         end
 
         def add_method(m)
-            @methods << m
+            @methods += [m]
             self
         end
 
