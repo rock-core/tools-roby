@@ -37,7 +37,11 @@ options = OptionParser.new do |opt|
         app.log_create_current = false
     end
     opt.on "--interface-fd=FD", Integer,
-           "file descriptor to use for the interface server" do |fd|
+           "deprecated, use --interface-v1-fd instead" do |fd|
+        app.shell_interface_fd = fd
+    end
+    opt.on "--interface-v1-fd=FD", Integer,
+           "file descriptor to use for the v1 interface server" do |fd|
         app.shell_interface_fd = fd
     end
     opt.on "--interface-v2-fd=FD", Integer,
