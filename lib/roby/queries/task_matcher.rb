@@ -157,6 +157,16 @@ module Roby
                 super
             end
 
+            def add_indexed_predicate(name)
+                @indexed_predicates << name unless @indexed_predicates.include?(name)
+            end
+
+            def add_indexed_neg_predicate(name)
+                return if @indexed_neg_predicates.include?(name)
+
+                @indexed_neg_predicates << name
+            end
+
             class << self
                 # @api private
                 def match_indexed_predicate(
@@ -168,14 +178,14 @@ module Roby
                     class_eval <<~PREDICATE_METHOD, __FILE__, __LINE__ + 1
                         def #{method_name}
                             add_predicate(:#{name})
-                            #{"indexed_predicates << :#{index}" if index}
-                            #{"indexed_neg_predicates << :#{neg_index}" if neg_index}
+                            #{"add_indexed_predicate(:#{index})" if index}
+                            #{"add_indexed_neg_predicate(:#{neg_index})" if neg_index}
                             self
                         end
                         def not_#{method_name}
                             add_neg_predicate(:#{name})
-                            #{"indexed_predicates << :#{not_index}" if not_index}
-                            #{"indexed_neg_predicates << :#{not_neg_index}" if not_neg_index}
+                            #{"add_indexed_predicates(:#{not_index})" if not_index}
+                            #{"add_indexed_neg_predicate(:#{not_neg_index})" if not_neg_index}
                             self
                         end
                     PREDICATE_METHOD

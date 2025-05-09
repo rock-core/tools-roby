@@ -87,7 +87,7 @@ module Roby
                     raise ArgumentError, "trying to match (#{predicate} & !#{predicate})"
                 end
 
-                @predicates << predicate
+                @predicates << predicate unless @predicates.include?(predicate)
                 self
             end
 
@@ -99,7 +99,7 @@ module Roby
                     raise ArgumentError, "trying to match (#{predicate} & !#{predicate})"
                 end
 
-                @neg_predicates << predicate
+                @neg_predicates << predicate unless @neg_predicates.include?(predicate)
                 self
             end
 
