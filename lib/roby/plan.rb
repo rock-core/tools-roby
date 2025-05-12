@@ -1317,8 +1317,28 @@ module Roby
             end
         end
 
-        # Ensures that the given tasks will end up being processed without
-        # forcefully stopping anything
+        # Return all mission/permanent tasks that current depend on the given task
+        def useful_tasks_using(tasks)
+            all_tasks = compute_useful_tasks(
+                Array(tasks), graphs: default_useful_task_graphs.map(&:reverse)
+            ).to_set
+            all_tasks.compare_by_identity
+
+            result = []
+            @task_index.mission_tasks.dup.each do |t|
+                result << t if all_tasks.include?(t)
+            end
+            @task_index.permanent_tasks.dup.each do |t|
+                result << t if all_tasks.include?(t)
+            end
+            result
+        end
+
+        # Unmark mission/permanent tasks that depend on the tasks given as argument
+        #
+        # By doing so, it makes the tasks eligible for garbage collection. This
+        # is mostly used to shut down tasks from a specific task within their
+        # dependency graph.
         def make_useless(tasks)
             all_tasks = compute_useful_tasks(
                 Array(tasks), graphs: default_useful_task_graphs.map(&:reverse)
