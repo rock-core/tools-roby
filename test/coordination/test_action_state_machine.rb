@@ -14,7 +14,7 @@ module Roby
                 description = nil
                 @action_m = Roby::Actions::Interface.new_submodel do
                     describe("the start task").returns(task_m).optional_arg(:id, "the task ID")
-                    define_method(:start_task) { |arg| task_m.new(id: arg[:id] || :start) }
+                    define_method(:start_task) { |id: nil| task_m.new(id: id || :start) }
                     describe("the next task").returns(task_m)
                     define_method(:next_task) { task_m.new(id: :next) }
                     describe("a monitoring task").returns(task_m)
@@ -24,8 +24,8 @@ module Roby
                 @description = description
             end
 
-            def start_machine(action, *args)
-                task = action.instanciate(plan, *args)
+            def start_machine(action, **args)
+                task = action.instanciate(plan, **args)
                 plan.add_permanent_task(task)
                 execute { task.start! }
                 task
@@ -538,8 +538,8 @@ module Roby
                 child_task_m = task_m.new_submodel(name: "TaskChildModel")
 
                 child_m = action_m.new_submodel do
-                    define_method(:start_task) do |arg|
-                        child_task_m.new(id: arg[:id] || :start)
+                    define_method(:start_task) do |id: nil|
+                        child_task_m.new(id: id || :start)
                     end
                 end
                 state_machine("test") do
