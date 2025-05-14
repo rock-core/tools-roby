@@ -3,6 +3,162 @@
 require "roby/test/self"
 require "roby/state"
 
+module Roby
+    describe OpenStruct do
+        describe "has_method?" do
+            attr_reader :s
+
+            before do
+                @s = OpenStruct.new
+                @s.other.attach
+            end
+
+            it "returns false for a non-existent method" do
+                refute s.has_method?(:nonexistent)
+            end
+
+            it "returns false for the accessor methods of a member" do
+                refute s.has_method?(:other)
+                refute s.has_method?(:other?)
+                refute s.has_method?(:other=)
+            end
+
+            it "returns true for a method from OpenStruct" do
+                assert s.has_method?(:__get)
+            end
+
+            it "returns true for a singleton method" do
+                def s.something; end
+                assert s.has_method?(:something)
+            end
+        end
+
+        describe "#respond_to?" do
+            attr_reader :s
+
+            before do
+                @s = OpenStruct.new
+                @s.other.attach
+            end
+
+            it "returns false if neither the field nor the method exist" do
+                refute s.respond_to?(:does_not_exist)
+            end
+
+            it "returns true for setter method on non-existent names" do
+                assert s.respond_to?(:something=)
+            end
+
+            it "returns true for question mark method on non-existent names" do
+                assert s.respond_to?(:something?)
+            end
+
+            it "returns false for the question mark method on an existing method" do
+                refute s.respond_to?(:__get?)
+            end
+
+            it "returns false for the setter method on an existing method" do
+                refute s.respond_to?(:__get=)
+            end
+
+            it "returns true for an existing method" do
+                assert s.respond_to?(:__get)
+            end
+
+            it "returns true for a getter method on an existing field" do
+                assert s.respond_to?(:other)
+            end
+
+            it "returns true for presence method on an existing field" do
+                assert s.respond_to?(:other)
+            end
+        end
+
+        describe "non-stable structs" do
+            describe "respond_to?" do
+                attr_reader :s
+
+                before do
+                    @s = OpenStruct.new
+                    @s.other.attach
+                end
+
+                it "returns true for '?'" do
+                    assert @s.respond_to?(:somethiiiiing?)
+                end
+            end
+        end
+
+        describe "stable structs" do
+            attr_reader :s
+
+            before do
+                @s = OpenStruct.new
+                @s.other.attach
+            end
+
+            it "is not recursive by default" do
+                s.stable!
+                assert s.stable?
+                refute s.other.stable?
+            end
+
+            it "lets access (read/write) to existing fields" do
+                s.test = "something"
+                s.stable!
+                assert s.respond_to?(:test)
+                assert s.respond_to?(:test=)
+                assert s.respond_to?(:test?)
+
+                assert_equal "something", s.test
+                s.test = "else"
+                assert_equal "else", s.test
+            end
+
+            it "does not allow creating a new field by attaching a pending child " \
+               "via setting one of its fields" do
+                unattached_child = OpenStruct.new
+                unattached_child.test = 10
+                unattached_child.link_to(s, "test")
+                s.stable!
+
+                assert_raises(OpenStruct::Stable) { unattached_child.test = 20 }
+                refute unattached_child.attached?
+                refute s.test?
+                assert_equal 10, unattached_child.test
+            end
+
+            it "does not allow access to non-existing fields" do
+                s.stable!
+                refute s.respond_to?(:test)
+                refute s.respond_to?(:test=)
+                refute s.respond_to?(:test?)
+                assert_raises(OpenStruct::Stable) { s.test }
+                assert_raises(OpenStruct::Stable) { s.test = 10 }
+            end
+
+            it "may be applied recursively" do
+                s.stable!(true)
+                assert s.other.stable?
+            end
+
+            it "allows resetting the stable flag to false" do
+                s.stable!(true)
+                s.stable!(false, false)
+                refute s.stable?
+                assert s.other.stable?
+            end
+
+            it "allows resetting the stable flag to false, recursively" do
+                s.stable!(true)
+                s.stable!(true, false)
+                refute s.stable?
+                refute s.other.stable?
+            end
+        end
+    end
+end
+
 class TC_OpenStruct < Minitest::Test
     def test_openstruct_behavior
         s = OpenStruct.new
@@ -188,46 +344,6 @@ class TC_OpenStruct < Minitest::Test
         assert(!r.empty?)
         r.delete(:child)
         assert(r.empty?)
-    end
-
-    def test_stable
-        s = OpenStruct.new
-        s.other.attach
-
-        s.stable!
-        assert(s.stable?)
-        assert(!s.other.stable?)
-        assert_raises(NoMethodError) { s.test }
-        assert_raises(NoMethodError) { s.test = 10 }
-        assert(!s.respond_to?(:test=))
-        assert !s.other.test.attached?
-        s.other.test = 10
-
-        s.stable!(true)
-        assert(s.stable?)
-        assert_raises(NoMethodError) { s.test }
-        assert_raises(NoMethodError) { s.test = 10 }
-        assert(s.other.stable?)
-        assert_raises(NoMethodError) { s.other.another_test }
-        assert_equal 10, s.other.test
-        assert_raises(NoMethodError) { s.other.test = 10 }
-
-        s.stable!(false, false)
-        assert(!s.stable?)
-        assert !s.test.attached?
-        s.test = 10
-        assert(s.other.stable?)
-        assert_raises(NoMethodError) { s.other.another_test }
-        s.other.test
-        assert_raises(NoMethodError) { s.other.test = 10 }
-
-        s.stable!(true, false)
-        assert(!s.stable?)
-        assert(!s.other.stable?)
-        s.test
-        s.test = 10
-        s.other.test
-        s.other.test = 10
     end
 
     def test_filter

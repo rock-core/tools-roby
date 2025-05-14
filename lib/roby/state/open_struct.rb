@@ -179,6 +179,8 @@ module Roby
             attach
         end
 
+        class Stable < RuntimeError; end
+
         # When a field is dynamically created by #method_missing, it is created
         # in a pending state, in which it is not yet attached to its parent
         # structure
@@ -186,12 +188,19 @@ module Roby
         # This method does the attachment. It calls #attach_child on the parent
         # to notify it
         def attach
-            if @attach_as
-                @__parent_struct, @__parent_name = @attach_as
-                @attach_as = nil
-                __parent_struct.attach_child(__parent_name, self)
-                @model&.attach
+            return unless @attach_as
+
+            parent_struct, parent_name = @attach_as
+            if parent_struct.stable? && !parent_struct.member?(parent_name)
+                raise Stable,
+                      "cannot attach #{self} on #{parent_struct}, the parent is stable " \
+                      "and attaching would create a new field named #{parent_name}"
             end
+
+            @__parent_struct, @__parent_name = @attach_as
+            @attach_as = nil
+            __parent_struct.attach_child(__parent_name, self)
+            @model&.attach
         end
 
         # When a field is dynamically created by #method_missing, it is created
@@ -296,7 +305,7 @@ module Roby
         end
 
         def delete(name = nil)
-            raise TypeError, "#{self} is stable" if stable?
+            raise TypeError, "cannot delete #{name}, #{self} is stable" if stable?
 
             if name
                 name = name.to_s
@@ -339,8 +348,9 @@ module Roby
             @filters[nil] = block
         end
 
-        # If self is stable, it cannot be updated. That is, calling a setter method
-        # raises NoMethodError
+        # If self is stable, its structure cannot be changed
+        #
+        # Any modification that would create new fields will raise a {Stable} exception
         def stable?
             @stable
         end
@@ -387,44 +397,33 @@ module Roby
             @members.empty?
         end
 
-        if RUBY_VERSION >= "1.8.7"
-            # has_method? will be used to know if a given method is already defined
-            # on the OpenStruct object, without taking into account the members
-            # and aliases.
-            def has_method?(name)
-                Object.instance_method(:respond_to?).bind(self).call(name, true)
+        # has_method? will be used to know if a given method is already defined
+        # on the OpenStruct object, without taking into account the members
+        # and aliases.
+        def has_method?(name)
+            return false unless respond_to?(name, true)
+
+            name = name.to_s
+            if name.end_with?("?") || name.end_with?("=")
+                name = name[0..-2]
             end
 
-            def respond_to?(name, include_private = false) # :nodoc:
-                return true if super
-
-                __respond_to__(name)
-            end
-        else
-            # has_method? will be used to know if a given method is already defined
-            # on the OpenStruct object, without taking into account the members
-            # and aliases.
-            def has_method?(name)
-                Object.instance_method(:respond_to?).bind(self).call(name)
-            end
-
-            def respond_to?(name) # :nodoc:
-                return true if super
-
-                __respond_to__(name)
-            end
+            !member?(name) && !alias?(name)
         end
 
-        # 1.8.7's #respond_to? takes two arguments, 1.8.6 only one. This is the
-        # common implementation for both version. #respond_to? is adapted (see
-        # above)
-        def __respond_to__(name) # :nodoc:
+        def respond_to_missing?(name, include_private = false) # :nodoc:
+            return true if super
+
             name = name.to_s
             return false if name =~ FORBIDDEN_NAMES_RX
 
-            if name =~ /=$/
+            if name.end_with?("=") || name.end_with?("?")
+                name = name[0..-2]
+                return true if member?(name) || alias?(name)
+                return false if respond_to?(name, include_private)
+
                 !@stable
-            elsif @members.key?(name)
+            elsif member?(name) || alias?(name)
                 true
             else
                 (alias_to = @aliases[name]) && respond_to?(alias_to)
@@ -465,7 +464,7 @@ module Roby
             elsif alias_to = @aliases[name]
                 return send(alias_to)
             elsif stable?
-                raise NoMethodError, "no such attribute #{name} (#{self} is stable)"
+                raise Stable, "no such attribute #{name} (#{self} is stable)"
             elsif create_substruct
                 attach
                 member = @pending[name] = create_subfield(name)
@@ -498,8 +497,15 @@ module Roby
 
             value = args.first
 
-            if stable?
-                raise NoMethodError, "#{self} is stable"
+            attach_model, attach_name = @attach_as
+            if attach_model&.stable? && !attach_model.member?(attach_name)
+                raise Stable,
+                      "cannot set #{name}, its parent #{parent_state} is stable and " \
+                      "setting it would create a new field #{attach_name} on the parent"
+            elsif stable? && !member?(name)
+                raise Stable,
+                      "cannot set #{name} on #{self}, it is stable and currently has " \
+                      "no such field"
             elsif @filters.has_key?(name)
                 value = @filters[name].call(value)
             elsif @filters.has_key?(nil)
@@ -508,7 +514,8 @@ module Roby
 
             if has_method?(name)
                 if NOT_OVERRIDABLE_RX =~ name
-                    raise ArgumentError, "#{name} is already defined an cannot be overriden"
+                    raise ArgumentError,
+                          "#{name} is already defined an cannot be overriden"
                 end
 
                 # Override it
@@ -535,7 +542,7 @@ module Roby
 
         def method_missing(name, *args, &update) # :nodoc:
             if name !~ /^\w+(?:\?|=|!)?$/
-                if name[-1, 1] == "?"
+                if name.end_with?("?")
                     return false
                 else
                     super
@@ -548,16 +555,17 @@ module Roby
                 super(name.to_sym, *args, &update)
             end
 
-            if name =~ /^(\w+)=$/
-                set($1, *args)
+            if name.end_with?("=")
+                key = name[0..-2]
+                set(key, *args)
 
-            elsif name =~ /^(\w+)\?$/
-                # Test
-                name = @aliases[$1] || $1
+            elsif name.end_with?("?")
+                key = name[0..-2]
+                name = @aliases[key] || key
                 respond_to?(name) && get(name) && send(name)
 
             elsif args.empty? # getter
-                attach
+                attach unless member?(name)
                 __get(name, &update)
 
             else
@@ -574,6 +582,14 @@ module Roby
 
         NOT_OVERRIDABLE = %w{class} + instance_methods(false)
         NOT_OVERRIDABLE_RX = /(?:#{NOT_OVERRIDABLE.join('|')})/.freeze
+
+        def member?(name)
+            @members.key?(name.to_s)
+        end
+
+        def alias?(name)
+            @aliases.key?(name.to_s)
+        end
 
         def __merge(other)
             @members.merge(other) do |k, v1, v2|

@@ -19,8 +19,12 @@ module Roby
             end
         end
 
-        def __respond_to__(name)
-            super || superclass&.__respond_to__(name)
+        def respond_to_missing?(name, private = false)
+            return true if super
+
+            name = name.to_s
+            name = name[0..-2] if name.end_with?("?")
+            superclass&.member?(name) || superclass&.alias?(name)
         end
 
         def create_subfield(name)
