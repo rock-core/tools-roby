@@ -31,8 +31,98 @@ module Roby
                     return false
                 end
 
-                start_event = task.start_event
+                return false unless verify_temporal_constraints(task, time, stack)
+                return false unless verify_schedule_as_constraints(task, time, stack)
+                return true unless basic_constraints?
 
+                root_task = basic_scheduling_root_task?(task)
+                if root_task
+                    true
+                elsif include_children && parents_allow_scheduling?(task, time, stack)
+                    true
+                elsif include_children
+                    report_holdoff "not root, and has no running parent", task
+                    false
+                else
+                    report_holdoff "not root, and include_children is false", task
+                    false
+                end
+            end
+
+            def verify_schedule_as_constraints(task, time, stack)
+                # "backward scheduling constraint" == "schedule_as",
+                # that is in this loop, start_event.schedule_as(parent.start_event)
+                task.start_event
+                    .each_backward_scheduling_constraint do |scheduled_as_event|
+                    scheduled_as_task = scheduled_as_event.task
+                    next if stack.include?(scheduled_as_task)
+
+                    if !scheduled_as_task.executable? &&
+                       task.depends_on?(scheduled_as_task)
+                        return false
+                    end
+
+                    begin
+                        stack.push task
+                        unless can_schedule?(scheduled_as_task, time, stack)
+                            report_holdoff(
+                                "held by schedule_as(%2)", task, scheduled_as_event
+                            )
+                            return false
+                        end
+                    ensure
+                        stack.pop
+                    end
+                end
+
+                true
+            end
+
+            def parents_allow_scheduling?(task, time, stack)
+                task.each_parent_task.any? do |parent_task|
+                    next(true) if parent_task.running?
+
+                    parent_waiting_for_self =
+                        parent_waiting_for_self?(task, parent_task)
+
+                    parent_scheduled_as_self =
+                        task.start_event.child_object?(
+                            parent_task.start_event,
+                            Roby::EventStructure::SchedulingConstraints
+                        )
+
+                    next(false) unless parent_scheduled_as_self || parent_waiting_for_self
+                    next(true) if stack.include?(parent_task)
+
+                    begin
+                        stack.push task
+                        can_schedule?(parent_task, time, stack)
+                    ensure
+                        stack.pop
+                    end
+                end
+            end
+
+            def parent_waiting_for_self?(task, parent_task)
+                # Special case: check in Dependency if there are some
+                # parents for which a forward constraint from +self+ to
+                # +parent.start_event+ exists. If it is the case, start
+                # the task
+                parent_task.start_event.each_backward_temporal_constraint do |constraint|
+                    if constraint.respond_to?(:task) && constraint.task == task
+                        Schedulers.debug do
+                            "Temporal: #{task} has no running parent, but " \
+                            "a constraint from #{constraint} to #{parent_task}.start " \
+                            "exists. Scheduling."
+                        end
+                        return true
+                    end
+                end
+
+                false
+            end
+
+            def verify_temporal_constraints(task, time, stack)
                 event_filter = lambda do |ev|
                     if ev.respond_to?(:task)
                         ev.task != task &&
@@ -43,50 +133,16 @@ module Roby
                     end
                 end
 
-                meets_constraints = start_event.meets_temporal_constraints?(time, &event_filter)
-                unless meets_constraints
-                    if failed_temporal = start_event.find_failed_temporal_constraint(time, &event_filter)
-                        report_holdoff "temporal constraints not met (%2: %3)", task, failed_temporal[0], failed_temporal[1]
-                    end
-                    if failed_occurence = start_event.find_failed_occurence_constraint(true, &event_filter)
-                        report_holdoff "occurence constraints not met (%2)", task, failed_occurence
-                    end
+                start_event = task.start_event
+                if (failed_temporal = start_event.find_failed_temporal_constraint(time, &event_filter))
+                    report_holdoff "temporal constraints not met (%2: %3)", task, failed_temporal[0], failed_temporal[1]
+                    return false
+                elsif (failed_occurence = start_event.find_failed_occurence_constraint(true, &event_filter))
+                    report_holdoff "occurence constraints not met (%2)", task, failed_occurence
                     return false
                 end
 
-                start_event.each_backward_scheduling_constraint do |parent|
-                    begin
-                        stack.push task
-                        unless can_schedule?(parent.task, time, stack)
-                            report_holdoff "held by a schedule_as constraint with %2", task, parent
-                            return false
-                        end
-                    ensure
-                        stack.pop
-                    end
-                end
-
-                if basic_constraints?
-                    if super
-                        true
-                    else
-                        # Special case: check in Dependency if there are some
-                        # parents for which a forward constraint from +self+ to
-                        # +parent.start_event+ exists. If it is the case, start
-                        # the task
-                        task.each_parent_task do |parent|
-                            parent.start_event.each_backward_temporal_constraint do |constraint|
-                                if constraint.respond_to?(:task) && constraint.task == task
-                                    Schedulers.debug { "Temporal: #{task} has no running parent, but a constraint from #{constraint} to #{parent}.start exists. Scheduling." }
-                                    return true
-                                end
-                            end
-                        end
-                        false
-                    end
-                else
-                    true
-                end
+                true
             end
         end
     end

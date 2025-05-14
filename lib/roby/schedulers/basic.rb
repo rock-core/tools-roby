@@ -62,7 +62,6 @@ module Roby
                     .pending
                     .self_owned
 
-                @can_schedule_cache = {}
                 @enabled = true
             end
 
@@ -100,15 +99,7 @@ module Roby
                     return false
                 end
 
-                root_task =
-                    if task.root?(TaskStructure::Dependency)
-                        true
-                    else
-                        planned_tasks = task.planned_tasks
-                        !planned_tasks.empty? &&
-                            planned_tasks.all? { |t| !t.executable? }
-                    end
-
+                root_task = basic_scheduling_root_task?(task)
                 if root_task
                     true
                 elsif include_children && task.parents.any?(&:running?)
@@ -122,10 +113,17 @@ module Roby
                 end
             end
 
+            def basic_scheduling_root_task?(task)
+                return true if task.root?(TaskStructure::Dependency)
+
+                planned_tasks = task.planned_tasks
+                !planned_tasks.empty? &&
+                    planned_tasks.all? { |t| !t.executable? }
+            end
+
             # Starts all tasks that are eligible. See the documentation of the
             # Basic class for an in-depth description
             def initial_events
-                @can_schedule_cache.clear
                 time = Time.now
 
                 not_executable = self.plan.find_tasks
@@ -146,14 +144,7 @@ module Roby
 
                 scheduled_tasks = []
                 for task in query.reset
-                    result =
-                        if @can_schedule_cache.include?(task)
-                            @can_schedule_cache[task]
-                        else
-                            @can_schedule_cache[task] = can_schedule?(task, time, [])
-                        end
-
-                    if result
+                    if can_schedule?(task, time, [])
                         task.start!
                         report_trigger task.start_event
                         scheduled_tasks << task
