@@ -491,6 +491,7 @@ module Roby
             all += exception.original_exceptions.to_a
         end
 
+        all = all.flatten
         if skip_identical_backtraces
             last_backtrace = nil
             all =
