@@ -819,7 +819,7 @@ module Roby
             new_permanent_events.each { |ev| plan.add_permanent_event(ev) }
 
             active_fault_response_tables.each do |tbl|
-                plan.use_fault_response_table tbl.model, tbl.arguments
+                plan.use_fault_response_table tbl.model, **tbl.arguments
             end
 
             unmarked_permanent_events.each { |t| plan.unmark_permanent_event(t) }
