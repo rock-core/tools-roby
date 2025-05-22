@@ -670,6 +670,51 @@ module Roby
                 assert_equal expected, actual
             end
 
+            it "prioritize root paths over matches from other root paths with " \
+               "specific first order" do
+                least_specific = make_tmppath
+                (least_specific / "default").mkdir
+                (least_specific / "default" / "test").mkdir
+                most_specific = make_tmppath
+                (most_specific / "test").mkdir
+                app.search_path = [most_specific, least_specific].map(&:to_s)
+                actual = app.find_dirs("ROBOT", "test", all: true, order: :specific_first,
+                                                        prioritize_root_paths: true)
+
+                expected = ["#{most_specific}/test", "#{least_specific}/default/test"]
+                assert_equal expected, actual
+            end
+
+            it "prioritizes root paths over matches from other root paths with " \
+               "specific last order" do
+                least_specific = make_tmppath
+                (least_specific / "default").mkdir
+                (least_specific / "default" / "test").mkdir
+                most_specific = make_tmppath
+                (most_specific / "test").mkdir
+                app.search_path = [most_specific, least_specific].map(&:to_s)
+                actual = app.find_dirs("ROBOT", "test", all: true, order: :specific_last,
+                                                        prioritize_root_paths: true)
+
+                expected = ["#{least_specific}/default/test", "#{most_specific}/test"]
+                assert_equal expected, actual
+            end
+
+            it "returns the matches ordered by most specific when not prioritizing " \
+               "root paths" do
+                most_specific = make_tmppath
+                (most_specific / "default").mkdir
+                (most_specific / "default" / "test").mkdir
+                least_specific = make_tmppath
+                (least_specific / "test").mkdir
+                app.search_path = [least_specific, most_specific].map(&:to_s)
+                actual = app.find_dirs("ROBOT", "test", all: true, order: :specific_first,
+                                                        prioritize_root_paths: false)
+
+                expected = ["#{most_specific}/default/test", "#{least_specific}/test"]
+                assert_equal expected, actual
+            end
+
             it "raises ArgumentError if no path is given" do
                 exception = assert_raises(ArgumentError) { app.find_dirs }
                 assert_equal "no path given", exception.message

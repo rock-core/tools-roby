@@ -2487,6 +2487,8 @@ module Roby
         #   the place in search_dir. From the most specific to the least
         #   specific, ROBOT is assigned the robot name, the robot type and
         #   finally an empty string.
+        # @option options [Boolean] :prioritize_root_paths if true, return all matches of
+        #   a root path before the matches of another, following the specified order.
         # @return [Array<String>]
         #
         # Given a search dir of [app1, app2]
@@ -2502,6 +2504,20 @@ module Roby
         #   #          app1/models/tasks/]
         #
         # @example
+        #   find_dirs('tasks', 'ROBOT', all: true, order: :specific_first,
+        #                               prioritize_root_paths: true)
+        #   # returns [app1/models/tasks/v3,
+        #   #          app1/models/tasks/,
+        #   #          app2/models/tasks/asguard]
+        #
+        # @example
+        #   find_dirs('tasks', 'ROBOT', all: true, order: :specific_last,
+        #                               prioritize_root_paths: true)
+        #   # returns [app2/models/tasks/asguard,
+        #   #          app1/models/tasks/,
+        #   #          app1/models/tasks/v3]
+        #
+        # @example
         #   find_dirs('tasks', 'ROBOT', all: false, order: :specific_first)
         #   # returns [app1/models/tasks/v3/goto.rb]
         def find_dirs(*dir_path)
@@ -2511,7 +2527,9 @@ module Roby
             if dir_path.last.kind_of?(Hash)
                 options = dir_path.pop
             end
-            options = Kernel.validate_options(options || {}, :all, :order, :path)
+            options =
+                Kernel.validate_options(options || {}, :all, :order, :path,
+                                        prioritize_root_paths: false)
 
             if dir_path.empty?
                 raise ArgumentError, "no path given"
@@ -2549,14 +2567,15 @@ module Roby
 
             result = []
             Application.debug { "  relative paths: #{relative_paths.inspect}" }
-            relative_paths.each do |rel_path|
-                root_paths.each do |root|
-                    abs_path = File.expand_path(File.join(*rel_path), root)
-                    Application.debug { "  absolute path: #{abs_path}" }
-                    if File.directory?(abs_path)
-                        Application.debug { "    selected" }
-                        result << abs_path
-                    end
+            prioritize_root_paths = options[:prioritize_root_paths]
+            absolute_paths =
+                compute_absolute_paths(relative_paths, root_paths,
+                                       prioritize_root_paths: prioritize_root_paths)
+            absolute_paths.each do |abs_path|
+                Application.debug { "  absolute path: #{abs_path}" }
+                if File.directory?(abs_path)
+                    Application.debug { "    selected" }
+                    result << abs_path
                 end
             end
 
@@ -2566,6 +2585,22 @@ module Roby
                 [result.first]
             else
                 result
+            end
+        end
+
+        def compute_absolute_paths(relative_paths, root_paths, prioritize_root_paths: false)
+            if prioritize_root_paths
+                root_paths.flat_map do |root|
+                    relative_paths.map do |rel_path|
+                        File.expand_path(File.join(*rel_path), root)
+                    end
+                end
+            else
+                relative_paths.flat_map do |rel_path|
+                    root_paths.map do |root|
+                        File.expand_path(File.join(*rel_path), root)
+                    end
+                end
             end
         end
 
