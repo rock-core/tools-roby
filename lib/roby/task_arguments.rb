@@ -182,9 +182,19 @@ module Roby
             return assigned_arguments unless block_given?
 
             each do |key, value|
-                unless TaskArguments.delayed_argument?(value)
-                    yield(key, value)
-                end
+                yield(key, value) unless TaskArguments.delayed_argument?(value)
+            end
+        end
+
+        # Enumerates delayed arguments
+        #
+        # @yieldparam [Symbol] name the argument name
+        # @yieldparam [Object] arg the argument value
+        def each_delayed_argument
+            return enum_for(__method__) unless block_given?
+
+            each do |key, value|
+                yield(key, value) if TaskArguments.delayed_argument?(value)
             end
         end
 
