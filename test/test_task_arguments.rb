@@ -232,6 +232,14 @@ describe Roby::TaskArguments do
         end
     end
 
+    describe "#each_delayed_argument" do
+        it "enumerates all delayed arguments" do
+            delayed_arg = flexmock(evaluate_delayed_argument: 20)
+            args = task_m.new(arg: 10, key: delayed_arg).arguments
+            assert_equal [[:key, delayed_arg]], args.each_delayed_argument.to_a
+        end
+    end
+
     describe "#can_semantic_merge? and #semantic_merge!" do
         before do
             @left_t = Roby::Task.new_submodel.new
