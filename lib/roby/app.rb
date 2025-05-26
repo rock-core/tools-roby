@@ -2644,11 +2644,15 @@ module Roby
             options = Kernel.validate_options(
                 options || {},
                 :all, :order, :path,
+                prioritize_root_paths: false,
                 pattern: Regexp.new("")
             )
 
             dir_search = dir_path.dup
-            dir_search << { all: true, order: options[:order], path: options[:path] }
+            dir_search << {
+                all: true, order: options[:order], path: options[:path],
+                prioritize_root_paths: options[:prioritize_root_paths]
+            }
             search_path = find_dirs(*dir_search)
 
             result = []
@@ -2706,7 +2710,9 @@ module Roby
             if file_path.last.kind_of?(Hash)
                 options = file_path.pop
             end
-            options = Kernel.validate_options(options || {}, :all, :order, :path)
+            options =
+                Kernel.validate_options(options || {}, :all, :order, :path,
+                                        prioritize_root_paths: false)
 
             if file_path.empty?
                 raise ArgumentError, "no path given"
