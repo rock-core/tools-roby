@@ -85,4 +85,17 @@ describe Roby do
             Roby.log_exception(main, logger, :warn)
         end
     end
+
+    describe ".format_exception" do
+        it "guards against infinite recursion" do
+            exception_m = Class.new(RuntimeError) do
+                def pretty_print(pp)
+                    pp.text Roby.format_exception(self).join("\n")
+                end
+            end
+
+            result = Roby.format_exception(exception_m.new)
+            assert_equal ["<...>"], result
+        end
+    end
 end

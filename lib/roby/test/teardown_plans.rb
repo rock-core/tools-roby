@@ -123,6 +123,7 @@ module Roby
                     now = Time.now
                 end
 
+                puts "teardown_killall done in #{Time.now - start_time}"
                 # NOTE: this is NOT plan.empty?. We stop processing plans that
                 # are made of quarantined tasks and their dependencies, but
                 # still report an error when they exist

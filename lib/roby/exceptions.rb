@@ -334,20 +334,50 @@ module Roby
         message.split("\n")
     end
 
-    def self.format_exception(exception, with_original_exceptions: true, with_backtrace: false)
-        message = format_one_exception(exception)
-        message += format_backtrace(exception) if with_backtrace
-        return message unless with_original_exceptions
-        return message unless exception.respond_to?(:original_exceptions)
+    FORMAT_EXCEPTION_RECURSION_GUARD_KEY = "roby-format-exception-recursion-guard"
 
-        original_exception_msgs = exception.original_exceptions.flat_map do |original_e|
-            format_exception(
-                original_e,
-                with_original_exceptions: true,
-                with_backtrace: with_backtrace
-            )
+    # @api private
+    #
+    # Helper for {.format_exception} that breaks infinite recursion loops
+    #
+    # @param key the recursion key. The method verifies that this key has not yet
+    #   been used in the current call stack
+    # @return [Array<String>] the message, line-by-line. Either [<...>] if a recursion
+    #   has been detected, or the value returned by the given block
+    def self.format_exception_recursion_guard(key)
+        if (recursion_guard_set = Thread.current[FORMAT_EXCEPTION_RECURSION_GUARD_KEY])
+            return ["<...>"] unless recursion_guard_set.add?(key)
+        else
+            recursion_guard_set = Set.new
+            recursion_guard_set.compare_by_identity
+            recursion_guard_set << key
+            Thread.current[FORMAT_EXCEPTION_RECURSION_GUARD_KEY] = recursion_guard_set
         end
-        message + original_exception_msgs
+
+        yield
+    ensure
+        recursion_guard_set.delete(key)
+    end
+
+    # Format an exception into an array of strings (lines)
+    #
+    # @return [Array<String>]
+    def self.format_exception(exception, with_original_exceptions: true, with_backtrace: false)
+        format_exception_recursion_guard(exception) do
+            message = format_one_exception(exception)
+            message += format_backtrace(exception) if with_backtrace
+            return message unless with_original_exceptions
+            return message unless exception.respond_to?(:original_exceptions)
+
+            original_exception_msgs = exception.original_exceptions.flat_map do |original_e|
+                format_exception(
+                    original_e,
+                    with_original_exceptions: true,
+                    with_backtrace: with_backtrace
+                )
+            end
+            message + original_exception_msgs
+        end
     end
 
     LOG_SYMBOLIC_TO_NUMERIC = Array[
