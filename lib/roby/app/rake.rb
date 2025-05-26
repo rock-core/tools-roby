@@ -226,13 +226,13 @@ module Roby
                 attr_accessor :report_dir
 
                 def write_captured_output( # rubocop:disable Metrics/ParameterLists
-                    success, output, synchronize_output, omit_success, *args,
+                    success, output, synchronize_output, omit_success, args,
                     report_name: "report"
                 )
                     if synchronize_output
                         Rake.report_sync_mutex.synchronize do
                             write_captured_output(
-                                success, output, false, omit_success, *args,
+                                success, output, false, omit_success, args,
                                 report_name: report_name
                             )
                         end
@@ -267,14 +267,14 @@ module Roby
                 end
 
                 def wait_process_with_captured_output( # rubocop:disable Metrics/ParameterLists
-                    pid, read_pipe, *args, synchronize_output:, omit_success:,
+                    pid, read_pipe, args, synchronize_output:, omit_success:,
                     report_name: "report"
                 )
                     output = read_captured_output_from_pipe(pid, read_pipe)
                     _, status = Process.waitpid2(pid)
                     success = status.success?
                     write_captured_output(
-                        success, output, synchronize_output, omit_success, *args,
+                        success, output, synchronize_output, omit_success, args,
                         report_name: report_name
                     )
                     success
@@ -351,7 +351,7 @@ module Roby
                             roby_bin, *args, env: env
                         )
                         wait_process_with_captured_output(
-                            pid, read_pipe,
+                            pid, read_pipe, args,
                             synchronize_output: synchronize_output,
                             omit_success: omit_success,
                             report_name: report_name
