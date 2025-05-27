@@ -334,20 +334,41 @@ module Roby
         message.split("\n")
     end
 
-    def self.format_exception(exception, with_original_exceptions: true, with_backtrace: false)
-        message = format_one_exception(exception)
-        message += format_backtrace(exception) if with_backtrace
-        return message unless with_original_exceptions
-        return message unless exception.respond_to?(:original_exceptions)
+    FORMAT_EXCEPTION_RECURSION_GUARD_KEY = "roby-format-exception-recursion-guard"
 
-        original_exception_msgs = exception.original_exceptions.flat_map do |original_e|
-            format_exception(
-                original_e,
-                with_original_exceptions: true,
-                with_backtrace: with_backtrace
-            )
+    def self.format_exception_recursion_guard(key)
+        if (recursion_guard_set = Thread.current[FORMAT_EXCEPTION_RECURSION_GUARD_KEY])
+            if recursion_guard_set.include?(key.object_id)
+                return "<recursion>"
+            else
+                recursion_guard_set << key.object_id
+            end
+        else
+            Thread.current[FORMAT_EXCEPTION_RECURSION_GUARD_KEY] = recursion_guard_set =
+                Set[key.object_id]
         end
-        message + original_exception_msgs
+
+        yield
+    ensure
+        recursion_guard_set.delete(key.object_id)
+    end
+
+    def self.format_exception(exception, with_original_exceptions: true, with_backtrace: false)
+        format_exception_recursion_guard(exception) do
+            message = format_one_exception(exception)
+            message += format_backtrace(exception) if with_backtrace
+            return message unless with_original_exceptions
+            return message unless exception.respond_to?(:original_exceptions)
+
+            original_exception_msgs = exception.original_exceptions.flat_map do |original_e|
+                format_exception(
+                    original_e,
+                    with_original_exceptions: true,
+                    with_backtrace: with_backtrace
+                )
+            end
+            message + original_exception_msgs
+        end
     end
 
     LOG_SYMBOLIC_TO_NUMERIC = Array[
