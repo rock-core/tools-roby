@@ -488,7 +488,7 @@ module Roby
     )
         all = [exception]
         if exception.respond_to?(:original_exceptions)
-            all += exception.original_exceptions.to_a
+            all += exception.original_exceptions.to_a.flatten
         end
 
         if skip_identical_backtraces
