@@ -89,9 +89,10 @@ module Roby
             def teardown_killall(
                 teardown_warn, teardown_fail, teardown_poll
             )
-                plans = registered_plans.map do |p|
-                    [p, p.execution_engine, Set.new, Set.new] if p.executable?
-                end.compact
+                executable_plans = registered_plans.find_all(&:executable?)
+                plans = executable_plans.map do |p|
+                    [p, p.execution_engine, Set.new, Set.new]
+                end
 
                 start_time = now = Time.now
                 warn_deadline = now + teardown_warn
@@ -111,15 +112,21 @@ module Roby
 
                         if quarantine_and_dependencies.size != plan.tasks.size
                             [plan, engine, last_tasks, last_quarantine]
+                        elsif !quarantine_and_dependencies.empty?
+                            teardown_warn(start_time, plan, last_tasks, last_quarantine)
+                            nil
                         end
-                    end.compact
+                    end
+                    plans = plans.compact
                     sleep teardown_poll
 
                     now = Time.now
                 end
+
                 # NOTE: this is NOT plan.empty?. We stop processing plans that
-                # are made of quarantined tasks and their dependencies
-                registered_plans.all? { |p| !p.executable? || p.empty? }
+                # are made of quarantined tasks and their dependencies, but
+                # still report an error when they exist
+                executable_plans.all?(&:empty?)
             end
 
             # @api private
