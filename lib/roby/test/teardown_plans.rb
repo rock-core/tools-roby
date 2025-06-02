@@ -99,11 +99,10 @@ module Roby
                 fail_deadline = now + teardown_fail
                 until plans.empty? || (now > fail_deadline)
                     plans = plans.map do |plan, engine, last_tasks, last_quarantine|
-                        plan_quarantine = plan.quarantined_tasks
                         if now > warn_deadline
                             teardown_warn(start_time, plan, last_tasks, last_quarantine)
                             last_tasks = plan.tasks.dup
-                            last_quarantine = plan_quarantine.dup
+                            last_quarantine = plan.quarantined_tasks.dup
                         end
                         engine.killall
 
