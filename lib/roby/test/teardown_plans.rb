@@ -164,28 +164,27 @@ module Roby
                 )
             end
 
-            def teardown_warn(start_time, plan, last_tasks, last_quarantine)
-                if last_tasks != plan.tasks || last_quarantine != plan.quarantined_tasks
-                    duration = Integer(Time.now - start_time)
-                    Roby.warn "trying to shut down #{plan} for #{duration}s after "\
-                              "#{self.class.name}##{name}, "\
-                              "quarantine=#{plan.quarantined_tasks.size} tasks, "\
-                              "tasks=#{plan.tasks.size} tasks"
+            def teardown_warn(start_time, plan, last_tasks, last_quarantine, force: false)
+                changed_since_last_warning =
+                    (last_tasks != plan.tasks) ||
+                    (last_quarantine != plan.quarantined_tasks)
+
+                return unless force || changed_since_last_warning
+
+                duration = Integer(Time.now - start_time)
+                Roby.warn "trying to shut down #{plan} for #{duration}s after "\
+                          "#{self.class.name}##{name}, "\
+                          "quarantine=#{plan.quarantined_tasks.size} tasks, "\
+                          "tasks=#{plan.tasks.size} tasks"
+
+                Roby.warn "Known tasks:"
+                plan.tasks.each do |t|
+                    Roby.warn "  #{t} running=#{t.running?} finishing=#{t.finishing?}"
                 end
 
-                if last_tasks != plan.tasks
-                    Roby.warn "Known tasks:"
-                    plan.tasks.each do |t|
-                        Roby.warn "  #{t} running=#{t.running?} finishing=#{t.finishing?}"
-                    end
-                end
-
-                plan_quarantine = plan.quarantined_tasks
-                if last_quarantine != plan_quarantine
-                    Roby.warn "Quarantined tasks:"
-                    plan_quarantine.each do |t|
-                        Roby.warn "  #{t}"
-                    end
+                Roby.warn "Quarantined tasks:"
+                plan.quarantined_tasks.each do |t|
+                    Roby.warn "  #{t}"
                 end
 
                 nil
