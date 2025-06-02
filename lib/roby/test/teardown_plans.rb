@@ -112,9 +112,6 @@ module Roby
 
                         if quarantine_and_dependencies.size != plan.tasks.size
                             [plan, engine, last_tasks, last_quarantine]
-                        elsif !quarantine_and_dependencies.empty?
-                            teardown_warn(start_time, plan, last_tasks, last_quarantine)
-                            nil
                         end
                     end
                     plans = plans.compact
@@ -126,7 +123,13 @@ module Roby
                 # NOTE: this is NOT plan.empty?. We stop processing plans that
                 # are made of quarantined tasks and their dependencies, but
                 # still report an error when they exist
-                executable_plans.all?(&:empty?)
+                return true if executable_plans.all?(&:empty?)
+
+                executable_plans
+                    .find_all { |p| !p.empty? }
+                    .each { |plan| teardown_warn(start_time, plan, [], [], force: true) }
+
+                false
             end
 
             # @api private
