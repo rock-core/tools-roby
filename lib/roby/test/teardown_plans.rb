@@ -14,7 +14,10 @@ module Roby
 
             def initialize(name)
                 super
-                @default_teardown_poll = 0.01
+                @teardown_poll = 0.01
+                @teardown_fail = 20
+                @teardown_warn = 5
+                @teardown_force = 10
             end
 
             def register_plan(plan)
@@ -34,7 +37,18 @@ module Roby
                 registered_plans.clear
             end
 
-            attr_accessor :default_teardown_poll
+            # Polling period of the teardown process
+            attr_accessor :teardown_poll
+
+            # Output information about the teardown process after this many seconds
+            attr_accessor :teardown_warn
+
+            # Force-kill all tasks after this many seconds instead of doing a clean
+            # garbage collection. The test itself will be failed when this happens
+            attr_accessor :teardown_force
+
+            # Assume that the teardown failed after this many seconds
+            attr_accessor :teardown_fail
 
             class TeardownFailedError < RuntimeError
             end
@@ -57,14 +71,13 @@ module Roby
             # For instance, the default of teardown_force=10 and teardown_fail=20
             # will try an orderly stop for 10 seconds and a forced stop for 10s.
             def teardown_registered_plans(
-                teardown_poll: default_teardown_poll,
-                teardown_warn: 5, teardown_fail: 20, teardown_force: teardown_fail / 2
+                teardown_poll: @teardown_poll, teardown_warn: @teardown_warn,
+                teardown_fail: @teardown_fail, teardown_force: @teardown_force
             )
                 old_gc_roby_logger_level = Roby.logger.level
                 return if registered_plans.all?(&:empty?)
 
                 success = teardown_killall(teardown_warn, teardown_force, teardown_poll)
-
                 unless success
                     Roby.warn "clean teardown failed, trying to force-kill all tasks"
                     teardown_forced_killall(
@@ -72,9 +85,7 @@ module Roby
                     )
                 end
 
-                registered_plans.each do |plan|
-                    teardown_clear(plan)
-                end
+                registered_plans.each { |plan| teardown_clear(plan) }
 
                 raise TeardownFailedError, "failed to tear down plan" unless success
             ensure
@@ -99,11 +110,10 @@ module Roby
                 fail_deadline = now + teardown_fail
                 until plans.empty? || (now > fail_deadline)
                     plans = plans.map do |plan, engine, last_tasks, last_quarantine|
-                        plan_quarantine = plan.quarantined_tasks
                         if now > warn_deadline
                             teardown_warn(start_time, plan, last_tasks, last_quarantine)
                             last_tasks = plan.tasks.dup
-                            last_quarantine = plan_quarantine.dup
+                            last_quarantine = plan.quarantined_tasks.dup
                         end
                         engine.killall
 
@@ -112,9 +122,6 @@ module Roby
 
                         if quarantine_and_dependencies.size != plan.tasks.size
                             [plan, engine, last_tasks, last_quarantine]
-                        elsif !quarantine_and_dependencies.empty?
-                            teardown_warn(start_time, plan, last_tasks, last_quarantine)
-                            nil
                         end
                     end
                     plans = plans.compact
@@ -126,7 +133,13 @@ module Roby
                 # NOTE: this is NOT plan.empty?. We stop processing plans that
                 # are made of quarantined tasks and their dependencies, but
                 # still report an error when they exist
-                executable_plans.all?(&:empty?)
+                return true if executable_plans.all?(&:empty?)
+
+                executable_plans
+                    .find_all { |p| !p.empty? }
+                    .each { |plan| teardown_warn(start_time, plan, [], [], force: true) }
+
+                false
             end
 
             # @api private
@@ -161,28 +174,27 @@ module Roby
                 )
             end
 
-            def teardown_warn(start_time, plan, last_tasks, last_quarantine)
-                if last_tasks != plan.tasks || last_quarantine != plan.quarantined_tasks
-                    duration = Integer(Time.now - start_time)
-                    Roby.warn "trying to shut down #{plan} for #{duration}s after "\
-                              "#{self.class.name}##{name}, "\
-                              "quarantine=#{plan.quarantined_tasks.size} tasks, "\
-                              "tasks=#{plan.tasks.size} tasks"
+            def teardown_warn(start_time, plan, last_tasks, last_quarantine, force: false)
+                changed_since_last_warning =
+                    (last_tasks != plan.tasks) ||
+                    (last_quarantine != plan.quarantined_tasks)
+
+                return unless force || changed_since_last_warning
+
+                duration = Integer(Time.now - start_time)
+                Roby.warn "trying to shut down #{plan} for #{duration}s after "\
+                          "#{self.class.name}##{name}, "\
+                          "quarantine=#{plan.quarantined_tasks.size} tasks, "\
+                          "tasks=#{plan.tasks.size} tasks"
+
+                Roby.warn "Known tasks:"
+                plan.tasks.each do |t|
+                    Roby.warn "  #{t} running=#{t.running?} finishing=#{t.finishing?}"
                 end
 
-                if last_tasks != plan.tasks
-                    Roby.warn "Known tasks:"
-                    plan.tasks.each do |t|
-                        Roby.warn "  #{t} running=#{t.running?} finishing=#{t.finishing?}"
-                    end
-                end
-
-                plan_quarantine = plan.quarantined_tasks
-                if last_quarantine != plan_quarantine
-                    Roby.warn "Quarantined tasks:"
-                    plan_quarantine.each do |t|
-                        Roby.warn "  #{t}"
-                    end
+                Roby.warn "Quarantined tasks:"
+                plan.quarantined_tasks.each do |t|
+                    Roby.warn "  #{t}"
                 end
 
                 nil
