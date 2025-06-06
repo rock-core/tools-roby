@@ -14,7 +14,10 @@ module Roby
 
             def initialize(name)
                 super
-                @default_teardown_poll = 0.01
+                @teardown_poll = 0.01
+                @teardown_fail = 20
+                @teardown_warn = 5
+                @teardown_force = 10
             end
 
             def register_plan(plan)
@@ -34,7 +37,18 @@ module Roby
                 registered_plans.clear
             end
 
-            attr_accessor :default_teardown_poll
+            # Polling period of the teardown process
+            attr_accessor :teardown_poll
+
+            # Output information about the teardown process after this many seconds
+            attr_accessor :teardown_warn
+
+            # Force-kill all tasks after this many seconds instead of doing a clean
+            # garbage collection. The test itself will be failed when this happens
+            attr_accessor :teardown_force
+
+            # Assume that the teardown failed after this many seconds
+            attr_accessor :teardown_fail
 
             class TeardownFailedError < RuntimeError
             end
@@ -57,14 +71,13 @@ module Roby
             # For instance, the default of teardown_force=10 and teardown_fail=20
             # will try an orderly stop for 10 seconds and a forced stop for 10s.
             def teardown_registered_plans(
-                teardown_poll: default_teardown_poll,
-                teardown_warn: 5, teardown_fail: 20, teardown_force: teardown_fail / 2
+                teardown_poll: @teardown_poll, teardown_warn: @teardown_warn,
+                teardown_fail: @teardown_fail, teardown_force: @teardown_force
             )
                 old_gc_roby_logger_level = Roby.logger.level
                 return if registered_plans.all?(&:empty?)
 
                 success = teardown_killall(teardown_warn, teardown_force, teardown_poll)
-
                 unless success
                     Roby.warn "clean teardown failed, trying to force-kill all tasks"
                     teardown_forced_killall(
@@ -72,9 +85,7 @@ module Roby
                     )
                 end
 
-                registered_plans.each do |plan|
-                    teardown_clear(plan)
-                end
+                registered_plans.each { |plan| teardown_clear(plan) }
 
                 raise TeardownFailedError, "failed to tear down plan" unless success
             ensure
@@ -100,7 +111,9 @@ module Roby
                 until plans.empty? || (now > fail_deadline)
                     plans = plans.map do |plan, engine, last_tasks, last_quarantine|
                         if now > warn_deadline
-                            teardown_warn(start_time, plan, last_tasks, last_quarantine)
+                            teardown_show_plan_state_if_changed(
+                                start_time, plan, last_tasks, last_quarantine
+                            )
                             last_tasks = plan.tasks.dup
                             last_quarantine = plan.quarantined_tasks.dup
                         end
@@ -126,7 +139,11 @@ module Roby
 
                 executable_plans
                     .find_all { |p| !p.empty? }
-                    .each { |plan| teardown_warn(start_time, plan, [], [], force: true) }
+                    .each do |plan|
+                        teardown_show_plan_state_if_changed(
+                            start_time, plan, [], [], force: true
+                        )
+                    end
 
                 false
             end
@@ -163,7 +180,9 @@ module Roby
                 )
             end
 
-            def teardown_warn(start_time, plan, last_tasks, last_quarantine, force: false)
+            def teardown_show_plan_state_if_changed(
+                start_time, plan, last_tasks, last_quarantine, force: false
+            )
                 changed_since_last_warning =
                     (last_tasks != plan.tasks) ||
                     (last_quarantine != plan.quarantined_tasks)
