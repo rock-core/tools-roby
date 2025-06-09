@@ -108,7 +108,7 @@ module Roby
                 start_time = now = Time.now
                 warn_deadline = now + teardown_warn
                 fail_deadline = now + teardown_fail
-                until plans.empty? || (now > fail_deadline)
+                while now < fail_deadline
                     plans = plans.map do |plan, engine, last_tasks, last_quarantine|
                         if now > warn_deadline
                             teardown_show_plan_state_if_changed(
@@ -127,6 +127,8 @@ module Roby
                         end
                     end
                     plans = plans.compact
+                    break if plans.empty?
+
                     sleep teardown_poll
 
                     now = Time.now
