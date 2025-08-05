@@ -530,6 +530,22 @@ class TC_EventGenerator < Minitest::Test
         assert(new.emitted?)
     end
 
+    def test_dup_separates_the_sources
+        plan.add(e = EventGenerator.new(true))
+
+        plan.register_event(source = EventGenerator.new(true))
+        plan.register_event(new = e.dup)
+        source.forward_to(new)
+        execute { source.emit }
+
+        plan.register_event(new = e.dup)
+        source.forward_to(new)
+        execute { source.emit }
+        assert_equal 1, new.history.size
+        ev = new.history[0]
+        assert_equal 1, ev.all_sources.size
+    end
+
     def test_event_after
         FlexMock.use(Time) do |time_proxy|
             current_time = Time.now + 5
