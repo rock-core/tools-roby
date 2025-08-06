@@ -2,7 +2,7 @@
 
 require "roby/test/self"
 
-class TC_EventGenerator < Minitest::Test
+class TC_EventGenerator < Minitest::Test # rubocop:disable Metrics/ClassLength
     def test_controlable_events
         event = EventGenerator.new(true)
         assert(event.controlable?)
