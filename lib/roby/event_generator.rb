@@ -83,7 +83,8 @@ module Roby
             @unreachable = old.unreachable?
             @unreachable_handlers = old.unreachable_handlers.dup
 
-            clear_pending
+            @pending = false
+            @pending_sources = []
         end
 
         # Returns the model object for this particular event generator. It is in
@@ -880,11 +881,18 @@ module Roby
             raise EventCanceled.new(self), (reason || "event canceled")
         end
 
+        # Method called to declare that a call is pending
+        #
+        # @param [Array<EventGenerator>] sources list of event generators that are
+        #   responsible for the call
         def pending(sources)
             @pending = true
             @pending_sources.concat(sources)
         end
 
+        # Method called to clear a pending call
+        #
+        # Submodels can hook into this to do some cleanup
         def clear_pending
             @pending = false
             @pending_sources = []
