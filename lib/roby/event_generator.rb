@@ -77,13 +77,12 @@ module Roby
             @handlers = old.handlers.dup
             @emitted = old.emitted?
             @history = old.history.dup
+            @pending = false
             if old.command.kind_of?(Method)
                 @command = method(old.command.name)
             end
             @unreachable = old.unreachable?
             @unreachable_handlers = old.unreachable_handlers.dup
-
-            clear_pending
         end
 
         # Returns the model object for this particular event generator. It is in
