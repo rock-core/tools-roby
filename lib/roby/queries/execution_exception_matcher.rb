@@ -91,8 +91,8 @@ module Roby
             # the given task matcher
             #
             # @param [TaskMatcher] task_matcher
-            def involving(_task_matcher)
-                involved_tasks_matchers << origin_matcher
+            def involving(task_matcher)
+                involved_tasks_matchers << task_matcher
                 self
             end
 
