@@ -63,6 +63,12 @@ module Roby
                         assert(LocalizedError.to_execution_exception_matcher.with_trace(@child => [@root0]) === ee)
                         assert(LocalizedError.to_execution_exception_matcher.with_trace(@child => @root0) === ee)
                     end
+
+                    it "matches the trace involving a given task" do
+                        ee = ExecutionException.new(LocalizedError.new(@child))
+                        ee.propagate @child, @root0
+                        assert(LocalizedError.to_execution_exception_matcher.involving(@child) === ee)
+                    end
                 end
 
                 describe "not matching the trace" do
