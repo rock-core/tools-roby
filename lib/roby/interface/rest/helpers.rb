@@ -50,6 +50,15 @@ module Roby
                                          "use #roby_execute instead"
                     roby_execute(&block)
                 end
+
+                def create_job(action, **arguments)
+                    task = action.plan_pattern(
+                        job_id: Roby::Interface::Job.allocate_job_id,
+                        **arguments
+                    )
+                    roby_plan.add_mission_task(task)
+                    task
+                end
             end
         end
     end
