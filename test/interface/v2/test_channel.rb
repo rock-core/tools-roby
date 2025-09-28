@@ -6,6 +6,8 @@ require "roby/interface/v2"
 module Roby
     module Interface
         module V2
+            StructUnmarshalTest = Struct.new :a, :b, keyword_init: true
+            StructUnmarshalTestNoKWInit = Struct.new :a, :b
             describe Channel do
                 before do
                     @io_r, @io_w = Socket.pair(:UNIX, :STREAM, 0)
@@ -131,6 +133,29 @@ module Roby
                         ret = @client.read_packet
                         assert_kind_of Protocol::ActionModel, ret
                         assert_equal "action_model", ret.name
+                    end
+
+                    it "resolves a struct whose name is found on the read side" do
+                        obj = StructUnmarshalTest.new(a: 10)
+                        @server.write_packet(obj)
+                        ret = @client.read_packet
+                        assert_equal obj, ret
+                    end
+
+                    it "resolves a struct whose name is found on the read side " \
+                       "(no keyword_init)" do
+                        obj = StructUnmarshalTestNoKWInit.new(10)
+                        @server.write_packet(obj)
+                        ret = @client.read_packet
+                        assert_equal obj, ret
+                    end
+
+                    it "dynamically creates structs if they are not found " \
+                       "on the read side" do
+                        obj = Struct.new(:a).new(10)
+                        @server.write_packet(obj)
+                        ret = @client.read_packet
+                        assert_equal 10, ret.a
                     end
 
                     it "marshals an action argument on send" do
@@ -260,7 +285,7 @@ module Roby
                         )
                     end
 
-                    it "marshals structs values" do
+                    it "marshals structs" do
                         s_class = Struct.new :a, :b, :c
                         values = 3.times.map { Object.new }
                         s = s_class.new(*values)
@@ -271,7 +296,7 @@ module Roby
                         expected = s_class.new(0, 1, 2)
                         @channel.should_receive(:marshal_filter_object).with(s).pass_thru
                         assert_equal(
-                            expected, @channel.marshal_filter_object(s)
+                            expected.to_h, @channel.marshal_filter_object(s).contents
                         )
                     end
 

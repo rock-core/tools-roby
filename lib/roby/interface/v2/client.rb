@@ -78,7 +78,9 @@ module Roby
 
                     @handshake_results = call([], :handshake, id, handshake)
                     @actions = @handshake_results[:actions]
-                    @commands = @handshake_results[:commands]
+                    @commands = Protocol.unmarshal_object(
+                        @io, @handshake_results[:commands]
+                    )
                 end
 
                 # (see Channel#stats)
