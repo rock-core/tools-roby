@@ -334,7 +334,7 @@ module Roby
 
             match_predicates(
                 :abstract?, :partially_instanciated?, :fully_instanciated?,
-                :interruptible?
+                :interruptible?, :reusable?
             )
 
             match_indexed_predicates(
