@@ -217,6 +217,14 @@ module Roby
                     plan.unmark_permanent_task(t)
                     assert_finds_tasks [], TaskMatcher.permanent
                 end
+
+                it "matches reusable tasks" do
+                    plan.add(t = Roby::Tasks::Simple.new)
+                    assert_finds_tasks [t], TaskMatcher.reusable
+
+                    t.do_not_reuse
+                    assert_finds_tasks [], TaskMatcher.reusable
+                end
             end
 
             describe "the _event accessor" do
