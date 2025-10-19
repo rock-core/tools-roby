@@ -79,6 +79,7 @@ module Roby
         def initialize(plan, control: Roby::DecisionControl.new, event_logger: plan.event_logger)
             @plan = plan
             @event_logger = event_logger
+            @on_log_handlers = []
 
             @use_oob_gc = ExecutionEngine.use_oob_gc?
 
@@ -2138,6 +2139,29 @@ module Roby
         #
         # @return [Array<#fail,#complete?>]
         attr_reader :waiting_work
+
+        # Log an event in the system
+        #
+        # See
+        # - {Schedulers::Reporting}
+        def log(event_name, *values)
+            super
+
+            @on_log_handlers.delete_if do |handler|
+                !handler.call(self, event_name, values)
+            end
+        end
+
+        # Set of blocks called with log events
+        #
+        # @param [Symbol] on_error one of :ignore, :disable or :raise, see
+        #   {PollBlockDefinition.new}
+        # @return [#dispose] a disposable that allows to remove the handler
+        def on_log(on_error: :disable, &block)
+            handler = PollBlockDefinition.new("", block, on_error: on_error)
+            @on_log_handlers << handler
+            handler
+        end
 
         # A set of blocks that are called at each cycle end
         attr_reader :at_cycle_end_handlers
