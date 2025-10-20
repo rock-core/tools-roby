@@ -39,6 +39,53 @@ module Roby
                         assert_equal %I[some arg], marshalled.path
                     end
                 end
+
+                describe "marshalling of TaskEventGenerator" do
+                    it "marshals it" do
+                        task = Roby::Tasks::Simple.new
+                        marshalled = @channel.marshal_filter_object(task.start_event)
+                        assert_equal @channel.marshal_filter_object(task), marshalled.task
+                        assert_equal :start, marshalled.symbol
+                    end
+
+                    it "displays a terse string with to_s" do
+                        task = Roby::Tasks::Simple.new(id: 42)
+                        marshalled = @channel.marshal_filter_object(task.start_event)
+                        assert_equal "Roby::Tasks::Simple<XX>(id: 42).start_event",
+                                     marshalled.to_s.gsub(/<\d+>/, "<XX>")
+                    end
+
+                    it "displays extensive info in pretty_print" do
+                        task = Roby::Tasks::Simple.new(id: 42)
+                        marshalled = @channel.marshal_filter_object(task.start_event)
+                        message = <<~MSG
+                            event start of
+                            Roby::Tasks::Simple<XX> pending
+                            Arguments
+                              id: 42
+                        MSG
+                        assert_equal message, PP.pp(marshalled, +"", 0).gsub(/<\d+>/, "<XX>")
+                    end
+                end
+
+                describe "marshalling of TaskEvent" do
+                    before do
+                        @task = Roby::Tasks::Simple.new
+                        @generator = @task.start_event
+                        @time = Time.utc(1980, 9, 30, 11, 20, 32)
+                        @event = @generator.new([42], 32, @time)
+                        @marshalled = @channel.marshal_filter_object(@event)
+                    end
+
+                    it "marshals it" do
+                        assert_equal @channel.marshal_filter_object(@generator),
+                                     @marshalled.generator
+                        assert_equal @time, @marshalled.time
+                        assert_equal [42], @marshalled.context
+                        assert_equal 32, @marshalled.propagation_id
+                    end
+                    end
+                end
             end
         end
     end

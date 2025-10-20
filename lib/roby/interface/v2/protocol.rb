@@ -68,13 +68,18 @@ module Roby
                     :id, :model, :state, :started_since, :arguments, keyword_init: true
                 ) do
                     def pretty_print(pp)
-                        pp.text "#{model}<id:#{id}> #{state}"
+                        pp.text "#{model}<#{id}> #{state}"
                         if started_since
                             pp.breakable
                             pp.text "Started for: #{started_since}"
                         end
                         pp.breakable
                         pp_arguments(pp)
+                    end
+
+                    def to_s
+                        arguments_s = arguments.map { |k, v| "#{k}: #{v}" }
+                        "#{model}<#{id}>(#{arguments_s.join(", ")})"
                     end
 
                     def pp_arguments(pp)
@@ -87,6 +92,24 @@ module Roby
                                 arg.pretty_print(pp)
                             end
                         end
+                    end
+                end
+
+                TaskEventGenerator = Struct.new(:task, :symbol, keyword_init: true) do
+                    def pretty_print(pp)
+                        pp.text "event #{symbol} of"
+                        pp.breakable
+                        task.pretty_print(pp)
+                    end
+
+                    def to_s
+                        "#{task}.#{symbol}_event"
+                    end
+                end
+
+                TaskEvent = Struct.new(
+                    :generator, :time, :propagation_id, :context, keyword_init: true
+                ) do
                     end
                 end
 
@@ -153,6 +176,10 @@ module Roby
                     )
                     protocol.add_marshaller(Actions::Action, &method(:marshal_action))
                     protocol.add_marshaller(Roby::Task, &method(:marshal_task))
+                    protocol.add_marshaller(
+                        Roby::TaskEventGenerator, &method(:marshal_task_event_generator)
+                    )
+                    protocol.add_marshaller(Roby::TaskEvent, &method(:marshal_task_event))
                     protocol.add_marshaller(Roby::VoidClass) { Void }
                     protocol.add_marshaller(::Exception, &method(:marshal_exception))
                     protocol.add_marshaller(
@@ -221,7 +248,7 @@ module Roby
                 #
                 # @param [Channel] channel
                 # @param [Roby::Task] task
-                # @return [ActionModel]
+                # @return [Task]
                 def self.marshal_task(channel, task)
                     Task.new(
                         id: task.droby_id.id,
@@ -241,6 +268,32 @@ module Roby
                     arguments.assigned_arguments.transform_values do
                         channel.marshal_filter_object(_1)
                     end
+                end
+
+                # Convert a {Roby::TaskEventGenerator}
+                #
+                # @param [Channel] channel
+                # @param [Roby::TaskEventGenerator] generator
+                # @return [TaskEventGenerator]
+                def self.marshal_task_event_generator(channel, generator)
+                    TaskEventGenerator.new(
+                        task: marshal_task(channel, generator.task),
+                        symbol: generator.symbol
+                    )
+                end
+
+                # Convert a {Roby::TaskEventGenerator}
+                #
+                # @param [Channel] channel
+                # @param [Roby::TaskEventGenerator] generator
+                # @return [TaskEvent]
+                def self.marshal_task_event(channel, event)
+                    TaskEvent.new(
+                        time: event.time,
+                        generator: marshal_task_event_generator(channel, event.generator),
+                        context: channel.marshal_filter_object(event.context),
+                        propagation_id: event.propagation_id
+                    )
                 end
 
                 # Convert a {Exception}
