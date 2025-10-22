@@ -195,36 +195,36 @@ module Roby
                     @marshallers.each(&block)
                 end
 
-                def self.register_marshallers(protocol)
-                    protocol.allow_classes(
-                        Action,
-                        ActionArgument,
-                        Error,
-                        VoidClass,
-                        CommandLibrary::InterfaceCommands,
-                        Command,
-                        ExecutionException,
-                        Time
-                    )
+                # List of classes allowed to be transmitted as-is by the protocol
+                BUILTIN_ALLOWED_CLASSES = [
+                    Action,
+                    ActionArgument,
+                    Error,
+                    CommandLibrary::InterfaceCommands,
+                    Command,
+                    ExecutionException,
+                    Time
+                ].freeze
 
-                    protocol.add_marshaller(
-                        Actions::Models::Action, &method(:marshal_action_model)
-                    )
-                    protocol.add_marshaller(Actions::Action, &method(:marshal_action))
-                    protocol.add_marshaller(Roby::Task, &method(:marshal_task))
-                    protocol.add_marshaller(
-                        Roby::TaskEventGenerator, &method(:marshal_task_event_generator)
-                    )
-                    protocol.add_marshaller(Roby::TaskEvent, &method(:marshal_task_event))
+                # List of classes and methods that should be used to marshal them
+                BUILTIN_MARSHALLERS = [
+                    [Actions::Models::Action, :marshal_action_model],
+                    [Actions::Action, :marshal_action],
+                    [Roby::Task, :marshal_task],
+                    [Roby::TaskEventGenerator, :marshal_task_event_generator],
+                    [Roby::TaskEvent, :marshal_task_event],
+                    [::Exception, :marshal_exception],
+                    [Roby::ExecutionException, :marshal_execution_exception],
+                    [Roby::DelayedArgumentFromState, :marshal_delayed_argument_from_state]
+                ].freeze
+
+                def self.register_marshallers(protocol)
+                    protocol.allow_classes(*BUILTIN_ALLOWED_CLASSES)
                     protocol.add_marshaller(Roby::VoidClass) { Void }
-                    protocol.add_marshaller(::Exception, &method(:marshal_exception))
-                    protocol.add_marshaller(
-                        Roby::ExecutionException, &method(:marshal_execution_exception)
-                    )
-                    protocol.add_marshaller(
-                        Roby::DelayedArgumentFromState,
-                        &method(:marshal_delayed_argument_from_state)
-                    )
+
+                    BUILTIN_MARSHALLERS.each do |klass, method|
+                        protocol.add_marshaller(klass, &method(method))
+                    end
                 end
 
                 # Configure channel marshalling to convert Roby classes into their
