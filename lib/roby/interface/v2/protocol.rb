@@ -68,22 +68,24 @@ module Roby
                     :id, :model, :state, :started_since, :arguments, keyword_init: true
                 ) do
                     def pretty_print(pp)
-                        pp.text "#{model}<#{id}> #{state}"
+                        pp.text "#{model}<id:#{id}> #{state}"
                         if started_since
                             pp.breakable
                             pp.text "Started for: #{started_since}"
                         end
-                        pp.breakable
-                        pp_arguments(pp)
+                        pp.nest(2) do
+                            pp.breakable
+                            pp_arguments(pp)
+                        end
                     end
 
                     def to_s
                         arguments_s = arguments.map { |k, v| "#{k}: #{v}" }
-                        "#{model}<#{id}>(#{arguments_s.join(", ")})"
+                        "#{model}<id:#{id}>(#{arguments_s.join(', ')})"
                     end
 
                     def pp_arguments(pp)
-                        pp.text "Arguments"
+                        pp.text "arguments:"
                         pp.nest(2) do
                             arguments.each do |name, arg|
                                 pp.breakable
@@ -97,19 +99,53 @@ module Roby
 
                 TaskEventGenerator = Struct.new(:task, :symbol, keyword_init: true) do
                     def pretty_print(pp)
-                        pp.text "event #{symbol} of"
-                        pp.breakable
-                        task.pretty_print(pp)
+                        pp.text "event '#{symbol}' of"
+                        pp.nest(2) do
+                            pp.breakable
+                            task.pretty_print(pp)
+                        end
                     end
 
                     def to_s
-                        "#{task}.#{symbol}_event"
+                        "#{task}/#{symbol}"
                     end
                 end
 
                 TaskEvent = Struct.new(
                     :generator, :time, :propagation_id, :context, keyword_init: true
                 ) do
+                    def pretty_print(pp)
+                        time_s = Roby.format_time(time)
+                        pp.text "event '#{generator.symbol}' emitted at [#{time_s} " \
+                                "@#{propagation_id}] from"
+                        pp.nest(2) do
+                            pp.breakable
+                            generator.task.pretty_print(pp)
+                        end
+                        pp.nest(2) do
+                            pp.breakable
+                            pp_context(pp)
+                        end
+                    end
+
+                    def pp_context(pp)
+                        if !context || context.empty?
+                            pp.text "No context"
+                            return
+                        end
+
+                        pp.text "context:"
+                        context.each do |obj|
+                            pp.nest(2) do
+                                pp.breakable
+                                obj.pretty_print(pp)
+                            end
+                        end
+                    end
+
+                    def to_s
+                        time_s = Roby.format_time(time)
+                        "[#{time_s} @#{propagation_id}] #{generator}: #{context}"
                     end
                 end
 

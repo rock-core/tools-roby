@@ -49,22 +49,15 @@ module Roby
                     end
 
                     it "displays a terse string with to_s" do
-                        task = Roby::Tasks::Simple.new(id: 42)
-                        marshalled = @channel.marshal_filter_object(task.start_event)
-                        assert_equal "Roby::Tasks::Simple<XX>(id: 42).start_event",
-                                     marshalled.to_s.gsub(/<\d+>/, "<XX>")
+                        generator = Roby::Tasks::Simple.new(id: 42).start_event
+                        marshalled = @channel.marshal_filter_object(generator)
+                        assert_equal generator.to_s, marshalled.to_s
                     end
 
                     it "displays extensive info in pretty_print" do
-                        task = Roby::Tasks::Simple.new(id: 42)
-                        marshalled = @channel.marshal_filter_object(task.start_event)
-                        message = <<~MSG
-                            event start of
-                            Roby::Tasks::Simple<XX> pending
-                            Arguments
-                              id: 42
-                        MSG
-                        assert_equal message, PP.pp(marshalled, +"", 0).gsub(/<\d+>/, "<XX>")
+                        generator = Roby::Tasks::Simple.new(id: 42).start_event
+                        marshalled = @channel.marshal_filter_object(generator)
+                        assert_equal PP.pp(generator, +"", 0), PP.pp(marshalled, +"", 0)
                     end
                 end
 
@@ -84,6 +77,13 @@ module Roby
                         assert_equal [42], @marshalled.context
                         assert_equal 32, @marshalled.propagation_id
                     end
+
+                    it "displays a terse string with to_s" do
+                        assert_equal @event.to_s, @marshalled.to_s
+                    end
+
+                    it "displays extensive info in pretty_print" do
+                        assert_equal PP.pp(@event, +"", 0), PP.pp(@marshalled, +"", 0)
                     end
                 end
             end

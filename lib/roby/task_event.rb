@@ -107,13 +107,25 @@ module Roby
                 end
             end
 
-            if context && !self.context.empty?
+            return unless context
+
+            pp.nest(2) do
                 pp.breakable
+                pp_context(pp)
+            end
+        end
+
+        def pp_context(pp)
+            if !context || context.empty?
+                pp.text "No context"
+                return
+            end
+
+            pp.text "context:"
+            context.each do |obj|
                 pp.nest(2) do
-                    pp.text "  "
-                    pp.seplist(self.context) do |v|
-                        v.pretty_print(pp)
-                    end
+                    pp.breakable
+                    obj.pretty_print(pp)
                 end
             end
         end
