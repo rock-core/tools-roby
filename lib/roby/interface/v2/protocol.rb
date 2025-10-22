@@ -290,6 +290,37 @@ module Roby
                         object: object, path: delayed_arg.__methods__
                     )
                 end
+
+                StructObject = Struct.new :klass, :contents, keyword_init: true
+
+                # Generic path to marshal a struct
+                def self.marshal_struct_generic(channel, object)
+                    contents = object.to_h.transform_values do |v|
+                        channel.marshal_filter_object(v)
+                    end
+                    StructObject.new(klass: object.class.name, contents: contents)
+                end
+
+                def self.unmarshal_object(channel, object)
+                    case object
+                    when Array
+                        object.map { unmarshal_object(channel, _1) }
+                    when Hash
+                        object.transform_values { unmarshal_object(channel, _1) }
+                    when StructObject
+                        unmarshal_struct_generic(channel, object)
+                    else
+                        object
+                    end
+                end
+
+                def self.unmarshal_struct_generic(channel, object)
+                    o = channel.resolve_struct(object).new
+                    object.contents.each do |k, v|
+                        o[k] = unmarshal_object(channel, v)
+                    end
+                    o
+                end
             end
         end
     end

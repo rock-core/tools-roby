@@ -63,6 +63,7 @@ module Roby
                     @write_buffer = String.new
                     @write_thread = nil
 
+                    @structs = {}
                     @marshallers = {}
                     @allowed_objects = Set.new
                     @resolved_marshallers = {}
@@ -146,10 +147,12 @@ module Roby
                 end
 
                 def unmarshal_packet(packet)
-                    Marshal.load(packet.to_s) # rubocop:disable Security/MarshalLoad
-                rescue TypeError => e
+                    raw = Marshal.load(packet.to_s) # rubocop:disable Security/MarshalLoad
+                    Protocol.unmarshal_object(self, raw)
+                rescue ArgumentError, TypeError => e
+                    puts "failed to unmarshal received packet: #{e.message}"
                     raise ProtocolError,
-                          "failed to unmarshal received packet: #{e.message}"
+                          "failed to unmarshal received packet: #{e.message}", e.backtrace
                 end
 
                 # Write one ruby object (usually an array) as a marshalled packet and
@@ -253,9 +256,7 @@ module Roby
                     when Hash
                         object.transform_values { marshal_filter_object(_1) }
                     when Struct
-                        object = object.dup
-                        object.each_pair { object[_1] = marshal_filter_object(_2) }
-                        object
+                        Protocol.marshal_struct_generic(self, object)
                     when *ALLOWED_BASIC_TYPES
                         object
                     else
@@ -273,6 +274,22 @@ module Roby
                         .find_all { |klass, _| object.kind_of?(klass) }
                         .min_by { _1 }
                     @resolved_marshallers[object.class] = block
+                end
+
+                def resolve_struct(object)
+                    if !object.klass
+                        return Struct.new(*object.contents.keys, keyword_init: true)
+                    elsif (cached = @structs[object.klass])
+                        return cached
+                    end
+
+                    begin
+                        existing = constant(object.klass)
+                        @structs[object.klass] = existing
+                    rescue NameError
+                        @structs[object.klass] =
+                            Struct.new(*object.values.keys, keyword_init: true)
+                    end
                 end
 
                 def reset_thread_guard(read_thread = nil, write_thread = nil)
