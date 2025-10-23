@@ -164,6 +164,15 @@ module Roby
                 # @return [Array<String>]
                 attr_accessor :excludes
 
+                # List of robot names that should be included in the test discovery
+                #
+                # Roby test normally excludes any folder whose name is the name of
+                # a declared robot, if that robot is not the currently configured one.
+                # This flag allows to force the inclusion of such a name
+                #
+                # @return [Array<String>]
+                attr_accessor :extra_robot_names
+
                 # Sets whether the tests should be started with the --ui flag
                 attr_writer :ui
 
@@ -207,6 +216,7 @@ module Roby
                     @config = {}
                     @test_files = []
                     @excludes = []
+                    @extra_robot_names = []
                     @ui = false
                     @force_discovery = false
                     @self_only = false
@@ -308,6 +318,9 @@ module Roby
                     args << "--force-discovery" if force_discovery?
                     args << "--self" if self_only?
                     args << "--coverage=#{coverage_name}" if coverage?
+                    unless extra_robot_names.empty?
+                        args << "--extra-robot-names=#{extra_robot_names.join(',')}"
+                    end
 
                     env = {}
                     if keep_logs?

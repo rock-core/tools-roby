@@ -3305,9 +3305,15 @@ module Roby
         # @param [Boolean] only_self if set, list only test files from within
         #   {#app_dir}. Otherwise, consider test files from all over {#search_path}
         # @return [Array<String>]
-        def discover_test_files(all: true, only_self: false, base_dir: File.join(app_dir, "test"))
+        def discover_test_files(
+            all: true, only_self: false, base_dir: File.join(app_dir, "test"),
+            extra_robot_names: []
+        )
             if all
-                test_files = each_test_file_in(base_dir).with_object({}) do |t, h|
+                test_files = each_test_file_in(
+                    base_dir, extra_robot_names: extra_robot_names
+                )
+                test_files = test_files.with_object({}) do |t, h|
                     h[t] = []
                 end
 
@@ -3328,11 +3334,12 @@ module Roby
         # {#each_test_file_for_loaded_models}.
         #
         # @return [Boolean]
-        def autodiscover_tests_in?(path)
+        def autodiscover_tests_in?(path, extra_robot_names: [])
             suffix = File.basename(path)
+            robot_names = [robot_name, robot_type] + extra_robot_names
             if path == File.join(app_dir, "test", "robots")
                 false
-            elsif robots.has_robot?(suffix) && ![robot_name, robot_type].include?(suffix)
+            elsif robots.has_robot?(suffix) && !robot_names.include?(suffix)
                 false
             elsif defined? super
                 super
@@ -3343,15 +3350,20 @@ module Roby
 
         # Enumerate all the test files in a specific dir for this robot
         # configuration
-        def each_test_file_in(dir, &block)
-            return enum_for(__method__, dir) unless block_given?
+        def each_test_file_in(dir, extra_robot_names: [], &block)
+            unless block_given?
+                return enum_for(__method__, dir, extra_robot_names: extra_robot_names)
+            end
 
             each_robot_test_file_in(dir, &block)
 
             Find.find(dir) do |path|
                 # Skip the robot-specific bits that don't apply on the
                 # selected robot
-                Find.prune if File.directory?(path) && !autodiscover_tests_in?(path)
+                if File.directory?(path) &&
+                   !autodiscover_tests_in?(path, extra_robot_names: extra_robot_names)
+                    Find.prune
+                end
 
                 if File.file?(path) && /^test_.*\.rb$/.match?(File.basename(path))
                     yield(path)
