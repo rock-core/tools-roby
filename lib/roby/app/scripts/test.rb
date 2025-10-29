@@ -30,6 +30,7 @@ testrb_args = []
 excluded_patterns = []
 base_dir = File.join(Roby.app.app_dir, "test")
 force_discovery = false
+extra_robot_names = []
 parser = OptionParser.new do |opt|
     opt.banner = "#{File.basename($0)} test [ROBY_OPTIONS] -- "\
                  "[MINITEST_OPTIONS] [TEST_FILES]"
@@ -79,6 +80,11 @@ parser = OptionParser.new do |opt|
         SimpleCov.command_name name
         SimpleCov.start
     end
+    opt.on("--extra-robot-names NAMES",
+           "comma-separated list of robot names that should be included in this run " \
+           "in addition to the main robot name") do |names|
+        extra_robot_names = names.split(",")
+    end
     opt.on("--base-dir DIR", "includes the directory on which the tests "\
                          "will be auto-discovered") do |dir|
         base_dir = dir
@@ -112,10 +118,11 @@ if test_files.empty?
     MetaRuby.keep_definition_location = true
 end
 
-def discover_test_files(all:, only_self:, base_dir:)
+def discover_test_files(all:, only_self:, base_dir:, extra_robot_names: [])
     self_files, dependent_files = \
         Roby.app.discover_test_files(
-            all: all, only_self: only_self, base_dir: base_dir
+            all: all, only_self: only_self, base_dir: base_dir,
+            extra_robot_names: extra_robot_names
         ).map(&:first).partition { |f| Roby.app.self_file?(f) }
 
     self_files.sort + dependent_files.sort
@@ -141,9 +148,15 @@ exception = Roby.display_exception do
     end
 
     if test_files.empty?
-        test_files = discover_test_files(all: all, only_self: only_self, base_dir: base_dir)
+        test_files = discover_test_files(
+            all: all, only_self: only_self, base_dir: base_dir,
+            extra_robot_names: extra_robot_names
+        )
     elsif force_discovery
-        test_files += discover_test_files(all: all, only_self: only_self, base_dir: base_dir)
+        test_files += discover_test_files(
+            all: all, only_self: only_self, base_dir: base_dir,
+            extra_robot_names: extra_robot_names
+        )
     end
 
     if list_tests
