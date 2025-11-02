@@ -702,6 +702,33 @@ module Roby
             end
         end
 
+        describe "event logging" do
+            it "calls the on_log blocks with the event and values" do
+                mock = flexmock
+                mock.should_receive(:call).with(:event, [42])
+                execution_engine.on_log { |*args| mock.call(*args) }
+                execution_engine.log(:event, 42)
+            end
+
+            it "disables the handler on error" do
+                mock = flexmock
+                mock.should_receive(:call).once
+                flexmock(execution_engine).should_receive(:warn)
+                execution_engine.on_log { mock.call; raise "error" }
+                execution_engine.log(:event, 42)
+                execution_engine.log(:event, 42)
+            end
+
+            it "returns a disposable that allows to remove the handler" do
+                mock = flexmock
+                mock.should_receive(:call).never
+                flexmock(execution_engine).should_receive(:warn)
+                disposable = execution_engine.on_log { mock.call; raise "error" }
+                disposable.dispose
+                execution_engine.log(:event, 42)
+            end
+        end
+
         describe "#propagate_exception_in_plan" do
             attr_reader :task_m, :root, :child, :localized_error_m, :recorder
 

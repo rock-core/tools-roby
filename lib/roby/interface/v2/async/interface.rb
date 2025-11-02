@@ -81,6 +81,15 @@ module Roby
                     #     event-specific
                     #   @return [void]
                     define_hooks :on_ui_event
+                    # @!method on_log_event
+                    #   Hooks called for system events, that is events published via
+                    #   {ExecutionEngine#log}
+                    #
+                    #   @yieldparam [String] event_name the event name
+                    #   @yieldparam args the event arguments, which are
+                    #     event-specific
+                    #   @return [void]
+                    define_hooks :on_log_event
                     # @!method on_job_progress
                     #
                     #   Hooks called for job progress notifications
@@ -253,6 +262,9 @@ module Roby
                             run_hook :on_ui_event, event_name, *args
                         end
                         client.ui_event_queue.clear
+                        while (event = client.pop_log_event)
+                            run_hook :on_log_event, *event
+                        end
 
                         finalized_monitors, finalized_jobs =
                             process_job_progress_queue(client.job_progress_queue)

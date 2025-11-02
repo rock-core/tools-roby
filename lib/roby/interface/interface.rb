@@ -116,6 +116,8 @@ module Roby
                 super(app)
 
                 @tracked_jobs = Set.new
+                @log_events = []
+                @log_listeners = []
                 @job_notifications = []
                 @job_listeners = []
                 @exception_notifications = []
@@ -126,15 +128,66 @@ module Roby
                 app.plan.add_trigger Roby::Interface::Job do |job_task|
                     monitor_job(job_task, new_task: true) if job_task.job_id
                 end
-                execution_engine.on_exception(on_error: :raise) do |kind, exception, tasks|
-                    involved_job_ids = tasks
-                        .flat_map { |t| job_ids_of_task(t) if t.plan }
-                        .compact.to_set
-                    @exception_notifications << [kind, exception, tasks, involved_job_ids]
+                execution_engine
+                    .on_exception(on_error: :disable) do |kind, exception, tasks|
+                        involved_job_ids = tasks
+                            .flat_map { |t| job_ids_of_task(t) if t.plan }
+                            .compact.to_set
+                        @exception_notifications << [kind, exception, tasks, involved_job_ids]
+                    end
+                execution_engine.on_log do |event, values|
+                    push_log_event(event, values)
                 end
                 execution_engine.at_cycle_end do
                     push_pending_notifications
                     notify_cycle_end
+                end
+            end
+
+            LogEventListener =
+                Struct.new :block, :enabled_events, :disposed, keyword_init: true do
+                    def process(interface, event, values)
+                        return false if disposed?
+
+                        block.call(event, values) if enabled_events === event
+                        true
+                    rescue Exception => e # rubocop:disable Lint/RescueException
+                        interface.warn "disabling log event listener #{block} because " \
+                             "of the following error:"
+                        Roby.log_exception_with_backtrace(e, interface, :warn)
+                        false
+                    end
+
+                    def dispose
+                        self.disposed = true
+                    end
+
+                    def disposed?
+                        disposed
+                    end
+                end
+
+            LOG_EVENT_ANY = proc { true }
+
+            # Register a listener for log events
+            #
+            # @param [#===] enabled_events a matcher for the event names that the
+            #   listener should receive. Use for instance Set to enumerate, a hash,
+            #   or a proc. The default is to receive everything
+            # @return [#dispose] a disposable that removes the handler
+            def on_log_event(enabled_events: LOG_EVENT_ANY, &block)
+                listener =
+                    LogEventListener.new(block: block, enabled_events: enabled_events)
+                @log_listeners << listener
+                listener
+            end
+
+            # @api private
+            #
+            # Publish a log event on the listeners that are interested by it
+            def push_log_event(event, values)
+                @log_listeners.delete_if do |listener|
+                    !listener.process(self, event, values)
                 end
             end
 

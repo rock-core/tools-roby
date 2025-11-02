@@ -757,4 +757,59 @@ describe Roby::Interface::Interface do
             assert_equal result, interface.log_dir
         end
     end
+
+    describe "log events" do
+        before do
+            @ee = app.execution_engine
+        end
+
+        it "publishes a matching event to the registered block" do
+            mock = flexmock
+            mock.should_receive(:called).with(:a, [42]).once
+            @interface.on_log_event(enabled_events: Set[:a]) do |name, values|
+                mock.called(name, values)
+            end
+            @ee.log(:a, 42)
+        end
+
+        it "does not publish an event if the listener does not match it" do
+            mock = flexmock
+            mock.should_receive(:called).never
+            @interface.on_log_event(enabled_events: Set[:a]) do |name, values|
+                mock.called
+            end
+            @ee.log(:b, 42)
+        end
+
+        it "matches everything by default" do
+            mock = flexmock
+            mock.should_receive(:called).with(:a, [42]).once
+            @interface.on_log_event do |name, values|
+                mock.called(name, values)
+            end
+            @ee.log(:a, 42)
+        end
+
+        it "removes the block if it raises" do
+            mock = flexmock
+            mock.should_receive(:called).with(:a, [42]).once
+            flexmock(@interface).should_receive(:warn)
+            @interface.on_log_event do |name, values|
+                mock.called(name, values)
+                raise "failed"
+            end
+            @ee.log(:a, 42)
+            @ee.log(:a, 42)
+        end
+
+        it "removes the block if it is disposed" do
+            mock = flexmock
+            mock.should_receive(:called).never
+            disposable = @interface.on_log_event do |name, values|
+                mock.called
+            end
+            disposable.dispose
+            @ee.log(:a, 42)
+        end
+    end
 end

@@ -56,6 +56,9 @@ module Roby
                     listeners << @interface.on_exception do |*args|
                         write_packet([:exception, args], defer_exceptions: true)
                     end
+                    listeners << @interface.on_log_event do |*args|
+                        queue_packet([:log_event, args])
+                    end
                     @listeners = Roby.disposable(*listeners)
                 end
 
