@@ -430,17 +430,15 @@ module Roby
             end
 
             it "passes arguments to the action" do
-                arguments = { id: 10 }
-
                 task_t = Roby::Task.new_submodel
                 task, planner_task = task_t.new, task_t.new
                 task.planned_by planner_task
                 planner = flexmock
                 planning_method = flexmock
-                planning_method.should_receive(:plan_pattern).with(arguments).once.and_return(task)
+                planning_method.should_receive(:plan_pattern).with(id: 10).once.and_return(task)
                 flexmock(app).should_receive(:action_from_model).with(task_t).and_return([planner, planning_method])
 
-                assert_equal [task, planner_task], app.prepare_action(task_t, **arguments)
+                assert_equal [task, planner_task], app.prepare_action(task_t, id: 10)
                 assert_same app.plan, task.plan
             end
         end

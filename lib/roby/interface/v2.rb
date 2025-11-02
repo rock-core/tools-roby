@@ -7,6 +7,8 @@ module Roby
         # V2 of the remote Roby control protocol
         module V2
             extend Logger::Hierarchy
+
+            DEFAULT_PORT = Roby::Interface::DEFAULT_PORT_V2
         end
     end
 end

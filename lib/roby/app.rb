@@ -1135,7 +1135,7 @@ module Roby
             self.planners.each do |planner|
                 if planner.respond_to?(:each_fault_response_table)
                     planner.each_fault_response_table do |table, arguments|
-                        plan.use_fault_response_table table, arguments
+                        plan.use_fault_response_table table, **arguments
                     end
                 end
             end
@@ -2028,7 +2028,7 @@ module Roby
 
             test_files = []
             model.definition_location.each do |location|
-                file = location.absolute_path
+                next unless (file = location.absolute_path)
                 next unless (base_path = find_base_path_for(file))
 
                 relative = Pathname.new(file).relative_path_from(base_path)

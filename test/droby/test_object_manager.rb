@@ -53,7 +53,7 @@ module Roby
                 it "registers the siblings given as well as the local object's ID" do
                     droby_id, siblings = flexmock, flexmock
                     local_object = flexmock(droby_id: droby_id)
-                    flexmock(subject).should_receive(:register_siblings).with(local_object, local_id => droby_id).once
+                    flexmock(subject).should_receive(:register_siblings).with(local_object, { local_id => droby_id }).once
                     flexmock(subject).should_receive(:register_siblings).with(local_object, siblings).once
                     subject.register_object(local_object, siblings)
                 end

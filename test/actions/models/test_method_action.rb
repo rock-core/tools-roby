@@ -212,7 +212,7 @@ module Roby
                         it "registers the return type model even if the action already exists" do
                             droby_remote = droby_to_remote(@action_m)
                             flexmock(droby_remote_marshaller).should_receive(:local_object)
-                                .with(droby_remote.returned_type, any).once
+                                .with(droby_remote.returned_type).with_any_kw_args.once
                                 .pass_thru
                             flexmock(droby_remote_marshaller).should_receive(:local_object)
                                 .pass_thru

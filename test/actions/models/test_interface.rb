@@ -75,14 +75,14 @@ module Roby
                             interface_m.send(:define_method, :an_action, &block)
                         end
 
-                        def expect_arguments(args)
+                        def expect_arguments(**args)
                             flexmock(interface_m).new_instances
-                                .should_receive(:an_action).with(args).pass_thru.once
+                                .should_receive(:an_action).with(**args).pass_thru.once
                         end
 
                         it "sets up default arguments" do
                             action_m.optional_arg("test", nil, 10)
-                            define_action { |args = {}| self.class::AnAction.new }
+                            define_action { |test:| self.class::AnAction.new }
                             expect_arguments test: 10
                             interface_m.an_action.instanciate(plan)
                         end
@@ -123,14 +123,14 @@ module Roby
 
                         it "allows to override default arguments" do
                             action_m.optional_arg("test", nil, 10)
-                            define_action { |args = {}| self.class::AnAction.new }
+                            define_action { |test:| self.class::AnAction.new }
                             expect_arguments test: 20
                             interface_m.an_action.instanciate(plan, test: 20)
                         end
 
                         it "raises ArgumentError if a required argument is not given" do
                             action_m.required_arg("test", nil)
-                            define_action { |args| }
+                            define_action { |**args| }
                             assert_raises(ArgumentError) do
                                 interface_m.an_action.instanciate(plan)
                             end

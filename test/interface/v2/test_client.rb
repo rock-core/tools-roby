@@ -109,7 +109,7 @@ module Roby
                     interface.should_receive(actions: [stub_action("Test")])
                     interface
                         .should_receive(:start_job)
-                        .with("Test", { arg0: 10 }).once
+                        .with("Test", arg0: 10).once
                         .and_return(10)
                     result = connect { |client| client.Test!(arg0: 10) }
                     assert_equal 10, result

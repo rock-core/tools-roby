@@ -57,6 +57,10 @@ Rake::TestTask.new("test:core") do |t|
             .exclude("test/app/test_run.rb")
             .exclude("test/interface/async/test_interface.rb")
     end
+    test_files =
+        test_files
+        .exclude("test/interface/v1/**/*")
+        .exclude("test/interface/v2/**/*")
     test_files = test_files.exclude("test/test_gui.rb") unless has_gui
     t.test_files = test_files
     t.warning = false
@@ -79,6 +83,7 @@ Rake::TestTask.new("test:interface:v2") do |t|
 end
 
 task "test" => "test:core"
+task "test" => "test:interface:v1" unless RUBY_VERSION >= "3.0"
 task "test" => "test:interface:v2"
 
 task "rubocop" do

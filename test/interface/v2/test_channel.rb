@@ -40,9 +40,9 @@ module Roby
                         @io_w.getsockopt(Socket::SOL_SOCKET, Socket::SO_RCVBUF).int
                     @io_w.write("0" * io_w_buffer_size)
                     # Just make sure ...
-                    channel = Channel.new(@io_w, false)
-                    assert_raises(Errno::EAGAIN) { @io_w.syswrite(" ") }
+                    assert_raises(Errno::EAGAIN) { @io_w.write_nonblock(" ") }
 
+                    channel = Channel.new(@io_w, false)
                     channel.write_packet({})
                 end
                 it "handles partial packets on write" do
