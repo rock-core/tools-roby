@@ -48,9 +48,10 @@ module Roby
             #
             def self.[](*a)
                 result = new
-                a.each_slice(2) do |u, v|
-                    result.add_edge(u, v)
+                (a.size / 2).times do |i|
+                    result.add_edge(a[i * 2], a[i * 2 + 1])
                 end
+                result.add_vertex(a[-1]) if a.size.odd?
                 result
             end
 
