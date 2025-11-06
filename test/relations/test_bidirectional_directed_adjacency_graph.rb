@@ -602,6 +602,19 @@ module Roby
                     assert g.has_edge?(1, 4)
                 end
             end
+
+            describe "BidirectionalDirectedAdjacencyGraph[]" do
+                it "created edges by pair" do
+                    g = BidirectionalDirectedAdjacencyGraph[1, 2, 3, 4]
+                    assert_equal [[1, 2], [3, 4]], g.each_edge.to_a
+                end
+
+                it "leaves the last vertex alone if there is an odd number of vertices" do
+                    g = BidirectionalDirectedAdjacencyGraph[1, 2, 3]
+                    assert_equal [1, 2, 3], g.each_vertex.to_a
+                    assert_equal [[1, 2]], g.each_edge.to_a
+                end
+            end
         end
     end
 end
