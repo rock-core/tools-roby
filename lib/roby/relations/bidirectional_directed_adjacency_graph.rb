@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "rgl/mutable"
+require "rgl/condensation"
 require "set"
 
 module Roby
@@ -15,6 +16,7 @@ module Roby
         #
         # The class guarantees that there can't be duplicate edges
         class BidirectionalDirectedAdjacencyGraph
+            include RGL::Graph
             include RGL::MutableGraph
 
             # Mapping from a vertex to the association of out neighbours
@@ -317,7 +319,7 @@ module Roby
             # @yieldparam edge_value the existing edge value if the edge already exists,
             #    nil otherwise
             # @yieldreturn the value to use as the new edge value
-            def add_or_update_edge(u, v, init_edge_value = nil)
+            def add_or_update_edge(u, v, _init_edge_value = nil)
                 raise ArgumentError, "cannot add self-referencing edges" if u == v
 
                 u_out = (@forward_edges_with_info[u] ||= IdentityHash.new)
@@ -336,8 +338,11 @@ module Roby
             end
 
             def delete_vertex_if
-                @forward_edges_with_info.keys.each do |k|
-                    remove_vertex(k) if yield(k)
+                @forward_edges_with_info.delete_if do |v, v_out|
+                    next unless yield(v)
+
+                    remove_vertex_relations!(v, v_out)
+                    true
                 end
             end
 
@@ -347,6 +352,17 @@ module Roby
                 v_out = @forward_edges_with_info.delete(v)
                 return unless v_out
 
+                v_in = remove_vertex_relations!(v, v_out)
+                !v_in.empty? || !v_out.empty?
+            end
+
+            # @api private
+            #
+            # Delete the vertex in all relations it is part of, but without updating
+            # the vertex itself
+            #
+            # It is a helper for methods that remove vertices from the graph
+            def remove_vertex_relations!(v, v_out)
                 v_in = @backward_edges.delete(v)
 
                 v_out.each_key do |child|
@@ -355,7 +371,7 @@ module Roby
                 v_in.each_key do |parent|
                     @forward_edges_with_info[parent].delete(v)
                 end
-                !v_out.empty? || !v_in.empty?
+                v_in
             end
 
             # See MutableGraph::remove_edge.
