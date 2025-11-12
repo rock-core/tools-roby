@@ -118,9 +118,12 @@ module Roby
                 end
 
                 it "sets its state to NON_SCHEDULABLE and adds itself to the " \
-                   "held_non_schedulable set if a task in the group cannot be started" do
+                   "held_non_schedulable set if a task in the group cannot " \
+                   "be scheduled" do
                     tasks, = make_task_groups(3)
-                    tasks[0].executable = false
+                    flexmock(@scheduler)
+                        .should_receive(:task_can_schedule?)
+                        .with(tasks[0]).and_return(false)
                     graph, (group,) = make_scheduling_groups(tasks)
                     @scheduler.propagate_scheduling_state(tasks, graph, Time.now)
 
@@ -128,11 +131,25 @@ module Roby
                     assert_equal Set[group], group.held_non_schedulable
                 end
 
+                it "sets its state to PENDING_CONSTRAINTS and adds itself to the " \
+                   "held_non_executable set if a task in the group is not executable" do
+                    tasks, = make_task_groups(3)
+                    tasks[0].executable = false
+                    graph, (group,) = make_scheduling_groups(tasks)
+                    @scheduler.propagate_scheduling_state(tasks, graph, Time.now)
+
+                    assert_equal Global::STATE_PENDING_CONSTRAINTS, group.state
+                    assert_equal Set[group], group.held_non_executable
+                end
+
                 it "propagates NON_SCHEDULABLE state to scheduled-as groups" do
                     tasks0, tasks1 = make_task_groups(2, 2)
-                    tasks0[0].executable = false
+                    flexmock(@scheduler)
+                        .should_receive(:task_can_schedule?)
+                        .and_return { |v| v != tasks0[0] }
                     graph, (g0, g1) = make_scheduling_groups(tasks0, tasks1)
-                    graph.add_edge(g1, g0) # g1.schedule_as(g0)
+                    # g1.schedule_as(g0)
+                    graph.add_edge(g1, g0, flexmock(need_executable: true))
                     @scheduler.propagate_scheduling_state(
                         tasks0 + tasks1, graph, Time.now
                     )
@@ -141,7 +158,36 @@ module Roby
                     assert_equal Set[g0], g1.held_non_schedulable
                 end
 
+                it "propagates non-executable constraints to scheduled-as groups" do
+                    tasks0, tasks1 = make_task_groups(2, 2)
+                    tasks0[0].executable = false
+                    graph, (g0, g1) = make_scheduling_groups(tasks0, tasks1)
+                    # g1.schedule_as(g0)
+                    graph.add_edge(g1, g0, flexmock(need_executable: true))
+                    @scheduler.propagate_scheduling_state(
+                        tasks0 + tasks1, graph, Time.now
+                    )
+
+                    assert_equal Global::STATE_PENDING_CONSTRAINTS, g1.state
+                    assert_equal Set[g0], g1.held_non_executable
+                end
+
                 it "propagates failed temporal constraints to scheduled-as groups" do
+                    prerequisite, tasks0, tasks1 = make_task_groups(1, 2, 2)
+                    tasks0[0].should_start_after prerequisite[0]
+
+                    graph, groups = make_scheduling_groups(prerequisite, tasks0, tasks1)
+                    graph.add_edge(groups[2], groups[1]) # g2.schedule_as(g1)
+                    @scheduler.propagate_scheduling_state(
+                        prerequisite + tasks0 + tasks1, graph, Time.now
+                    )
+
+                    assert_equal Global::STATE_PENDING_CONSTRAINTS, groups[2].state
+                    assert_equal Set[groups[1]], groups[2].held_by_temporal
+                end
+
+                it "interprets failed temporal constraints as non-schedulable if " \
+                   "the task that we're waiting for is not handled by the scheduler" do
                     plan.add(prerequisite = @task_m.new(id: "prerequisite"))
                     tasks0, tasks1 = make_task_groups(2, 2)
                     tasks0[0].should_start_after prerequisite
@@ -152,7 +198,7 @@ module Roby
                         tasks0 + tasks1, graph, Time.now
                     )
 
-                    assert_equal Global::STATE_PENDING_TEMPORAL_CONSTRAINTS, g1.state
+                    assert_equal Global::STATE_NON_SCHEDULABLE, g1.state
                     assert_equal Set[g0], g1.held_by_temporal
                 end
             end
@@ -330,15 +376,19 @@ module Roby
                     it "schedules if the planned task is executable and " \
                        "has no temporal constraints" do
                         @planned_task.executable = true
-                        assert_scheduled_tasks([@planning_task])
+                        assert_scheduled_tasks([@planned_task, @planning_task])
                     end
 
-                    it "does not schedule if the child's temporal constraints " \
-                       "are not met" do
+                    it "schedules the prerequisite if the planned task temporal " \
+                       "constraints are not met" do
                         plan.add(prerequisite = @task_m.new)
                         @planned_task.should_start_after prerequisite.stop_event
 
-                        assert_no_scheduled_tasks
+                        assert_scheduled_tasks([prerequisite])
+
+                        execute { prerequisite.start! }
+                        execute { prerequisite.stop! }
+                        assert_scheduled_tasks([@planning_task])
                     end
 
                     it "schedules if the child's temporal constraints " \
@@ -381,7 +431,7 @@ module Roby
                     grandchild.planned_by(planning_task = @task_m.new)
                     planning_task.schedule_as grandchild
 
-                    assert_scheduled_tasks([grandchild, planning_task])
+                    assert_scheduled_tasks([planning_task])
                 end
 
                 it "handles having should_start_after on multiple children" do
@@ -428,6 +478,43 @@ module Roby
                 end
             end
 
+            it "handles disjoint set of constraints applying to the same task" do
+                plan.add(root = @task_m.new(id: "root"))
+                root.depends_on(child0 = @task_m.new(id: "0"))
+                root.depends_on(child1 = @task_m.new(id: "1"))
+
+                root.schedule_as(child0)
+                root.should_start_after(child0.start_event)
+                root.schedule_as(child1)
+                root.should_start_after(child1.start_event)
+
+                assert_scheduled_tasks([child0, child1])
+                execute { child0.start! }
+                assert_scheduled_tasks([child1])
+                execute { child1.start! }
+                assert_scheduled_tasks([root])
+            end
+
+            it "handles chains of scheduling constraints" do
+                plan.add(root0 = @task_m.new(id: "r0"))
+                plan.add(root1 = @task_m.new(id: "r1"))
+                plan.add(child0 = @task_m.new(id: "c0"))
+                plan.add(child1 = @task_m.new(id: "c1"))
+
+                [root0, root1].each do |r|
+                    [child0, child1].each do |c|
+                        r.schedule_as(c)
+                        r.should_start_after(c.start_event)
+                    end
+                end
+
+                assert_scheduled_tasks([child0, child1])
+                execute { child0.start! }
+                assert_scheduled_tasks([child1])
+                execute { child1.start! }
+                assert_scheduled_tasks([root0, root1])
+            end
+
             def assert_no_scheduled_tasks
                 assert_equal Set.new, @scheduler.compute_tasks_to_schedule
             end
@@ -449,8 +536,11 @@ module Roby
             def make_scheduling_groups(*groups)
                 groups = groups.map do |tasks|
                     Global::SchedulingGroup.new(
-                        tasks: tasks.to_set, held_by_temporal: Set.new,
-                        held_non_schedulable: Set.new
+                        tasks: tasks.to_set,
+                        held_by_temporal: Set.new,
+                        held_non_schedulable: Set.new,
+                        held_non_executable: Set.new,
+                        non_executable_tasks: Set.new
                     )
                 end
                 graph = Relations::BidirectionalDirectedAdjacencyGraph.new
