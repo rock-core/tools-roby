@@ -45,9 +45,12 @@ module Roby
 
             attr_reader :plan
 
-            def initialize(plan)
+            attr_predicate :enabled?, true
+
+            def initialize(plan = Roby.plan)
                 super()
 
+                @enabled = true
                 @plan = plan
             end
 
