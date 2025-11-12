@@ -309,6 +309,38 @@ module Roby
                 v_in[u] = nil
             end
 
+            # Add an edge if it does not exist, or offer to update its edge info if it
+            # does
+            #
+            # @param u the source vertex of the edge
+            # @param v the target vertex of the edge
+            # @yieldparam edge_value the existing edge value if the edge already exists,
+            #    nil otherwise
+            # @yieldreturn the value to use as the new edge value
+            def add_or_update_edge(u, v, init_edge_value = nil)
+                raise ArgumentError, "cannot add self-referencing edges" if u == v
+
+                u_out = (@forward_edges_with_info[u] ||= IdentityHash.new)
+                if u_out.key?(v)
+                    u_out[v] = yield(u_out[v]) if block_given?
+                    return
+                end
+
+                @backward_edges[u] ||= IdentityHash.new
+                @forward_edges_with_info[v] ||= IdentityHash.new
+                v_in = (@backward_edges[v] ||= IdentityHash.new)
+
+                info = yield if block_given?
+                u_out[v] = info
+                v_in[u] = nil
+            end
+
+            def delete_vertex_if
+                @forward_edges_with_info.keys.each do |k|
+                    remove_vertex(k) if yield(k)
+                end
+            end
+
             # See MutableGraph#remove_vertex.
             #
             def remove_vertex(v)
