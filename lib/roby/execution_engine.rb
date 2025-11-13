@@ -842,8 +842,9 @@ module Roby
             process_once_blocks
             if scheduler.enabled?
                 gather_framework_errors("scheduler") do
-                    scheduler.initial_events
-                    log_timepoint "scheduler"
+                    log_timepoint_group "scheduler-initial-events" do
+                        scheduler.initial_events
+                    end
                 end
             end
             call_poll_blocks(self.class.propagation_handlers, false)
