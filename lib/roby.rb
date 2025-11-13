@@ -51,7 +51,7 @@ require "metaruby"
 require "roby/version"
 require "roby/droby/marshallable"
 require "roby/event_logging/mixin"
-require "roby/event_logging/aggregate"
+require "roby/event_logging/aggregate_event_logger"
 require "roby/event_logging/null_event_logger"
 
 require "roby/support"

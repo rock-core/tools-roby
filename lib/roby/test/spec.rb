@@ -76,8 +76,8 @@ module Roby
                 end
                 register_plan(plan)
 
-                @plan_original_event_logger = plan.event_logger
-                plan.event_logger = Roby::Test::EventReporter.new(STDOUT)
+                @plan_original_event_loggers = plan.event_logger.clear
+                plan.event_logger.add(Roby::Test::EventReporter.new(STDOUT))
 
                 super
             end
@@ -119,7 +119,9 @@ module Roby
                 teardown_registered_plans
                 app.run_shutdown_blocks
             ensure
-                plan.event_logger = @plan_original_event_logger
+                @plan_original_event_loggers.each do |l|
+                    plan.event_logger.add(l)
+                end
 
                 clear_registered_plans
                 if teardown_failure

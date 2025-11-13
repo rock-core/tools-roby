@@ -57,7 +57,9 @@ module Roby
                 Roby.app.setup
                 Roby.app.prepare
 
-                @plan    = ExecutablePlan.new(event_logger: EventReporter.new(STDOUT))
+                @plan = ExecutablePlan.new
+                @plan.event_logger.clear
+                @plan.event_logger.add(EventReporter.new(STDOUT))
                 @control = DecisionControl.new
                 Roby.app.reset_plan(@plan)
 
