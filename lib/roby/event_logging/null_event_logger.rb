@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
 module Roby
-    module DRoby
+    module EventLogging
+        # An object that matches the event logger's interface but does nothing
         class NullEventLogger
             def log_timepoints?; end
 
@@ -21,5 +22,10 @@ module Roby
 
             def flush_cycle(m, *args); end
         end
+    end
+
+    module DRoby
+        # Backward-compatible reference to EventLogging::NullEventLogger
+        NullEventLogger = Roby::EventLogging::NullEventLogger
     end
 end

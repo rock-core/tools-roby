@@ -2,7 +2,7 @@
 
 require "roby/test/self"
 
-require "roby/droby/event_logger"
+require "roby/event_logging/droby_event_logger"
 require "roby/droby/plan_rebuilder"
 
 module Roby
@@ -26,9 +26,11 @@ module Roby
                         cycles << cycle
                     end
                 end.new
-                @event_logger = EventLogger.new(logfile)
+                @event_logger = Roby::EventLogging::DRobyEventLogger.new(logfile)
 
-                @local_plan = ExecutablePlan.new(event_logger: event_logger)
+                @local_plan = ExecutablePlan.new
+                @local_plan.event_logger.add(@event_logger)
+                @local_plan.execution_engine.event_logger.add(@event_logger)
                 @plan_rebuilder = PlanRebuilder.new
             end
 

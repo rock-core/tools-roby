@@ -2,7 +2,7 @@
 
 require "roby/droby/logfile"
 require "roby/droby/logfile/writer"
-require "roby/droby/event_logger"
+require "roby/event_logging/droby_event_logger"
 
 module Roby
     module Test
@@ -34,7 +34,7 @@ module Roby
                 @__event_log_path = path
                 io = File.open(path, "w")
                 logfile = DRoby::Logfile::Writer.new(io)
-                @__event_logger = DRoby::EventLogger.new(logfile)
+                @__event_logger = EventLogging::DRobyEventLogger.new(logfile)
                 @__cycle_start = Time.now
                 @__cycle_index = 0
 

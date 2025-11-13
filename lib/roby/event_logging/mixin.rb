@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
 module Roby
-    module DRoby
+    module EventLogging
         # Mixin to add event-logging related functionality to a class
         #
         # The class must provide a #event_logger object. It must be non-nil, and
         # can be initialized with {NullEventLogger} for a no-op logger
-        module EventLogging
+        module Mixin
             # Log an event on the underlying logger
             def log(m, *args)
                 event_logger.dump(m, Time.now, args)
@@ -70,5 +70,10 @@ module Roby
                 event_logger.flush_cycle(m, Time.now, args)
             end
         end
+    end
+
+    module DRoby
+        # Backward-compatible reference to EventLogging::Mixin
+        EventLogging = Roby::EventLogging::Mixin
     end
 end
