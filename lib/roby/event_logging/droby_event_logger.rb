@@ -71,10 +71,15 @@ module Roby
                 @dump_time = 0
                 @mutex = Mutex.new
                 @log_timepoints = log_timepoints
+
                 return unless queue_size > 0
 
                 @dump_queue  = SizedQueue.new(queue_size)
                 @dump_thread = Thread.new(&method(:dump_loop))
+            end
+
+            def register_executable_plan(plan)
+                dump(:register_executable_plan, Time.now, [plan.droby_id])
             end
 
             def synchronize(&block)

@@ -76,18 +76,19 @@ module Roby
                 end
                 register_plan(plan)
 
-                @plan_original_event_logger = plan.event_logger
-                plan.event_logger = Roby::Test::EventReporter.new(STDOUT)
+                @plan_original_event_loggers = plan.event_logger.clear
+                @event_reporter = Roby::Test::EventReporter.new(STDOUT)
+                plan.event_logger.add(@event_reporter)
 
                 super
             end
 
             def enable_event_reporting
-                plan.event_logger.enabled = true
+                @event_reporter.enabled = true
             end
 
             def disable_event_reporting
-                plan.event_logger.enabled = false
+                @event_reporter.enabled = false
             end
 
             # Fails the test if Timecop is active
@@ -119,7 +120,10 @@ module Roby
                 teardown_registered_plans
                 app.run_shutdown_blocks
             ensure
-                plan.event_logger = @plan_original_event_logger
+                plan.event_logger.clear
+                @plan_original_event_loggers.each do |l|
+                    plan.event_logger.add(l)
+                end
 
                 clear_registered_plans
                 if teardown_failure

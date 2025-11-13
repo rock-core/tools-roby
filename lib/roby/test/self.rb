@@ -57,7 +57,10 @@ module Roby
                 Roby.app.setup
                 Roby.app.prepare
 
-                @plan    = ExecutablePlan.new(event_logger: EventReporter.new(STDOUT))
+                @plan = ExecutablePlan.new
+                @event_reporter = EventReporter.new(STDOUT)
+                @plan.event_logger.add(@event_reporter)
+                @plan.execution_engine.event_logger.add(@event_reporter)
                 @control = DecisionControl.new
                 Roby.app.reset_plan(@plan)
 
@@ -72,8 +75,8 @@ module Roby
             end
 
             def enable_event_reporting(*filters)
-                plan.event_logger.enabled = true
-                filters.each { |f| plan.event_logger.filter(f) }
+                @event_reporter.enabled = true
+                filters.each { |f| @event_reporter.filter(f) }
             end
 
             def teardown
