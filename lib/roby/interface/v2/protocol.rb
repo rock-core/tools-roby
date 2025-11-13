@@ -203,7 +203,8 @@ module Roby
                     CommandLibrary::InterfaceCommands,
                     Command,
                     ExecutionException,
-                    Time
+                    Time,
+                    Regexp
                 ].freeze
 
                 # List of classes and methods that should be used to marshal them

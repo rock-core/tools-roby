@@ -4,7 +4,7 @@ module Roby
     module Interface
         module V2
             # The server-side object allowing to access an interface (e.g. a Roby app)
-            # through any communication channel
+            # through any communication channel from a single client
             class Server
                 # @return [Channel] the IO to the client
                 attr_reader :io
@@ -27,6 +27,9 @@ module Roby
                     @main_thread = main_thread
                     @pending_packets = Queue.new
                     @performed_handshake = false
+
+                    @log_event_subscriptions = {}
+                    @log_event_match_cache = {}
                 end
 
                 # Listen to notifications on the underlying interface
@@ -57,7 +60,7 @@ module Roby
                         write_packet([:exception, args], defer_exceptions: true)
                     end
                     listeners << @interface.on_log_event do |*args|
-                        queue_packet([:log_event, args])
+                        queue_packet([:log_event, args]) if log_event_subscribed?(args[0])
                     end
                     @listeners = Roby.disposable(*listeners)
                 end
@@ -112,6 +115,37 @@ module Roby
 
                 def disable_notifications
                     self.notifications_enabled = false
+                end
+
+                LogEventMatcher = Struct.new :id, :matcher, keyword_init: true
+
+                def log_event_subscribed?(name)
+                    name = name.to_s
+                    return true if @log_event_match_cache[name]
+
+                    matcher = @log_event_subscriptions.each_value.find do |m|
+                        m.matcher === name
+                    end
+                    return false unless matcher
+
+                    @log_event_match_cache[name] = matcher
+                    true
+                end
+
+                def log_event_subscribe(matcher)
+                    matcher = LogEventMatcher.new(matcher: matcher)
+                    matcher.id = matcher.object_id
+                    @log_event_subscriptions[matcher.id] = matcher
+                    matcher.id
+                end
+
+                def log_event_unsubscribe(matcher_id)
+                    matcher = @log_event_subscriptions.delete(matcher_id)
+                    return unless matcher
+
+                    @log_event_match_cache.delete_if do |_, m|
+                        m.id == matcher_id
+                    end
                 end
 
                 def closed?
