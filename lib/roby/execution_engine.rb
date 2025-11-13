@@ -1258,6 +1258,10 @@ module Roby
         #   exceptions, as a mapping from an exception description to the set of
         #   tasks that are affected by it
         def propagate_exception_in_plan(exceptions, &handler)
+            # We usually aim at not having special cases for empty sets ... but this
+            # is a hot path and we do a reverse of the dependency graph
+            return [[], []] if exceptions.empty?
+
             propagation_graph = dependency_graph.reverse
 
             # Propagate the exceptions in the hierarchy
