@@ -1178,7 +1178,7 @@ module Roby
 
         # @api private
         def prepare_event_log
-            require "roby/droby/event_logger"
+            require "roby/event_logging/droby_event_logger"
             require "roby/droby/logfile/writer"
 
             logfile_path = File.join(log_dir, "#{robot_name}-events.log")

@@ -50,7 +50,9 @@ require "metaruby"
 
 require "roby/version"
 require "roby/droby/marshallable"
-require "roby/droby/event_logging"
+require "roby/event_logging/mixin"
+require "roby/event_logging/aggregate"
+require "roby/event_logging/null_event_logger"
 
 require "roby/support"
 require "roby/disposable"

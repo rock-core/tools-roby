@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
 module Roby
-    module DRoby
+    module EventLogging
         # Object that acts as an observer for ExecutablePlan, handling
         # the droby marshalling/demarshalling. Dumping to IO is delegated to
         # {#logfile}, a separate object that must provide a #dump method the way
         # {Logfile::Writer} does
-        class EventLogger
+        class DRobyEventLogger
             # The object that will be given the cycles to be written
             #
             # @return [#dump]
@@ -64,8 +64,8 @@ module Roby
             def initialize(logfile, queue_size: 50, log_timepoints: false)
                 @stats_mode = false
                 @logfile = logfile
-                @object_manager = ObjectManager.new(nil)
-                @marshal = Marshal.new(object_manager, nil)
+                @object_manager = DRoby::ObjectManager.new(nil)
+                @marshal = DRoby::Marshal.new(object_manager, nil)
                 @current_cycle = []
                 @sync = true
                 @dump_time = 0
@@ -189,5 +189,10 @@ module Roby
                 end
             end
         end
+    end
+
+    module DRoby
+        # Backward-compatible reference to EventLogging::DRobyEventLogger
+        EventLogger = Roby::EventLogging::DRobyEventLogger
     end
 end

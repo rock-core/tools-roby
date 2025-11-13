@@ -49,7 +49,7 @@ module Roby
     class ExecutionEngine
         extend Logger::Hierarchy
         include Logger::Hierarchy
-        include DRoby::EventLogging
+        include EventLogging::Mixin
 
         # Whether this engine should use the OOB GC from the gctools gem
         attr_predicate :use_oob_gc?, true

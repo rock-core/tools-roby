@@ -5,7 +5,7 @@ module Roby
     class Plan < DistributedObject
         extend Logger::Hierarchy
         extend Logger::Forward
-        include DRoby::EventLogging
+        include EventLogging::Mixin
 
         # The Peer ID of the local owner (i.e. of the local process / execution
         # engine)
