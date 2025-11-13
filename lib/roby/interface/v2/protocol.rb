@@ -226,7 +226,7 @@ module Roby
                     Task.new(
                         id: task.droby_id.id,
                         model: task.model.name,
-                        state: task.current_state,
+                        state: task.current_roby_task_state,
                         started_since: task.start_event.last&.time,
                         arguments: marshal_task_arguments(channel, task.arguments)
                     )

@@ -282,7 +282,7 @@ module Roby
             end
         end
 
-        # Retrieve the current state of the task
+        # Return a symbol representing the current state of the task
         #
         # Can be one of the core states: pending, failed_to_start, starting,
         # started, running, finishing, succeeded or failed
@@ -292,7 +292,7 @@ module Roby
         # machine's current state will be returned in place of :running
         #
         # @return [Symbol]
-        def current_state
+        def current_roby_task_state
             # Started and not finished
             # True, when task has never been started
             if pending?
@@ -321,8 +321,18 @@ module Roby
         #
         # @param [Symbol] state
         # @return [Boolean]
+        def current_roby_task_state?(state)
+            state == current_roby_task_state.to_sym
+        end
+
+        # @deprecated use {#current_roby_task_state} instead
+        def current_state
+            current_roby_task_state
+        end
+
+        # @deprecated use {#current_roby_task_state?} instead
         def current_state?(state)
-            state == current_state.to_sym
+            current_roby_task_state?(state)
         end
 
         # Helper methods which creates all the necessary TaskEventGenerator
