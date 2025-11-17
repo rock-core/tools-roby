@@ -125,7 +125,7 @@ module Roby
             context.each do |obj|
                 pp.nest(2) do
                     pp.breakable
-                    obj.pretty_print(pp)
+                    Roby.format(obj, pp)
                 end
             end
         end

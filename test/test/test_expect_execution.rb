@@ -109,21 +109,16 @@ module Roby
                 expected = <<~MSG
                     1 unmet expectations
                     Roby::Tasks::Simple<id:XX>(id:XX)/success should be emitted, but it did not because of event 'internal_error' emitted at [XX] from
-                      Roby::Tasks::Simple<id:XX>
-                        no owners
+                      Roby::Tasks::Simple<id:XX> finished
                         arguments:
                           id:XX
-                      Roby::CodeError: user code raised an exception Roby::Tasks::Simple<id:XX>
-                        no owners
-                        arguments:
-                          id:XX
-                      Roby::CodeError: user code raised an exception Roby::Tasks::Simple<id:XX>
-                        no owners
-                        arguments:
-                          id:XX
-                      something (RuntimeError)
+                      context:
+                        Roby::CodeError: user code raised an exception Roby::Tasks::Simple<id:XX> finished
+                          arguments:
+                            id:XX
+                        something (RuntimeError)
 
-                        test/test/test_expect_execution.rb:XXX:in `block (3 levels) in <module:Test>'
+                          test/test/test_expect_execution.rb:XXX:in `block (3 levels) in <module:Test>'
                 MSG
 
                 assert_error_message_start_with(expected, unmet.message)

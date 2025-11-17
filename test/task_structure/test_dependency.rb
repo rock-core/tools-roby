@@ -985,16 +985,15 @@ module Roby
                     success_to_s = "[#{Roby.format_time(success_event.time)} "\
                         "@#{success_event.propagation_id}]"
                     expected = <<~MESSAGE.chomp
-                        Child<id:#{@child.droby_id.id}>
-                          no owners
+                        Child<id:#{@child.droby_id.id}> finished
                           no arguments
-                        child 'test' of Parent<id:#{@parent.droby_id.id}>
-                          no owners
+                        child 'test' of Parent<id:#{@parent.droby_id.id}> running
                           no arguments
 
                         Child triggered the failure predicate '(never(start?)) || (stop?)': stop? is true
                           the following event has been emitted:
                           event 'stop' emitted at #{stop_to_s}
+                            No context
 
                           The emission was caused by the following events
                           < event 'success' emitted at #{success_to_s}
@@ -1013,11 +1012,9 @@ module Roby
                     end.to { have_error_matching ChildFailedError }
 
                     expected = <<~MESSAGE.chomp
-                        Child<id:#{@child.droby_id.id}>
-                          no owners
+                        Child<id:#{@child.droby_id.id}> failed to start
                           no arguments
-                        child 'test' of Parent<id:#{@parent.droby_id.id}>
-                          no owners
+                        child 'test' of Parent<id:#{@parent.droby_id.id}> running
                           no arguments
 
                         success condition can no longer be reached 'start?': the value of start? will not change anymore
@@ -1026,8 +1023,7 @@ module Roby
 
                           The unreachability was caused by
                             failed emission of the event 'start' of
-                              Child<id:#{@child.droby_id.id}>
-                                no owners
+                              Child<id:#{@child.droby_id.id}> failed to start
                                 no arguments (Roby::EmissionFailed)
                     MESSAGE
                     assert_pp expected, exception.exception
