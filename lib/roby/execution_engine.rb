@@ -49,7 +49,7 @@ module Roby
     class ExecutionEngine
         extend Logger::Hierarchy
         include Logger::Hierarchy
-        include DRoby::EventLogging
+        include EventLogging::Mixin
 
         # Whether this engine should use the OOB GC from the gctools gem
         attr_predicate :use_oob_gc?, true
@@ -72,13 +72,9 @@ module Roby
         # @param [DecisionControl] control the policy object, i.e. the object
         #   that embeds policies in cases where multiple reactions would be
         #   possible
-        # @param [DRoby::EventLogger] event_logger the logger that should be
-        #   used to trace execution events. It is by default the same than the
-        #   {#plan}'s. Pass a {DRoby::NullEventLogger} instance to disable event
-        #   logging for this engine.
-        def initialize(plan, control: Roby::DecisionControl.new, event_logger: plan.event_logger)
+        def initialize(plan, control: Roby::DecisionControl.new)
             @plan = plan
-            @event_logger = event_logger
+            @event_logger = EventLogging::AggregateEventLogger.new
             @on_log_handlers = []
 
             @use_oob_gc = ExecutionEngine.use_oob_gc?
@@ -125,6 +121,10 @@ module Roby
 
             @exception_display_handler = Roby.null_disposable
             self.display_exceptions = true
+        end
+
+        def add_event_logger(logger)
+            @event_logger.add(logger)
         end
 
         # Refresh the value of cached relations
@@ -842,8 +842,9 @@ module Roby
             process_once_blocks
             if scheduler.enabled?
                 gather_framework_errors("scheduler") do
-                    scheduler.initial_events
-                    log_timepoint "scheduler"
+                    log_timepoint_group "scheduler-initial-events" do
+                        scheduler.initial_events
+                    end
                 end
             end
             call_poll_blocks(self.class.propagation_handlers, false)
