@@ -119,33 +119,48 @@ module Roby
             end
 
             def append_message(name, time, args)
-                case name
-                when :merged_plan
-                    plan_id, merged_plan = *args
-
-                    merged_plan.tasks.each do |t|
-                        object_manager.register_object(t)
+                args =
+                    case name
+                    when :merged_plan
+                        process_merged_plan(args)
+                    when :finalized_task
+                        process_finalized_task(args)
+                    when :finalized_event
+                        process_finalized_event(args)
+                    else
+                        marshal.dump(args)
                     end
-                    merged_plan.free_events.each do |e|
-                        object_manager.register_object(e)
-                    end
-                    merged_plan.task_events.each do |e|
-                        object_manager.register_object(e)
-                    end
-                    args = [plan_id, merged_plan.droby_dump(marshal)]
-                when :finalized_task
-                    task = args[1]
-                    args = marshal.dump(args)
-                    object_manager.deregister_object(task)
-                when :finalized_event
-                    event = args[1]
-                    args = marshal.dump(args)
-                    object_manager.deregister_object(event)
-                else
-                    args = marshal.dump(args)
-                end
 
                 @current_cycle << name << time.tv_sec << time.tv_usec << args
+            end
+
+            def process_merged_plan(args)
+                plan_id, merged_plan = *args
+
+                merged_plan.tasks.each do |t|
+                    object_manager.register_object(t)
+                end
+                merged_plan.free_events.each do |e|
+                    object_manager.register_object(e)
+                end
+                merged_plan.task_events.each do |e|
+                    object_manager.register_object(e)
+                end
+                [plan_id, merged_plan.droby_dump(marshal)]
+            end
+
+            def process_finalized_task(args)
+                task = args[1]
+                args = marshal.dump(args)
+                object_manager.deregister_object(task)
+                args
+            end
+
+            def process_finalized_event(args)
+                task = args[1]
+                args = marshal.dump(args)
+                object_manager.deregister_object(task)
+                args
             end
 
             def dump_timepoint(event, time, args)
