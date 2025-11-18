@@ -39,13 +39,13 @@ module Roby
             end
 
             # Dump a normal log event
-            def dump(m, time, *args)
-                @loggers.each { |l| l.dump(m, time, *args) }
+            def dump(name, time, *args)
+                @loggers.each { |l| l.dump(name, time, *args) }
             end
 
             # Dump a timepoint
-            def dump_timepoint(m, time, *args)
-                @loggers.each { |l| l.dump_timepoint(m, time, *args) }
+            def dump_timepoint(name, time, *args)
+                @loggers.each { |l| l.dump_timepoint(name, time, *args) }
             end
 
             def close
@@ -60,8 +60,8 @@ module Roby
                 @loggers.sum(&:dump_time)
             end
 
-            def flush_cycle(m, *args)
-                @loggers.each { _1.flush_cycle(m, *args) }
+            def flush_cycle(name, *args)
+                @loggers.each { _1.flush_cycle(name, *args) }
             end
 
             # Remove all of the current loggers and return them

@@ -6,9 +6,9 @@ module Roby
         class NullEventLogger
             def log_timepoints?; end
 
-            def dump(m, time, *args); end
+            def dump(name, time, *args); end
 
-            def dump_timepoint(m, time, *args); end
+            def dump_timepoint(name, time, *args); end
 
             def close; end
 
@@ -20,7 +20,7 @@ module Roby
                 0
             end
 
-            def flush_cycle(m, *args); end
+            def flush_cycle(name, *args); end
         end
     end
 

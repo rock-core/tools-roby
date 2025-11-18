@@ -113,8 +113,8 @@ module Roby
                 logfile.close
             end
 
-            def append_message(m, time, args)
-                case m
+            def append_message(name, time, args)
+                case name
                 when :merged_plan
                     plan_id, merged_plan = *args
 
@@ -140,7 +140,7 @@ module Roby
                     args = marshal.dump(args)
                 end
 
-                @current_cycle << m << time.tv_sec << time.tv_usec << args
+                @current_cycle << name << time.tv_sec << time.tv_usec << args
             end
 
             def dump_timepoint(event, time, args)
@@ -152,12 +152,12 @@ module Roby
             end
 
             # Dump one log message
-            def dump(m, time, args)
+            def dump(name, time, args)
                 return if stats_mode?
 
                 start = Time.now
                 synchronize do
-                    append_message(m, time, args)
+                    append_message(name, time, args)
                 end
             ensure @dump_time += (Time.now - start)
             end
