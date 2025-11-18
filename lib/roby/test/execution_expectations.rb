@@ -792,17 +792,6 @@ module Roby
                             pp.text line
                             pp.breakable
                         end
-                    when Event
-                        explanation.pretty_print(pp)
-                        if (e = explanation.context.first).kind_of?(Exception)
-                            msg = Roby.format_exception(e, with_backtrace: true)
-                            pp.nest(2) do
-                                msg.each do |line|
-                                    pp.breakable
-                                    pp.text line
-                                end
-                            end
-                        end
                     else
                         explanation.pretty_print(pp)
                     end

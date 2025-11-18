@@ -134,7 +134,7 @@ module Roby
                 not_executable.each do |task|
                     # Try to figure out why ...
                     if task.execution_agent && !task.execution_agent.ready?
-                        report_pending_non_executable_task("execution agent not ready (%2)", task, task.execution_agent)
+                        report_pending_non_executable_task("execution agent not ready", task, task.execution_agent)
                     elsif task.partially_instanciated?
                         report_pending_non_executable_task("partially instanciated", task)
                     else

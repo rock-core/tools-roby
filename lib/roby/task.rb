@@ -155,15 +155,19 @@ module Roby
         # Plan#mission_task?. In non-distributed Roby, the two are identical
         attr_predicate :mission?, true
 
+        def task_state_to_s
+            if pending? then "pending"
+            elsif failed_to_start? then "failed to start"
+            elsif starting? then "starting"
+            elsif finishing? then "finishing"
+            elsif running? then "running"
+            else
+                "finished"
+            end
+        end
+
         def inspect
-            state = if pending? then "pending"
-                    elsif failed_to_start? then "failed to start"
-                    elsif starting? then "starting"
-                    elsif finishing? then "finishing"
-                    elsif running? then "running"
-                    else
-                        "finished"
-                    end
+            state = task_state_to_s
             "#<#{self} executable=#{executable?} state=#{state} plan=#{plan}>"
         end
 
@@ -1021,17 +1025,13 @@ module Roby
         end
 
         def pretty_print(pp, with_owners = true) # :nodoc:
-            pp.text "#{model.name}<id:#{droby_id.id}>"
-            if with_owners
+            pp.text "#{model.name}<id:#{droby_id.id}> #{task_state_to_s}"
+            if with_owners && !owners.empty?
                 pp.nest(2) do
                     pp.breakable
-                    if owners.empty?
-                        pp.text "no owners"
-                    else
-                        pp.text "owners: "
-                        pp.nest(2) do
-                            pp.seplist(owners) { |r| pp.text r.to_s }
-                        end
+                    pp.text "owners: "
+                    pp.nest(2) do
+                        pp.seplist(owners) { |r| pp.text r.to_s }
                     end
                 end
             end

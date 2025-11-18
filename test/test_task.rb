@@ -448,8 +448,7 @@ module Roby
                       Exception:
                         The following task has been put in quarantine
                         Roby::QuarantinedTaskError: some message
-                        <id:XX>
-                          no owners
+                        <id:XX> running
                           arguments:
                             id:XX
                 MESSAGE

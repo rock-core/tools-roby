@@ -216,4 +216,19 @@ module Roby
     def self.monotonic_time
         Process.clock_gettime(Process::CLOCK_MONOTONIC)
     end
+
+    # Formatting of common objects for implementation of pretty_print methods
+    def self.format(obj, pp)
+        case obj
+        when Exception
+            msg = Roby.format_exception(obj, with_backtrace: true)
+            pp.text msg.first
+            msg[1..-1].each do |line|
+                pp.breakable
+                pp.text line
+            end
+        else
+            obj.pretty_print(pp)
+        end
+    end
 end

@@ -1679,15 +1679,8 @@ module Roby
             end
 
             def pretty_print(pp)
-                unless emitted_events.empty?
-                    pp.text "received #{emitted_events.size} events:"
-                    pp.nest(2) do
-                        emitted_events.each do |ev|
-                            pp.breakable
-                            ev.pretty_print(pp)
-                        end
-                    end
-                end
+                pp_emitted_events(pp)
+
                 exceptions = self.exceptions
                 unless exceptions.empty?
                     pp.breakable unless emitted_events.empty?
@@ -1728,6 +1721,48 @@ module Roby
                         end
                     end
                 end
+            end
+
+            def pp_emitted_events(pp)
+                return if emitted_events.empty?
+
+                pp.text "received #{emitted_events.size} events:"
+                by_task =
+                    emitted_events
+                    .group_by { |ev| ev.task if ev.respond_to?(:task) }
+
+                by_task.each do |task, events|
+                    next unless task
+
+                    pp.nest(2) do
+                        pp.breakable
+                        pp_task_events(pp, task, events)
+                    end
+                end
+
+                by_task[nil]&.each do |event|
+                    pp.breakable
+                    pp_event(pp, event)
+                end
+            end
+
+            def pp_task_events(pp, task, events)
+                pp.text "From "
+                task.pretty_print(pp)
+
+                pp.nest(2) do
+                    events.each do |ev|
+                        pp.breakable
+                        time_s = Roby.format_time(ev.time)
+                        pp.text "event '#{ev.symbol}' emitted at [#{time_s} " \
+                                "@#{ev.propagation_id}]"
+                    end
+                end
+            end
+
+            def pp_event(pp, event)
+                time_s = Roby.format_time(event.time)
+                pp.text "event '#{event}' emitted at [#{time_s} @#{event.propagation_id}]"
             end
         end
 
