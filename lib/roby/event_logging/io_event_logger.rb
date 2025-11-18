@@ -18,10 +18,9 @@ module Roby
                 true
             end
 
-            def timepoint_display(m)
-                @displayed_timepoints << m
+            def timepoint_display(name)
+                @displayed_timepoints << name
             end
-
 
             TimepointGroupStats = Struct.new(
                 :fifo, :ref, :total, :min_duration, :max_duration, :sample_count,
@@ -109,19 +108,19 @@ module Roby
                 end
             end
 
-            def timegroup_display(m)
+            def timegroup_display(matcher)
                 @displayed_timegroups << TimepointGroupDisplay.new(
-                    matcher: m, stats: {}
+                    matcher: matcher, stats: {}
                 )
             end
 
-            def event_display(m)
-                @displayed_events << m
+            def event_display(matcher)
+                @displayed_events << matcher
             end
 
-            Event = Struct.new :m, :time, :args do
+            Event = Struct.new :name, :time, :args do
                 def pretty_print(pp)
-                    pp.text "#{Roby.format_time(time)} #{m}"
+                    pp.text "#{Roby.format_time(time)} #{name}"
                     pp.nest(2) do
                         args.each do |obj|
                             pp.breakable
@@ -131,35 +130,36 @@ module Roby
                 end
             end
 
-            def display_event(m, time, args)
-                return unless display_event?(m)
-
-                @out.puts PP.pp(Event.new(m, time, args), +"")
+            def display_event(name, time, args)
+                @out.puts PP.pp(Event.new(name, time, args), +"")
             end
 
             def display_event?(name)
                 name = name.to_s
-                @displayed_events.any? { |m| m === name }
+                @displayed_events.any? { |matcher| matcher === name }
             end
 
-            def dump(m, time, args)
-                display_event(m, time, args)
+            def dump(name, time, args)
+                return unless display_event?(name)
+
+                display_event(name, time, args)
             end
 
-            def dump_timepoint(m, time, args)
-                case m
+            def dump_timepoint(timepoint_event, time, args)
+                timepoint_name = args[-1]
+                case timepoint_event
                 when :timepoint
-                    display_event(args[-1], time) if display_timepoint?(m)
+                    if display_timepoint?(timepoint_name)
+                        display_event(timepoint_name, time, [])
+                    end
                 when :timepoint_group_start
-                    name = args[-1]
-                    if (dis = find_timegroup_display(name))
-                        dis.push(name, time)
+                    if (dis = find_timegroup_display(timepoint_name))
+                        dis.push(timepoint_name, time)
                     end
                 when :timepoint_group_end
-                    name = args[-1]
-                    if (dis = find_timegroup_display(name))
-                        dis.update(name, time)
-                        @out.puts dis.message(name, time)
+                    if (dis = find_timegroup_display(timepoint_name))
+                        dis.update(timepoint_name, time)
+                        @out.puts dis.message(timepoint_name, time)
                     end
                 end
             end
@@ -171,7 +171,7 @@ module Roby
 
             def find_timegroup_display(name)
                 name = name.to_s
-                @displayed_timegroups.find { |dis| dis.matcher === name }
+                @displayed_timegroups.find { |d| d.matcher === name }
             end
 
             def push_timepoint_group_start(name, time)
@@ -212,7 +212,9 @@ module Roby
                 0
             end
 
-            def flush_cycle(m, *args); end
+            def flush_cycle(name, *args)
+                dump(name, *args)
+            end
         end
     end
 end

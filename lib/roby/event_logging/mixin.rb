@@ -8,8 +8,8 @@ module Roby
         # can be initialized with {NullEventLogger} for a no-op logger
         module Mixin
             # Log an event on the underlying logger
-            def log(m, *args)
-                event_logger.dump(m, Time.now, args)
+            def log(name, *args)
+                event_logger.dump(name, Time.now, args)
             end
 
             # Log a timepoint on the underlying logger
@@ -66,8 +66,8 @@ module Roby
                 event_logger.log_queue_size
             end
 
-            def log_flush_cycle(m, *args)
-                event_logger.flush_cycle(m, Time.now, args)
+            def log_flush_cycle(name, *args)
+                event_logger.flush_cycle(name, Time.now, args)
             end
         end
     end
