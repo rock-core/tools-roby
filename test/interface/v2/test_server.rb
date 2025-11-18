@@ -148,6 +148,53 @@ module Roby
                     end
                 end
 
+                describe "log events" do
+                    before do
+                        @notify_app = Roby::Application.new
+                        @interface = Interface.new(@notify_app)
+                        @notify_app.execution_engine.display_exceptions = false
+
+                        client_io, server_io = Socket.pair(:UNIX, :STREAM, 0)
+                        client_io.close
+                        server_channel = Channel.new(server_io, false)
+                        server_channel.reset_thread_guard(Thread.current, Thread.current)
+                        @server = Server.new(server_channel, @interface)
+                        flexmock(@server)
+                    end
+
+                    it "reports that it is not subscribed " \
+                       "if there are no subscriptions" do
+                        refute @server.log_event_subscribed?(:some_event)
+                    end
+
+                    it "reports that it is subscribed if a match exists" do
+                        @server.log_event_subscribe(/e_e/)
+                        assert @server.log_event_subscribed?(:some_event)
+                    end
+
+                    it "reports that it is subscribed using the cache " \
+                       "if a match exists and is used more than once" do
+                        @server.log_event_subscribe(/e_e/)
+                        assert @server.log_event_subscribed?(:some_event)
+                        assert @server.log_event_subscribed?(:some_event)
+                    end
+
+                    it "stops reporting that it is subscribed if it has been " \
+                       "unsubscribed" do
+                        id = @server.log_event_subscribe(/e_e/)
+                        assert @server.log_event_subscribed?(:some_event)
+                        @server.log_event_unsubscribe(id)
+                        refute @server.log_event_subscribed?(:some_event)
+                    end
+
+                    it "never reports that it is subscribed if it has been " \
+                       "immediately unsubscribed" do
+                        id = @server.log_event_subscribe(/e_e/)
+                        @server.log_event_unsubscribe(id)
+                        refute @server.log_event_subscribed?(:some_event)
+                    end
+                end
+
                 describe "remote calls" do
                     attr_reader :interface, :server, :client_channel
 
