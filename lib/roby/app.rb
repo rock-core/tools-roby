@@ -617,6 +617,27 @@ module Roby
                 end
             end
             parser.on(
+                "--trace-event=SPEC", String,
+                "display on STDOUT information about events whose name matches " \
+                "SPEC. Enclose with // to have the string interpreted as regexp"
+            ) do |spec|
+                Roby.app.trace_event(resolve_matcher_argument(spec))
+            end
+            parser.on(
+                "--trace-timepoint=SPEC", String,
+                "display on STDOUT information about timepoint whose name matches " \
+                "SPEC. Enclose with // to have the string interpreted as regexp"
+            ) do |spec|
+                Roby.app.trace_timepoint(resolve_matcher_argument(spec))
+            end
+            parser.on(
+                "--trace-timepoint-group=SPEC", String,
+                "display on STDOUT information about timepoint groups whose name " \
+                "matches SPEC. Enclose with // to have the string interpreted as regexp"
+            ) do |spec|
+                Roby.app.trace_timepoint_group(resolve_matcher_argument(spec))
+            end
+            parser.on(
                 "-r NAME", "--robot=NAME[,TYPE]", String, "the robot name and type"
             ) do |name|
                 robot_name, robot_type = name.split(",")
@@ -631,6 +652,21 @@ module Roby
             parser.on_tail("-h", "--help", "this help message") do
                 STDERR.puts parser
                 exit
+            end
+        end
+
+        # @api private
+        #
+        # Resolve a command-line argument into a string matcher (regexp or plain string)
+        #
+        # @param [String] arg the argument string. It is interpreted as a regexp if
+        #   enclosed in //, as a string otherwise
+        # @return [String,Regexp]
+        def self.resolve_matcher_argument(arg)
+            if (m = %r{^/(.*)/$}.match(arg))
+                Regexp.new(m[1])
+            else
+                arg
             end
         end
 
@@ -754,6 +790,40 @@ module Roby
         def log_setup(mod_path, level, file = nil)
             levels = (log_overrides["levels"] ||= {})
             levels[mod_path] = [level, file].compact.join(":")
+        end
+
+        # Return an IOEventLogger that listens to the log events of {#plan} and
+        # {#execution_engine}
+        def io_event_logger
+            unless @io_event_logger
+                require "roby/event_logging/io_event_logger"
+                @io_event_logger = EventLogging::IOEventLogger.new
+                plan.event_logger.add(@io_event_logger)
+                execution_engine.event_logger.add(@io_event_logger)
+            end
+
+            @io_event_logger
+        end
+
+        # Display some log events to STDOUT
+        #
+        # @param [#===] matcher an object used to match the event names
+        def trace_event(matcher)
+            io_event_logger.event_display(matcher)
+        end
+
+        # Display some timepoints to STDOUT
+        #
+        # @param [#===] matcher an object used to match the timepoint name
+        def trace_timepoint(matcher)
+            io_event_logger.timepoint_display(matcher)
+        end
+
+        # Display some timepoint groups to STDOUT
+        #
+        # @param [#===] matcher an object used to match the timepoint name
+        def trace_timepoint_group(matcher)
+            io_event_logger.timegroup_display(matcher)
         end
 
         ##
