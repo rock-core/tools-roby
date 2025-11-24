@@ -450,6 +450,68 @@ module Roby
                             end
                         end
                     end
+
+                    describe "log events" do
+                        attr_reader :client, :server
+
+                        before do
+                            @server = create_server
+                            @client = connect(server)
+                        end
+                        def interface
+                            server.interface
+                        end
+
+                        it "does not receive any events if it is not subscribed " \
+                           "to anything" do
+                            app.execution_engine.log("test-event", 42)
+                            assert_receives_no_log_events
+                        end
+
+                        it "does not receive events it is not subscribed to" do
+                            process_call { client.log_event_subscribe("something-else") }
+                            app.execution_engine.log("test-event", 42)
+                            assert_receives_no_log_events
+                        end
+
+                        it "receives events it is subscribed to by name" do
+                            process_call { client.log_event_subscribe("test-event") }
+                            app.execution_engine.log("test-event", 42)
+                            assert_receives_log_event("test-event", 42)
+                        end
+
+                        it "receives events it is subscribed to by regexp" do
+                            process_call { client.log_event_subscribe(/t-e/) }
+                            app.execution_engine.log("test-event", 42)
+                            assert_receives_log_event("test-event", 42)
+                        end
+
+                        it "stops receiving events it has unsubscribed from" do
+                            id = process_call { client.log_event_subscribe(/t-e/) }
+                            app.execution_engine.log("test-event", 42)
+                            assert_receives_log_event("test-event", 42)
+                            process_call { client.log_event_unsubscribe(id) }
+                            app.execution_engine.log("test-event", 42)
+                            assert_receives_no_log_events
+                        end
+
+                        def assert_receives_no_log_events
+                            recorder = flexmock
+                            recorder.should_receive(:called).never
+                            client.on_log_event { |*| recorder.called }
+                            process_call { client.poll }
+                        end
+
+                        def assert_receives_log_event(expected_name, *expected_args)
+                            recorder = flexmock
+                            recorder.should_receive(:called)
+                                    .with(expected_name, expected_args).once
+                            client.on_log_event do |event_name, args|
+                                recorder.called(event_name, args)
+                            end
+                            process_call { client.poll }
+                        end
+                    end
                 end
             end
         end

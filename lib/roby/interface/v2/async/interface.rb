@@ -526,6 +526,24 @@ module Roby
                         end
                     end
 
+                    # Subscribe to a set of log events
+                    #
+                    # @param [String,Regexp] matcher the matcher object that determines
+                    #    which events to send (by their name)
+                    # @return an ID value that can be used to unsubscribe to the events
+                    #   with {#log_event_unsubscribe}
+                    def log_event_subscribe(matcher)
+                        client.log_event_subscribe(matcher)
+                    end
+
+                    # Unsubscribe to a set of log events
+                    #
+                    # @param id the value returned by the corresponding
+                    #    {#log_event_subscribe} call
+                    def log_event_unsubscribe(id)
+                        client.log_event_unsubscribe(id)
+                    end
+
                     def create_batch
                         client.create_batch
                     end
