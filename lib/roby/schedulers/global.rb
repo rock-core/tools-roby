@@ -424,8 +424,8 @@ module Roby
                 end
             end
 
-            # Create a graph where u->v indicates that `u` should be schedulable for `v`
-            # to be schedulable (the inverse of the schedule_as relation)
+            # Create a graph where u->v indicates that `v` should be schedulable for `u`
+            # to be schedulable (u.schedule_as(v))
             def create_scheduled_as_graph(candidates)
                 graph = Relations::BidirectionalDirectedAdjacencyGraph.new
                 candidates.each { |v| graph.add_vertex(v) }
