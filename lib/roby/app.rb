@@ -617,27 +617,6 @@ module Roby
                 end
             end
             parser.on(
-                "--trace-event=SPEC", String,
-                "display on STDOUT information about events whose name matches " \
-                "SPEC. Enclose with // to have the string interpreted as regexp"
-            ) do |spec|
-                Roby.app.trace_event(resolve_matcher_argument(spec))
-            end
-            parser.on(
-                "--trace-timepoint=SPEC", String,
-                "display on STDOUT information about timepoint whose name matches " \
-                "SPEC. Enclose with // to have the string interpreted as regexp"
-            ) do |spec|
-                Roby.app.trace_timepoint(resolve_matcher_argument(spec))
-            end
-            parser.on(
-                "--trace-timepoint-group=SPEC", String,
-                "display on STDOUT information about timepoint groups whose name " \
-                "matches SPEC. Enclose with // to have the string interpreted as regexp"
-            ) do |spec|
-                Roby.app.trace_timepoint_group(resolve_matcher_argument(spec))
-            end
-            parser.on(
                 "-r NAME", "--robot=NAME[,TYPE]", String, "the robot name and type"
             ) do |name|
                 robot_name, robot_type = name.split(",")
@@ -652,6 +631,81 @@ module Roby
             parser.on_tail("-h", "--help", "this help message") do
                 STDERR.puts parser
                 exit
+            end
+
+            common_optparse_add_tracing(parser)
+            common_optparse_add_stackprof(parser)
+        end
+
+        def self.common_optparse_add_tracing(parser)
+            parser.on(
+                "--trace-event=SPEC", String,
+                "display on STDOUT information about events whose name matches " \
+                "SPEC. Enclose with // to have the string interpreted as regexp"
+            ) do |spec|
+                Roby.app.io_event_logger.event_display(resolve_matcher_argument(spec))
+            end
+            parser.on(
+                "--trace-timepoint=SPEC", String,
+                "display on STDOUT information about timepoint whose name matches " \
+                "SPEC. Enclose with // to have the string interpreted as regexp"
+            ) do |spec|
+                Roby.app.io_event_logger.timepoint_display(resolve_matcher_argument(spec))
+            end
+            parser.on(
+                "--trace-timepoint-group=SPEC", String,
+                "display on STDOUT information about timepoint groups whose name " \
+                "matches SPEC. Enclose with // to have the string interpreted as regexp"
+            ) do |spec|
+                Roby.app.io_event_logger.timegroup_display(resolve_matcher_argument(spec))
+            end
+        end
+
+        def self.common_optparse_add_stackprof(parser)
+            parser.on(
+                "--stackprof-start=SPEC", String,
+                "start stackprof on timepoints matching SPEC." \
+                "Enclose with // to have the string interpreted as regexp"
+            ) do |spec|
+                Roby.app.stackprof_event_manager.start_on(resolve_matcher_argument(spec))
+            end
+            parser.on(
+                "--stackprof-stop=SPEC", String,
+                "stop stackprof on timepoints matching SPEC." \
+                "Enclose with // to have the string interpreted as regexp"
+            ) do |spec|
+                Roby.app.stackprof_event_manager.stop_on(resolve_matcher_argument(spec))
+            end
+            parser.on(
+                "--stackprof-skip=COUNT", Integer,
+                "skip this many start/stop cycles before starting to profile"
+            ) do |count|
+                Roby.app.stackprof_event_manager.skip = count
+            end
+            parser.on(
+                "--stackprof-count=COUNT", Integer,
+                "dump results when we reach this many start/stop cycles. The default " \
+                "is to dump results on application stop"
+            ) do |count|
+                Roby.app.stackprof_event_manager.count = count
+            end
+            parser.on(
+                "--stackprof-result=PATH", String,
+                "save stackprof results on PATH"
+            ) do |path|
+                Roby.app.stackprof_event_manager.result_path = path
+            end
+            parser.on(
+                "--stackprof-mode=MODE", String,
+                "use the given mode for stackprof profiling"
+            ) do |mode|
+                Roby.app.stackprof_event_manager.mode = mode
+            end
+            parser.on(
+                "--stackprof-raw",
+                "enable raw mode during stackprof profiling"
+            ) do |mode|
+                Roby.app.stackprof_event_manager.raw = true
             end
         end
 
@@ -794,6 +848,10 @@ module Roby
 
         # Return an IOEventLogger that listens to the log events of {#plan} and
         # {#execution_engine}
+        #
+        # It gets created on the fly to avoid the overhead when not in use
+        #
+        # @return [EventLogging::IOEventLogger]
         def io_event_logger
             unless @io_event_logger
                 require "roby/event_logging/io_event_logger"
@@ -805,25 +863,21 @@ module Roby
             @io_event_logger
         end
 
-        # Display some log events to STDOUT
+        # Return an object that allows to trigger stackprof profiling based on
+        # timepoints
         #
-        # @param [#===] matcher an object used to match the event names
-        def trace_event(matcher)
-            io_event_logger.event_display(matcher)
-        end
+        # It gets instanciated on the fly, to avoid the overhead when not in use
+        #
+        # @return [EventLogging::StackProfEventManager]
+        def stackprof_event_manager
+            unless @stackprof_event_manager
+                require "roby/event_logging/stackprof_event_manager"
+                @stackprof_event_manager = EventLogging::StackProfEventManager.new
+                plan.event_logger.add(@stackprof_event_manager)
+                execution_engine.event_logger.add(@stackprof_event_manager)
+            end
 
-        # Display some timepoints to STDOUT
-        #
-        # @param [#===] matcher an object used to match the timepoint name
-        def trace_timepoint(matcher)
-            io_event_logger.timepoint_display(matcher)
-        end
-
-        # Display some timepoint groups to STDOUT
-        #
-        # @param [#===] matcher an object used to match the timepoint name
-        def trace_timepoint_group(matcher)
-            io_event_logger.timegroup_display(matcher)
+            @stackprof_event_manager
         end
 
         ##
