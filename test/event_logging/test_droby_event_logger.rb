@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
 require "roby/test/self"
-require "roby/droby/event_logger"
+require "roby/event_logging/droby_event_logger"
 require "roby/droby/logfile/reader"
 require "roby/test/droby_log_helpers"
 
 module Roby
-    module DRoby
-        describe EventLogger do
+    module EventLogging
+        describe DRobyEventLogger do
             include Test::DRobyLogHelpers
 
             describe "#close" do

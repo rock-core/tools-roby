@@ -10,7 +10,7 @@ module Roby
 
             def teardown
                 @expected_events.each do |m, args|
-                    unless plan.event_logger.has_received_event?(m, *args)
+                    unless @event_reporter.has_received_event?(m, *args)
                         received_events_s =
                             plan
                             .event_logger.received_events

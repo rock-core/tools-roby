@@ -2,7 +2,7 @@
 
 require "roby/test/self"
 
-require "roby/droby/event_logger"
+require "roby/event_logging/droby_event_logger"
 require "roby/droby/plan_rebuilder"
 
 module Roby
@@ -26,9 +26,12 @@ module Roby
                         cycles << cycle
                     end
                 end.new
-                @event_logger = EventLogger.new(logfile)
 
-                @local_plan = ExecutablePlan.new(event_logger: event_logger)
+                @local_plan = ExecutablePlan.new
+                @event_logger = Roby::EventLogging::DRobyEventLogger.new(logfile)
+                @event_logger.register_executable_plan(@local_plan)
+                @local_plan.event_logger.add(@event_logger)
+                @local_plan.execution_engine.event_logger.add(@event_logger)
                 @plan_rebuilder = PlanRebuilder.new
             end
 
@@ -49,7 +52,7 @@ module Roby
             end
 
             def flush_cycle_events
-                event_logger.flush_cycle(:cycle_end, Time.now, [{}])
+                @local_plan.event_logger.flush_cycle(:cycle_end, Time.now, [{}])
                 event_logger.flush
                 logfile.cycles.first
             end

@@ -1178,14 +1178,17 @@ module Roby
 
         # @api private
         def prepare_event_log
-            require "roby/droby/event_logger"
+            require "roby/event_logging/droby_event_logger"
             require "roby/droby/logfile/writer"
 
             logfile_path = File.join(log_dir, "#{robot_name}-events.log")
             event_io = File.open(logfile_path, "w")
             logfile = DRoby::Logfile::Writer.new(event_io, plugins: plugins.map { |n, _| n })
-            plan.event_logger = DRoby::EventLogger.new(logfile, log_timepoints: log_timepoints?)
-            plan.execution_engine.event_logger = plan.event_logger
+
+            @droby_event_logger = EventLogging::DRobyEventLogger.new(logfile)
+            @droby_event_logger.register_executable_plan(plan)
+            plan.add_event_logger(@droby_event_logger)
+            plan.execution_engine.add_event_logger(@droby_event_logger)
 
             Robot.info "logs are in #{log_dir}"
             logfile_path
@@ -1214,11 +1217,11 @@ module Roby
                     unless log_server_options.kind_of?(Hash)
                         log_server_options = {}
                     end
-                    plan.event_logger.sync = true
+                    @droby_event_logger.sync = true
                     start_log_server(logfile_path, log_server_options)
                     Roby.info "log server started"
                 else
-                    plan.event_logger.sync = false
+                    @droby_event_logger.sync = false
                     Roby.warn "log server disabled"
                 end
             end

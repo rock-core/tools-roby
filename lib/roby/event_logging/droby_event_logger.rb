@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
 module Roby
-    module DRoby
+    module EventLogging
         # Object that acts as an observer for ExecutablePlan, handling
         # the droby marshalling/demarshalling. Dumping to IO is delegated to
         # {#logfile}, a separate object that must provide a #dump method the way
         # {Logfile::Writer} does
-        class EventLogger
+        class DRobyEventLogger
             # The object that will be given the cycles to be written
             #
             # @return [#dump]
@@ -64,17 +64,22 @@ module Roby
             def initialize(logfile, queue_size: 50, log_timepoints: false)
                 @stats_mode = false
                 @logfile = logfile
-                @object_manager = ObjectManager.new(nil)
-                @marshal = Marshal.new(object_manager, nil)
+                @object_manager = DRoby::ObjectManager.new(nil)
+                @marshal = DRoby::Marshal.new(object_manager, nil)
                 @current_cycle = []
                 @sync = true
                 @dump_time = 0
                 @mutex = Mutex.new
                 @log_timepoints = log_timepoints
+
                 return unless queue_size > 0
 
                 @dump_queue  = SizedQueue.new(queue_size)
                 @dump_thread = Thread.new(&method(:dump_loop))
+            end
+
+            def register_executable_plan(plan)
+                dump(:register_executable_plan, Time.now, [plan.droby_id])
             end
 
             def synchronize(&block)
@@ -113,34 +118,49 @@ module Roby
                 logfile.close
             end
 
-            def append_message(m, time, args)
-                case m
-                when :merged_plan
-                    plan_id, merged_plan = *args
+            def append_message(name, time, args)
+                args =
+                    case name
+                    when :merged_plan
+                        process_merged_plan(args)
+                    when :finalized_task
+                        process_finalized_task(args)
+                    when :finalized_event
+                        process_finalized_event(args)
+                    else
+                        marshal.dump(args)
+                    end
 
-                    merged_plan.tasks.each do |t|
-                        object_manager.register_object(t)
-                    end
-                    merged_plan.free_events.each do |e|
-                        object_manager.register_object(e)
-                    end
-                    merged_plan.task_events.each do |e|
-                        object_manager.register_object(e)
-                    end
-                    args = [plan_id, merged_plan.droby_dump(marshal)]
-                when :finalized_task
-                    task = args[1]
-                    args = marshal.dump(args)
-                    object_manager.deregister_object(task)
-                when :finalized_event
-                    event = args[1]
-                    args = marshal.dump(args)
-                    object_manager.deregister_object(event)
-                else
-                    args = marshal.dump(args)
+                @current_cycle << name << time.tv_sec << time.tv_usec << args
+            end
+
+            def process_merged_plan(args)
+                plan_id, merged_plan = *args
+
+                merged_plan.tasks.each do |t|
+                    object_manager.register_object(t)
                 end
+                merged_plan.free_events.each do |e|
+                    object_manager.register_object(e)
+                end
+                merged_plan.task_events.each do |e|
+                    object_manager.register_object(e)
+                end
+                [plan_id, merged_plan.droby_dump(marshal)]
+            end
 
-                @current_cycle << m << time.tv_sec << time.tv_usec << args
+            def process_finalized_task(args)
+                task = args[1]
+                args = marshal.dump(args)
+                object_manager.deregister_object(task)
+                args
+            end
+
+            def process_finalized_event(args)
+                task = args[1]
+                args = marshal.dump(args)
+                object_manager.deregister_object(task)
+                args
             end
 
             def dump_timepoint(event, time, args)
@@ -152,12 +172,12 @@ module Roby
             end
 
             # Dump one log message
-            def dump(m, time, args)
+            def dump(name, time, args)
                 return if stats_mode?
 
                 start = Time.now
                 synchronize do
-                    append_message(m, time, args)
+                    append_message(name, time, args)
                 end
             ensure @dump_time += (Time.now - start)
             end
@@ -189,5 +209,10 @@ module Roby
                 end
             end
         end
+    end
+
+    module DRoby
+        # Backward-compatible reference to EventLogging::DRobyEventLogger
+        EventLogger = Roby::EventLogging::DRobyEventLogger
     end
 end

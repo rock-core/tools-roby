@@ -46,8 +46,8 @@ module Roby
         # @return [Array<(#===, #call)>]
         attr_reader :exception_handlers
 
-        def initialize(event_logger: DRoby::NullEventLogger.new)
-            super(graph_observer: self, event_logger: event_logger)
+        def initialize
+            super(graph_observer: self)
 
             @execution_engine = ExecutionEngine.new(self)
             @quarantined_tasks = Set.new
@@ -86,11 +86,6 @@ module Roby
         def refresh_relations
             super
             execution_engine.refresh_relations
-        end
-
-        def event_logger=(logger)
-            super
-            log :register_executable_plan, droby_id
         end
 
         # @api private

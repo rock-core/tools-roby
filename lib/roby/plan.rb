@@ -5,7 +5,7 @@ module Roby
     class Plan < DistributedObject
         extend Logger::Hierarchy
         extend Logger::Forward
-        include DRoby::EventLogging
+        include EventLogging::Mixin
 
         # The Peer ID of the local owner (i.e. of the local process / execution
         # engine)
@@ -80,12 +80,12 @@ module Roby
         end
 
         # The event logger
-        attr_accessor :event_logger
+        attr_reader :event_logger
 
         # The observer object that reacts to relation changes
         attr_reader :graph_observer
 
-        def initialize(graph_observer: nil, event_logger: DRoby::NullEventLogger.new)
+        def initialize(graph_observer: nil)
             @local_owner = DRoby::PeerID.new("local")
 
             @tasks = Set.new
@@ -97,7 +97,7 @@ module Roby
 
             @plan_services = {}
 
-            self.event_logger = event_logger
+            @event_logger = EventLogging::AggregateEventLogger.new
             @active_fault_response_tables = []
             @task_index = Roby::Queries::Index.new
 
@@ -106,6 +106,10 @@ module Roby
             create_null_relations
 
             super()
+        end
+
+        def add_event_logger(logger)
+            @event_logger.add(logger)
         end
 
         def create_null_relations
