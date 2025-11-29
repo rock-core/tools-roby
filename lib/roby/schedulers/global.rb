@@ -188,13 +188,13 @@ module Roby
             # if we were to allow for the execution of planning tasks and/or temporal
             # prerequisite (i.e. scheduling subsets), would be schedulable.
             def relax_scheduling_constraints(scheduling_groups)
-                relaxation_graph, self_edges = relaxation_create_graph(scheduling_groups)
+                relaxation_graph = relaxation_create_graph(scheduling_groups)
 
                 scheduling_groups.each_vertex do |group|
                     next unless group.state == STATE_PENDING_CONSTRAINTS
 
                     related = relaxation_compute_related_groups(
-                        scheduling_groups, relaxation_graph, self_edges, group
+                        scheduling_groups, relaxation_graph, group
                     )
                     unless related
                         # In the negative, we can't infer anything about other
@@ -211,6 +211,35 @@ module Roby
                 end
             end
 
+
+            # Internal graph used by {Global#relax_group_scheduling_constraints}
+            #
+            # The graph vertices are scheduling groups. An edge u->v represents that
+            # 'u' is held by something that should happen in 'v'. The graph allows
+            # self-edges
+            class RelaxationGraph < Relations::BidirectionalDirectedAdjacencyGraph
+                def initialize
+                    @self_edges = Set.new
+                    @self_edges.compare_by_identity
+                    super
+                end
+
+                def add_edge(group, holding_group)
+                    if group == holding_group
+                        add_vertex(group)
+                        @self_edges << group
+                    else
+                        super
+                    end
+                end
+
+                def out_neighbours(group)
+                    neighbours = super
+                    neighbours |= [group] if @self_edges.include?(group)
+                    neighbours
+                end
+            end
+
             # Create a graph on which {#relax_scheduling_constraints} will work
             #
             # This graph represents the 'live' scheduling constraints, that is an edge
@@ -218,36 +247,31 @@ module Roby
             # currently not directly schedulable. This is a transitive relation, that is
             # the out edges of a given group represent all the known constraints
             def relaxation_create_graph(scheduling_groups)
-                relaxation_graph = Relations::BidirectionalDirectedAdjacencyGraph.new
-                self_edges = Set.new
+                relaxation_graph = RelaxationGraph.new
                 scheduling_groups.each_vertex do |group|
                     next unless group.state == STATE_PENDING_CONSTRAINTS
 
                     relaxation_add_groups(
-                        relaxation_graph, self_edges, group, group.held_by_temporal
+                        relaxation_graph, group, group.held_by_temporal
                     )
                     relaxation_add_groups(
-                        relaxation_graph, self_edges, group, group.held_non_executable
+                        relaxation_graph, group, group.held_non_executable
                     )
                 end
-                [relaxation_graph, self_edges]
+                relaxation_graph
             end
 
             # Helper for {#relaxation_create_graph}
-            def relaxation_add_groups(relaxation_graph, self_edges, ref, groups)
+            def relaxation_add_groups(relaxation_graph, ref, groups)
                 groups.each do |holding_group|
-                    if ref == holding_group
-                        self_edges << ref
-                    else
-                        relaxation_graph.add_edge(ref, holding_group)
-                    end
+                    relaxation_graph.add_edge(ref, holding_group)
                 end
             end
 
             # Compute the set of groups that need to be resolved together to allow
             # for their (collective) scheduling
             def relaxation_compute_related_groups(
-                scheduling_groups, relaxation_graph, self_edges, seed_group
+                scheduling_groups, relaxation_graph, seed_group
             )
                 queue = [seed_group]
                 seen_holding_groups = Set.new
@@ -256,8 +280,7 @@ module Roby
                     g = queue.shift
                     next unless related_groups.add?(g)
 
-                    holding_groups =
-                        relaxation_compute_holding_groups(g, relaxation_graph, self_edges)
+                    holding_groups = relaxation_graph.out_neighbours(g)
 
                     valid = holding_groups.all? do |holding_g|
                         next(true) unless seen_holding_groups.add?(holding_g)
@@ -271,12 +294,6 @@ module Roby
                 end
 
                 related_groups
-            end
-
-            def relaxation_compute_holding_groups(group, relaxation_graph, self_edges)
-                holding_groups = relaxation_graph.out_neighbours(group)
-                holding_groups |= [group] if self_edges.include?(group)
-                holding_groups
             end
 
             def relaxation_compute_dependent_groups(scheduling_groups, holding_group)
