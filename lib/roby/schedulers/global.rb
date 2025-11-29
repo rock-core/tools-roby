@@ -433,7 +433,7 @@ module Roby
             def relaxation_compute_dependent_groups(scheduling_groups, holding_group)
                 dependent_groups = Set.new
 
-                all_planned = relaxation_add_planning_tasks_to_dependent_groups(
+                all_planned = relaxation_resolve_non_executable_tasks(
                     dependent_groups, holding_group, scheduling_groups
                 )
                 unless all_planned
@@ -452,20 +452,27 @@ module Roby
                 dependent_groups
             end
 
-            def relaxation_add_planning_tasks_to_dependent_groups(
+            def relaxation_resolve_non_executable_tasks(
                 dependent_groups, holding_group, scheduling_groups
             )
-                planned_by = @plan.task_relation_graph_for(TaskStructure::PlannedBy)
-                holding_group.non_executable_tasks.all? do |planned_task|
-                    planning_groups =
-                        planned_by.each_out_neighbour(planned_task).map do |planning_task|
-                            scheduling_groups
-                                .find_planning_task_group(holding_group, planning_task)
+                holding_group.non_executable_tasks.all? do |non_executable_task|
+                    resolution_groups =
+                        non_executable_resolution_tasks(non_executable_task).map do |t|
+                            scheduling_groups.find_planning_task_group(holding_group, t)
                         end
 
-                    planning_groups = planning_groups.compact
-                    dependent_groups.merge(planning_groups) unless planning_groups.empty?
+                    resolution_groups = resolution_groups.compact
+                    unless resolution_groups.empty?
+                        dependent_groups.merge(resolution_groups)
+                    end
                 end
+            end
+
+            # Resolve the set of tasks that can turn a non-executable task into an
+            # executable one
+            def non_executable_resolution_tasks(non_executable_task)
+                @plan.task_relation_graph_for(TaskStructure::PlannedBy)
+                     .out_neighbours(non_executable_task)
             end
 
             def relaxation_add_temporal_constraints_to_dependent_groups(
