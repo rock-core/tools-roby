@@ -82,7 +82,7 @@ module Roby
                 propagate_scheduling_state(candidates, scheduling_groups, time)
                 validate_scheduling_state_propagation(scheduling_groups)
                 relax_scheduling_constraints(scheduling_groups)
-                result = resolve_tasks_to_schedule(scheduling_groups)
+                result = resolve_tasks_to_schedule(scheduling_groups, time)
 
                 debug_output_scheduled_tasks(result)
                 result
@@ -99,7 +99,7 @@ module Roby
             end
 
             # Return the set of tasks that can be started
-            def resolve_tasks_to_schedule(scheduling_groups)
+            def resolve_tasks_to_schedule(scheduling_groups, time)
                 scheduling_groups.each_vertex.each_with_object(Set.new) do |group, set|
                     next unless group.state == STATE_SCHEDULABLE
 
@@ -109,7 +109,7 @@ module Roby
                         next
                     end
 
-                    group.resolve_tasks_to_schedule(set)
+                    group.resolve_tasks_to_schedule(set, time)
                 end
             end
 
@@ -821,13 +821,29 @@ module Roby
 
                 # Assuming this group can be scheduled, return the tasks that should
                 # be scheduled for it
-                def resolve_tasks_to_schedule(set)
+                def resolve_tasks_to_schedule(set, time)
                     if held_by_temporal.empty?
                         set.merge(tasks)
                     else
                         held_by_temporal.each do |group|
-                            set.merge(group.temporal_constraints.related_tasks)
+                            related_tasks = group.temporal_constraints.related_tasks
+                            related_schedulable =
+                                find_all_schedulable(related_tasks, time)
+                            set.merge(related_schedulable)
                         end
+                    end
+                end
+
+                def find_all_schedulable(tasks, time)
+                    tasks = tasks.find_all(&:executable?)
+                    tasks.find_all do |t|
+                        start = t.start_event
+                        has_failed_temporal =
+                            start.each_failed_temporal_constraint(time).any?
+                        has_failed_occurence =
+                            start.each_failed_occurence_constraint(use_last_event: true)
+                                 .any?
+                        !has_failed_occurence && !has_failed_temporal
                     end
                 end
 

@@ -476,6 +476,28 @@ module Roby
                     end
                     assert_scheduled_tasks([root])
                 end
+
+                it "does not unconditionally schedule a precedence task that should " \
+                   "not be scheduled because it is not executable" do
+                    plan.add(root = @task_m.new(id: "root"))
+                    root.depends_on(child = @task_m.new(id: "child"))
+                    root.executable = false
+                    root.should_start_after(child.start_event)
+                    child.executable = false
+
+                    assert_scheduled_tasks([])
+                end
+
+                it "does not unconditionally schedule a precedence task that should " \
+                   "not be scheduled because it itself has a constraint" do
+                    plan.add(root = @task_m.new(id: "root"))
+                    root.depends_on(child = @task_m.new(id: "child"))
+                    child.depends_on(grandchild = @task_m.new(id: "grandchild"))
+                    root.should_start_after(child.start_event)
+                    child.should_start_after(grandchild.start_event)
+
+                    assert_scheduled_tasks([grandchild])
+                end
             end
 
             it "handles disjoint set of constraints applying to the same task" do
