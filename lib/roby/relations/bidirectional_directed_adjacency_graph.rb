@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "rgl/mutable"
+require "rgl/condensation"
 require "set"
 
 module Roby
@@ -15,6 +16,7 @@ module Roby
         #
         # The class guarantees that there can't be duplicate edges
         class BidirectionalDirectedAdjacencyGraph
+            include RGL::Graph
             include RGL::MutableGraph
 
             # Mapping from a vertex to the association of out neighbours
@@ -48,9 +50,10 @@ module Roby
             #
             def self.[](*a)
                 result = new
-                a.each_slice(2) do |u, v|
-                    result.add_edge(u, v)
+                (a.size / 2).times do |i|
+                    result.add_edge(a[i * 2], a[i * 2 + 1])
                 end
+                result.add_vertex(a[-1]) if a.size.odd?
                 result
             end
 
@@ -308,12 +311,58 @@ module Roby
                 v_in[u] = nil
             end
 
+            # Add an edge if it does not exist, or offer to update its edge info if it
+            # does
+            #
+            # @param u the source vertex of the edge
+            # @param v the target vertex of the edge
+            # @yieldparam edge_value the existing edge value if the edge already exists,
+            #    nil otherwise
+            # @yieldreturn the value to use as the new edge value
+            def add_or_update_edge(u, v, _init_edge_value = nil)
+                raise ArgumentError, "cannot add self-referencing edges" if u == v
+
+                u_out = (@forward_edges_with_info[u] ||= IdentityHash.new)
+                if u_out.key?(v)
+                    u_out[v] = yield(u_out[v]) if block_given?
+                    return
+                end
+
+                @backward_edges[u] ||= IdentityHash.new
+                @forward_edges_with_info[v] ||= IdentityHash.new
+                v_in = (@backward_edges[v] ||= IdentityHash.new)
+
+                info = yield if block_given?
+                u_out[v] = info
+                v_in[u] = nil
+            end
+
+            def delete_vertex_if
+                @forward_edges_with_info.delete_if do |v, v_out|
+                    next unless yield(v)
+
+                    remove_vertex_relations!(v, v_out)
+                    true
+                end
+            end
+
             # See MutableGraph#remove_vertex.
             #
             def remove_vertex(v)
                 v_out = @forward_edges_with_info.delete(v)
                 return unless v_out
 
+                v_in = remove_vertex_relations!(v, v_out)
+                !v_in.empty? || !v_out.empty?
+            end
+
+            # @api private
+            #
+            # Delete the vertex in all relations it is part of, but without updating
+            # the vertex itself
+            #
+            # It is a helper for methods that remove vertices from the graph
+            def remove_vertex_relations!(v, v_out)
                 v_in = @backward_edges.delete(v)
 
                 v_out.each_key do |child|
@@ -322,7 +371,7 @@ module Roby
                 v_in.each_key do |parent|
                     @forward_edges_with_info[parent].delete(v)
                 end
-                !v_out.empty? || !v_in.empty?
+                v_in
             end
 
             # See MutableGraph::remove_edge.
