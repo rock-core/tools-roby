@@ -41,6 +41,11 @@ module Roby
         # to be started first (the behaviour of Basic and Temporal), add an explicit
         # temporal relation via the {Task#should_start_after} helper
         class Global < Reporting
+            extend Logger::Hierarchy
+            extend Logger::Forward
+            include Logger::Hierarchy
+            include Logger::Forward
+
             class InternalError < RuntimeError; end
 
             attr_reader :plan
@@ -72,6 +77,7 @@ module Roby
 
                 scheduled_as = create_scheduled_as_graph(candidates)
                 scheduling_groups = create_scheduling_group_graph(scheduled_as)
+                Roby.log_pp(scheduling_groups, logger, :debug)
 
                 propagate_scheduling_state(candidates, scheduling_groups, time)
                 validate_scheduling_state_propagation(scheduling_groups)
@@ -83,7 +89,11 @@ module Roby
             def resolve_tasks_to_schedule(scheduling_groups)
                 scheduling_groups.each_vertex.each_with_object(Set.new) do |group, set|
                     next unless group.state == STATE_SCHEDULABLE
-                    next unless group.non_executable_tasks.empty?
+
+                    unless group.non_executable_tasks.empty?
+                        report_group_non_executable(group)
+                        next
+                    end
 
                     if group.held_by_temporal.empty?
                         set.merge(group.tasks)
@@ -92,6 +102,20 @@ module Roby
                             set.merge(group.temporal_constraints.related_tasks)
                         end
                     end
+                end
+            end
+
+            def report_group_non_executable(group)
+                group.tasks.each do |task|
+                    report_holdoff "non executable tasks in scheduling group", task
+                end
+            end
+
+            def report_group_non_relaxable_pending_constraints(group)
+                group.tasks.each do |task|
+                    report_holdoff(
+                        "scheduling group has non-relaxable pending constraints", task
+                    )
                 end
             end
 
@@ -176,6 +200,8 @@ module Roby
                 end
             end
 
+            STATES_COMPATIBLE_WITH_RELAXATION =
+                [STATE_SCHEDULABLE, STATE_PENDING_CONSTRAINTS].freeze
             # Look for recursive scheduling constraints - temporal or about non-executable
             # tasks - and check if we can resolve them by allowing some tasks to be
             # executed
@@ -193,19 +219,40 @@ module Roby
                 scheduling_groups.each_vertex do |group|
                     next unless group.state == STATE_PENDING_CONSTRAINTS
 
+                    debug "relaxing scheduling constraints on group #{group.id}"
+
                     related = relaxation_compute_related_groups(
                         scheduling_groups, relaxation_graph, group
                     )
                     unless related
+                        debug "  failed, marking #{group.id} as non-schedulable"
                         # In the negative, we can't infer anything about other
                         # groups ... need to re-process them
                         group.state = STATE_NON_SCHEDULABLE
+                        report_group_non_relaxable_pending_constraints(group)
                         next
                     end
 
                     relaxed = related.all? do |g|
-                        g.state == STATE_SCHEDULABLE ||
-                            g.state == STATE_PENDING_CONSTRAINTS
+                        STATES_COMPATIBLE_WITH_RELAXATION.include?(g.state)
+                    end
+                    debug do
+                        groups_to_s = related.map(&:id).sort.map(&:to_s).join(", ")
+                        if relaxed
+                            debug "  found #{related.size} related groups in " \
+                                  "SCHEDULABLE or PENDING_CONSTRAINTS state, " \
+                                  "relaxing: #{groups_to_s}"
+                        else
+                            missing = related.find_all do |g|
+                                !STATES_COMPATIBLE_WITH_RELAXATION.include?(g.state)
+                            end
+                            missing_to_s =
+                                missing.sort_by(&:id).map { |g| "#{g.id}[#{g.state}]" }
+                            debug "  found #{related.size} related groups " \
+                                  "(#{groups_to_s}) but #{missing.size} are not " \
+                                  "in either SCHEDULABLE or PENDING_CONSTRAINTS " \
+                                  "states, leaving state as-is: #{missing_to_s}"
+                        end
                     end
                     related.each { |g| g.state = STATE_SCHEDULABLE } if relaxed
                 end
@@ -274,16 +321,28 @@ module Roby
                     next unless related_groups.add?(g)
 
                     holding_groups = relaxation_graph.out_neighbours(g)
+                    debug do
+                        groups_to_s = holding_groups.map(&:id).sort.map(&:to_s).join(", ")
+                        debug "  group #{g.id} held by #{holding_groups.size} groups, " \
+                              "trying to relax: #{groups_to_s}"
+                        nil
+                    end
 
                     valid = holding_groups.all? do |holding_g|
                         next(true) unless seen_holding_groups.add?(holding_g)
 
-                        dependent_groups = relaxation_compute_dependent_groups(
-                            scheduling_groups, holding_g
-                        )
+                        dependent_groups = log_nest(2) do
+                            relaxation_compute_dependent_groups(
+                                scheduling_groups, holding_g
+                            )
+                        end
                         queue.concat(dependent_groups.to_a) if dependent_groups
                     end
-                    return unless valid
+
+                    unless valid
+                        debug "  could not relax"
+                        return
+                    end
                 end
 
                 related_groups
@@ -295,12 +354,18 @@ module Roby
                 all_planned = relaxation_add_planning_tasks_to_dependent_groups(
                     dependent_groups, holding_group, scheduling_groups
                 )
-                return unless all_planned
+                unless all_planned
+                    debug "could not relax all non-executable tasks"
+                    return
+                end
 
                 all_valid = relaxation_add_temporal_constraints_to_dependent_groups(
                     dependent_groups, holding_group, scheduling_groups
                 )
-                return unless all_valid
+                unless all_valid
+                    debug "could not relax all temporal constraints"
+                    return
+                end
 
                 dependent_groups
             end
@@ -432,6 +497,37 @@ module Roby
                     @task_to_group[planning_task] = match || NOT_MY_TASK
                     match
                 end
+
+                def pretty_print(pp)
+                    pp.text "Scheduling group graph with #{num_vertices} groups"
+                    pp.nest(2) do
+                        each_vertex.each_with_object({}) do |g, h|
+                            pp.breakable
+                            pp_group(pp, g)
+                        end
+                    end
+
+                    pp.nest(2) do
+                        pp.breakable
+                        pp.text "#{num_edges} edges"
+                        pp.nest(2) do
+                            each_edge do |u, v|
+                                pp.breakable
+                                pp.text "#{u.id}.schedule_as(#{v.id})"
+                            end
+                        end
+                    end
+                end
+
+                def pp_group(pp, group)
+                    pp.text "[#{group.id}] #{group.tasks.size} tasks"
+                    pp.nest(2) do
+                        group.tasks.each do |t|
+                            pp.breakable
+                            pp.text t.to_s
+                        end
+                    end
+                end
             end
 
             # Create a graph where u->v indicates that `v` should be schedulable for `u`
@@ -480,19 +576,22 @@ module Roby
             # are instances of SchedulingGroup
             #
             # In the scheduling graph, an edge a->b means that 'a' is scheduled_as 'b'
+            #
+            # @return [SchedulingGroupsGraph]
             def create_scheduling_group_graph(scheduled_as)
                 condensed = scheduled_as.condensation_graph
 
                 graph = SchedulingGroupsGraph.new
                 set_id_to_group = {}
                 set_id_to_group.compare_by_identity
-                condensed.each_vertex do |u, _v|
+                condensed.each_vertex do |u|
                     group = SchedulingGroup.new(
                         tasks: u,
                         held_by_temporal: Set.new,
                         held_non_schedulable: Set.new,
                         held_non_executable: Set.new,
-                        non_executable_tasks: Set.new
+                        non_executable_tasks: Set.new,
+                        id: set_id_to_group.size
                     )
                     set_id_to_group[u] = group
                     graph.add_vertex(group)
@@ -557,7 +656,7 @@ module Roby
                 :tasks, :temporal_constraints, :external_temporal_constraints,
                 :can_schedule, :non_executable_tasks,
                 :held_by_temporal, :held_non_schedulable, :held_non_executable,
-                :state, keyword_init: true
+                :state, :id, keyword_init: true
             ) do
                 def each(&block)
                     tasks.each(&block)
