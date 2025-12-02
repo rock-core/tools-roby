@@ -625,14 +625,18 @@ module Roby
                 graph = Relations::BidirectionalDirectedAdjacencyGraph.new
                 candidates.each { |v| graph.add_vertex(v) }
 
-                scheduling_graph_add_scheduling_constraints(graph)
-                scheduling_graph_add_dependency(graph)
-                scheduling_graph_add_planned_by(graph)
+                scheduling_graph_add_edges(graph)
 
                 graph.delete_vertex_if do |v|
                     !candidates.include?(v)
                 end
                 graph
+            end
+
+            def scheduling_graph_add_edges(graph)
+                scheduling_graph_add_scheduling_constraints(graph)
+                scheduling_graph_add_dependency(graph)
+                scheduling_graph_add_planned_by(graph)
             end
 
             def scheduling_graph_add_scheduling_constraints(graph)
