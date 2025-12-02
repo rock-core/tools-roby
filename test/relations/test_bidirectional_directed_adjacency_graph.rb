@@ -602,6 +602,58 @@ module Roby
                     assert g.has_edge?(1, 4)
                 end
             end
+
+            describe "#add_or_update_edge" do
+                it "adds a new edge with the nil if no block is given" do
+                    g = create_graph(1, 2, 3)
+                    g.add_or_update_edge(1, 3)
+                    assert g.has_edge?(1, 3)
+                    assert_nil g.edge_info(1, 3)
+                end
+
+                it "adds a new edge with the info returned by the block" do
+                    g = create_graph(1, 2, 3)
+                    g.add_or_update_edge(1, 3) { 42 }
+                    assert g.has_edge?(1, 3)
+                    assert_equal 42, g.edge_info(1, 3)
+                end
+
+                it "leaves an existing edge value as-is if already present" do
+                    g = create_graph(1, 2)
+                    g.set_edge_info(1, 2, 42)
+                    g.add_or_update_edge(1, 2)
+                    assert_equal 42, g.edge_info(1, 2)
+                end
+
+                it "yields the edge value and updates it with what the block returns" do
+                    g = create_graph(1, 2)
+                    g.set_edge_info(1, 2, 21)
+                    g.add_or_update_edge(1, 2) { _1 * 2 }
+                    assert_equal 42, g.edge_info(1, 2)
+                end
+            end
+
+            describe "#delete_vertex_if" do
+                it "deletes vertices for which the given block returns true" do
+                    g = create_graph(1, 2, 3)
+                    g.add_edge(2, 3)
+                    g.delete_vertex_if { |i| i > 2 }
+                    assert_equal [[1, 2, nil]], g.each_edge.to_a
+                end
+            end
+
+            describe "BidirectionalDirectedAdjacencyGraph[]" do
+                it "created edges by pair" do
+                    g = BidirectionalDirectedAdjacencyGraph[1, 2, 3, 4]
+                    assert_equal [[1, 2, nil], [3, 4, nil]], g.each_edge.to_a
+                end
+
+                it "leaves the last vertex alone if there is an odd number of vertices" do
+                    g = BidirectionalDirectedAdjacencyGraph[1, 2, 3]
+                    assert_equal [1, 2, 3], g.each_vertex.to_a
+                    assert_equal [[1, 2, nil]], g.each_edge.to_a
+                end
+            end
         end
     end
 end
