@@ -795,14 +795,19 @@ module Roby
                     end
                 end
 
+                FIND_THROUGH_METHOD_MISSING = { "_child" => :find_child_from_role }.freeze
+                HAS_THROUGH_METHOD_MISSING = { "_child" => :has_role? }.freeze
+
                 def has_through_method_missing?(m)
                     MetaRuby::DSLs.has_through_method_missing?(
-                        self, m, "_child" => :has_role?)
+                        self, m, HAS_THROUGH_METHOD_MISSING
+                    ) || super
                 end
 
                 def find_through_method_missing(m, args)
                     MetaRuby::DSLs.find_through_method_missing(
-                        self, m, args, "_child" => :find_child_from_role)
+                        self, m, args, FIND_THROUGH_METHOD_MISSING
+                    ) || super
                 end
             end
 
