@@ -707,6 +707,13 @@ module Roby
             ) do |mode|
                 Roby.app.stackprof_event_manager.raw = true
             end
+            parser.on(
+                "--stackprof-quit",
+                "automatically quit the application when the profile data has been " \
+                "dumped"
+            ) do |mode|
+                Roby.app.stackprof_event_manager.quit = true
+            end
         end
 
         # @api private
