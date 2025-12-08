@@ -456,12 +456,28 @@ module Roby
                     false
                 end
 
-                # Returns a [parent, intervals] pair that represents a temporal
-                # constraint the given time fails to meet
+                # @deprecated use {#each_failed_temporal_constraint}
                 def find_failed_temporal_constraint(time)
-                    each_backward_temporal_constraint do |parent|
-                        next if block_given? && !yield(parent)
+                    each_failed_temporal_constraint(time) do |failure|
+                        next if block_given? && !yield(failure.parent)
 
+                        return failure.parent, failure.interval
+                    end
+                    nil
+                end
+
+                FailedTemporalConstraint =
+                    Struct.new(:parent, :interval, :time, keyword_init: true)
+
+                # Yield each temporal constraint that is currently unmet
+                #
+                # @yieldparam [FailedTemporalConstraint] constraint
+                def each_failed_temporal_constraint(time)
+                    unless block_given?
+                        return enum_for(:each_failed_temporal_constraint, time)
+                    end
+
+                    each_backward_temporal_constraint do |parent|
                         disjoint_set = parent[self, TemporalConstraints]
                         next if disjoint_set.intervals.empty?
 
@@ -474,13 +490,16 @@ module Roby
                         parent.history.each do |parent_event|
                             diff = time - parent_event.time
                             if diff > max_diff || !disjoint_set.include?(diff)
-                                return parent, disjoint_set
+                                failure = FailedTemporalConstraint.new(
+                                    parent: parent, interval: disjoint_set,
+                                    time: time
+                                )
+                                yield(failure)
                             end
 
                             disjoint_set.include?(diff)
                         end
                     end
-                    nil
                 end
 
                 # Returns true if this event meets its temporal constraints
@@ -527,17 +546,51 @@ module Roby
                     add_forward_temporal_constraint(other_event, set)
                 end
 
+                # @deprecated use {#each_failed_occurence_constraint}
                 def find_failed_occurence_constraint(next_event)
-                    base_event = if next_event then last
-                                 else
-                                     history[-2]
-                                 end
-                    if base_event
-                        base_time = base_event.time
-                    end
-                    each_backward_temporal_constraint do |parent|
-                        next if block_given? && !yield(parent)
+                    each_failed_occurence_constraint(use_last_event: next_event) do |f|
+                        next if block_given? && !yield(f.parent)
 
+                        result = [
+                            f.parent, f.parent_history_size,
+                            [f.required_min_count, f.required_max_count]
+                        ]
+
+                        result << f.base_time if f.base_time
+                        return result
+                    end
+                    nil
+                end
+
+                FailedOccurenceConstraint = Struct.new(
+                    :parent, :parent_history_size,
+                    :required_min_count, :required_max_count,
+                    :base_time, keyword_init: true
+                )
+
+                # Enumerate the occurence constraints that would be failed because of
+                # next_event
+                #
+                # @param [Boolean] next_event consider the last event (true) or
+                #    one-from-last (false)
+                def each_failed_occurence_constraint(use_last_event:)
+                    unless block_given?
+                        return enum_for(
+                            :each_failed_occurence_constraint,
+                            use_last_event: use_last_event
+                        )
+                    end
+
+                    base_event =
+                        if use_last_event
+                            last
+                        else
+                            history[-2]
+                        end
+
+                    base_time = base_event&.time
+
+                    each_backward_temporal_constraint do |parent|
                         constraints = parent[self, TemporalConstraints]
                         counts = { false => parent.history.size }
                         if base_time
@@ -552,13 +605,16 @@ module Roby
                         counts[true] = counts[false] - negative_count
                         counts.each do |recurrent, count|
                             min_count, max_count = constraints.occurence_constraints[recurrent]
-                            if count < min_count || count > max_count
-                                if recurrent && base_time
-                                    return [parent, parent.history.size, [min_count, max_count], base_time]
-                                else
-                                    return [parent, parent.history.size, [min_count, max_count]]
-                                end
-                            end
+                            next unless count < min_count || count > max_count
+
+                            failure = FailedOccurenceConstraint.new(
+                                parent: parent,
+                                parent_history_size: parent.history.size,
+                                required_min_count: min_count,
+                                required_max_count: max_count
+                            )
+                            failure.base_time = base_time if recurrent
+                            yield(failure)
                         end
                     end
                     nil
