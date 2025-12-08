@@ -218,6 +218,8 @@ module Roby
                          type: :array, default: [], repeatable: true
             option :single, desc: "do not contact any remote service",
                             type: :boolean, default: false
+            option :batch, desc: "run the given files and return",
+                           type: :boolean, default: false
             def console(*extra_files)
                 require "pry"
                 app = Roby.app
@@ -236,7 +238,7 @@ module Roby
                     extra_files.each do |path|
                         app.require(File.expand_path(path))
                     end
-                    pry # rubocop:disable Lint/Debugger
+                    pry unless options[:batch] # rubocop:disable Lint/Debugger
                 ensure
                     app.cleanup
                 end
