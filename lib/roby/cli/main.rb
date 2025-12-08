@@ -215,7 +215,7 @@ module Roby
             option :robot, aliases: "r", default: "default",
                            desc: "the robot name, separate name and type a comma"
             option :set, desc: "set configuration variable(s)",
-                         type: :array, default: []
+                         type: :array, default: [], repeatable: true
             option :single, desc: "do not contact any remote service",
                             type: :boolean, default: false
             def console(*extra_files)
@@ -226,7 +226,7 @@ module Roby
                 app.robot(*options[:robot].split(","))
                 app.single if options[:single]
 
-                options[:set].each do |v|
+                options[:set].flatten.each do |v|
                     app.argv_set << v
                     Roby::Application.apply_conf_from_argv(v)
                 end
