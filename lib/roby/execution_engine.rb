@@ -1796,10 +1796,6 @@ module Roby
             @application_exceptions = []
             @emitted_events = []
 
-            @thread_pool.send :synchronize do
-                @thread_pool.send(:ns_prune_pool)
-            end
-
             # Gather new events and propagate them
             events_errors = nil
             next_steps = gather_propagation do
