@@ -74,9 +74,14 @@ module Roby
             TIMEPOINT_GROUP_FORMAT = "timegroup %<name>s: %<duration>.3f - %<stats>s"
 
             TimepointGroupDisplay = Struct.new(
-                :matcher, :start_times, :stats, keyword_init: true
+                :matcher, :skip, :start_times, :stats, keyword_init: true
             ) do
                 def push(name, time)
+                    if skip > 0
+                        self.skip -= 1
+                        return
+                    end
+
                     unless (msg_stats = stats[name])
                         msg_stats = TimepointGroupStats.new(
                             fifo: [], ref: Time.now, total: 0,
@@ -108,9 +113,9 @@ module Roby
                 end
             end
 
-            def timegroup_display(matcher)
+            def timegroup_display(matcher, skip: 0)
                 @displayed_timegroups << TimepointGroupDisplay.new(
-                    matcher: matcher, stats: {}
+                    matcher: matcher, skip: skip, stats: {}
                 )
             end
 

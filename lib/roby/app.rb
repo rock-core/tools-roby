@@ -657,8 +657,20 @@ module Roby
                 "display on STDOUT information about timepoint groups whose name " \
                 "matches SPEC. Enclose with // to have the string interpreted as regexp"
             ) do |spec|
-                Roby.app.io_event_logger.timegroup_display(resolve_matcher_argument(spec))
+                matcher, arguments = resolve_timepoint_group_argument(spec)
+                Roby.app.io_event_logger.timegroup_display(
+                    resolve_matcher_argument(matcher), **arguments
+                )
             end
+        end
+
+        def self.resolve_timepoint_group_argument(spec)
+            matcher, *arguments_s = spec.split(",")
+            arguments = arguments_s.to_h do |arg_s|
+                k, v = arg_s.split("=")
+                [k.to_sym, JSON.parse(v)]
+            end
+            [matcher, arguments]
         end
 
         def self.common_optparse_add_stackprof(parser)
