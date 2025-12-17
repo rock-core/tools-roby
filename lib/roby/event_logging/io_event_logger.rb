@@ -18,8 +18,42 @@ module Roby
                 true
             end
 
+            # Configure the logger to display timepoints as they happen
+            #
+            # The method shows the time (with a ms resolution) and the name
+            #
+            # @param [#===] matcher an object against which the timepoint name will be
+            #   tested. Statistics will be shown for groups with matching names.
+            #   Generally a string or a regular expression.
+            #
+            # @see timegroup_display event_display
             def timepoint_display(name)
                 @displayed_timepoints << name
+            end
+
+            # Configure the logger to display statistics information about time groups
+            #
+            # @param [#===] matcher an object against which the timegroup name will be
+            #   tested. Statistics will be shown for groups with matching names.
+            #   Generally a string or a regular expression.
+            # @param [Integer] skip skip this many start/end cycles before starting to
+            #   gather statistics. Meant to "pass" a warmup period.
+            #
+            # @see timepoint_display event_display
+            def timegroup_display(matcher, skip: 0)
+                @displayed_timegroups << TimepointGroupDisplay.new(
+                    matcher: matcher, skip: skip, stats: {}
+                )
+            end
+
+            # Configure the logger to display events as they happen
+            #
+            # @param [#===] matcher an object against which the event name will be
+            #   tested, usually either a string or a regular expression
+            #
+            # @see timepoint_display timegroup_display
+            def event_display(matcher)
+                @displayed_events << matcher
             end
 
             TimepointGroupStats = Struct.new(
@@ -74,9 +108,18 @@ module Roby
             TIMEPOINT_GROUP_FORMAT = "timegroup %<name>s: %<duration>.3f - %<stats>s"
 
             TimepointGroupDisplay = Struct.new(
-                :matcher, :start_times, :stats, keyword_init: true
+                :matcher, :skip, :start_times, :stats, keyword_init: true
             ) do
+                # Add a group start event
+                #
+                # The event is queued (hence "pushed") to properly handle recursive
+                # calls
                 def push(name, time)
+                    if skip > 0
+                        self.skip -= 1
+                        return
+                    end
+
                     unless (msg_stats = stats[name])
                         msg_stats = TimepointGroupStats.new(
                             fifo: [], ref: Time.now, total: 0,
@@ -90,6 +133,7 @@ module Roby
                     msg_stats.fifo.push(time)
                 end
 
+                # Add a group end event
                 def update(name, time)
                     return unless (msg_stats = stats[name])
                     return unless (start_t = msg_stats.fifo.pop)
@@ -97,6 +141,7 @@ module Roby
                     msg_stats.update(time - start_t)
                 end
 
+                # Return the statistics message for the given timepoint
                 def message(name, _time)
                     return unless (msg_stats = stats[name])
 
@@ -106,16 +151,6 @@ module Roby
                         stats: msg_stats.to_s
                     )
                 end
-            end
-
-            def timegroup_display(matcher)
-                @displayed_timegroups << TimepointGroupDisplay.new(
-                    matcher: matcher, stats: {}
-                )
-            end
-
-            def event_display(matcher)
-                @displayed_events << matcher
             end
 
             Event = Struct.new :name, :time, :args do
@@ -139,12 +174,24 @@ module Roby
                 @displayed_events.any? { |matcher| matcher === name }
             end
 
+            # Called whenever there is a non-timepoint event
+            #
+            # @param [Symbol] name
+            # @param [Time] time
+            # @param [Array] args the event arguments
             def dump(name, time, args)
                 return unless display_event?(name)
 
                 display_event(name, time, args)
             end
 
+            # Called whenever there is a timepoint event
+            #
+            # @param [:timepoint,:timepoint_group_start,:timepoint_group_end] the
+            #   timepoint type
+            # @param [Time] time
+            # @param [Array] args the timepoint arguments, dependent on the timepoint
+            #   type
             def dump_timepoint(timepoint_event, time, args)
                 timepoint_name = args[-1]
                 case timepoint_event
@@ -153,53 +200,49 @@ module Roby
                         display_event(timepoint_name, time, [])
                     end
                 when :timepoint_group_start
-                    if (dis = find_timegroup_display(timepoint_name))
-                        dis.push(timepoint_name, time)
-                    end
+                    dump_timepoint_group_start(timepoint_name, time)
                 when :timepoint_group_end
-                    if (dis = find_timegroup_display(timepoint_name))
-                        dis.update(timepoint_name, time)
-                        @out.puts dis.message(timepoint_name, time)
-                    end
+                    dump_timepoint_group_end(timepoint_name, time)
                 end
             end
 
+            # @api private
+            #
+            # Helper for {#dump_timepoint} to handle timepoint group start events
+            def dump_timepoint_group_start(timepoint_name, time)
+                if (dis = find_timegroup_display(timepoint_name))
+                    dis.push(timepoint_name, time)
+                end
+
+                return unless dis || display_timepoint?(timepoint_name)
+
+                display_event("#{timepoint_name}:group-start", time, [])
+            end
+
+            # @api private
+            #
+            # Helper for {#dump_timepoint} to handle timepoint group end events
+            def dump_timepoint_group_end(timepoint_name, time)
+                if (dis = find_timegroup_display(timepoint_name))
+                    dis.update(timepoint_name, time)
+                    @out.puts dis.message(timepoint_name, time)
+                end
+
+                return unless dis || display_timepoint?(timepoint_name)
+
+                display_event("#{timepoint_name}:group-end", time, [])
+            end
+
+            # Tests whether the given timepoint name is selected for display
             def display_timepoint?(name)
                 name = name.to_s
                 @displayed_timepoints.any? { |m| m === name }
             end
 
+            # Looks for the timegroup display structure for the given group name
             def find_timegroup_display(name)
                 name = name.to_s
                 @displayed_timegroups.find { |d| d.matcher === name }
-            end
-
-            def push_timepoint_group_start(name, time)
-                (@timepoint_group_start[name] ||= []) << time
-            end
-
-            def pop_timepoint_group_start(name)
-                return unless (fifo = @timepoint_group_start[name])
-
-                time = fifo.pop
-                @timepoint_group_start.delete(name) if fifo.empty?
-                time
-            end
-
-            def display_timegroup(name, time)
-                unless (tic = pop_timepoint_group_start(name))
-                    @out.puts format(
-                        "time group %<name>s: cannot find start event",
-                        name: name
-                    )
-                    return
-                end
-
-                message = format(
-                    "time group %<name>s: %<duration>.3f",
-                    name: name, duration: time - tic
-                )
-                @out.puts message
             end
 
             def close; end

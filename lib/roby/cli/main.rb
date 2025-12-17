@@ -215,9 +215,11 @@ module Roby
             option :robot, aliases: "r", default: "default",
                            desc: "the robot name, separate name and type a comma"
             option :set, desc: "set configuration variable(s)",
-                         type: :array, default: []
+                         type: :array, default: [], repeatable: true
             option :single, desc: "do not contact any remote service",
                             type: :boolean, default: false
+            option :batch, desc: "run the given files and return",
+                           type: :boolean, default: false
             def console(*extra_files)
                 require "pry"
                 app = Roby.app
@@ -226,7 +228,7 @@ module Roby
                 app.robot(*options[:robot].split(","))
                 app.single if options[:single]
 
-                options[:set].each do |v|
+                options[:set].flatten.each do |v|
                     app.argv_set << v
                     Roby::Application.apply_conf_from_argv(v)
                 end
@@ -236,7 +238,7 @@ module Roby
                     extra_files.each do |path|
                         app.require(File.expand_path(path))
                     end
-                    pry # rubocop:disable Lint/Debugger
+                    pry unless options[:batch] # rubocop:disable Lint/Debugger
                 ensure
                     app.cleanup
                 end
