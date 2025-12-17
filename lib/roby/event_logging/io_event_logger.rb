@@ -245,34 +245,6 @@ module Roby
                 @displayed_timegroups.find { |d| d.matcher === name }
             end
 
-            def push_timepoint_group_start(name, time)
-                (@timepoint_group_start[name] ||= []) << time
-            end
-
-            def pop_timepoint_group_start(name)
-                return unless (fifo = @timepoint_group_start[name])
-
-                time = fifo.pop
-                @timepoint_group_start.delete(name) if fifo.empty?
-                time
-            end
-
-            def display_timegroup(name, time)
-                unless (tic = pop_timepoint_group_start(name))
-                    @out.puts format(
-                        "time group %<name>s: cannot find start event",
-                        name: name
-                    )
-                    return
-                end
-
-                message = format(
-                    "time group %<name>s: %<duration>.3f",
-                    name: name, duration: time - tic
-                )
-                @out.puts message
-            end
-
             def close; end
 
             def log_queue_size
