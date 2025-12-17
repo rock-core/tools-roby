@@ -100,19 +100,25 @@ module Roby
                 instance_eval(&block)
             end
 
+            FIND_THROUGH_METHOD_MISSING = {
+                "_event" => :find_event,
+                "_child" => :find_child_from_role
+            }.freeze
+
+            HAS_THROUGH_METHOD_MISSING = {
+                "_event" => :has_event?,
+                "_child" => :has_role?
+            }.freeze
+
             def find_through_method_missing(m, args)
                 MetaRuby::DSLs.find_through_method_missing(
-                    current_state_task, m, args,
-                    "_event" => :find_event,
-                    "_child" => :find_child_from_role
+                    current_state_task, m, args, FIND_THROUGH_METHOD_MISSING
                 ) || super
             end
 
             def has_through_method_missing?(m)
                 MetaRuby::DSLs.has_through_method_missing?(
-                    current_state_task, m,
-                    "_event" => :has_event?,
-                    "_child" => :has_role?
+                    current_state_task, m, HAS_THROUGH_METHOD_MISSING
                 ) || super
             end
 

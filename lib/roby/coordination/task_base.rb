@@ -46,23 +46,7 @@ module Roby
                 end
             end
 
-            def find_through_method_missing(m, args)
-                MetaRuby::DSLs.find_through_method_missing(
-                    self, m, args,
-                    "_child" => :find_child,
-                    "_port" => :find_port,
-                    "_event" => :find_event) || super
-            end
-
-            def has_through_method_missing?(m)
-                MetaRuby::DSLs.has_through_method_missing?(
-                    self, m,
-                    "_child" => :has_child?,
-                    "_port" => :has_port?,
-                    "_event" => :has_event?) || super
-            end
-
-            include MetaRuby::DSLs::FindThroughMethodMissing
+            MetaRuby::DSLs::FindThroughMethodMissing.standard(self, %w[child port event])
 
             def to_coordination_task(task_model)
                 model.to_coordination_task(task_model)
