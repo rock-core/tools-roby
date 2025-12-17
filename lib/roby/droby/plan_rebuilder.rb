@@ -344,7 +344,9 @@ module Roby
             def generator_emit_failed(time, generator, error)
                 generator = local_object(generator)
                 error = local_object(error)
-                generator.plan.failed_emissions << [time, generator, error]
+                if generator.plan.respond_to?(:failed_emssions)
+                  generator.plan.failed_emissions << [time, generator, error]
+                end
                 announce_event_propagation_update
                 [generator, error]
             end
