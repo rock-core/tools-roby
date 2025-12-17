@@ -200,23 +200,37 @@ module Roby
                         display_event(timepoint_name, time, [])
                     end
                 when :timepoint_group_start
-                    if (dis = find_timegroup_display(timepoint_name))
-                        dis.push(timepoint_name, time)
-                    end
-
-                    if dis || display_timepoint?(timepoint_name)
-                        display_event("#{timepoint_name}:group-start", time, [])
-                    end
+                    dump_timepoint_group_start(timepoint_name, time)
                 when :timepoint_group_end
-                    if (dis = find_timegroup_display(timepoint_name))
-                        dis.update(timepoint_name, time)
-                        @out.puts dis.message(timepoint_name, time)
-                    end
-
-                    if dis || display_timepoint?(timepoint_name)
-                        display_event("#{timepoint_name}:group-end", time, [])
-                    end
+                    dump_timepoint_group_end(timepoint_name, time)
                 end
+            end
+
+            # @api private
+            #
+            # Helper for {#dump_timepoint} to handle timepoint group start events
+            def dump_timepoint_group_start(timepoint_name, time)
+                if (dis = find_timegroup_display(timepoint_name))
+                    dis.push(timepoint_name, time)
+                end
+
+                return unless dis || display_timepoint?(timepoint_name)
+
+                display_event("#{timepoint_name}:group-start", time, [])
+            end
+
+            # @api private
+            #
+            # Helper for {#dump_timepoint} to handle timepoint group end events
+            def dump_timepoint_group_end(timepoint_name, time)
+                if (dis = find_timegroup_display(timepoint_name))
+                    dis.update(timepoint_name, time)
+                    @out.puts dis.message(timepoint_name, time)
+                end
+
+                return unless dis || display_timepoint?(timepoint_name)
+
+                display_event("#{timepoint_name}:group-end", time, [])
             end
 
             # Tests whether the given timepoint name is selected for display
