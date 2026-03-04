@@ -1375,6 +1375,71 @@ module Roby
                 end
             end
 
+            describe "global poll blocks" do
+                after do
+                    @disposable&.dispose
+                end
+
+                it "calls them at each execution cycle" do
+                    counter = 0
+                    @disposable =
+                        Roby::Test::ExecutionExpectations.poll { counter += 1 }
+
+                    expect_execution.to_run
+                    assert_equal 1, counter
+                    expect_execution.to_run
+                    assert_equal 2, counter
+                end
+
+                it "stops calling them after a dispose" do
+                    counter = 0
+                    disposable =
+                        Roby::Test::ExecutionExpectations.poll { counter += 1 }
+                    disposable.dispose
+
+                    expect_execution.to_run
+                    assert_equal 0, counter
+                end
+            end
+
+            describe "global exit allowed conditions" do
+                after do
+                    @disposable&.dispose
+                end
+
+                it "does exit on timeout even if the registered conditions are false" do
+                    @disposable =
+                        Roby::Test::ExecutionExpectations.exit_allowed_condition do
+                            false
+                        end
+
+                    tic = Time.now
+                    expect_execution
+                        .timeout(0.1)
+                        .to_run
+
+                    assert_operator(Time.now - tic, :>, 0.1)
+                end
+
+                it "does not stop even if all predicates are met, " \
+                   "until the allowed condition is true" do
+                    counter = 0
+                    @disposable =
+                        Roby::Test::ExecutionExpectations.exit_allowed_condition do
+                            counter == 5
+                        end
+
+                    tic = Time.now
+                    expect_execution
+                        .timeout(1)
+                        .poll { counter += 1 }
+                        .to_run
+
+                    assert_operator(Time.now - tic, :<, 1)
+                    assert_equal 5, counter
+                end
+            end
+
             def assert_predicate_ignores_framework_error(
                 execute: proc {}, predicates: proc {}
             )

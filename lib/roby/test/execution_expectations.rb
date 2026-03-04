@@ -548,6 +548,59 @@ module Roby
             # @param [Boolean] enable
             dsl_attribute :display_exceptions
 
+            @poll_blocks = []
+            @exit_allowed_conditions = []
+
+            # Sets up a block that will be used by the harness to decide whether it can
+            # exit the execution loop or not when all expectations have been
+            # met.
+            #
+            # This is meant to be used to integrate runtime services that are critical
+            # to the functioning of the expect_execution harness. Note that
+            # these conditions will be overriden when reaching the timeout.
+            #
+            # @see each_exit_allowed_condition
+            def self.exit_allowed_condition(&block)
+                @exit_allowed_conditions << block
+                Roby.disposable { @exit_allowed_conditions.delete(block) }
+            end
+
+            # Enumerates the blocks registered by {#after}
+            #
+            # This is meant to be used to integrate runtime services that are critical
+            # to the functioning of the expect_execution harness
+            #
+            # @see exit_allowed_condition
+            def self.each_exit_allowed_condition(&block)
+                @exit_allowed_conditions.each(&block)
+            end
+
+            # Whether the conditions registered with exit_allowed_condition are met
+            #
+            # The test harness' loop will not exit until that is the case
+            def meets_exit_allowed_conditions?
+                self.class.each_exit_allowed_condition.all? { _1.call(@test) }
+            end
+
+            # Sets up a block that will be called at each execution cycle and for all
+            # expectations
+            #
+            # This is meant to be used to integrate runtime services that are critical
+            # to the functioning of the expect_execution harness
+            #
+            # @see each_poll
+            def self.poll(&block)
+                @poll_blocks << block
+                Roby.disposable { @poll_blocks.delete(block) }
+            end
+
+            # Iterate over globally registered poll blocks
+            #
+            # @see poll
+            def self.each_poll_block(&block)
+                @poll_blocks.each(&block)
+            end
+
             # Setups a block that should be called at each execution cycle
             def poll(&block)
                 @poll_blocks << block
@@ -618,27 +671,8 @@ module Roby
                 engine = @plan.execution_engine
                 loop do
                     engine.start_new_cycle
-                    with_execution_engine_setup do
-                        propagation_info = engine.process_events(
-                            raise_framework_errors: false,
-                            garbage_collect_pass: @garbage_collect
-                        ) do
-                            @execute_blocks.delete_if do |b|
-                                b.call
-                                true
-                            end
-                            @poll_blocks.each(&:call)
-
-                            if engine.has_waiting_work?
-                                engine.process_waiting_work
-                                Thread.pass
-                            end
-                        end
-                        all_propagation_info.merge(propagation_info)
-
-                        exceptions = engine.cycle_end({}, raise_framework_errors: false)
-                        all_propagation_info.framework_errors.concat(exceptions)
-                    end
+                    propagation_info = verify_execute_one_cycle
+                    all_propagation_info.merge(propagation_info)
 
                     unmet = find_all_unmet_expectations(all_propagation_info)
                     unachievable = unmet.find_all do |expectation|
@@ -665,11 +699,48 @@ module Roby
                     elsif has_pending_execute_blocks?
                         next
                     elsif unmet.empty?
-                        break
+                        break if meets_exit_allowed_conditions?
                     elsif !@wait_until_timeout
                         break
                     end
                 end
+
+                verify_validate_final(all_propagation_info)
+
+                if @return_objects.respond_to?(:to_ary)
+                    compute_returned_objects(@return_objects)
+                else
+                    compute_returned_objects([@return_objects]).first
+                end
+            end
+
+            def verify_execute_one_cycle
+                engine = @plan.execution_engine
+                with_execution_engine_setup do
+                    propagation_info = engine.process_events(
+                        raise_framework_errors: false,
+                        garbage_collect_pass: @garbage_collect
+                    ) do
+                        @execute_blocks.delete_if do |b|
+                            b.call
+                            true
+                        end
+                        @poll_blocks.each(&:call)
+                        self.class.each_poll_block { _1.call(@test) }
+
+                        if engine.has_waiting_work?
+                            engine.process_waiting_work
+                            Thread.pass
+                        end
+                    end
+                    exceptions = engine.cycle_end({}, raise_framework_errors: false)
+                    propagation_info.framework_errors.concat(exceptions)
+                    propagation_info
+                end
+            end
+
+            def verify_validate_final(all_propagation_info)
+                engine = @plan.execution_engine
 
                 if @join_all_waiting_work && engine.has_waiting_work?
                     e = ExecutionEngine::JoinAllWaitingWorkTimeout.new(
@@ -682,15 +753,9 @@ module Roby
                 unmet = find_all_unmet_expectations(all_propagation_info)
                 raise Unmet.new(unmet, all_propagation_info) unless unmet.empty?
 
-                if @validate_unexpected_errors
-                    validate_has_no_unexpected_error(all_propagation_info)
-                end
+                return unless @validate_unexpected_errors
 
-                if @return_objects.respond_to?(:to_ary)
-                    compute_returned_objects(@return_objects)
-                else
-                    compute_returned_objects([@return_objects]).first
-                end
+                validate_has_no_unexpected_error(all_propagation_info)
             end
 
             # Process the value returned by the `.to { }` block to convert it to
