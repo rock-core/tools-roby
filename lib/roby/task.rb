@@ -1176,7 +1176,7 @@ module Roby
 
             check_arity(block, 1)
             @execute_handlers <<
-                InstanceHandler.new(block, (options[:on_replace] == :copy))
+                InstanceHandler.new(block, options[:on_replace] == :copy)
             ensure_poll_handler_called
         end
 
@@ -1194,7 +1194,7 @@ module Roby
             )
 
             check_arity(block, 1)
-            handler = InstanceHandler.new(block, (options[:on_replace] == :copy))
+            handler = InstanceHandler.new(block, options[:on_replace] == :copy)
             @poll_handlers << handler
             ensure_poll_handler_called
             Roby.disposable { @poll_handlers.delete(handler) }
