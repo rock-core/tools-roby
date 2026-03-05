@@ -1181,10 +1181,12 @@ module Roby
             STDOUT.sync = true
 
             load_base_config
-            unless @log_dir
-                find_and_create_log_dir
-                lock_log_dir
+            find_and_create_log_dir unless @log_dir
+            if Application.lockfile_present?(@log_dir)
+                raise "configured log directory already has a lockfile, " \
+                      "this should not happen"
             end
+            lock_log_dir
             setup_loggers(redirections: true)
 
             # Set up the loaded plugins
@@ -1210,9 +1212,27 @@ module Roby
             @lock_file = nil
         end
 
-        def self.log_dir_locked?(path)
+        # Tests whether the given folder has a lockfile created in it
+        def self.lockfile_present?(path)
+            File.exist?(File.join(path, LOCK_FILE_EXT))
+        end
+
+        # Checks if a path is currently locked by a Roby application
+        #
+        # The main mechanism is to check if there is a file lock on a file
+        # called {LOCK_FILE_EXT}.
+        #
+        # However, to handle the moment between log dir creation and the creation
+        # of this file, the method will return true if the file does not exist
+        # unless `strict` is true
+        #
+        # @param [String] path the folder path
+        # @param [Boolean] strict if false (the default), then the method returns
+        #   that a folder is locked when there is no lock file in it. Otherwise,
+        #   return true only if the lockfile exists and is locked
+        def self.log_dir_locked?(path, strict: false)
             lock_file_path = File.join(path, LOCK_FILE_EXT)
-            return true unless File.exist?(lock_file_path)
+            return !strict unless File.exist?(lock_file_path)
 
             File.open(lock_file_path, "r") do |file|
                 !file.flock(File::LOCK_SH | File::LOCK_NB)
