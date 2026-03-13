@@ -87,9 +87,9 @@ module Roby
             def pretty_print(pp)
                 pp.text "failed to start "
                 starting_task.pretty_print(pp)
-                pp.text "because it conflicts with #{running_tasks.size} running tasks"
+                pp.text " because it conflicts with #{running_tasks.size} running tasks"
                 pp.nest(2) do
-                    runnning_tasks.each do |t|
+                    running_tasks.each do |t|
                         pp.breakable
                         t.pretty_print(pp)
                     end
