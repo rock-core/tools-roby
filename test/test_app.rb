@@ -202,26 +202,26 @@ module Roby
                     refute threads.map(&:value).inject(:|)
                 end
 
-                it "expects dir to be locked if there is no .lock file" do
+                it "expects dir to be locked if there is no lock file" do
                     full_path = app.find_and_create_log_dir("tag")
 
-                    refute File.exist?(File.join(full_path, ".lock"))
+                    refute File.exist?(File.join(full_path, ".roby-logdir"))
                     assert Application.log_dir_locked?(full_path)
                 end
 
-                it "expects dir to be locked if .lock file exists and " \
+                it "expects dir to be locked if lock file exists and " \
                    "the lock was taken" do
                     full_path = app.find_and_create_log_dir("tag")
                     app.lock_log_dir
 
-                    assert File.exist?(File.join(full_path, ".lock"))
+                    assert File.exist?(File.join(full_path, ".roby-logdir"))
                     assert Application.log_dir_locked?(full_path)
                 end
 
-                it "expects dir to not be locked if .lock file exists but " \
+                it "expects dir to not be locked if lock file exists but " \
                    "lock was not taken" do
                     full_path = app.find_and_create_log_dir("tag")
-                    lock_file_path = File.join(full_path, ".lock")
+                    lock_file_path = File.join(full_path, ".roby-logdir")
                     File.write(lock_file_path, "")
 
                     assert File.exist?(lock_file_path)
