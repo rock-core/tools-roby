@@ -250,6 +250,30 @@ module Roby
 
                     refute Application.log_dir_locked?(full_path)
                 end
+
+                describe "during application setup" do
+                    it "creates and locks the log dir" do
+                        app.base_setup
+                        assert app.log_dir
+                        assert File.directory?(app.log_dir)
+                        assert Application.log_dir_locked?(app.log_dir)
+                    end
+                    it "raises if a lock file already exists" do
+                        dir = make_tmpdir
+                        app.log_dir = dir
+                        FileUtils.touch File.join(dir, Application::LOCK_FILE_EXT)
+                        assert_raises(RuntimeError) do
+                            app.base_setup
+                        end
+                    end
+                    it "keeps an already selected log dir and locks it" do
+                        dir = make_tmpdir
+                        app.log_dir = dir
+                        app.base_setup
+                        assert_equal dir, app.log_dir
+                        assert Application.log_dir_locked?(dir, strict: true)
+                    end
+                end
             end
 
             describe "#find_and_create_log_dir" do
