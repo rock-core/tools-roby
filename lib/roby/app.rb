@@ -2710,8 +2710,6 @@ module Roby
                 raise ArgumentError, "expected either :specific_first or :specific_last for the :order argument, but got #{options[:order]}"
             end
 
-            relative_paths = []
-
             base_dir_path = dir_path.dup
             base_dir_path.delete_if { |p| p =~ /ROBOT/ }
             relative_paths = [base_dir_path]

@@ -86,7 +86,7 @@ module Roby
                 @state_machines.each do |m|
                     m.on_transition do |_, new_state|
                         done ||= matchers.any? do
-                            (_1 === new_state.name)
+                            _1 === new_state.name
                         end
                     end
                 end
