@@ -932,7 +932,7 @@ module Roby
             "engine" => {}
         }.freeze
 
-        LOCK_FILE_EXT = ".lock"
+        LOCK_FILE_EXT = ".roby-logdir"
 
         # @!method public_rest_interface?
         # @!method public_rest_interface=(flag)
