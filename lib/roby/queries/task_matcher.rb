@@ -510,7 +510,7 @@ module Roby
                     positive_sets << initial_set
                 end
 
-                negative = negative_sets.shift || Set.new
+                negative = negative_sets.shift
                 unless negative_sets.empty?
                     negative = negative.dup
                     negative_sets.each { |set| negative.merge(set) }
@@ -521,7 +521,7 @@ module Roby
                 result = Set.new
                 result.compare_by_identity
                 positive_sets.shift.each do |obj|
-                    next if negative.include?(obj)
+                    next if negative&.include?(obj)
 
                     result.add(obj) if positive_sets.all? { |set| set.include?(obj) }
                 end
