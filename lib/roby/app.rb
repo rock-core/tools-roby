@@ -1183,7 +1183,7 @@ module Roby
             load_base_config
             find_and_create_log_dir unless @log_dir
             if Application.lockfile_present?(@log_dir)
-                raise "configured log directory already has a lockfile, " \
+                raise "configured log directory #{@log_dir} already has a lockfile, " \
                       "this should not happen"
             end
             lock_log_dir
@@ -1200,7 +1200,8 @@ module Roby
             temp_lock_path = "#{final_lock_path}.tmp"
             lock_file = File.open(temp_lock_path, File::RDWR | File::CREAT, 0o644)
             unless lock_file.flock(File::LOCK_EX | File::LOCK_NB)
-                raise "could not lock the log directory on setup"
+                raise "could not lock the log directory on setup " \
+                      "(lock file: #{lock_file})"
             end
 
             File.rename(temp_lock_path, final_lock_path)
