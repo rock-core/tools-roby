@@ -492,11 +492,18 @@ module Roby
             # If {#indexed_query?} is true, the result is required to be exact
             # (i.e. return exactly all tasks in initial_set that match the query)
             #
-            # @param [Set] initial_set
+            # @param [Set] initial_set an initial set that has to be a superset
+            #   of the query's answer. It is commonly the set of all the tasks
             # @param [Index] index
-            # @return [([Set],[Set])] a list of 'positive' sets and a list of 'negative'
-            #    sets. The result is computed as
-            #    positive.inject(&:&) - negative.inject(&:|)
+            # @param [Boolean] initial_is_complete if true, indicates that the
+            #   `initial_set` is the set of all the tasks this query
+            #   might return. If false, it is a subset of the complete set. This
+            #   is used as an optimization to avoid computing an intersection with
+            #   the "all" set.
+            # @return [Set] the set of tasks computed on the basis of the index.
+            #   If the query is fully indexed ({#indexed_query?} returns true), this
+            #   is the answer to the query. Otherwise, it is a superset of the answer
+            #   and needs to be filtered linearly
             def filter_tasks_sets(initial_set, index, initial_is_complete: false)
                 positive_sets, negative_sets = indexed_sets(index)
                 if !initial_is_complete || positive_sets.empty?

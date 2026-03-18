@@ -415,7 +415,12 @@ module Roby
 
             @instantiated_model_events = false
 
-            # Create all event generators
+            # Events are NOT copied by task.dup. In fact, you should not use
+            # task.dup at all.
+            #
+            # Proper copies are made via Plan#deep_copy_to or transaction proxies.
+            # Alternatives is to create a new task and replace the old by the
+            # new.
             @bound_events = {}
             @execute_handlers = old.execute_handlers.dup
             @poll_handlers = old.poll_handlers.dup
