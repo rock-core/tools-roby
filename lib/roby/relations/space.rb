@@ -44,7 +44,7 @@ module Roby
                     if k
                         if k.kind_of?(Class)
                             known_relations = h.each_key.find_all { |rel| rel.kind_of?(Class) }
-                                               .map { |o| o.name.to_s }.join(", ")
+                                                        .map { |o| o.name.to_s }.join(", ")
                             raise ArgumentError,
                                   "#{k} is not a known relation (known relations "\
                                   "are #{known_relations})"
@@ -213,7 +213,6 @@ module Roby
                             noinfo:      false,
                             subsets:     Set.new,
                             **submodel_options)
-
                 if block_given?
                     raise ArgumentError, "calling relation with a block is not supported anymore. Reopen #{const_name}::Extension after the relation call to add helper methods"
                 elsif strong && weak

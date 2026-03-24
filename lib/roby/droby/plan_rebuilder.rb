@@ -128,7 +128,7 @@ module Roby
                         case obj
                         when NilClass then "nil"
                         when Time then obj.to_hms
-                        else (obj.to_s rescue "failed_to_s")
+                        else obj.to_s rescue "failed_to_s"
                         end
                     end
 

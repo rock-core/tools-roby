@@ -295,7 +295,7 @@ module Roby
                 dot_layout.each do |line|
                     line.chomp!
                     full_line << line.strip
-                    if line[-1] == "\\" || line[-1] == ","
+                    if ["\\", ","].include?(line[-1])
                         full_line.chomp!
                         next
                     end

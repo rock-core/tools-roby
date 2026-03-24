@@ -1539,7 +1539,7 @@ module Roby
 
             unhandled_errors = finished.find_all do |work|
                 work.rejected? &&
-                    (work.respond_to?(:handled_error?) && !work.handled_error?)
+                    work.respond_to?(:handled_error?) && !work.handled_error?
             end
 
             unhandled_errors.each do |work|
@@ -1574,7 +1574,6 @@ module Roby
                            handled_errors = [],
                            inhibited_errors = [],
                            framework_errors = [])
-
                 self.called_generators  = called_generators.to_set
                 self.emitted_events     = emitted_events.to_set
                 self.kill_tasks         = kill_tasks.to_set
