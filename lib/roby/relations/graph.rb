@@ -114,7 +114,6 @@ module Roby
                 noinfo: !self.class.embeds_info?,
                 subsets: Set.new
             )
-
                 @observer = observer
                 @distribute = distribute
                 @dag = dag
