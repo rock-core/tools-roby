@@ -437,6 +437,14 @@ module Roby
                         e = transfer(e)
                         assert_equal [r_exceptions], e.original_exceptions
                     end
+
+                    it "marshals a conflict error" do
+                        starting_task, r_starting_task = create_task_pair
+                        running_task, r_running_task = create_task_pair
+                        e = TaskStructure::ConflictError.new(starting_task, [running_task])
+                        e = transfer(e)
+                        assert_equal TaskStructure::ConflictError, e.exception_class
+                    end
                 end
 
                 describe ExecutionExceptionDumper do

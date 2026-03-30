@@ -77,19 +77,20 @@ module Roby
         #
         # Note that it is not an exception as a failed conflict is usually
         # handled by calling #failed_to_start! on the newly started task
-        class ConflictError
+        class ConflictError < Roby::LocalizedError
             attr_reader :starting_task, :running_tasks
 
             def initialize(starting_task, running_tasks)
+                super(starting_task)
                 @starting_task, @running_tasks = starting_task, running_tasks
             end
 
             def pretty_print(pp)
                 pp.text "failed to start "
                 starting_task.pretty_print(pp)
-                pp.text "because it conflicts with #{running_tasks.size} running tasks"
+                pp.text " because it conflicts with #{running_tasks.size} running tasks"
                 pp.nest(2) do
-                    runnning_tasks.each do |t|
+                    running_tasks.each do |t|
                         pp.breakable
                         t.pretty_print(pp)
                     end
