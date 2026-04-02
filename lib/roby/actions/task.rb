@@ -101,6 +101,9 @@ module Roby
                 # owners, do it
                 transaction.propose
                 transaction.commit_transaction
+                # Transactions are pretty big objects ... make sure we let the GC
+                # remove them
+                @transaction = nil
                 @result = result_task
                 success_event.emit
             end
