@@ -286,6 +286,19 @@ module Roby
                     assert_equal File.join(app.log_base_dir, "tag"), full_path
                     assert File.directory?(full_path)
                 end
+
+                it "ensures that concurrent calls result in a unique dirname" do
+                    dir1 = Dir::Tmpname.create("") {}
+                    dir2 = Dir::Tmpname.create("") {}
+                    flexmock(Roby::Application).should_receive(:unique_dirname)
+                                               .and_return(dir1, dir1, dir2)
+                    result1 = app.find_and_create_log_dir
+                    result2 = app.find_and_create_log_dir
+
+                    assert_equal dir1, result1
+                    assert_equal dir2, result2
+                end
+
                 it "saves the app metadata in the path" do
                     app.find_and_create_log_dir("tag")
                     metadata = YAML.load(File.read(File.join(app.log_base_dir, "tag", "info.yml")))
