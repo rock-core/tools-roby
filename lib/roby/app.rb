@@ -1723,9 +1723,11 @@ module Roby
 
             loop do
                 log_dir  = Roby::Application.unique_dirname(base_dir, "", time_tag)
-                new_dirs = []
+                # the log dir itself MUST have been created by us. Make sure it is in
+                # new_dirs to get it tested in the mkdir loop below
+                new_dirs = [log_dir]
 
-                dir = log_dir
+                dir = File.dirname(log_dir)
                 until File.directory?(dir)
                     new_dirs << dir
                     dir = File.dirname(dir)
