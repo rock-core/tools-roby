@@ -25,7 +25,7 @@ module Roby
             def teardown
                 app.stop_log_server
                 app.stop_shell_interface
-                app.cleanup
+                app.cleanup if app.base_setup_done?
                 kill_spawned_pids
                 super
             end
