@@ -579,7 +579,7 @@ module Roby
             #
             # The test harness' loop will not exit until that is the case
             def meets_exit_allowed_conditions?
-                self.class.each_exit_allowed_condition.all? { _1.call(@test) }
+                self.class.each_exit_allowed_condition.all? { _1.call(@test, @plan) }
             end
 
             # Sets up a block that will be called at each execution cycle and for all
@@ -595,6 +595,9 @@ module Roby
             end
 
             # Iterate over globally registered poll blocks
+            #
+            # @yieldparam [Object] test the test suite
+            # @yieldparam [ExecutablePlan] test the plan that is being executed
             #
             # @see poll
             def self.each_poll_block(&block)
@@ -726,7 +729,7 @@ module Roby
                             true
                         end
                         @poll_blocks.each(&:call)
-                        self.class.each_poll_block { _1.call(@test) }
+                        self.class.each_poll_block { _1.call(@test, @plan) }
 
                         if engine.has_waiting_work?
                             engine.process_waiting_work
