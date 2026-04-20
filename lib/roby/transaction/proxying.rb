@@ -88,8 +88,24 @@ module Roby
             # Returns a module that, when used to extend an object, will forward all
             # the calls to the object's @__getobj__
             def self.forwarder_module_for(klass)
-                klass.transaction_forwarder_module ||=
-                    create_forwarder_module(klass.instance_methods(true))
+                if (m = klass.transaction_forwarder_module)
+                    return m
+                end
+
+                methods = klass.instance_methods(true)
+                parent_class = klass.superclass
+                if parent_class.respond_to?(:transaction_forwarder_module)
+                    parent_module = forwarder_module_for(parent_class)
+                    methods -= parent_class.instance_methods(true)
+                end
+
+                if methods.empty?
+                    klass.transaction_forwarder_module = parent_module || Module.new
+                else
+                    mod = create_forwarder_module(methods)
+                    mod.include(parent_module) if parent_module
+                    klass.transaction_forwarder_module = mod
+                end
             end
 
             attr_reader :__getobj__
