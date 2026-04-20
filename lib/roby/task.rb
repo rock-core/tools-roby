@@ -411,7 +411,6 @@ module Roby
 
             @arguments = TaskArguments.new(self)
             arguments.force_merge! old.arguments
-            arguments.instance_variable_set(:@task, self)
 
             @instantiated_model_events = false
 
