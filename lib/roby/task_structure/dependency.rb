@@ -13,6 +13,8 @@ module Roby
             def initialize(observer: nil)
                 super(observer: observer)
                 @interesting_events = []
+                @watched_emissions = Set.new
+                @watched_unreachability = Set.new
                 @failing_tasks = Set.new
             end
 
@@ -21,6 +23,13 @@ module Roby
             # Updates the dependency internal data to trigger errors / success when
             # relevant events are emitted
             def update_triggers_for(parent, child, info)
+                # Transactions and template plans are re-triggering this
+                #
+                # This makes sure that the graph objects are stable and that handlers
+                # won't be duplicated (we assume executable plans won't be deep-copied
+                # into other plans)
+                return unless parent.plan.kind_of?(Roby::ExecutablePlan)
+
                 events = Set.new
                 if info[:success]
                     for event_name in info[:success].required_events
@@ -34,24 +43,44 @@ module Roby
                     end
                 end
 
-                unless events.empty?
-                    parent.start_event.on(on_replace: :drop) do |ev|
-                        ev.plan.task_relation_graph_for(self.class).interesting_events << ev.generator
-                    end
-                    events.each do |e|
-                        e.if_unreachable do |reason, ev|
-                            # The actualy graph of 'ev' might be different than self
-                            # ... re-resolve
-                            ev.plan.task_relation_graph_for(self.class).interesting_events << ev
-                        end
-                        e.on(on_replace: :drop) do |ev|
-                            ev.plan.task_relation_graph_for(self.class).interesting_events << ev.generator
-                        end
-                    end
-                end
-
                 # Initial triggers
                 failing_tasks << child
+
+                return if events.empty?
+
+                watch_emission(parent.start_event)
+                events.each do |e|
+                    watch_emission(e)
+                    watch_unreachability(e)
+                end
+            end
+
+            def watching_emissions?(generator)
+                @watched_emissions.include?(generator)
+            end
+
+            def watching_unreachability?(generator)
+                @watched_unreachability.include?(generator)
+            end
+
+            def watch_emission(generator)
+                return unless @watched_emissions.add?(generator)
+
+                generator.on(on_replace: :drop) do |ev|
+                    interesting_events << ev.generator
+                end
+                generator.if_unreachable do |reason, g|
+                    @watched_emissions.delete(generator)
+                end
+            end
+
+            def watch_unreachability(generator)
+                return unless @watched_unreachability.add?(generator)
+
+                generator.if_unreachable do |reason, g|
+                    interesting_events << g
+                    @watched_unreachability.delete(generator)
+                end
             end
 
             def self.merge_fullfilled_model(model, required_models, required_arguments)
