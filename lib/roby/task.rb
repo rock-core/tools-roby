@@ -426,6 +426,8 @@ module Roby
             if m = old.instance_variable_get(:@fullfilled_model)
                 @fullfilled_model = m.dup
             end
+
+            @history = @history.dup
         end
 
         def plan=(new_plan) # :nodoc:
