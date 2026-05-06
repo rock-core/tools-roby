@@ -57,8 +57,16 @@ Rake::TestTask.new("test:core") do |t|
             .exclude("test/app/test_run.rb")
             .exclude("test/interface/async/test_interface.rb")
     end
-    test_files = test_files.exclude("test/test_gui.rb") unless has_gui
+    test_files = test_files.exclude("test/test_gui.rb")
     t.test_files = test_files
+    t.warning = false
+end
+
+Rake::TestTask.new("test:ui") do |t|
+    t.libs << "."
+    t.libs << "lib"
+    minitest_set_options(t, "core")
+    t.test_files = FileList["test/test_gui.rb"]
     t.warning = false
 end
 
@@ -79,6 +87,7 @@ Rake::TestTask.new("test:interface:v2") do |t|
 end
 
 task "test" => "test:core"
+task "test" => "test:ui" if has_gui
 task "test" => "test:interface:v2"
 
 task "rubocop" do
@@ -107,7 +116,7 @@ task :uic do
     raise "uic generation failed" if failed
 end
 task "compile" => "uic"
-task "test:core" => "uic" if has_gui
+task "test:ui" => "uic"
 
 YARD::Rake::YardocTask.new
 task "doc" => "yard"

@@ -149,7 +149,8 @@ module Roby
 
         # Pretty-prints this argument set
         def pretty_print(pp)
-            pp.seplist(values) do |keyvalue|
+            v = values.sort_by(&:first)
+            pp.seplist(v) do |keyvalue|
                 key, value = *keyvalue
                 pp.text "#{key}: "
                 value.pretty_print(pp)
