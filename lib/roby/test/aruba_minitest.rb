@@ -33,8 +33,29 @@ module Roby
             end
 
             def teardown
+                @interface_server&.close
                 stop_all_commands
                 super
+            end
+
+            def run_roby_environment
+                { "ROBY_PLUGIN_PATH" => @roby_plugin_path.join(":") }
+            end
+
+            # Create a TCPServer to be used as the underlying's `roby run` server
+            #
+            # @return [Integer] the file descriptor number to be passed to --interface-fd
+            def roby_allocate_interface_server
+                raise "interface server already allocated" if @interface_server
+
+                @interface_server = ::TCPServer.new(0)
+                @interface_server.fileno
+            end
+
+            # Port of the interface server allocated with
+            # {#roby_allocate_interface_server}
+            def roby_interface_port
+                @interface_server.local_address.ip_port
             end
 
             def roby_allocate_port
@@ -57,6 +78,10 @@ module Roby
                 @aruba_api.run_command(cmd, opts)
             end
 
+            # Run a subcommand of the `roby` CLI and wait for it to stop
+            #
+            # @param [String] cmd the command (e.g. quit --retry)
+            # @return [Aruba::Command] the aruba command object
             def run_roby_and_stop(
                 cmd, *args, fail_on_error: true, exit_timeout: 45, **opts
             )
@@ -65,10 +90,63 @@ module Roby
                                      fail_on_error: fail_on_error, **opts)
             end
 
-            def run_roby(cmd, *args, fail_on_error: true, exit_timeout: 45, **opts)
+            # Run a subcommand of the `roby` CLI
+            #
+            # @param [String] cmd the command (e.g. quit --retry)
+            # @return [Aruba::Command] the aruba command object
+            def run_roby(cmd, fail_on_error: true, exit_timeout: 45, **opts)
                 opts[:exit_timeout] ||= exit_timeout
-                run_command("#{Gem.ruby} #{roby_bin} #{cmd}", *args,
+                run_command("#{Gem.ruby} #{roby_bin} #{cmd}",
                             fail_on_error: fail_on_error, **opts)
+            end
+
+            # Run `roby run`
+            #
+            # Unlike calling `run_roby` directly, it sets up the --interface-fd argument
+            # properly if {#roby_allocate_interface_server} has been called
+            def run_roby_run(cmd = "", interface_version: 1, forwarded_ios: [], **opts)
+                if @interface_server
+                    arg =
+                        if interface_version == 1
+                            "--interface-fd"
+                        else
+                            "--interface-v2-fd"
+                        end
+
+                    cmd = "--interface-versions=#{interface_version} " \
+                          "#{arg}=#{@interface_server.fileno} #{cmd}"
+
+                    forwarded_ios += [@interface_server.fileno]
+                end
+
+                run_roby("run #{cmd}", forwarded_ios: forwarded_ios, **opts)
+            end
+
+            # @api private
+            #
+            # Command line arguments to connect to a Roby instance
+            def roby_client_args(interface_version)
+                "--host=localhost:#{roby_interface_port} " \
+                    "--interface-version=#{interface_version}"
+            end
+
+            # Run a Roby CLI command that requires to connect to a Roby instance
+            #
+            # The command expects the interface itself to have been generated using
+            # {#roby_allocate_interface_server}
+            def run_roby_client(cmd, *args, interface_version: 1, **opts)
+                run_roby("#{cmd} #{roby_client_args(interface_version)}", *args, **opts)
+            end
+
+            # Run a Roby CLI command that requires to connect to a Roby instance, and
+            # wait for it to stop
+            #
+            # The command expects the interface itself to have been generated using
+            # {#roby_allocate_interface_server}
+            def run_roby_client_and_stop(cmd, *args, interface_version: 1, **opts)
+                run_roby_and_stop(
+                    "#{cmd} #{roby_client_args(interface_version)}", *args, **opts
+                )
             end
 
             def respond_to_missing?(name, include_private = false)
