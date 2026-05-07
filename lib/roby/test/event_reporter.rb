@@ -68,16 +68,22 @@ module Roby
                 dump(event, time, *args)
             end
 
+            Event = Struct.new :name, :thread, :time, :args, keyword_init: true
+
             # This is the API used by Roby to actually log events
             def dump(m, time, args)
-                received_events << [m, time, args]
+                event = Event.new(name: m, thread: Thread.current, time: time, args: args)
+                received_events << event
                 return unless enabled? && matches_filter?(m)
 
                 @io.puts "#{time.to_hms} #{m}(#{args.map(&:to_s).join(', ')})"
             end
 
             def has_received_event?(expected_m, *expected_args)
-                received_events.any? do |m, _, args|
+                received_events.any? do |event|
+                    m = event.name
+                    args = event.args
+
                     if args.size == expected_args.size
                         [m, *args].zip([expected_m, *expected_args]).all? do |v, expected|
                             expected === v
