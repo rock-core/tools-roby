@@ -79,6 +79,21 @@ module Roby
                 filters.each { |f| @event_reporter.filter(f) }
             end
 
+            # Record log events that are being emitted within the block and return them
+            #
+            # @return [Array<EventReporter::Event>]
+            def record_events
+                recorder = EventReporter.new(STDOUT)
+                plan_dispose = @plan.event_logger.add(recorder)
+                ee_dispose = @plan.execution_engine.event_logger.add(recorder)
+
+                yield
+                recorder.received_events
+            ensure
+                plan_dispose&.dispose
+                ee_dispose&.dispose
+            end
+
             def teardown
                 begin
                     super
