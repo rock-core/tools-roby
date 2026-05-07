@@ -14,7 +14,7 @@ module Roby
                 @enabled = enabled
                 @filters = []
                 @filters_out = []
-                @received_events = []
+                @received_events = Concurrent::Array.new
                 @log_timepoints = log_timepoints
             end
 
