@@ -1006,7 +1006,7 @@ module Roby
             new_relations = []
             removed_relations = []
             relation_graphs.each do |graph|
-                next if graph.strong?
+                next if graph.ignore_in_replacement?
 
                 resolved_mappings = {}
                 resolved_mappings.compare_by_identity

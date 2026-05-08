@@ -1439,7 +1439,7 @@ module Roby
             parent_tasks = Set.new
             parent_tasks.compare_by_identity
             plan.each_task_relation_graph do |g|
-                next if g.strong? || filter.excluded_graph?(g)
+                next if g.ignore_in_replacement? || filter.excluded_graph?(g)
 
                 rel = g.class
                 next if filter.excluded_relation?(rel)
@@ -1479,7 +1479,7 @@ module Roby
             end
 
             plan.each_event_relation_graph do |g|
-                next if g.strong? || filter.excluded_graph?(g)
+                next if g.ignore_in_replacement? || filter.excluded_graph?(g)
 
                 rel = g.class
                 next if filter.excluded_relation?(rel)

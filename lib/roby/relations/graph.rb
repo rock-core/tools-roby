@@ -52,6 +52,10 @@ module Roby
             # bit-by-bit. I.e. {Plan#replace_task} will never remove one of those relations
             # and quarantine code will keep them as well.
             #
+            # In practice, strong relations that have copy_on_replace set to false are
+            # totally ignored during replacement. Set copy_on_replace: true to have them
+            # copied.
+            #
             # Examples are error handling or execution agent relations
             def strong?
                 @strong
@@ -68,6 +72,13 @@ module Roby
             # moved. The default is to move.
             def copy_on_replace?
                 @copy_on_replace
+            end
+
+            # Whether this relation should be ignored during replacements
+            #
+            # This is a predicate computed from {#strong?} and {#copy_on_replace?}
+            def ignore_in_replacement?
+                strong? && !copy_on_replace?
             end
 
             # The relation parent (if any)
