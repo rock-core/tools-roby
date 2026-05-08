@@ -2188,6 +2188,30 @@ module Roby
             end
         end
 
+        # Standardized way to log a call
+        #
+        # Call with the event name and a block that implements the call. A typical
+        # use-case is some remote blocking call
+        #
+        # It emits log events with the given name and either :calling, :success or :failed
+        # as first argument. The rest of the event payload is give in `params`
+        #
+        # @param [Symbol] event_name name of the generated event
+        # @param [Array<String>] params list of parameters that should be added to the
+        #   log event to describe it
+        # @return the value returned by the block
+        def log_call(event_name, *params)
+            log(event_name, :calling, *params)
+            begin
+                ret = yield
+                log(event_name, :success, *params)
+                ret
+            rescue StandardError
+                log(event_name, :failed, *params)
+                raise
+            end
+        end
+
         # Set of blocks called with log events
         #
         # @param [Symbol] on_error one of :ignore, :disable or :raise, see
