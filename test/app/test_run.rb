@@ -11,13 +11,10 @@ module Roby
         include Test::ArubaMinitest
 
         (1..2).each do |interface_version|
-            before do
-                @roby_app_interface_version = interface_version
-            end
-
             describe "with remote interface v#{interface_version}" do
                 before do
-                    @interface_ports = [nil, roby_allocate_port, roby_allocate_port]
+                    @roby_app_interface_version = interface_version
+                    roby_allocate_interface_server
                 end
 
                 describe "robot argument" do
@@ -36,9 +33,9 @@ module Roby
                                 puts "Roby.app.robot_type=\#{Roby.app.robot_type}"
                             DISPLAY
 
-                            cmd = run_roby "run -r somename -c"
-                            run_roby_and_stop "wait"
-                            run_roby_and_stop "quit"
+                            cmd = run_roby_run("-r somename -c")
+                            run_roby_client_and_stop "wait"
+                            run_roby_client_and_stop "quit"
 
                             assert_match(/^Roby.app.robot_name=somename$/, cmd.stdout)
                             assert_match(/^Roby.app.robot_type=somename$/, cmd.stdout)
@@ -50,9 +47,9 @@ module Roby
                                 puts "Roby.app.robot_type=\#{Roby.app.robot_type}"
                             DISPLAY
 
-                            cmd = run_roby "run -r somename,sometype -c"
-                            run_roby_and_stop "wait"
-                            run_roby_and_stop "quit"
+                            cmd = run_roby_run "-r somename,sometype -c"
+                            run_roby_client_and_stop "wait"
+                            run_roby_client_and_stop "quit"
 
                             assert_match(/^Roby.app.robot_name=somename$/, cmd.stdout)
                             assert_match(/^Roby.app.robot_type=sometype$/, cmd.stdout)
@@ -65,9 +62,9 @@ module Roby
                                 puts "Roby.app.robot_type=\#{Roby.app.robot_type}"
                             DISPLAY
 
-                            cmd = run_roby "run -r somename,sometype -c"
-                            run_roby_and_stop "wait"
-                            run_roby_and_stop "quit"
+                            cmd = run_roby_run "-r somename,sometype -c"
+                            run_roby_client_and_stop "wait"
+                            run_roby_client_and_stop "quit"
 
                             assert_match(/^Roby.app.robot_name=somename$/, cmd.stdout)
                             assert_match(/^Roby.app.robot_type=sometype$/, cmd.stdout)
@@ -75,16 +72,16 @@ module Roby
                     end
 
                     it "stops on CTRL+C" do
-                        cmd = run_roby "run"
-                        run_roby_and_stop "wait"
+                        cmd = run_roby_run
+                        run_roby_client_and_stop "wait"
                         cmd.send_signal "INT"
                         cmd.wait
                     end
 
                     describe "setup of the remote shell interface" do
                         it "sets up a shell interface by default" do
-                            cmd = run_roby "run"
-                            run_roby_and_stop "wait"
+                            cmd = run_roby_run
+                            run_roby_client_and_stop "wait"
                             cmd.send_signal "INT"
                             cmd.wait
                         end
@@ -102,7 +99,7 @@ module Roby
                             end
                         DISPLAY
 
-                        cmd = run_roby "run -rsomename -c"
+                        cmd = run_roby_run "-rsomename -c"
                         wait_for_output(cmd, :stdout) { |out| out.match?(/TASK STARTED/) }
                         cmd.send_signal "INT"
                         cmd.stop
@@ -111,7 +108,8 @@ module Roby
 
                     it "raises if configuration files exist in config/robots/ "\
                        "and the robot name does not match one" do
-                        cmd = run_roby_and_stop "run -r somename", fail_on_error: false
+                        cmd = run_roby_run "-r somename", fail_on_error: false
+                        cmd.stop
                         assert_equal 1, cmd.exit_status
 
                         assert_match(/somename is neither a robot name, nor an alias/,
@@ -128,9 +126,9 @@ module Roby
 
                         it "uses the files in config/robots/ to determine the list of "\
                            "available names" do
-                            cmd = run_roby "run -r somename"
-                            run_roby_and_stop "wait"
-                            run_roby_and_stop "quit"
+                            cmd = run_roby_run "-r somename"
+                            run_roby_client_and_stop "wait"
+                            run_roby_client_and_stop "quit"
 
                             assert_match(/^Roby.app.robot_name=somename$/, cmd.stdout)
                             assert_match(/^Roby.app.robot_type=somename$/, cmd.stdout)
@@ -143,9 +141,9 @@ module Roby
                                         somename: sometype
                             APPYML
 
-                            cmd = run_roby "run -r somename"
-                            run_roby_and_stop "wait"
-                            run_roby_and_stop "quit"
+                            cmd = run_roby_run "-r somename"
+                            run_roby_client_and_stop "wait"
+                            run_roby_client_and_stop "quit"
 
                             assert_match(/^Roby.app.robot_name=somename$/, cmd.stdout)
                             assert_match(/^Roby.app.robot_type=sometype$/, cmd.stdout)
@@ -157,9 +155,9 @@ module Roby
                                     default_robot: somename
                             APPYML
 
-                            cmd = run_roby "run"
-                            run_roby_and_stop "wait"
-                            run_roby_and_stop "quit"
+                            cmd = run_roby_run
+                            run_roby_client_and_stop "wait"
+                            run_roby_client_and_stop "quit"
 
                             assert_match(/^Roby.app.robot_name=somename$/, cmd.stdout)
                             assert_match(/^Roby.app.robot_type=somename$/, cmd.stdout)
@@ -173,9 +171,9 @@ module Roby
                                         somename: sometype
                             APPYML
 
-                            cmd = run_roby "run"
-                            run_roby_and_stop "wait"
-                            run_roby_and_stop "quit"
+                            cmd = run_roby_run
+                            run_roby_client_and_stop "wait"
+                            run_roby_client_and_stop "quit"
 
                             assert_match(/^Roby.app.robot_name=somename$/, cmd.stdout)
                             assert_match(/^Roby.app.robot_type=sometype$/, cmd.stdout)
@@ -187,113 +185,110 @@ module Roby
                     include Roby::Test::RobyAppHelpers
 
                     it "terminates if given an invalid model script" do
-                        out, = capture_subprocess_io do
-                            dir = roby_app_setup_single_script
-                            pid = roby_app_spawn("run", "does_not_exist.rb", chdir: dir)
-                            status = assert_roby_app_exits(pid)
-                            assert_equal 1, status.exitstatus
-                        end
+                        dir = roby_app_setup_single_script
+                        cmd = run_roby_run("does_not_exist.rb", working_directory: dir)
+                        cmd.stop
+                        assert_equal 1, cmd.exit_status
                         assert_match(
                             Regexp.new("does_not_exist.rb, given as a model script "\
-                                       "on the command line, does not exist"), out
+                                       "on the command line, does not exist"), cmd.stdout
                         )
                     end
 
                     it "terminates if given an invalid action" do
-                        out, = capture_subprocess_io do
-                            dir = roby_app_setup_single_script
-                            pid = roby_app_spawn("run", "does_not_exist", chdir: dir)
-                            status = assert_roby_app_exits(pid)
-                            assert_equal 1, status.exitstatus
-                        end
+                        dir = roby_app_setup_single_script
+                        cmd = run_roby_run("does_not_exist", working_directory: dir)
+                        cmd.stop
+                        assert_equal 1, cmd.exit_status
                         assert_match(
                             Regexp.new("does_not_exist, given as an action on "\
-                                       "the command line, does not exist"), out
+                                       "the command line, does not exist"), cmd.stdout
                         )
                     end
 
                     it "terminates if given an invalid controller file" do
-                        out, = capture_subprocess_io do
-                            dir = roby_app_setup_single_script
-                            pid = roby_app_spawn(
-                                "run", "--", "does_not_exist.rb", chdir: dir
-                            )
-                            status = assert_roby_app_exits(pid)
-                            assert_equal 1, status.exitstatus
-                        end
+                        dir = roby_app_setup_single_script
+                        cmd = run_roby_run(
+                            "-- does_not_exist.rb", working_directory: dir
+                        )
+                        cmd.stop
+                        assert_equal 1, cmd.exit_status
                         assert_match(
                             Regexp.new("does_not_exist.rb, given as a controller "\
-                                       "script on the command line, does not exist"), out
+                                       "script on the command line, does not exist"),
+                            cmd.stdout
                         )
                     end
 
                     it "loads files given as argument as model files" do
                         dir = roby_app_setup_single_script "is_running.rb"
-                        out, = capture_subprocess_io do
-                            pid, interface =
-                                roby_app_start("run", "scripts/is_running.rb", chdir: dir)
-                            assert_roby_app_quits(pid, interface: interface)
-                        end
-                        assert_match(/is_running: false/, out)
+                        cmd = run_roby_run(
+                            "scripts/is_running.rb", working_directory: dir
+                        )
+                        assert_roby_app_quits(cmd)
+                        assert_match(/is_running: false/, cmd.stdout)
                     end
 
                     it "allows files given as argument to define new actions" do
                         dir = roby_app_setup_single_script "define_action.rb"
-                        capture_subprocess_io do
-                            pid, interface = roby_app_start(
-                                "run", "scripts/define_action.rb", chdir: dir
-                            )
-                            actions = interface.actions
-                            assert_equal ["action_defined_in_script"], actions.map(&:name)
-                            assert_roby_app_quits(pid, interface: interface)
-                        end
+                        cmd = run_roby_run(
+                            "scripts/define_action.rb", working_directory: dir
+                        )
+                        interface = assert_roby_app_is_running(
+                            cmd.pid, port: roby_interface_port
+                        )
+                        actions = interface.actions
+                        assert_equal ["action_defined_in_script"], actions.map(&:name)
+                        assert_roby_app_quits(cmd, interface: interface)
+                        cmd.stop
                     end
 
                     it "loads the file just after a double dash as a controller file" do
                         dir = roby_app_setup_single_script "is_running.rb"
-                        out, = capture_subprocess_io do
-                            pid, interface = roby_app_start(
-                                "run", "--", "scripts/is_running.rb", chdir: dir
-                            )
-                            assert_roby_app_quits(pid, interface: interface)
-                        end
-                        assert_match(/is_running: true/, out)
+
+                        cmd = run_roby_run(
+                            "-- scripts/is_running.rb", working_directory: dir
+                        )
+                        assert_roby_app_quits(cmd)
+                        assert_match(/is_running: true/, cmd.stdout)
                     end
 
                     it "passes extra arguments to the controller file" do
                         dir = roby_app_setup_single_script "controller_arguments.rb"
-                        out, = capture_subprocess_io do
-                            pid, interface = roby_app_start(
-                                "run", "--", "scripts/controller_arguments.rb",
-                                "extra", "args",
-                                chdir: dir
-                            )
-                            assert_roby_app_quits(pid, interface: interface)
-                        end
-                        assert_match(/ARGV\[0\] = extra\nARGV\[1\] = args/, out)
+                        cmd = run_roby_run(
+                            "-- scripts/controller_arguments.rb extra args",
+                            working_directory: dir
+                        )
+                        assert_roby_app_quits(cmd)
+                        assert_match(/ARGV\[0\] = extra\nARGV\[1\] = args/, cmd.stdout)
                     end
                 end
 
-                def roby_cmd(cmd)
-                    return cmd if cmd.start_with?("gen")
-
-                    interface = "--interface-versions=#{@roby_app_interface_version}"
-                    port = @interface_ports.at(@roby_app_interface_version)
-                    if cmd.start_with?("run")
-                        cmd + " #{interface} "\
-                              "--port-v#{@roby_app_interface_version}=#{port}"
-                    else
-                        cmd + " --interface-version=#{@roby_app_interface_version} "\
-                              "--host=localhost:#{port}"
-                    end
+                def run_roby_environment
+                    { "ROBY_PLUGIN_PATH" => @roby_plugin_path&.join(":") }
                 end
 
-                def run_roby(cmd, *args, **options)
-                    super(roby_cmd(cmd), *args, **options)
+                def run_roby_run(cmd = "", **options)
+                    super(cmd, environment: run_roby_environment,
+                               interface_version: @roby_app_interface_version, **options)
                 end
 
                 def run_roby_and_stop(cmd, *args, **options)
-                    super(roby_cmd(cmd), *args, **options)
+                    super(cmd, *args,
+                          environment: run_roby_environment,
+                          interface_version: @roby_app_interface_version, **options)
+                end
+
+                def run_roby_client(cmd, *args, **options)
+                    super(cmd, *args,
+                          environment: run_roby_environment,
+                          interface_version: @roby_app_interface_version, **options)
+                end
+
+                def run_roby_client_and_stop(cmd, *args, **options)
+                    super(cmd, *args,
+                          environment: run_roby_environment,
+                          interface_version: @roby_app_interface_version, **options)
                 end
             end
         end

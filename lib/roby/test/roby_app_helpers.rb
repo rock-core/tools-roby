@@ -100,7 +100,8 @@ module Roby
             end
 
             def assert_roby_app_is_running(
-                pid, timeout: 20, host: "localhost", port: Interface::DEFAULT_PORT
+                pid, timeout: 20, host: "localhost",
+                port: roby_app_helpers_default_interface_port
             )
                 start_time = Time.now
                 while (Time.now - start_time) < timeout
@@ -123,14 +124,29 @@ module Roby
                 flunk "could not get a connection within #{timeout} seconds"
             end
 
+            def roby_app_helpers_default_interface_port
+                return roby_interface_port if @interface_server
+
+                Interface::DEFAULT_PORT
+            end
+
             # Call the `quit` command and wait for the app to exit
             #
             # @see assert_roby_app_exits
-            def assert_roby_app_quits(pid, port: Interface::DEFAULT_PORT, interface: nil)
+            def assert_roby_app_quits(
+                cmd, port: roby_app_helpers_default_interface_port, interface: nil
+            )
+                pid =
+                    if cmd.respond_to?(:pid)
+                        cmd.pid
+                    else
+                        cmd
+                    end
+
                 interface_owned = !interface
                 interface ||= assert_roby_app_is_running(pid, port: port)
                 interface.quit
-                assert_roby_app_exits(pid)
+                assert_roby_app_exits(cmd)
             ensure
                 interface&.close if interface_owned
             end
@@ -166,8 +182,12 @@ module Roby
             # itself
             #
             # @see assert_roby_app_quits
-            def assert_roby_app_exits(pid, timeout: 20)
-                assert_process_exits(pid, timeout: timeout)
+            def assert_roby_app_exits(cmd, timeout: 20)
+                if cmd.respond_to?(:stop) # Aruba command
+                    cmd.stop
+                else
+                    assert_process_exits(cmd, timeout: timeout)
+                end
             end
 
             # Return the output captured so far for the given PID

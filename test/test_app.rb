@@ -2,6 +2,7 @@
 
 require "roby/test/self"
 require "roby/test/roby_app_helpers"
+require "roby/test/aruba_minitest"
 require "roby/droby/logfile/writer"
 require "roby/droby/logfile/client"
 require "roby/cli/gen_main"
@@ -24,6 +25,7 @@ module Roby
     end
 
     describe Application do
+        include Test::ArubaMinitest
         include Test::RobyAppHelpers
 
         describe "filesystem access and resolution" do
@@ -1341,11 +1343,8 @@ module Roby
                         CONTROLLER
                     end
 
-                    out_r, out_w = IO.pipe
-                    roby_app_spawn("check", "--set", "some.field=42", out: out_w)
-                    out_w.close
-                    output = out_r.read
-                    assert_equal "TEST: 42\n", output
+                    cmd = run_roby_and_stop("check --set some.field=42")
+                    assert_equal "TEST: 42\n", cmd.stdout
                 end
 
                 it "re-applies the given configuration parameters on reload" do
@@ -1366,11 +1365,10 @@ module Roby
                         CONTROLLER
                     end
 
-                    out_r, out_w = IO.pipe
-                    roby_app_spawn("check", "--set", "some.field=42", out: out_w)
-                    out_w.close
-                    output = out_r.read
-                    assert_equal "TEST: 42\nTEST: DELETED\nTEST: 42\n", output
+                    cmd = run_roby_and_stop(
+                        "check --set some.field=42", working_directory: app_dir
+                    )
+                    assert_equal "TEST: 42\nTEST: DELETED\nTEST: 42\n", cmd.stdout
                 end
 
                 it "is supported by run" do
@@ -1380,13 +1378,10 @@ module Roby
                         CONTROLLER
                     end
 
-                    out_r, out_w = IO.pipe
-                    pid, iface =
-                        roby_app_start("run", "--set", "some.field=42", out: out_w)
-                    out_w.close
-                    assert_roby_app_quits(pid, interface: iface)
-                    output = out_r.read
-                    assert_match(/TEST: 42/, output)
+                    roby_allocate_interface_server
+                    cmd = run_roby_run("--set some.field=42", working_directory: app_dir)
+                    assert_roby_app_quits(cmd)
+                    assert_match(/TEST: 42/, cmd.stdout)
                 end
             end
         end
@@ -1422,6 +1417,18 @@ module Roby
                 FileUtils.touch full_p
                 full_p
             end.to_set
+        end
+
+        def run_roby(*args, **opts)
+            super(*args, working_directory: app_dir, **opts)
+        end
+
+        def run_roby_and_stop(*args, **opts)
+            super(*args, working_directory: app_dir, **opts)
+        end
+
+        def run_roby_run(*args, **opts)
+            super(*args, working_directory: app_dir, **opts)
         end
     end
 end
