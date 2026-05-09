@@ -31,25 +31,55 @@ module Roby
             # lot of cases it would be too expensive. When used in Roby, it is
             # either enforced by {ExecutablePlan} or when committing a
             # transaction
-            attr_predicate :dag
+            def dag?
+                @dag
+            end
+
             # True if this relation should be seen by remote peers
             attr_predicate :distribute
+
             # If this relation is weak
             #
-            # Weak relations are not considered during garbage collection
-            attr_predicate :weak
+            # Weak relations do not encode dependency, i.e. they will not be considered
+            # for garbage collection ordering for instance.
+            def weak?
+                @weak
+            end
+
             # If this relation is strong
             #
-            # Strong relations mark parts of the plan that can't be exchanged
-            # bit-by-bit. I.e. {Plan#replace_task} will ignore those relations.
-            attr_predicate :strong
+            # Strong relations mark parts of the plan that can't be removed or exchanged
+            # bit-by-bit. I.e. {Plan#replace_task} will never remove one of those relations
+            # and quarantine code will keep them as well.
+            #
+            # In practice, strong relations that have copy_on_replace set to false are
+            # totally ignored during replacement. Set copy_on_replace: true to have them
+            # copied.
+            #
+            # Examples are error handling or execution agent relations
+            def strong?
+                @strong
+            end
 
-            # If this relation embeds some additional information
-            attr_predicate :embeds_info?
+            # If this relation embeds information in its edges
+            #
+            # This is as optimization,
+            def embeds_info?
+                @embeds_info
+            end
 
             # Whether edges in this relation should be copied on replacement or
             # moved. The default is to move.
-            attr_predicate :copy_on_replace
+            def copy_on_replace?
+                @copy_on_replace
+            end
+
+            # Whether this relation should be ignored during replacements
+            #
+            # This is a predicate computed from {#strong?} and {#copy_on_replace?}
+            def ignore_in_replacement?
+                strong? && !copy_on_replace?
+            end
 
             # The relation parent (if any)
             #

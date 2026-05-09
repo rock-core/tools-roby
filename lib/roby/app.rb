@@ -1398,9 +1398,17 @@ module Roby
         def shutdown
             run_shutdown_blocks
             call_plugins(:shutdown, self)
+            shutdown_event_logger
             stop_log_server
             stop_shell_interface
             stop_rest_interface(join: true)
+        end
+
+        def shutdown_event_logger
+            return unless @droby_event_logger
+
+            @droby_event_logger.close
+            @droby_event_logger = nil
         end
 
         def run_shutdown_blocks

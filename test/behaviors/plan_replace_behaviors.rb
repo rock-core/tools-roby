@@ -301,14 +301,6 @@ module Roby
                 refute @replacing_task.child_object?(@task, TaskStructure::Dependency)
             end
 
-            context.it "does not touch strong task relations" do
-                @replacement_dependency_graph.should_receive(strong?: true)
-                @task.depends_on @replaced_task
-                perform_replacement
-                assert @task.child_object?(@replaced_task, TaskStructure::Dependency)
-                refute @task.child_object?(@replacing_task, TaskStructure::Dependency)
-            end
-
             context.it "does not touch relations that exist between the replaced task's events" do
                 @replaced_task.start_event.forward_to @replaced_task.stop_event
                 perform_replacement
@@ -369,16 +361,6 @@ module Roby
                 refute other.stop_event.child_object?(@replacing_task.stop_event, EventStructure::Forwarding)
             end
 
-            context.it "does not touch strong event relations" do
-                @replacement_forwarding_graph.should_receive(strong?: true)
-                other = Roby::Task.new
-                @replaced_task.start_event.forward_to other.start_event
-                assert @replaced_task.start_event.child_object?(other.start_event, EventStructure::Forwarding)
-                perform_replacement
-                assert @replaced_task.start_event.child_object?(other.start_event, EventStructure::Forwarding)
-                refute @replacing_task.start_event.child_object?(other.start_event, EventStructure::Forwarding)
-            end
-
             context.it "does not touch ignored event graphs" do
                 other = Roby::Task.new
                 @replaced_task.start_event.forward_to other.start_event
@@ -401,6 +383,24 @@ module Roby
 
             context.send(:describe, "copy_on_replace: false") do
                 PlanReplaceBehaviors.replace_common(self)
+
+                it "does not touch strong task relations" do
+                    @replacement_dependency_graph.should_receive(strong?: true)
+                    @task.depends_on @replaced_task
+                    perform_replacement
+                    assert @task.child_object?(@replaced_task, TaskStructure::Dependency)
+                    refute @task.child_object?(@replacing_task, TaskStructure::Dependency)
+                end
+
+                it "does not touch strong event relations" do
+                    @replacement_forwarding_graph.should_receive(strong?: true)
+                    other = Roby::Task.new
+                    @replaced_task.start_event.forward_to other.start_event
+                    assert @replaced_task.start_event.child_object?(other.start_event, EventStructure::Forwarding)
+                    perform_replacement
+                    assert @replaced_task.start_event.child_object?(other.start_event, EventStructure::Forwarding)
+                    refute @replacing_task.start_event.child_object?(other.start_event, EventStructure::Forwarding)
+                end
 
                 it "moves the relations where the replaced task is a child" do
                     @task.depends_on @replaced_task
@@ -436,6 +436,24 @@ module Roby
                 end
 
                 PlanReplaceBehaviors.replace_common(self)
+
+                it "copies strong task relations" do
+                    @replacement_dependency_graph.should_receive(strong?: true)
+                    @task.depends_on @replaced_task
+                    perform_replacement
+                    assert @task.child_object?(@replaced_task, TaskStructure::Dependency)
+                    assert @task.child_object?(@replacing_task, TaskStructure::Dependency)
+                end
+
+                it "copies strong event relations" do
+                    @replacement_forwarding_graph.should_receive(strong?: true)
+                    other = Roby::Task.new
+                    @replaced_task.start_event.forward_to other.start_event
+                    assert @replaced_task.start_event.child_object?(other.start_event, EventStructure::Forwarding)
+                    perform_replacement
+                    assert @replaced_task.start_event.child_object?(other.start_event, EventStructure::Forwarding)
+                    assert @replacing_task.start_event.child_object?(other.start_event, EventStructure::Forwarding)
+                end
 
                 it "copies the relations where the replaced task is a child" do
                     @task.depends_on @replaced_task
