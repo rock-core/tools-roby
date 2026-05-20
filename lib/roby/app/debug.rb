@@ -3,6 +3,10 @@
 require "stackprof"
 require "rbtrace"
 require "objspace"
+require "roby/interface/command_argument"
+require "roby/interface/command_library"
+require "roby/interface/command"
+require "roby/interface/interface"
 
 module Roby
     module App
