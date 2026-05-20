@@ -666,37 +666,56 @@ module Roby
             end
 
             describe "interesting_events set" do
-                def self.runs(context)
+                def self.runs(context) # rubocop:disable Metrics/MethodLength
                     context.it "registers the start event of a parent" do
                         parent, child = create_parent_child do |parent, child|
                             parent.depends_on child, success: :start
                         end
                         flexmock(dependency_graph.interesting_events)
-                            .should_receive(:<<).with(parent.start_event).at_least.once
-                        flexmock(dependency_graph.interesting_events)
-                            .should_receive(:<<)
+                            .should_receive(:<<).with(parent.start_event).once.pass_thru
                         execute { parent.start! }
                     end
 
-                    context.it "registers an event emitted that is positively involved in a dependency" do
+                    context.it "registers the start event of a parent only once" do
+                        parent, child1, child2 =
+                            create_parent_child(count: 3) do |p, c1, c2|
+                                p.depends_on c1, success: :start
+                                p.depends_on c2, success: :start
+                            end
+                        flexmock(dependency_graph.interesting_events)
+                            .should_receive(:<<).with(parent.start_event).once.pass_thru
+                        execute { parent.start! }
+                    end
+
+                    context.it "registers an event emitted that is positively " \
+                               "involved in a dependency" do
                         parent, child = create_parent_child do |parent, child|
                             parent.depends_on child, success: :start
                         end
                         flexmock(dependency_graph.interesting_events)
-                            .should_receive(:<<).with(child.start_event).at_least.once
-                        flexmock(dependency_graph.interesting_events)
-                            .should_receive(:<<)
+                            .should_receive(:<<).with(child.start_event).once.pass_thru
                         execute { child.start! }
                     end
 
-                    context.it "registers an unreachable event that is positively involved in a dependency" do
+                    context.it "registers strictly once an event emitted that is " \
+                               "positively involved in a dependency" do
+                        parent1, parent2, child =
+                            create_parent_child(count: 3) do |p1, p2, c|
+                                p1.depends_on c, success: :start
+                                p2.depends_on c, success: :start
+                            end
+                        flexmock(dependency_graph.interesting_events)
+                            .should_receive(:<<).with(child.start_event).once.pass_thru
+                        execute { child.start! }
+                    end
+
+                    context.it "registers an unreachable event that is positively " \
+                               "involved in a dependency" do
                         parent, child = create_parent_child do |parent, child|
                             parent.depends_on child, success: :start
                         end
                         flexmock(dependency_graph.interesting_events)
-                            .should_receive(:<<).with(child.start_event).at_least.once.pass_thru
-                        flexmock(dependency_graph.interesting_events)
-                            .should_receive(:<<)
+                            .should_receive(:<<).with(child.start_event).once.pass_thru
                         expect_execution { child.failed_to_start!(nil) }
                             .to do
                                 have_error_matching ChildFailedError.match
@@ -706,14 +725,35 @@ module Roby
                             end
                     end
 
-                    context.it "registers an event emitted that is negatively involved in a dependency" do
+                    context.it "registers strictly once an unreachable event that is " \
+                               "positively involved in a dependency" do
+                        parent1, parent2, child =
+                            create_parent_child(count: 3) do |p1, p2, c|
+                                p1.depends_on c, success: :start
+                                p2.depends_on c, success: :start
+                            end
+                        flexmock(dependency_graph.interesting_events)
+                            .should_receive(:<<).with(child.start_event).once.pass_thru
+                        expect_execution { child.failed_to_start!(nil) }
+                            .to do
+                                have_error_matching ChildFailedError.match
+                                    .with_origin(child)
+                                    .to_execution_exception_matcher
+                                    .with_trace(child => parent1)
+                                have_error_matching ChildFailedError.match
+                                    .with_origin(child)
+                                    .to_execution_exception_matcher
+                                    .with_trace(child => parent2)
+                            end
+                    end
+
+                    context.it "registers an event emitted that is negatively involved " \
+                               "in a dependency" do
                         parent, child = create_parent_child do |parent, child|
                             parent.depends_on child, failure: :start
                         end
                         flexmock(dependency_graph.interesting_events)
-                            .should_receive(:<<).with(child.start_event).at_least.once.pass_thru
-                        flexmock(dependency_graph.interesting_events)
-                            .should_receive(:<<)
+                            .should_receive(:<<).with(child.start_event).once.pass_thru
                         expect_execution { child.start! }
                             .to do
                                 have_error_matching ChildFailedError.match
@@ -752,54 +792,87 @@ module Roby
 
                         assert dependency_graph.failing_tasks.empty?
                     end
+
+                    context.it "stops watching the emission of the parent's start " \
+                               "event once it is unreachable" do
+                        parent, child = create_parent_child do |p, c|
+                            p.depends_on c, success: :start
+                        end
+                        assert dependency_graph.watching_emissions?(parent.start_event)
+                        execute { plan.remove_task(parent) }
+                        refute dependency_graph.watching_emissions?(parent.start_event)
+                    end
+
+                    context.it "stops watching the emission of the child's positive " \
+                               "events once they become unreachable" do
+                        parent, child = create_parent_child do |p, c|
+                            p.depends_on c, success: :start
+                        end
+                        assert dependency_graph.watching_emissions?(child.start_event)
+                        execute { plan.remove_task(child) }
+                        refute dependency_graph.watching_emissions?(child.start_event)
+                    end
+
+                    context.it "stops watching the unreachability of the child's " \
+                               "negative events once they become unreachable" do
+                        parent, child = create_parent_child do |p, c|
+                            p.depends_on c, success: :start
+                        end
+                        assert dependency_graph
+                               .watching_unreachability?(child.start_event)
+                        execute { plan.remove_task(child) }
+                        refute dependency_graph
+                               .watching_unreachability?(child.start_event)
+                    end
                 end
 
                 describe "when adding the dependency within the plan" do
-                    def create_parent_child
-                        parent, child = prepare_plan add: 2, model: Tasks::Simple
-                        yield(parent, child)
-                        [parent, child]
+                    def create_parent_child(count: 2)
+                        tasks = prepare_plan add: count, model: Tasks::Simple
+                        yield(tasks)
+                        tasks
                     end
                     runs(self)
                 end
                 describe "when adding the dependency outside the plan" do
-                    def create_parent_child
-                        parent, child = prepare_plan tasks: 2, model: Tasks::Simple
-                        yield(parent, child)
-                        plan.add(parent)
-                        [parent, child]
+                    def create_parent_child(count: 2)
+                        tasks = prepare_plan tasks: count, model: Tasks::Simple
+                        yield(tasks)
+                        tasks.each { plan.add(_1) }
+                        tasks
                     end
                     runs(self)
                 end
                 describe "when adding the tasks and dependency within a transaction" do
-                    def create_parent_child
-                        parent, child = prepare_plan tasks: 2, model: Tasks::Simple
+                    def create_parent_child(count: 2)
+                        tasks = prepare_plan tasks: count, model: Tasks::Simple
                         plan.in_transaction do |trsc|
-                            trsc.add([parent, child])
-                            yield(parent, child)
+                            trsc.add(tasks)
+                            yield(*tasks)
                             trsc.commit_transaction
                         end
-                        [parent, child]
+                        tasks
                     end
                     runs(self)
                 end
                 describe "when adding the dependency within a transaction" do
-                    def create_parent_child
-                        parent, child = prepare_plan add: 2, model: Tasks::Simple
+                    def create_parent_child(count: 2)
+                        tasks = prepare_plan add: count, model: Tasks::Simple
                         plan.in_transaction do |trsc|
-                            yield(trsc[parent], trsc[child])
+                            proxies = tasks.map { trsc[_1] }
+                            yield(proxies)
                             trsc.commit_transaction
                         end
-                        [parent, child]
+                        tasks
                     end
                     runs(self)
                 end
                 describe "when updating an existing dependency" do
-                    def create_parent_child
-                        parent, child = prepare_plan add: 2, model: Tasks::Simple
-                        parent.depends_on child, success: :stop
-                        yield(parent, child)
-                        [parent, child]
+                    def create_parent_child(count: 2)
+                        tasks = prepare_plan add: count, model: Tasks::Simple
+                        yield(tasks)
+                        yield(tasks)
+                        tasks
                     end
                     runs(self)
                 end

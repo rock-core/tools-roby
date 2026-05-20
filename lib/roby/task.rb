@@ -411,17 +411,23 @@ module Roby
 
             @arguments = TaskArguments.new(self)
             arguments.force_merge! old.arguments
-            arguments.instance_variable_set(:@task, self)
 
             @instantiated_model_events = false
 
-            # Create all event generators
+            # Events are NOT copied by task.dup. In fact, you should not use
+            # task.dup at all.
+            #
+            # Proper copies are made via Plan#deep_copy_to or transaction proxies.
+            # Alternatives is to create a new task and replace the old by the
+            # new.
             @bound_events = {}
             @execute_handlers = old.execute_handlers.dup
             @poll_handlers = old.poll_handlers.dup
             if m = old.instance_variable_get(:@fullfilled_model)
                 @fullfilled_model = m.dup
             end
+
+            @history = @history.dup
         end
 
         def plan=(new_plan) # :nodoc:
