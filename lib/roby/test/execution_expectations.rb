@@ -315,6 +315,11 @@ module Roby
                 self
             end
 
+            # The test case this object works on
+            #
+            # @return [Minitest::Test]
+            attr_reader :test
+
             def initialize(test, plan)
                 @test = test
                 @plan = plan
@@ -579,7 +584,7 @@ module Roby
             #
             # The test harness' loop will not exit until that is the case
             def meets_exit_allowed_conditions?
-                self.class.each_exit_allowed_condition.all? { _1.call(@test, @plan) }
+                self.class.each_exit_allowed_condition.all? { _1.call(self, @plan) }
             end
 
             # Sets up a block that will be called at each execution cycle and for all
@@ -729,7 +734,7 @@ module Roby
                             true
                         end
                         @poll_blocks.each(&:call)
-                        self.class.each_poll_block { _1.call(@test, @plan) }
+                        self.class.each_poll_block { _1.call(self, @plan) }
 
                         if engine.has_waiting_work?
                             engine.process_waiting_work
