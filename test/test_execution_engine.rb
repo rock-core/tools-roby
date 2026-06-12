@@ -164,6 +164,65 @@ module Roby
             end
         end
 
+        describe "#every" do
+            it "calls the block with the given period" do
+                Timecop.freeze(base_time = Time.now)
+
+                # Check that every(cycle_length) works fine
+                samples = []
+                handler_id = execution_engine.every(0.1) do
+                    samples << execution_engine.cycle_start
+                end
+
+                execute_one_cycle
+                Timecop.freeze(base_time + 0.12)
+                execute_one_cycle
+                execute_one_cycle
+                Timecop.freeze(base_time + 0.22)
+                execute_one_cycle
+                execute_one_cycle
+                execution_engine.remove_periodic_handler(handler_id)
+                execute_one_cycle
+                execute_one_cycle
+
+                expected_samples = [base_time, base_time + 0.12, base_time + 0.22]
+                assert_equal(
+                    expected_samples, samples,
+                    "expected #{expected_samples.map { |t| Roby.format_time(t) }}, " \
+                    "got #{samples.map { |t| Roby.format_time(t) }}"
+                )
+            end
+
+            it "calls the block at the next cycle by default" do
+                Timecop.freeze
+
+                # Check that every(cycle_length) works fine
+                samples = []
+                execution_engine.every(0.1) do
+                    samples << execution_engine.cycle_start
+                end
+
+                execute_one_cycle
+                assert_equal 1, samples.size
+            end
+
+            it "does not call the block immediately the immediate argument is false" do
+                Timecop.freeze(base_time = Time.now)
+
+                # Check that every(cycle_length) works fine
+                samples = []
+                execution_engine.every(0.1, immediate: false) do
+                    samples << execution_engine.cycle_start
+                end
+
+                execute_one_cycle
+                assert samples.empty?
+                Timecop.freeze(base_time + 0.12)
+                execute_one_cycle
+                refute samples.empty?
+            end
+        end
+
         describe "#finalized_event" do
             before do
                 plan.add(@event = Roby::EventGenerator.new)
@@ -2423,30 +2482,6 @@ class TC_ExecutionEngine < Minitest::Test
             mock.should_receive(:handler_called).with([42, 24]).once.ordered
             execution_engine.event_propagation_phase(seeds, ExecutionEngine::PropagationInfo.new)
         end
-    end
-
-    def test_every
-        Timecop.freeze(base_time = Time.now)
-
-        # Check that every(cycle_length) works fine
-        samples = []
-        handler_id = execution_engine.every(0.1) do
-            samples << execution_engine.cycle_start
-        end
-
-        execute_one_cycle
-        Timecop.freeze(base_time + 0.12)
-        execute_one_cycle
-        execute_one_cycle
-        Timecop.freeze(base_time + 0.22)
-        execute_one_cycle
-        execute_one_cycle
-        execution_engine.remove_periodic_handler(handler_id)
-        execute_one_cycle
-        execute_one_cycle
-
-        expected_samples = [base_time, base_time + 0.12, base_time + 0.22]
-        assert_equal expected_samples, samples, "expected #{expected_samples.map { |t| Roby.format_time(t) }}, got #{samples.map { |t| Roby.format_time(t) }}"
     end
 
     class SpecificException < RuntimeError; end

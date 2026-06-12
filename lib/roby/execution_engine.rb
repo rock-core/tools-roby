@@ -2253,10 +2253,10 @@ module Roby
         #
         # @return [#dispose] an object whose dispose method deregisters
         #   the handler
-        def every(duration, description: "periodic handler", **options, &block)
+        def every(duration, description: "periodic handler", immediate: true, **options, &block)
             handler = PollBlockDefinition.new(description, block, **options)
             once do
-                if handler.call(self, plan)
+                if !immediate || handler.call(self, plan)
                     process_every << [handler, cycle_start, duration]
                 end
             end
