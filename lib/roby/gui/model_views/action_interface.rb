@@ -22,8 +22,7 @@ module Roby
 
                 def self.find_definition_place(model)
                     location = model.definition_location.find do |location|
-                        break if location.label == "require" ||
-                                 location.label == "using_task_library"
+                        break if %w[require using_task_library].include?(location.label)
 
                         Roby.app.app_file?(location.absolute_path)
                     end

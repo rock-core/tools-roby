@@ -48,7 +48,6 @@ module Roby
                                roby_execute: true,
                                middlewares: VERBOSE_MIDDLEWARES,
                                **thin_options)
-
                     @app = app
                     @host = host
                     @main_route = main_route

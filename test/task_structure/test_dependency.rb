@@ -33,7 +33,7 @@ class TC_Dependency < Minitest::Test
 
         # Check validation of the model
         child = nil
-        t1.depends_on((child = klass.new), model: Tasks::Simple)
+        t1.depends_on(child = klass.new, model: Tasks::Simple)
         assert_equal([[Tasks::Simple], {}], t1[child, Dependency][:model])
 
         t1.depends_on klass.new, model: [Roby::Task, {}]
@@ -591,10 +591,10 @@ module Roby
                 it "picks the most specialized task model" do
                     target = [task_m, [target_tag_m], Hash[arg0: 10]]
                     subclass_m = task_m.new_submodel
-                    merged = Dependency.merge_fullfilled_model(target, [subclass_m], Hash[])
+                    merged = Dependency.merge_fullfilled_model(target, [subclass_m], {})
                     assert_equal subclass_m, merged[0]
                     target[0] = subclass_m
-                    merged = Dependency.merge_fullfilled_model(target, [task_m], Hash[])
+                    merged = Dependency.merge_fullfilled_model(target, [task_m], {})
                     assert_equal subclass_m, merged[0]
                 end
                 it "concatenates tags" do

@@ -328,7 +328,7 @@ module Roby
                     end
 
                     it "returns ranges as-is" do
-                        assert_equal (0..20), @channel.marshal_filter_object((0..20))
+                        assert_equal (0..20), @channel.marshal_filter_object(0..20)
                     end
 
                     it "returns any objects whose class was set up with "\

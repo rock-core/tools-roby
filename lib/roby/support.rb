@@ -184,7 +184,7 @@ module Roby
     #
     #   which('ruby') #=> /usr/bin/ruby
     def self.find_in_path(cmd)
-        return cmd if cmd =~ (/#{File::SEPARATOR}/) && File.file?(cmd)
+        return cmd if cmd =~ /#{File::SEPARATOR}/ && File.file?(cmd)
 
         exts = ENV["PATHEXT"] ? ENV["PATHEXT"].split(";") : [""]
         ENV["PATH"].split(File::PATH_SEPARATOR).each do |path|

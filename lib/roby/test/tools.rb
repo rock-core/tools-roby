@@ -100,7 +100,7 @@ module Roby
                     fields.each do |name|
                         next unless value = sample[name]
 
-                        unless spec[name] == :absolute || spec[name] == :absolute_rate
+                        unless %i[absolute absolute_rate].include?(spec[name])
                             if last_sample && last_sample[name]
                                 sample[name] -= last_sample[name]
                             else
@@ -118,7 +118,7 @@ module Roby
                     fields.each do |name|
                         next unless value = sample[name]
 
-                        if spec[name] == :rate || spec[name] == :absolute_rate
+                        if %i[rate absolute_rate].include?(spec[name])
                             if sample.dt
                                 sample[name] = value / sample.dt
                             else

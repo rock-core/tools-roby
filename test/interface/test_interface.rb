@@ -80,7 +80,7 @@ describe Roby::Interface::Interface do
         end
         it "should not return job tasks that have no job ID" do
             plan.add(job_task_m.new)
-            assert_equal Hash[], interface.jobs
+            assert_equal({}, interface.jobs)
         end
     end
 
