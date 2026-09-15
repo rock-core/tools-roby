@@ -41,7 +41,7 @@ module Roby
 
                     # Returns a DRobyConstant object which references +self+. It
                     # checks that +self+ can actually be referenced locally by
-                    # calling <tt>constant(name)</tt>, or raises ArgumentError if
+                    # calling <tt>Object.const_get(name)</tt>, or raises ArgumentError if
                     # it is not the case.
                     def droby_dump(peer)
                         if constant = DRobyConstant.valid_constants[self]
@@ -53,7 +53,7 @@ module Roby
                         name = "::#{self.name}"
 
                         begin
-                            local_constant = constant(name)
+                            local_constant = Object.const_get(name)
                         rescue Exception => e
                             Roby.warn "could not resolve constant name for #{self}"
                             Roby.log_exception(e, Roby, :warn)
@@ -89,7 +89,7 @@ module Roby
                 # Returns the local object which can be referenced by this name, or
                 # raises ArgumentError.
                 def proxy(peer)
-                    constant(find_constant_renaming(name) || name)
+                    Object.const_get(find_constant_renaming(name) || name)
                 end
 
                 def map_constant_name(from, to)

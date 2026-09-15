@@ -284,7 +284,7 @@ module Roby
                     end
 
                     begin
-                        existing = constant(object.klass)
+                        existing = Object.const_get(object.klass)
                         @structs[object.klass] = existing
                     rescue NameError
                         @structs[object.klass] =

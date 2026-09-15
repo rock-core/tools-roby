@@ -553,7 +553,7 @@ module Roby
             def apply_options(options)
                 if enabled_relations = options["enabled_relations"]
                     enabled_relations.each do |name|
-                        rel = constant(name)
+                        rel = Object.const_get(name)
                         enable_relation(rel)
                     end
                 end
