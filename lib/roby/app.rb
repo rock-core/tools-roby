@@ -286,7 +286,7 @@ module Roby
 
         # Returns this app's toplevel module
         def app_module
-            constant("::#{module_name}")
+            Object.const_get("::#{module_name}")
         end
 
         # Returns this app's main action interface
@@ -1987,7 +1987,7 @@ module Roby
             log["levels"].each do |name, value|
                 const_name = name.modulize
                 mod =
-                    begin Kernel.constant(const_name)
+                    begin Object.const_get(const_name)
                     rescue NameError => e
                         if ignore_missing
                             next
