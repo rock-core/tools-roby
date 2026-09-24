@@ -299,6 +299,19 @@ describe Roby::TaskArguments do
                 @right[:arg] = 20
                 refute @left.can_semantic_merge?(@right)
             end
+
+            it "calls argument matching task setter if present on merge" do
+                test_m = @task_m.new_submodel do
+                    def arg=(value); end
+                end
+                left_t = test_m.new
+                flexmock(left_t).should_receive(:arg=).with(10).once
+                left = Roby::TaskArguments.new(left_t)
+                right = Roby::TaskArguments.new(test_m.new)
+                left[:arg] = right[:arg] = 10
+                assert left.can_semantic_merge?(right)
+                left.semantic_merge!(right)
+            end
         end
 
         describe "one non-delayed argument and one strong delayed argument" do
@@ -342,6 +355,22 @@ describe Roby::TaskArguments do
                 refute @left.can_semantic_merge?(@right)
                 refute @right.can_semantic_merge?(@left)
             end
+
+            it "calls argument matching task setter if present on merge" do
+                test_m = @task_m.new_submodel do
+                    def arg=(value); end
+                end
+                left_t = test_m.new
+                flexmock(left_t).should_receive(:arg=).with(10).once
+                left = Roby::TaskArguments.new(left_t)
+                left[:arg] = 10
+                right = Roby::TaskArguments.new(test_m.new)
+                right[:arg] =
+                    Roby::DelayedArgumentFromObject.new(Struct.new(:field).new(10)).field
+
+                assert left.can_semantic_merge?(right)
+                left.semantic_merge!(right)
+            end
         end
 
         describe "one non-delayed argument and one weak delayed argument" do
@@ -363,6 +392,21 @@ describe Roby::TaskArguments do
             it "behaves identically if the delayed argument is in the receiver" do
                 @right.semantic_merge!(@left)
                 assert_equal 42, @right.values[:arg]
+            end
+
+            it "calls argument matching task setter if present on merge" do
+                test_m = @task_m.new_submodel do
+                    def arg=(value); end
+                end
+                left_t = test_m.new
+                flexmock(left_t).should_receive(:arg=).with(10).once
+                left = Roby::TaskArguments.new(left_t)
+                left[:arg] = 10
+                right = Roby::TaskArguments.new(test_m.new)
+                right[:arg] = Roby::DefaultArgument.new(10)
+
+                assert left.can_semantic_merge?(right)
+                left.semantic_merge!(right)
             end
         end
 
@@ -393,6 +437,23 @@ describe Roby::TaskArguments do
                     .once.and_return(false)
                 refute @left.can_semantic_merge?(@right)
             end
+
+            it "calls argument matching task setter if present on merge" do
+                test_m = @task_m.new_submodel do
+                    def arg=(value); end
+                end
+                left_t = test_m.new
+                flexmock(left_t).should_receive(:arg=).with(10).once
+                left = Roby::TaskArguments.new(left_t)
+                left[:arg] =
+                    Roby::DelayedArgumentFromObject.new(Struct.new(:field).new(10)).field
+                right = Roby::TaskArguments.new(test_m.new)
+                right[:arg] =
+                    Roby::DelayedArgumentFromObject.new(Struct.new(:field).new(10)).field
+
+                assert left.can_semantic_merge?(right)
+                left.semantic_merge!(right)
+            end
         end
 
         describe "one strong delayed argument and one weak delayed argument" do
@@ -412,6 +473,22 @@ describe Roby::TaskArguments do
                 assert @right.can_semantic_merge?(@left)
                 @right.semantic_merge!(@left)
                 assert_equal @strong_arg, @right.values[:arg]
+            end
+
+            it "calls argument matching task setter if present on merge" do
+                test_m = @task_m.new_submodel do
+                    def arg=(value); end
+                end
+                left_t = test_m.new
+                flexmock(left_t).should_receive(:arg=).with(10).once
+                left = Roby::TaskArguments.new(left_t)
+                left[:arg] =
+                    Roby::DelayedArgumentFromObject.new(Struct.new(:field).new(10)).field
+                right = Roby::TaskArguments.new(test_m.new)
+                right[:arg] = Roby::DefaultArgument.new(10)
+
+                assert left.can_semantic_merge?(right)
+                left.semantic_merge!(right)
             end
         end
 
@@ -441,6 +518,21 @@ describe Roby::TaskArguments do
                     .with(@left_t, @right_t, @right.values[:arg])
                     .once.and_return(false)
                 refute @left.can_semantic_merge?(@right)
+            end
+
+            it "calls argument matching task setter if present on merge" do
+                test_m = @task_m.new_submodel do
+                    def arg=(value); end
+                end
+                left_t = test_m.new
+                flexmock(left_t).should_receive(:arg=).with(10).once
+                left = Roby::TaskArguments.new(left_t)
+                left[:arg] = Roby::DefaultArgument.new(10)
+                right = Roby::TaskArguments.new(test_m.new)
+                right[:arg] = Roby::DefaultArgument.new(10)
+
+                assert left.can_semantic_merge?(right)
+                left.semantic_merge!(right)
             end
         end
     end
