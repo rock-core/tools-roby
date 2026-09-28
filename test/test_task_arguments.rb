@@ -41,31 +41,24 @@ describe Roby::TaskArguments do
     describe "#writable?" do
         it "returns true for unset arguments" do
             task = task_m.new
-            assert task.arguments.writable?(:arg, "A")
+            assert task.arguments.writable?(:arg)
         end
 
         it "returns false for arguments set with non-delayed argument objects" do
             plan.add(task = task_m.new(arg: "B"))
-            refute task.arguments.writable?(:arg, 10)
+            refute task.arguments.writable?(:arg)
         end
 
         it "returns true for arguments that are set but not meaningful" do
             plan.add(task = task_m.new(arg: "B", useless: "bla"))
             task.arguments[:bar] = 42
-            task.arguments.writable?(:bar, 43)
+            task.arguments.writable?(:bar)
         end
 
-        it "returns true if the current argument is a delayed arg object and the new argument is not" do
+        it "returns true if the current argument is a delayed arg object" do
             arg = flexmock(evaluate_delayed_argument: nil)
             task = task_m.new(arg: arg)
-            assert task.arguments.writable?(:arg, 10)
-        end
-
-        it "returns true if the current and new arguments are both delayed arg objects" do
-            arg = flexmock(evaluate_delayed_argument: nil)
-            new_arg = flexmock(evaluate_delayed_argument: nil)
-            task = task_m.new(arg: arg)
-            assert task.arguments.writable?(:arg, new_arg)
+            assert task.arguments.writable?(:arg)
         end
     end
 
