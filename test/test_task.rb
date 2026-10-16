@@ -2461,7 +2461,7 @@ class TC_Task < Minitest::Test
     def test_task_parallel_aggregator
         t1, t2 = EmptyTask.new, EmptyTask.new
         plan.add([t1, t2])
-        aggregator_test((t1 | t2), t1, t2)
+        aggregator_test(t1 | t2, t1, t2)
         t1, t2 = EmptyTask.new, EmptyTask.new
         plan.add([t1, t2])
         aggregator_test((t1 | t2).to_task, t1, t2)
@@ -2477,7 +2477,7 @@ class TC_Task < Minitest::Test
     end
 
     def test_sequence
-        task_tuple(2) { |t1, t2| aggregator_test((t1 + t2), t1, t2) }
+        task_tuple(2) { |t1, t2| aggregator_test(t1 + t2, t1, t2) }
         task_tuple(2) do |t1, t2|
             s = t1 + t2
             aggregator_test(s.to_task, t1, t2)
@@ -2887,7 +2887,7 @@ class TC_Task < Minitest::Test
         assert !planning_task.fully_instanciated?
         planned_task.arg = Object.new
         assert !planning_task.fully_instanciated?
-        plan.force_replace_task(planned_task, (planned_task = klass.new))
+        plan.force_replace_task(planned_task, planned_task = klass.new)
         planned_task.arg = 10
         assert planning_task.fully_instanciated?
         execute { planning_task.start! }

@@ -514,9 +514,9 @@ module Roby
 
                 start_time, end_time = displayed_time_range
 
-                if start_time && (show_mode == :running || show_mode == :current)
+                if start_time && %i[running current].include?(show_mode)
                     current_tasks = current_tasks.find_all do |t|
-                        (t.start_time && t.start_time < end_time) &&
+                        t.start_time && t.start_time < end_time &&
                             (!t.end_time || t.end_time > start_time)
                     end
 
