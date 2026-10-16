@@ -3,7 +3,6 @@
 require "facets/string/camelcase"
 require "facets/string/snakecase"
 require "facets/string/modulize"
-require "facets/kernel/constant"
 require "utilrb/time/to_hms"
 require "utilrb/module/define_or_reuse"
 require "utilrb/logger"

@@ -61,7 +61,7 @@ module Roby
 
                 it "caches whether a constant can be properly resolved" do
                     marshalled = DRobyConstantTestObject.droby_dump(@peer)
-                    flexmock(DRobyConstantTestObject).should_receive(:constant).never
+                    flexmock(Object).should_receive(:const_get).never
                     assert_same marshalled, DRobyConstantTestObject.droby_dump(@peer)
                 end
 

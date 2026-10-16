@@ -111,7 +111,7 @@ module Roby
                     raise ArgumentError, "there is already a view of type #{name} with ID #{id}"
                 end
 
-                klass = begin constant(name)
+                klass = begin Object.const_get(name)
                 rescue NameError => e
                     Roby.warn "cannot create display of class #{name}: #{e}"
                     return
