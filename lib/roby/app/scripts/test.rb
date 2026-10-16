@@ -128,8 +128,9 @@ def discover_test_files(all:, only_self:, base_dir:, extra_robot_names: [])
     self_files.sort + dependent_files.sort
 end
 
+Roby.app.setup
+
 exception = Roby.display_exception do
-    Roby.app.setup
     if Roby.app.public_logs?
         STDOUT.puts "Test logs are saved in #{Roby.app.log_dir}"
     end
@@ -191,11 +192,12 @@ exception = Roby.display_exception do
             Minitest.run(testrb_args)
         ensure
             Roby.app.shutdown
-            Roby.app.cleanup
         end
 
     SimpleCov.run_exit_tasks! if defined?(SimpleCov) && SimpleCov.running
     Minitest.run_after_blocks
     exit(passed ? 0 : 1)
+ensure
+    Roby.app.cleanup
 end
 exit(exception ? 1 : 0)
