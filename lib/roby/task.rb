@@ -218,7 +218,7 @@ module Roby
                 if self.respond_to?("#{key}=")
                     self.send("#{key}=", value)
                 end
-                if @arguments.writable?(key, value)
+                if @arguments.writable?(key)
                     # The accessor did not write the argument. That's alright
                     @arguments[key] = value
                 end
