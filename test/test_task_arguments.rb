@@ -49,10 +49,10 @@ describe Roby::TaskArguments do
             refute task.arguments.writable?(:arg)
         end
 
-        it "returns true for arguments that are set but not meaningful" do
+        it "returns false for arguments that are set but not meaningful" do
             plan.add(task = task_m.new(arg: "B", useless: "bla"))
             task.arguments[:bar] = 42
-            task.arguments.writable?(:bar, 43)
+            refute task.arguments.writable?(:bar)
         end
 
         it "returns true if the current argument is a delayed arg object and the new argument is not" do

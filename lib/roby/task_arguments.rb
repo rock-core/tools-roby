@@ -102,8 +102,7 @@ module Roby
         # @param [Object] value the new argument value
         def writable?(key)
             if key?(key)
-                !task.model.arguments.include?(key) ||
-                    TaskArguments.delayed_argument?(values[key])
+                TaskArguments.delayed_argument?(values[key])
             else
                 true
             end
