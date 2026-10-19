@@ -303,7 +303,7 @@ module Roby
             end
 
             new_values.delete_if do |k, v|
-                values[k] == v
+                values.key?(k) && values[k] == v
             end
             task.assign_arguments(**new_values)
 
