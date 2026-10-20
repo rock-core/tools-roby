@@ -270,9 +270,8 @@ module Roby
         #
         # @see can_semantic_merge? semantic_merge_blockers
         def semantic_merge!(other_args)
-            current_values = values.dup
             other_task = other_args.task
-            values.merge!(other_args.values) do |name, arg, other_arg|
+            new_values = values.merge(other_args.values) do |name, arg, other_arg|
                 self_delayed  = TaskArguments.delayed_argument?(arg)
                 other_delayed = TaskArguments.delayed_argument?(other_arg)
 
@@ -302,14 +301,12 @@ module Roby
                     arg
                 end
             end
-            current_values.each do |k, v|
-                if (new_value = values[k]) != v
-                    task.plan.log(:task_arguments_updated, task, k, new_value)
-                end
+
+            new_values.delete_if do |k, v|
+                values.key?(k) && values[k] == v
             end
-            (values.keys - current_values.keys).each do |new_k|
-                task.plan.log(:task_arguments_updated, task, new_k, values[new_k])
-            end
+            task.assign_arguments(**new_values)
+
             @static = values.each_value.none? { |v| TaskArguments.delayed_argument?(v) }
             self
         end
