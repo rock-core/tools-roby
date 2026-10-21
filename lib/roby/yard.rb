@@ -132,7 +132,7 @@ module Roby
                 controlable = false
                 if statement.parameters[1]
                     statement.parameters[1].jump(:assoc).to_a.each_slice(2) do |key, value|
-                        if key.source == "controlable:" || key.source == "command:"
+                        if ["controlable:", "command:"].include?(key.source)
                             controlable = true
                         end
                     end

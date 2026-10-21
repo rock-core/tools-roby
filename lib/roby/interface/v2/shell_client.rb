@@ -356,7 +356,7 @@ module Roby
                         nil
                     else
                         begin
-                            call Hash[], [], m, *args
+                            call({}, [], m, *args)
                         rescue NoMethodError => e
                             if e.message =~ /undefined method .#{m}./
                                 puts "invalid command name #{m}, call 'help' for more information"

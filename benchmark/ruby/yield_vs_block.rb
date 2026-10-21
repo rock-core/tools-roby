@@ -22,10 +22,10 @@ Benchmark.bm(40) do |x|
         call_block(enum) { |v| }
     end
     x.report(format("yield - %<calls>.0e calls", calls: cost_of_call)) do
-        cost_of_call.times { call_yield((1..1)) { |v| } }
+        cost_of_call.times { call_yield(1..1) { |v| } }
     end
     x.report(format("block - %<calls>.0e calls", calls: cost_of_call)) do
-        cost_of_call.times { call_block((1..1)) { |v| } }
+        cost_of_call.times { call_block(1..1) { |v| } }
     end
     x.report(format("yield - %<calls>.0e calls and %<elements>.0e elements",
                     calls: call_count, elements: call_enum.size)) do
