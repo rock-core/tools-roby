@@ -957,6 +957,14 @@ module Roby
                 def format_unachievable_explanation(pp, explanation)
                     pp.text "but it was: "
                     explanation.pretty_print(pp)
+                    return unless @generator.respond_to?(:task)
+
+                    pp.breakable
+                    pp.text "Task History:"
+                    @generator.task.history.each do |ev|
+                        pp.breakable
+                        pp.text "  #{ev}"
+                    end
                 end
             end
 
