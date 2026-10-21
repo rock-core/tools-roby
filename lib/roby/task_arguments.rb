@@ -100,10 +100,9 @@ module Roby
         #
         # @param [Symbol] key the argument name
         # @param [Object] value the new argument value
-        def writable?(key, value)
+        def writable?(key)
             if key?(key)
-                !task.model.arguments.include?(key) ||
-                    TaskArguments.delayed_argument?(values[key])
+                TaskArguments.delayed_argument?(values[key])
             else
                 true
             end
@@ -349,7 +348,7 @@ module Roby
         # @raise ArgumentError if the argument is already set
         def []=(key, value)
             key = warn_deprecated_non_symbol_key(key)
-            if writable?(key, value)
+            if writable?(key)
                 if !value.droby_marshallable?
                     raise NotMarshallable, "values used as task arguments must be "\
                         "marshallable, attempting to set #{key} to #{value} of "\
@@ -455,7 +454,7 @@ module Roby
 
             values.merge!(hash) do |key, old, new|
                 if old == new then old
-                elsif writable?(key, new)
+                elsif writable?(key)
                     task.plan.log(:task_arguments_updated, task, key, new)
                     new
                 else
