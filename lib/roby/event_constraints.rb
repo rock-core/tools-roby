@@ -623,7 +623,7 @@ module Roby
             def has_atomic_predicate?(pred)
                 pred = pred.to_unbound_task_predicate
                 each_atomic_predicate do |p|
-                    return(true) if p == pred
+                    return true if p == pred
                 end
                 false
             end

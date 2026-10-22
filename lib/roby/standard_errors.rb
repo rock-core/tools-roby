@@ -117,8 +117,8 @@ module Roby
                 @failed_task = failure_point
             end
 
-            if !@failed_task && @failed_generator && @failed_generator.respond_to?(:task)
-                @failed_task = failed_generator.task
+            if !@failed_task && @failed_generator.respond_to?(:task)
+                @failed_task = @failed_generator.task
             end
             if !@failed_task && !@failed_generator
                 raise ArgumentError,

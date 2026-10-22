@@ -9,7 +9,7 @@ module Roby
 
             before do
                 @graph_m = graph_m = Graph.new_submodel
-                @graph   = graph   = graph_m.new
+                @graph   = graph = graph_m.new
                 @vertex_m = Class.new(Object) do
                     include DirectedRelationSupport
                     define_method(:relation_graphs) { Hash[graph_m => graph] }

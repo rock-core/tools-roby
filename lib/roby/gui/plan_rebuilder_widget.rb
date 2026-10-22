@@ -218,7 +218,7 @@ module Roby
 
                 start = Time.now
                 puts "log file is #{(end_time - start_time).ceil}s long"
-                dialog = Qt::ProgressDialog.new("Analyzing log file", "Quit", 0, (end_time - start_time))
+                dialog = Qt::ProgressDialog.new("Analyzing log file", "Quit", 0, end_time - start_time)
                 dialog.setWindowModality(Qt::WindowModal)
                 dialog.show
 

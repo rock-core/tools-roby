@@ -93,7 +93,7 @@ class Thread
             object, name, args, block = *@msg_queue.deq(true)
             object.send(name, *args, &block)
         end
-    rescue ThreadError # rubocop:disable Lint/HandleExceptions
+    rescue ThreadError # rubocop:disable Lint/SuppressedException
     end
 end
 
@@ -183,7 +183,7 @@ module Roby
     #
     #   which('ruby') #=> /usr/bin/ruby
     def self.find_in_path(cmd)
-        return cmd if cmd =~ (/#{File::SEPARATOR}/) && File.file?(cmd)
+        return cmd if cmd =~ /#{File::SEPARATOR}/ && File.file?(cmd)
 
         exts = ENV["PATHEXT"] ? ENV["PATHEXT"].split(";") : [""]
         ENV["PATH"].split(File::PATH_SEPARATOR).each do |path|

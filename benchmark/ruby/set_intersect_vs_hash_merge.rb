@@ -21,8 +21,8 @@ Benchmark.bm(40) do |x|
             left = Set.new
             right = Set.new
             count.times do
-                left << (elements[rand(count * 2)])
-                right << (elements[rand(count * 2)])
+                left << elements[rand(count * 2)]
+                right << elements[rand(count * 2)]
             end
             sets << [left, right]
         end

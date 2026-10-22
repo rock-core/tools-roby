@@ -720,6 +720,7 @@ module Roby
         def merge(task, other_task, other_arg)
             case other_arg
             when TaskArguments::StaticArgumentWrapper
+                # This works because we assume can_merge? returned true
                 other_arg.value
             else
                 catch(:no_value) do
