@@ -90,12 +90,12 @@ module Roby
                 @buffer = nil
                 @redirection = {}
 
-                if arguments[:stub_subprocess].nil?
-                    arguments[:stub_subprocess] =
-                        Roby.app.simulation? &&
-                        ExternalProcess.stub_in_roby_simulation_mode?
-                end
                 super(command_line: command_line, **arguments)
+            end
+
+            # Default used for `stub_subprocess` if set to nil
+            def self.stub_subprocess_default
+                Roby.app.simulation? && ExternalProcess.stub_in_roby_simulation_mode?
             end
 
             # Called to announce that this task has been killed. +result+ is the
@@ -220,6 +220,13 @@ module Roby
                 chdir || Dir.pwd
             end
 
+            def stub_subprocess?
+                arg = arguments[:stub_subprocess]
+                return arg unless arg.nil?
+
+                Roby.app.simulation? && ExternalProcess.stub_in_roby_simulation_mode?
+            end
+
             ##
             # :method: start!
             #
@@ -228,7 +235,7 @@ module Roby
             event :start do |_|
                 opened_ios, spawn_options = handle_redirection
 
-                if stub_subprocess
+                if stub_subprocess?
                     @pid = rand(65_535)
                     validate_program(command_line[0])
                 else
@@ -331,7 +338,7 @@ module Roby
             end
 
             poll do
-                poll_live_process unless stub_subprocess
+                poll_live_process unless stub_subprocess?
             end
 
             def poll_live_process
@@ -379,7 +386,7 @@ module Roby
                 end
 
                 event :failed, terminal: true do |_|
-                    if stub_subprocess
+                    if stub_subprocess?
                         failed_event.emit
                     else
                         kill(signal)
