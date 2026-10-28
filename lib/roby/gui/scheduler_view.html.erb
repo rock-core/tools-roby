@@ -1,0 +1,33 @@
+<div>
+<% total = state.non_scheduled_tasks.size %>
+<b><%= total %> tasks have been considered for scheduling, but did not get scheduled</b>
+<% state.non_scheduled_tasks.each_with_index do |(task, reasons), i| %>
+    <% msgs = reasons.map { |msg, args| format_msg_string(msg, task, *args) } %>
+    <div style="margin-left: 1em;">
+        [<%= i %>/<%= total %>]
+        <% if msgs.size == 1 %>
+            <%= msgs.first %>
+        <% else %>
+            <ul>
+            <% msgs.each do |txt| %>
+            <li><%= txt %></li>
+            <% end %>
+            </ul>
+        <% end %>
+        <%= format_pp(task) %>
+    </div>
+<% end %>
+</div>
+
+<% per_state = state.pending_non_executable_tasks.group_by { |msg, _| msg } %>
+<% per_state.each do |msg, group| %>
+<div>
+    <% total = group.size %>
+    <b><%= total %> tasks are pending and <%= msg %></b>
+    <div style="margin-left: 1em;">
+        <% group.each_with_index do |(msg, task, args), i| %>
+            <%= format_pp(task) %>
+        <% end %>
+    </div>
+</div>
+<% end %>
