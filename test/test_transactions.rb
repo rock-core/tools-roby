@@ -297,24 +297,24 @@ module TC_TransactionBehaviour
 
     def test_commit_arguments
         (t1, t2), t = prepare_plan add: 2, tasks: 1
-        t1.arguments[:first] = 10
+        t1.arguments[:first] = flexmock(evaluate_delayed_argument: 10, value: 10)
         transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-            p1.arguments[:first] = 20
+            p1.arguments[:first] = flexmock(evaluate_delayed_argument: 20, value: 20)
             p1.arguments[:second] = p2
             trsc.add(t)
             t.arguments[:task] = p2
         end
 
-        assert_equal(20, t1.arguments[:first])
+        assert_equal(20, t1.arguments.raw_get(:first).value)
         assert_equal(t2, t1.arguments[:second])
         assert_equal(t2, t.arguments[:task])
 
         transaction_discard(plan, t1, t2) do |trsc, p1, p2|
-            p1.arguments[:first] = 10
+            p1.arguments[:first] = flexmock(evaluate_delayed_argument: 10, value: 10)
             assert_equal(p2, p1.arguments[:second])
         end
 
-        assert_equal(20, t1.arguments[:first])
+        assert_equal(20, t1.arguments.raw_get(:first).value)
         assert_equal(t2, t1.arguments[:second])
     end
 
