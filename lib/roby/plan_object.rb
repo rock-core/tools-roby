@@ -356,7 +356,7 @@ module Roby
 
         # If this object is executable
         def executable?
-            @executable || (@executable.nil? && !garbage? && plan && plan.executable?)
+            @executable || (@executable.nil? && !garbage? && plan&.executable?)
         end
 
         # @!method garbage?
@@ -619,7 +619,7 @@ module Roby
         def when_finalized(options = {}, &block)
             options = InstanceHandler.validate_options options
             check_arity(block, 1)
-            finalization_handlers << InstanceHandler.new(block, (options[:on_replace] == :copy))
+            finalization_handlers << InstanceHandler.new(block, options[:on_replace] == :copy)
         end
 
         # True if this plan object has been finalized (i.e. removed from plan),

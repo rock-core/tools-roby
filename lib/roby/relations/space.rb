@@ -213,7 +213,6 @@ module Roby
                             noinfo:      false,
                             subsets:     Set.new,
                             **submodel_options)
-
                 if block_given?
                     raise ArgumentError, "calling relation with a block is not supported anymore. Reopen #{const_name}::Extension after the relation call to add helper methods"
                 elsif strong && weak

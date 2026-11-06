@@ -253,8 +253,8 @@ module Roby
             it "passes the exception object to all error handlers" do
                 error_m = Class.new(RuntimeError)
                 p = execution_engine.promise { raise error_m }
-                p.on_error   { |e| recorder.error(e); Object.new }
-                p.on_error   { |e| recorder.error(e); Object.new }
+                p.on_error { |e| recorder.error(e); Object.new }
+                p.on_error { |e| recorder.error(e); Object.new }
                 recorder.should_receive(:error).with(error_m).twice
                 p.execute
                 execution_engine.join_all_waiting_work

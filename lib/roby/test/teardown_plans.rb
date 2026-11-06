@@ -81,7 +81,7 @@ module Roby
                 unless success
                     Roby.warn "clean teardown failed, trying to force-kill all tasks"
                     teardown_forced_killall(
-                        teardown_warn, (teardown_fail - teardown_force), teardown_poll
+                        teardown_warn, teardown_fail - teardown_force, teardown_poll
                     )
                 end
 

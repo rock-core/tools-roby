@@ -2398,8 +2398,8 @@ class TC_ExecutionEngine < Minitest::Test
         plan.add_mission_task(t = Tasks::Simple.new)
 
         FlexMock.use do |mock|
-            t.start_event.on   { |event| t.success_event.emit(*event.context) }
-            t.start_event.on   { |event| t.success_event.emit(*event.context) }
+            t.start_event.on { |event| t.success_event.emit(*event.context) }
+            t.start_event.on { |event| t.success_event.emit(*event.context) }
 
             t.success_event.on { |event| mock.success(event.context) }
             t.stop_event.on    { |event| mock.stop(event.context) }

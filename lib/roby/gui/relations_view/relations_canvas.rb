@@ -213,9 +213,9 @@ module Roby
                     if finalized
                         pen = Qt::Pen.new(TASK_PEN_COLORS[:finalized])
                         pen.width = 4
-                        graphics_item.pen   = pen
+                        graphics_item.pen = pen
                     else
-                        graphics_item.pen   = Qt::Pen.new(TASK_PEN_COLORS[new_state])
+                        graphics_item.pen = Qt::Pen.new(TASK_PEN_COLORS[new_state])
                     end
                     graphics_item.brush = Qt::Brush.new(TASK_BRUSH_COLORS[new_state])
                     @displayed_state = [new_state, finalized]

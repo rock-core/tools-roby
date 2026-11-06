@@ -629,12 +629,10 @@ class TC_Coordination_TaskScript < Minitest::Test
         mock.should_receive(:executed).with(false).never.globally.ordered
         mock.should_receive(:barrier).once.globally.ordered
         mock.should_receive(:executed).with(true).once.globally.ordered
-        executed = false
         plan.in_transaction do |trsc|
             proxy = trsc[task]
             proxy.script do
                 execute do
-                    executed = true
                     mock.executed(task.executable?)
                 end
             end
@@ -645,7 +643,7 @@ class TC_Coordination_TaskScript < Minitest::Test
         execute_one_cycle
         task.executable = true
         expect_execution { task.start! }
-            .to { achieve { executed = true } }
+            .to { achieve { true } }
     end
 
     def test_transaction_commits_new_script_on_running_task

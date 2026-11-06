@@ -45,7 +45,6 @@ module Roby
                     *args, banner: "",
                     option_parser: default_option_parser(banner: banner)
                 )
-
                     app.guess_app_dir
                     app.shell
                     app.single

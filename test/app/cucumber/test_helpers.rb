@@ -101,7 +101,7 @@ module Roby
                 describe "unit validation" do
                     it "raises UnexpectedArgument if strict is set and the argument does not have a quantity" do
                         assert_raises(CucumberHelpers::UnexpectedArgument) do
-                            CucumberHelpers.parse_arguments("x=20m", Hash[], strict: true)
+                            CucumberHelpers.parse_arguments("x=20m", {}, strict: true)
                         end
                     end
                     it "validates that the unit and the quantity match" do

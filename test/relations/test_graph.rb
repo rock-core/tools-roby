@@ -168,7 +168,7 @@ module Roby
                 end
 
                 it "moves the in-edges of the old vertex to the new vertex" do
-                    graph.add_edge(parent, old, (info = Object.new))
+                    graph.add_edge(parent, old, info = Object.new)
                     graph.replace_vertex(old, new)
                     assert graph.has_edge?(parent, new)
                     assert_same info, graph.edge_info(parent, new)
@@ -176,7 +176,7 @@ module Roby
                 end
 
                 it "does not touch the existing in-edges of the new vertex" do
-                    graph.add_edge(parent, new, (info = Object.new))
+                    graph.add_edge(parent, new, info = Object.new)
                     graph.replace_vertex(old, new)
                     assert graph.has_edge?(parent, new)
                     assert_same info, graph.edge_info(parent, new)
@@ -184,7 +184,7 @@ module Roby
                 end
 
                 it "moves the out-edges of the old vertex to the new vertex" do
-                    graph.add_edge(old, child, (info = Object.new))
+                    graph.add_edge(old, child, info = Object.new)
                     graph.replace_vertex(old, new)
                     assert graph.has_edge?(new, child)
                     assert_same info, graph.edge_info(new, child)
@@ -192,7 +192,7 @@ module Roby
                 end
 
                 it "does not touch the existing out-edges of the new vertex" do
-                    graph.add_edge(new, child, (info = Object.new))
+                    graph.add_edge(new, child, info = Object.new)
                     graph.replace_vertex(old, new)
                     assert graph.has_edge?(new, child)
                     assert_same info, graph.edge_info(new, child)

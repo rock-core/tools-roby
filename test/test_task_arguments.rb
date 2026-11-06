@@ -206,7 +206,7 @@ describe Roby::TaskArguments do
                 r.should_receive(:evaluate_delayed_argument).and_throw(:no_value)
             end
             task = task_m.new arg: delayed_arg
-            assert_equal Hash[], task.arguments.evaluate_delayed_arguments
+            assert_equal({}, task.arguments.evaluate_delayed_arguments)
         end
         it "sets evaluated delayed arguments" do
             delayed_arg = flexmock do |r|

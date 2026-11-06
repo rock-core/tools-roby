@@ -174,7 +174,7 @@ module Roby
             #
             # @param [Task] task
             # @return [nil]
-            def have_running(task, backtrace: caller(1)) # rubocop:disable Naming/PredicateName
+            def have_running(task, backtrace: caller(1)) # rubocop:disable Naming/PredicatePrefix
                 unless task.running?
                     start_emitted = emit(task.start_event, backtrace: backtrace)
                 end
@@ -218,7 +218,7 @@ module Roby
             #
             # @param [Task] task
             # @return [Event] the emitted internal error event
-            def have_internal_error(task, original_exception) # rubocop:disable Naming/PredicateName
+            def have_internal_error(task, original_exception) # rubocop:disable Naming/PredicatePrefix
                 [have_handled_error_matching(original_exception.match.with_origin(task)),
                  emit(task.internal_error_event)]
             end
@@ -252,7 +252,7 @@ module Roby
             #     have_error_matching Roby::ChildFailedError.match.
             #       with_origin(task)
             #   end
-            def have_error_matching(matcher, backtrace: caller(1)) # rubocop:disable Naming/PredicateName
+            def have_error_matching(matcher, backtrace: caller(1)) # rubocop:disable Naming/PredicatePrefix
                 add_expectation(HaveErrorMatching.new(matcher, backtrace))
             end
 
@@ -269,7 +269,7 @@ module Roby
             #     have_handled_error_matching Roby::ChildFailedError.match.
             #       with_origin(task)
             #   end
-            def have_handled_error_matching(matcher, backtrace: caller(1)) # rubocop:disable Naming/PredicateName
+            def have_handled_error_matching(matcher, backtrace: caller(1)) # rubocop:disable Naming/PredicatePrefix
                 add_expectation(HaveHandledErrorMatching.new(matcher, backtrace))
             end
 
@@ -283,7 +283,7 @@ module Roby
             # {#have_handled_error_matching}, the error is rarely a
             # LocalizedError. For simple exceptions, one can simply use the
             # exception class to match.
-            def have_framework_error_matching(error, backtrace: caller(1)) # rubocop:disable Naming/PredicateName
+            def have_framework_error_matching(error, backtrace: caller(1)) # rubocop:disable Naming/PredicatePrefix
                 add_expectation(HaveFrameworkError.new(error, backtrace))
             end
 
@@ -634,7 +634,7 @@ module Roby
 
             # Whether some blocks have been queued for execution with
             # {#execute}
-            def has_pending_execute_blocks? # rubocop:disable Naming/PredicateName
+            def has_pending_execute_blocks? # rubocop:disable Naming/PredicatePrefix
                 !@execute_blocks.empty?
             end
 
@@ -957,6 +957,14 @@ module Roby
                 def format_unachievable_explanation(pp, explanation)
                     pp.text "but it was: "
                     explanation.pretty_print(pp)
+                    return unless @generator.respond_to?(:task)
+
+                    pp.breakable
+                    pp.text "Task History:"
+                    @generator.task.history.each do |ev|
+                        pp.breakable
+                        pp.text "  #{ev}"
+                    end
                 end
             end
 
