@@ -186,7 +186,7 @@ module Roby
             option :robot, aliases: "r", default: "default",
                            desc: "the robot name, separate name and type a comma"
             option :set, desc: "set configuration variable(s)",
-                         type: :array, default: []
+                         type: :string, repeatable: true
             option :single, desc: "do not contact any remote service",
                             type: :boolean, default: false
             def check(app_dir = nil, *extra_files)
@@ -215,7 +215,7 @@ module Roby
             option :robot, aliases: "r", default: "default",
                            desc: "the robot name, separate name and type a comma"
             option :set, desc: "set configuration variable(s)",
-                         type: :array, default: [], repeatable: true
+                         type: :string, repeatable: true
             option :single, desc: "do not contact any remote service",
                             type: :boolean, default: false
             option :batch, desc: "run the given files and return",
